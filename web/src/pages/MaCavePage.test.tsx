@@ -329,13 +329,26 @@ describe('plan de la cave', () => {
     expect(planCard().getByLabelText('Remplacer le plan')).toBeInTheDocument();
   });
 
-  it('plan sans zone : « Créez d’abord des zones »', async () => {
+  it('toucher le plan puis nommer l’endroit crée la zone avec son repère ; plus d’ajout dans la liste des zones', async () => {
     vi.spyOn(api, 'getPlan').mockResolvedValue({ plan, markers: [] });
+    vi.spyOn(api, 'getZones').mockResolvedValue([]);
+    const create = vi.spyOn(api, 'createZone').mockResolvedValue({ ...zones[0], id: 'zn', name: 'Casier gauche' });
+    const set = vi.spyOn(api, 'setZoneMarker').mockResolvedValue({ ...zones[0], id: 'zn', marker: { x: 0.5, y: 0.25 } });
     mount();
-    expect(await planCard().findByText("Créez d'abord des zones")).toBeInTheDocument();
+    expect(await planCard().findByText('Touchez le plan à l’endroit où vous rangez des bouteilles, puis nommez-le.')).toBeInTheDocument();
+    expect(await screen.findByText('Pour ajouter une zone, touchez le plan ci-dessus à son endroit.')).toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: 'Ajouter une zone' })).not.toBeInTheDocument();
+    await tapPlan(0.5, 0.25);
+    const chooser = within(planCard().getByRole('group', { name: 'Nommer cet endroit' }));
+    expect(chooser.queryByText('ou choisir une zone existante :')).not.toBeInTheDocument();
+    await userEvent.type(chooser.getByLabelText('Nom de l’endroit'), '  Casier gauche ');
+    await userEvent.click(chooser.getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => expect(set).toHaveBeenCalledWith('zn', 0.5, 0.25));
+    expect(create).toHaveBeenCalledWith({ name: 'Casier gauche' });
+    expect(await planCard().findByRole('status')).toHaveTextContent('Zone « Casier gauche » ajoutée.');
   });
 
-  it('toucher le plan pose un repère numéroté, puis on choisit parmi les zones sans repère', async () => {
+  it('toucher le plan propose aussi les zones existantes encore sans repère', async () => {
     vi.spyOn(api, 'getPlan').mockResolvedValue(withPlan);
     vi.spyOn(api, 'getZones').mockResolvedValue(placed);
     const set = vi.spyOn(api, 'setZoneMarker').mockResolvedValue({ ...zones[2], marker: { x: 0.5, y: 0.25 } });
@@ -343,11 +356,11 @@ describe('plan de la cave', () => {
     await planCard().findByRole('button', { name: 'Zone 1 : Cave 1' });
     await tapPlan(0.5, 0.25);
     expect(planCard().getByRole('img', { name: 'Nouveau repère' })).toHaveTextContent('+');
-    const chooser = within(planCard().getByRole('group', { name: 'Quelle zone est ici ?' }));
-    expect(chooser.getAllByRole('button').map((b) => b.textContent)).toEqual(['Garage', 'Cellier', 'Cave 1 (déplacer)', 'Annuler']);
+    const chooser = within(planCard().getByRole('group', { name: 'Nommer cet endroit' }));
+    expect(chooser.getAllByRole('button').map((b) => b.textContent)).toEqual(['Enregistrer', 'Garage', 'Cellier', 'Annuler']);
     await userEvent.click(chooser.getByRole('button', { name: 'Cellier' }));
     await waitFor(() => expect(set).toHaveBeenCalledWith('z3', 0.5, 0.25));
-    await waitFor(() => expect(planCard().queryByRole('group', { name: 'Quelle zone est ici ?' })).not.toBeInTheDocument());
+    await waitFor(() => expect(planCard().queryByRole('group', { name: 'Nommer cet endroit' })).not.toBeInTheDocument());
   });
 
   it('toucher un repère montre sa zone ; « Déplacer » puis un toucher le déplace ; « Retirer le repère »', async () => {
@@ -378,7 +391,7 @@ describe('plan de la cave', () => {
     box.focus();
     await userEvent.keyboard('{Enter}{ArrowRight}{ArrowRight}{Shift>}{ArrowUp}{/Shift}');
     expect(planCard().getByRole('img', { name: 'Nouveau repère' }).style.left).toBe('54%');
-    await userEvent.click(within(planCard().getByRole('group', { name: 'Quelle zone est ici ?' })).getByRole('button', { name: 'Garage' }));
+    await userEvent.click(within(planCard().getByRole('group', { name: 'Nommer cet endroit' })).getByRole('button', { name: 'Garage' }));
     await waitFor(() => expect(set).toHaveBeenCalledWith('z2', 0.54, 0.4));
   });
 

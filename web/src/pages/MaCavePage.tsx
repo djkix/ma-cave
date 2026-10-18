@@ -159,6 +159,8 @@ function ZoneRow({ zone, index, count, busy, photoVersion, onMove, onAction, onP
 function ZonesCard() {
   const qc = useQueryClient();
   const zones = useZones();
+  // Avec un plan, une zone naît d'un toucher sur le plan (PlanCard) : pas de second formulaire d'ajout ici.
+  const hasPlan = !!usePlan().data?.plan;
   const titleId = useId();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -210,8 +212,12 @@ function ZonesCard() {
       )}
       {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
       {status && <p role="status" className="list__meta" style={{ margin: 0 }}>{status}</p>}
-      <ZoneForm key={addKey} label="Ajouter une zone" idPrefix={`${titleId}-new`} initial={{ name: '', indication: '' }} submitLabel="Ajouter une zone" busy={busy}
-        onSubmit={(v) => void act(() => createZone(v), () => setAddKey((k) => k + 1))} />
+      {hasPlan ? (
+        <p className="list__meta" style={{ margin: 0 }}>Pour ajouter une zone, touchez le plan ci-dessus à son endroit.</p>
+      ) : (
+        <ZoneForm key={addKey} label="Ajouter une zone" idPrefix={`${titleId}-new`} initial={{ name: '', indication: '' }} submitLabel="Ajouter une zone" busy={busy}
+          onSubmit={(v) => void act(() => createZone(v), () => setAddKey((k) => k + 1))} />
+      )}
     </section>
   );
 }
@@ -220,10 +226,11 @@ function ZonesCard() {
 type PlanMode = { kind: 'idle' } | { kind: 'pending'; x: number; y: number } | { kind: 'selected'; zoneId: string } | { kind: 'moving'; zoneId: string; x: number; y: number };
 
 /**
- * Plan de la cave : envoyer, remplacer ou retirer l'image, puis y placer les
- * zones. Toucher le plan pose un repère numéroté et demande de quelle zone il
- * s'agit (zones sans repère, puis celles à déplacer) ; toucher un repère montre
- * sa zone, avec « Déplacer » et « Retirer le repère ». Erreurs de l'api telles quelles.
+ * Plan de la cave : envoyer, remplacer ou retirer l'image, puis y créer les
+ * zones. Toucher le plan pose un « + » et demande le nom de l'endroit : la zone
+ * est créée avec son repère (ou on choisit une zone existante encore sans
+ * repère). Toucher un repère montre sa zone, avec « Déplacer » et « Retirer le
+ * repère ». Erreurs de l'api telles quelles.
  */
 function PlanCard() {
   const qc = useQueryClient();
@@ -234,6 +241,7 @@ function PlanCard() {
   const inputId = useId();
   const planRef = useRef<HTMLSpanElement>(null);
   const [mode, setMode] = useState<PlanMode>({ kind: 'idle' });
+  const [newName, setNewName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -271,7 +279,18 @@ function PlanCard() {
   function tap(x: number, y: number) {
     if (busy) return;
     if (mode.kind === 'moving') void act(() => setZoneMarker(mode.zoneId, x, y));
-    else if (list.length > 0) setMode({ kind: 'pending', x, y });
+    else {
+      if (mode.kind !== 'pending') setNewName('');
+      setMode({ kind: 'pending', x, y });
+    }
+  }
+
+  function createHere(e: FormEvent, x: number, y: number) {
+    e.preventDefault();
+    const name = newName.trim();
+    if (!name) return;
+    // ponytail: deux appels ; si le repère échoue, la zone reste sans repère et revient en raccourci au prochain toucher.
+    void act(async () => setZoneMarker((await createZone({ name })).id, x, y), `Zone « ${name} » ajoutée.`);
   }
 
   function startMoving(zone: Zone) {
@@ -290,8 +309,7 @@ function PlanCard() {
       )}
       {plan && caveId && (
         <>
-          {zones.isSuccess && list.length === 0 && <p className="list__meta" style={{ margin: 0 }}>Créez d'abord des zones</p>}
-          {list.length > 0 && mode.kind === 'idle' && <p className="list__meta" style={{ margin: 0 }}>Touchez le plan à l’endroit d’une zone pour y poser son repère.</p>}
+          {mode.kind === 'idle' && <p className="list__meta" style={{ margin: 0 }}>Touchez le plan à l’endroit où vous rangez des bouteilles, puis nommez-le.</p>}
           <PlanView src={planImageUrl(caveId, plan.updatedAt)} plan={plan} markers={markers}
             pending={mode.kind === 'pending' || mode.kind === 'moving' ? { x: mode.x, y: mode.y } : null} highlightZoneId={selected?.id} onPlanClick={tap} planRef={planRef}
             onMarkerClick={mode.kind === 'moving' ? undefined : (zoneId) => setMode({ kind: 'selected', zoneId })}
@@ -299,13 +317,16 @@ function PlanCard() {
         </>
       )}
       {mode.kind === 'pending' && (
-        <div role="group" aria-label="Quelle zone est ici ?" className="plan-chooser">
-          <p className="field__label" style={{ margin: 0 }}>Quelle zone est ici ?</p>
+        <div role="group" aria-label="Nommer cet endroit" className="plan-chooser">
+          <form className="zone-form" aria-label="Nouvelle zone" onSubmit={(e) => createHere(e, mode.x, mode.y)}>
+            <label className="field__label" htmlFor={`${inputId}-zone`}>Nom de l’endroit</label>
+            <input id={`${inputId}-zone`} value={newName} maxLength={ZONE_NAME_MAX} autoComplete="off" placeholder="Casier gauche, étagère du fond…"
+              onChange={(e) => setNewName(e.target.value)} />
+            <button type="submit" className="btn btn--primary" disabled={!newName.trim() || busy}>Enregistrer</button>
+          </form>
+          {list.some((z) => !z.marker) && <p className="list__meta" style={{ margin: 0 }}>ou choisir une zone existante :</p>}
           {list.filter((z) => !z.marker).map((z) => (
             <Button key={z.id} variant="outline" disabled={busy} onClick={() => void act(() => setZoneMarker(z.id, mode.x, mode.y))}>{z.name}</Button>
-          ))}
-          {list.filter((z) => z.marker).map((z) => (
-            <Button key={z.id} variant="link" disabled={busy} onClick={() => void act(() => setZoneMarker(z.id, mode.x, mode.y))}>{`${z.name} (déplacer)`}</Button>
           ))}
           <Button variant="link" onClick={() => setMode({ kind: 'idle' })}>Annuler</Button>
         </div>
