@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChangeEvent, FormEvent, useId, useState } from 'react';
+import { ChangeEvent, FormEvent, useId, useRef, useState } from 'react';
 import { BottomNav } from '../components/BottomNav';
 import { Button } from '../components/Button';
 import { ZoneDetails } from '../components/LocationFields';
@@ -216,8 +216,8 @@ function ZonesCard() {
   );
 }
 
-/** Ce que montre le plan en dehors de l'image : un repère à attribuer, une zone choisie, ou une zone à déplacer. */
-type PlanMode = { kind: 'idle' } | { kind: 'pending'; x: number; y: number } | { kind: 'selected'; zoneId: string } | { kind: 'moving'; zoneId: string };
+/** Ce que montre le plan en dehors de l'image : un repère à attribuer, une zone choisie, ou une zone à déplacer (« + » au clavier en x, y). */
+type PlanMode = { kind: 'idle' } | { kind: 'pending'; x: number; y: number } | { kind: 'selected'; zoneId: string } | { kind: 'moving'; zoneId: string; x: number; y: number };
 
 /**
  * Plan de la cave : envoyer, remplacer ou retirer l'image, puis y placer les
@@ -232,6 +232,7 @@ function PlanCard() {
   const zones = useZones();
   const titleId = useId();
   const inputId = useId();
+  const planRef = useRef<HTMLSpanElement>(null);
   const [mode, setMode] = useState<PlanMode>({ kind: 'idle' });
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -273,6 +274,11 @@ function PlanCard() {
     else if (list.length > 0) setMode({ kind: 'pending', x, y });
   }
 
+  function startMoving(zone: Zone) {
+    setMode({ kind: 'moving', zoneId: zone.id, x: zone.marker?.x ?? 0.5, y: zone.marker?.y ?? 0.5 });
+    planRef.current?.focus();
+  }
+
   const selected = mode.kind === 'selected' || mode.kind === 'moving' ? list.find((z) => z.id === mode.zoneId) : undefined;
 
   return (
@@ -287,7 +293,9 @@ function PlanCard() {
           {zones.isSuccess && list.length === 0 && <p className="list__meta" style={{ margin: 0 }}>Créez d'abord des zones</p>}
           {list.length > 0 && mode.kind === 'idle' && <p className="list__meta" style={{ margin: 0 }}>Touchez le plan à l’endroit d’une zone pour y poser son repère.</p>}
           <PlanView src={planImageUrl(caveId, plan.updatedAt)} plan={plan} markers={markers}
-            pending={mode.kind === 'pending' ? { x: mode.x, y: mode.y } : null} highlightZoneId={selected?.id} onPlanClick={tap} onMarkerClick={mode.kind === 'moving' ? undefined : (zoneId) => setMode({ kind: 'selected', zoneId })} />
+            pending={mode.kind === 'pending' || mode.kind === 'moving' ? { x: mode.x, y: mode.y } : null} highlightZoneId={selected?.id} onPlanClick={tap} planRef={planRef}
+            onMarkerClick={mode.kind === 'moving' ? undefined : (zoneId) => setMode({ kind: 'selected', zoneId })}
+            onPendingMove={(x, y) => setMode((m) => (m.kind === 'pending' || m.kind === 'moving' ? { ...m, x, y } : m))} onCancel={() => setMode({ kind: 'idle' })} />
         </>
       )}
       {mode.kind === 'pending' && (
@@ -307,7 +315,7 @@ function PlanCard() {
           <p className="list__title" style={{ margin: 0 }}>{selected.name}</p>
           {selected.indication && <p className="zone-details__text">{selected.indication}</p>}
           <div className="zone-row__actions">
-            <Button variant="outline" disabled={busy} onClick={() => setMode({ kind: 'moving', zoneId: selected.id })}>Déplacer</Button>
+            <Button variant="outline" disabled={busy} onClick={() => startMoving(selected)}>Déplacer</Button>
             <Button variant="link" disabled={busy} onClick={() => void act(() => removeZoneMarker(selected.id))}>Retirer le repère</Button>
             <Button variant="link" onClick={() => setMode({ kind: 'idle' })}>Fermer</Button>
           </div>
@@ -315,7 +323,7 @@ function PlanCard() {
       )}
       {mode.kind === 'moving' && selected && (
         <div className="zone-row__actions">
-          <p className="list__meta" style={{ margin: 0 }}>{`Touchez le nouvel endroit de ${selected.name} sur le plan.`}</p>
+          <p className="list__meta" style={{ margin: 0 }}>{`Touchez le nouvel endroit de ${selected.name} sur le plan, ou déplacez le « + » avec les flèches puis Entrée.`}</p>
           <Button variant="link" onClick={() => setMode({ kind: 'idle' })}>Annuler</Button>
         </div>
       )}
