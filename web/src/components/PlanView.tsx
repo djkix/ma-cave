@@ -1,9 +1,12 @@
-import { MouseEvent, useState } from 'react';
+import { KeyboardEvent, MouseEvent, Ref, useState } from 'react';
 import { type CavePlan, type PlanMarker, planImageUrl } from '../lib/api-client';
 import { usePlan } from '../lib/locations';
 import { useCurrentCave } from '../lib/use-current-cave';
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
+/** Pas des flèches, en fraction de l'image (Maj : 10 %), arrondi pour éviter 0.54000000000000004. */
+const nudge = (v: number, d: number) => Math.round(clamp(v + d) * 1000) / 1000;
+const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 
 /**
  * Plan de la cave et repères numérotés de ses zones, placés en pourcentage de
@@ -12,10 +15,15 @@ const clamp = (v: number) => Math.min(1, Math.max(0, v));
  * position touchée en fractions de la boîte rendue ; `onMarkerClick` : repère
  * touché. Sans `onMarkerClick`, les repères ne sont pas des boutons. `pending` :
  * repère qui vient d'être posé, pas encore attribué à une zone (mis en avant).
+ *
+ * Au clavier (avec `onPlanClick`), le plan prend le focus : Entrée vaut un
+ * toucher au « + » (au centre s'il n'y en a pas), les flèches déplacent le « + »
+ * (`onPendingMove`, 2 %, Maj 10 %), Échap appelle `onCancel`.
  */
-export function PlanView({ src, plan, markers, highlightZoneId, pending, onPlanClick, onMarkerClick, maxWidth, alt = 'Plan de la cave' }: {
+export function PlanView({ src, plan, markers, highlightZoneId, pending, onPlanClick, onMarkerClick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
   src: string; plan: CavePlan; markers: PlanMarker[]; highlightZoneId?: string | null; pending?: { x: number; y: number } | null;
-  onPlanClick?: (x: number, y: number) => void; onMarkerClick?: (zoneId: string) => void; maxWidth?: number; alt?: string;
+  onPlanClick?: (x: number, y: number) => void; onMarkerClick?: (zoneId: string) => void;
+  onPendingMove?: (x: number, y: number) => void; onCancel?: () => void; planRef?: Ref<HTMLSpanElement>; maxWidth?: number; alt?: string;
 }) {
   function click(e: MouseEvent<HTMLSpanElement>) {
     if (!onPlanClick) return;
@@ -23,10 +31,23 @@ export function PlanView({ src, plan, markers, highlightZoneId, pending, onPlanC
     if (box.width === 0 || box.height === 0) return;
     onPlanClick(clamp((e.clientX - box.left) / box.width), clamp((e.clientY - box.top) / box.height));
   }
+  function key(e: KeyboardEvent<HTMLSpanElement>) {
+    // Une touche sur un repère (bouton) reste au repère.
+    if (!onPlanClick || e.target !== e.currentTarget) return;
+    const arrow = ARROWS[e.key];
+    if (e.key === 'Enter' || e.key === ' ') onPlanClick(pending?.x ?? 0.5, pending?.y ?? 0.5);
+    else if (e.key === 'Escape' && onCancel) onCancel();
+    else if (arrow && pending && onPendingMove) {
+      const step = e.shiftKey ? 0.1 : 0.02;
+      onPendingMove(nudge(pending.x, arrow[0] * step), nudge(pending.y, arrow[1] * step));
+    } else return;
+    e.preventDefault();
+  }
   return (
-    // Placement au toucher (souris ou doigt) ; les repères restent des boutons accessibles au clavier.
+    // Placement au toucher (souris ou doigt) ou au clavier ; les repères restent des boutons.
     // span (affiché en bloc) : le petit plan d'« À boire » vit dans un bouton, qui n'admet pas de div.
-    <span className={`plan-view${onPlanClick ? ' plan-view--placing' : ''}`} style={{ aspectRatio: `${plan.width} / ${plan.height}`, maxWidth }} onClick={click}>
+    <span ref={planRef} className={`plan-view${onPlanClick ? ' plan-view--placing' : ''}`} style={{ aspectRatio: `${plan.width} / ${plan.height}`, maxWidth }} onClick={click}
+      {...(onPlanClick && { tabIndex: 0, role: 'group', 'aria-label': `${alt}. Entrée pour poser un repère, flèches pour le déplacer, Échap pour annuler.`, onKeyDown: key })}>
       <img className="plan-view__image" src={src} alt={alt} width={plan.width} height={plan.height} decoding="async" />
       {[...markers, ...(pending ? [{ zoneId: '', name: 'Nouveau repère', number: 0, ...pending }] : [])].map((m) => {
         const highlighted = m.zoneId === '' || m.zoneId === highlightZoneId;

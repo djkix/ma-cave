@@ -227,6 +227,7 @@ a.bars__row .bars__text > span:first-child { text-decoration: underline; text-un
 /* Plan de la cave : image à la largeur disponible, repères en pourcentage (PlanView). */
 .plan-view { display: block; position: relative; width: 100%; border-radius: var(--radius-lg); overflow: hidden; background: var(--color-outline-subtle); }
 .plan-view--placing { cursor: crosshair; }
+.plan-view:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
 .plan-view__image { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: fill; }
 .plan-view__marker {
   position: absolute; transform: translate(-50%, -50%); box-sizing: border-box;

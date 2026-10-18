@@ -48,6 +48,7 @@ it('lists accounts and blocks another account on click', async () => {
 
   expect(await screen.findByText('other@example.com')).toBeInTheDocument();
   expect(screen.getByText('admin@example.com')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Confidentialité' })).toHaveAttribute('href', '/confidentialite');
 
   const rows = screen.getAllByText(/@example\.com/).map((el) => el.closest<HTMLElement>('.list__row'));
   const otherRow = rows.find((r) => r?.textContent?.includes('other@example.com'))!;
