@@ -9,6 +9,18 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.12.0](https://github.com/djkix/ma-cave/compare/v2.11.0...v2.12.0) (2026-10-18)
+
+
+### Fonctionnalités
+
+* **web:** placer et déplacer les repères du plan au clavier ([813322e](https://github.com/djkix/ma-cave/commit/813322e89cadbdff73e06cd905ef43c914409d13))
+
+
+### Corrections
+
+* **web:** écran de connexion épuré, Google seulement ([0c01735](https://github.com/djkix/ma-cave/commit/0c017351e1930a413328785451078943fed4c148))
+
 ## [2.11.0](https://github.com/djkix/ma-cave/compare/v2.10.0...v2.11.0) (2026-10-17)
 
 ### Résumé
