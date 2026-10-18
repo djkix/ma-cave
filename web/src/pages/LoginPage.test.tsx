@@ -27,3 +27,18 @@ it('says nothing for an unknown error value or no error at all', () => {
   mount('/login');
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
+
+it('écran épuré : Google seulement, sans compte de secours, version ni lien de confidentialité', () => {
+  mount('/login');
+  expect(screen.getByRole('link', { name: 'Se connecter avec Google' })).toHaveAttribute('href', '/api/auth/google');
+  expect(screen.queryByText(/secours/i)).not.toBeInTheDocument();
+  expect(screen.queryByLabelText(/^Version/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Confidentialité' })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Mot de passe')).not.toBeInTheDocument();
+});
+
+it('/login?secours ouvre le formulaire du compte de secours', () => {
+  mount('/login?secours');
+  expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
+  expect(screen.getByLabelText('Mot de passe')).toBeInTheDocument();
+});
