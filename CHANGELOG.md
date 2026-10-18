@@ -11,6 +11,19 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.13.0](https://github.com/djkix/ma-cave/compare/v2.12.0...v2.13.0) (2026-10-18)
 
+### Résumé
+
+**Une zone se crée depuis le plan.** Dans « Ma cave › Réglages », toucher le
+plan (ou Entrée au clavier) pose un « + » ; on tape le nom de l'endroit puis
+*Enregistrer* : la zone est créée avec son repère en un seul geste. Les zones
+existantes encore sans repère restent proposées en raccourci. Avec un plan, la
+carte *Zones* ne propose plus d'ajout et sert à compléter les zones
+(indication, photo, ordre, archive) ; sans plan, rien ne change. Aucune
+migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
