@@ -100,10 +100,15 @@ JPEG) et la retire (*Retirer le plan*, après confirmation). Pour le plan comme
 pour la photo d'une zone, le téléphone propose de prendre une photo ou d'en
 choisir une dans la galerie. Sans plan, elle
 explique : « Photographiez la pièce ou un schéma dessiné à la main, puis
-placez vos zones dessus. » ; sans zone : « Créez d'abord des zones ». Pour
-placer une zone, le propriétaire **touche le plan** à son endroit : un repère
-numéroté y apparaît, et un petit choix demande « Quelle zone est ici ? » (les
-zones sans repère, puis celles déjà placées, à déplacer). Toucher un repère
+placez vos zones dessus. ». **Avec un plan, une zone se crée depuis le plan** :
+le propriétaire touche l'endroit (ou Entrée au clavier), un « + » y apparaît,
+il tape le *Nom de l'endroit* puis *Enregistrer* : la zone est créée avec son
+repère numéroté. Les zones existantes encore sans repère sont proposées en
+raccourci sous le champ (« ou choisir une zone existante »). La carte *Zones*
+ne propose plus d'ajout tant qu'il y a un plan (« Pour ajouter une zone,
+touchez le plan ci-dessus à son endroit. ») ; elle sert à compléter les zones
+(indication, photo, ordre, archive). Sans plan, on ajoute les zones dans la
+carte *Zones* comme avant. Toucher un repère
 montre sa zone (nom, indication), avec *Déplacer* (puis toucher le nouvel
 endroit) et *Retirer le repère*. Une zone a au plus un repère ; les repères
 sont **numérotés dans l'ordre d'affichage des zones** (1, 2, 3… parmi les
