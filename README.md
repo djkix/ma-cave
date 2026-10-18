@@ -708,7 +708,7 @@ openssl rand -hex 32
 | `WEB_ORIGIN` | `https://cave.example.org` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | valeurs de l'étape 3 |
 | `GOOGLE_CALLBACK_URL` | `https://cave.example.org/api/auth/google/callback`, **identique** à l'URI déclaré chez Google |
-| `BREAK_GLASS_EMAIL` / `BREAK_GLASS_PASSWORD` | compte local de secours (mot de passe de 12 caractères minimum) ; laisser vide pour n'en créer aucun |
+| `BREAK_GLASS_EMAIL` / `BREAK_GLASS_PASSWORD` | compte local de secours (mot de passe de 12 caractères minimum), connexion par `/login?secours` ; laisser vide pour n'en créer aucun |
 | `ADMIN_EMAILS` | adresses administratrices, séparées par des virgules, en minuscules ; seule façon de désigner un administrateur (voir étape 7) |
 | `GEMINI_API_KEY` | clé Google AI Studio |
 | `GEMINI_MODEL` | `gemini-3.5-flash` |
@@ -804,8 +804,10 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 
 1. Ouvrir <https://cave.example.org/> : l'écran de connexion s'affiche, avec le
    logo de l'application. Si la connexion Google échoue, il l'explique
-   simplement (« La connexion n’a pas abouti », puis quoi faire) ; un lien
-   *Confidentialité* mène aux règles de confidentialité.
+   simplement (« La connexion n’a pas abouti », puis quoi faire). L'écran ne
+   montre que Google : le compte de secours s'ouvre par
+   <https://cave.example.org/login?secours>, et la page de confidentialité
+   (`/confidentialite`, publique pour Google) est liée depuis l'Administration.
 2. « Se connecter avec Google » puis rentrer une bouteille avec une vraie photo
    d'étiquette : la fiche doit arriver dans « À confirmer » en moins d'une
    minute.
