@@ -23,7 +23,7 @@ export function ConfidentialitePage() {
       <p>Votre cave n'est visible que par vous et par les personnes que vous y invitez, en lecture seule.</p>
       <h2 style={{ fontSize: 18 }}>Suppression</h2>
       <p>Pour faire supprimer votre compte et votre cave, contactez l'administrateur de l'application : il efface les données de son serveur.</p>
-      <p><Link to="/login">Retour à la connexion</Link></p>
+      <p><Link to="/">Retour à l’application</Link></p>
     </main>
   );
 }

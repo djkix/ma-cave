@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { Button } from '../components/Button';
 import { TopBar } from '../components/TopBar';
@@ -100,6 +101,8 @@ export function AdminPage() {
             <ReadingQualitySection />
             <VintagesSection />
             <GuardsSection />
+            {/* Page publique (Google la demande pour l'écran de consentement), liée d'ici seulement. */}
+            <Link to="/confidentialite" className="btn btn--link">Confidentialité</Link>
           </>
         )}
       </main>

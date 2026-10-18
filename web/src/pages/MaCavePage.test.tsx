@@ -359,7 +359,7 @@ describe('plan de la cave', () => {
     await userEvent.click(await planCard().findByRole('button', { name: 'Zone 1 : Cave 1' }));
     expect(planCard().getByText('À gauche en entrant')).toBeInTheDocument();
     await userEvent.click(planCard().getByRole('button', { name: 'Déplacer' }));
-    expect(planCard().getByText('Touchez le nouvel endroit de Cave 1 sur le plan.')).toBeInTheDocument();
+    expect(planCard().getByText('Touchez le nouvel endroit de Cave 1 sur le plan, ou déplacez le « + » avec les flèches puis Entrée.')).toBeInTheDocument();
     // Pendant le déplacement, les repères ne captent pas le toucher : on peut poser tout près d'un autre.
     expect(planCard().queryByRole('button', { name: /^Zone \d/ })).not.toBeInTheDocument();
     await tapPlan(0.75, 0.5);
@@ -367,6 +367,34 @@ describe('plan de la cave', () => {
     await userEvent.click(await planCard().findByRole('button', { name: 'Zone 1 : Cave 1' }));
     await userEvent.click(planCard().getByRole('button', { name: 'Retirer le repère' }));
     await waitFor(() => expect(remove).toHaveBeenCalledWith('z1'));
+  });
+
+  it('au clavier : Entrée pose un « + » au centre, les flèches le déplacent, puis on choisit la zone', async () => {
+    vi.spyOn(api, 'getPlan').mockResolvedValue(withPlan);
+    vi.spyOn(api, 'getZones').mockResolvedValue(placed);
+    const set = vi.spyOn(api, 'setZoneMarker').mockResolvedValue({ ...zones[1], marker: { x: 0.54, y: 0.4 } });
+    mount();
+    const box = await planCard().findByRole('group', { name: /^Plan de la cave\. Entrée pour poser un repère/ });
+    box.focus();
+    await userEvent.keyboard('{Enter}{ArrowRight}{ArrowRight}{Shift>}{ArrowUp}{/Shift}');
+    expect(planCard().getByRole('img', { name: 'Nouveau repère' }).style.left).toBe('54%');
+    await userEvent.click(within(planCard().getByRole('group', { name: 'Quelle zone est ici ?' })).getByRole('button', { name: 'Garage' }));
+    await waitFor(() => expect(set).toHaveBeenCalledWith('z2', 0.54, 0.4));
+  });
+
+  it('au clavier : « Déplacer » met le focus sur le plan, flèches puis Entrée enregistrent ; Échap annule', async () => {
+    vi.spyOn(api, 'getPlan').mockResolvedValue(withPlan);
+    vi.spyOn(api, 'getZones').mockResolvedValue(placed);
+    const set = vi.spyOn(api, 'setZoneMarker').mockResolvedValue(placed[0]);
+    mount();
+    await userEvent.click(await planCard().findByRole('button', { name: 'Zone 1 : Cave 1' }));
+    await userEvent.click(planCard().getByRole('button', { name: 'Déplacer' }));
+    await userEvent.keyboard('{Escape}');
+    expect(planCard().queryByRole('img', { name: 'Nouveau repère' })).not.toBeInTheDocument();
+    await userEvent.click(planCard().getByRole('button', { name: 'Zone 1 : Cave 1' }));
+    await userEvent.click(planCard().getByRole('button', { name: 'Déplacer' }));
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await waitFor(() => expect(set).toHaveBeenCalledWith('z1', 0.1, 0.22));
   });
 
   it('affiche tel quel le refus de l’api', async () => {

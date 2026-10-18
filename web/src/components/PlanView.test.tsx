@@ -60,3 +60,53 @@ it('repère qui vient d’être posé : « + », nommé « Nouveau repère », m
   expect(pending).toHaveAttribute('aria-current', 'true');
   expect(pending.style.left).toBe('40%');
 });
+
+describe('au clavier', () => {
+  const props = { src: '/plan.jpg', plan, markers };
+  const focusPlan = () => {
+    const box = screen.getByRole('group', { name: 'Plan de la cave. Entrée pour poser un repère, flèches pour le déplacer, Échap pour annuler.' });
+    box.focus();
+    return box;
+  };
+
+  it('sans action sur le plan, il n’est pas atteignable au clavier', () => {
+    const { container } = render(<PlanView {...props} />);
+    expect(container.firstChild).not.toHaveAttribute('tabindex');
+  });
+
+  it('Entrée vaut un toucher au centre, ou au « + » s’il est posé', async () => {
+    const onPlanClick = vi.fn();
+    const { rerender } = render(<PlanView {...props} onPlanClick={onPlanClick} />);
+    focusPlan();
+    await userEvent.keyboard('{Enter}');
+    expect(onPlanClick).toHaveBeenLastCalledWith(0.5, 0.5);
+    rerender(<PlanView {...props} onPlanClick={onPlanClick} pending={{ x: 0.3, y: 0.7 }} />);
+    await userEvent.keyboard('{Enter}');
+    expect(onPlanClick).toHaveBeenLastCalledWith(0.3, 0.7);
+  });
+
+  it('les flèches déplacent le « + » de 2 % (Maj : 10 %), sans sortir de l’image ; Échap annule', async () => {
+    const onPendingMove = vi.fn();
+    const onCancel = vi.fn();
+    render(<PlanView {...props} onPlanClick={() => undefined} pending={{ x: 0.95, y: 0.5 }} onPendingMove={onPendingMove} onCancel={onCancel} />);
+    focusPlan();
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(onPendingMove).toHaveBeenLastCalledWith(0.93, 0.5);
+    await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}');
+    expect(onPendingMove).toHaveBeenLastCalledWith(1, 0.5);
+    await userEvent.keyboard('{ArrowDown}');
+    expect(onPendingMove).toHaveBeenLastCalledWith(0.95, 0.52);
+    await userEvent.keyboard('{Escape}');
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('Entrée sur un repère reste au repère', async () => {
+    const onPlanClick = vi.fn();
+    const onMarkerClick = vi.fn();
+    render(<PlanView {...props} onPlanClick={onPlanClick} onMarkerClick={onMarkerClick} />);
+    screen.getByRole('button', { name: 'Zone 1 : Cave 1' }).focus();
+    await userEvent.keyboard('{Enter}');
+    expect(onMarkerClick).toHaveBeenCalledWith('z1');
+    expect(onPlanClick).not.toHaveBeenCalled();
+  });
+});

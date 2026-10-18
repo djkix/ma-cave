@@ -1,7 +1,6 @@
 import { FormEvent, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { localLogin } from '../lib/api-client';
-import { APP_VERSION } from '../lib/version';
 
 // Retour de Google en échec (OAuthRedirectFilter, `?error=…`) : un titre et une
 // explication simple, sans jargon. `unauthorized` couvre tous les refus (Google
@@ -23,7 +22,9 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [showLocal, setShowLocal] = useState(false);
+  // Compte de secours : formulaire caché, ouvert seulement par /login?secours
+  // (le jour où Google ne répond plus), pour garder l'écran simple.
+  const showLocal = params.has('secours');
   const redirectError = REDIRECT_ERRORS[params.get('error') ?? ''] ?? null;
 
   async function submit(e: FormEvent) {
@@ -49,9 +50,6 @@ export function LoginPage() {
       <a className="btn btn--primary" href="/api/auth/google">
         Se connecter avec Google
       </a>
-      <button type="button" className="btn btn--link" onClick={() => setShowLocal((v) => !v)}>
-        Compte de secours
-      </button>
       {showLocal && (
         <form onSubmit={submit} className="login__form">
           <label>
@@ -66,11 +64,6 @@ export function LoginPage() {
           <button type="submit" className="btn btn--dark">Connexion</button>
         </form>
       )}
-      {/* L'écran de connexion n'a pas de barre de titre : la version y est
-          répétée pour qu'elle reste lisible avant même d'être connecté, quand on
-          cherche justement à savoir ce qui tourne sur le serveur. */}
-      <p className="login__version" aria-label={`Version ${APP_VERSION}`}>v{APP_VERSION}</p>
-      <Link to="/confidentialite" className="btn btn--link">Confidentialité</Link>
     </main>
   );
 }
