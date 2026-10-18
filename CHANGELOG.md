@@ -11,6 +11,21 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.12.0](https://github.com/djkix/ma-cave/compare/v2.11.0...v2.12.0) (2026-10-18)
 
+### Résumé
+
+**Plan au clavier.** Dans « Ma cave › Réglages », le plan s'atteint avec Tab :
+Entrée pose un « + » au centre, les flèches le déplacent (2 %, Maj 10 %), puis
+on choisit la zone. « Déplacer » met le « + » à la place du repère ; Entrée
+enregistre, Échap annule. Le toucher reste inchangé.
+
+**Écran de connexion épuré.** Seul « Se connecter avec Google » reste. Le
+compte de secours s'ouvre par `/login?secours`, la version est dans « Mon
+compte », le lien Confidentialité dans l'Administration (la page reste
+publique pour Google). Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
