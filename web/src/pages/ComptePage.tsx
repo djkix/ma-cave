@@ -1,88 +1,81 @@
+import { useQuery } from '@tanstack/react-query';
+import { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { LogoutButton } from '../components/AccountScreens';
 import { BottomNav } from '../components/BottomNav';
-import { Button } from '../components/Button';
-import { useSwitchCave } from '../components/CaveSwitcher';
 import { Icon } from '../components/Icon';
 import { TopBar } from '../components/TopBar';
-import { exportUrl } from '../lib/api-client';
-import { useInstallPrompt } from '../lib/install-prompt';
+import { getMembers, getRegistrations } from '../lib/api-client';
+import { usePlans, useZones } from '../lib/locations';
 import { useCurrentCave } from '../lib/use-current-cave';
 import { APP_VERSION } from '../lib/version';
 
-function InstallCard() {
-  const { state, install } = useInstallPrompt();
+// Zéro reste au singulier, comme d'usage en français (« 0 zone »).
+const count = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
+
+/** Résumé de la carte « Ma cave » : « 3 plans · 12 zones · 2 membres », « Aucun plan » sans plan. */
+export function caveSummary(plans: number, zones: number, members: number): string {
+  return [plans === 0 ? 'Aucun plan' : count(plans, 'plan'), count(zones, 'zone'), count(members, 'membre')].join(' · ');
+}
+
+/** Initiales du nom affiché, sinon de l'adresse : « Franck Laval » → « FL », « camille@… » → « C ». */
+function initials(name: string): string {
+  return name.split('@')[0].split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+}
+
+function NavCard({ to, icon, title, summary }: { to: string; icon: string; title: string; summary?: ReactNode }) {
   return (
-    <section className="card">
-      <h2 style={{ fontSize: 18 }}>Application sur le téléphone</h2>
-      {state === 'installed' && <p>L’application est installée sur cet appareil.</p>}
-      {state === 'prompt' && (
-        <Button variant="primary" onClick={install}>
-          <Icon name="install_mobile" />
-          Installer l’application
-        </Button>
-      )}
-      {state === 'ios' && (
-        <p>Dans Safari, touchez <strong>Partager</strong>, puis <strong>Sur l’écran d’accueil</strong>.</p>
-      )}
-      {state === 'manual' && (
-        <p>Ouvrez le menu du navigateur, puis <strong>Installer l’application</strong> ou <strong>Ajouter à l’écran d’accueil</strong>.</p>
-      )}
-    </section>
+    <Link to={to} className="card nav-card">
+      <Icon name={icon} className="nav-card__icon" />
+      <span className="nav-card__text">
+        <span className="nav-card__title">{title}</span>
+        {/* Vide pendant le chargement, omis en erreur : la carte reste un lien. */}
+        {summary && <span className="list__meta nav-card__summary">{summary}</span>}
+      </span>
+      <Icon name="chevron_right" />
+    </Link>
   );
 }
 
-function CavesCard() {
-  const { caves, caveId } = useCurrentCave();
-  const change = useSwitchCave();
-  if (caves.length === 0) return null;
-  return (
-    <section className="card">
-      <h2 style={{ fontSize: 18 }}>Mes caves</h2>
-      <ul className="list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-        {caves.map((c) => (
-          <li key={c.id} className="list__row" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', justifyContent: 'space-between' }}>
-            <span>
-              {c.name}
-              <span className="list__meta" style={{ display: 'block' }}>{c.role === 'OWNER' ? 'Propriétaire' : 'Invité, lecture seule'}</span>
-            </span>
-            {c.id === caveId ? (
-              <span className="badge">Cave affichée</span>
-            ) : (
-              <Button variant="outline" disabled={change.isPending} onClick={() => change.mutate(c.id)}>Afficher</Button>
-            )}
-          </li>
-        ))}
-      </ul>
-      {change.isError && <p role="alert" className="text-error">{(change.error as Error).message}</p>}
-    </section>
-  );
+/** Résumé « Ma cave » : seulement monté pour le propriétaire, ses requêtes ne partent jamais pour un invité. */
+function useCaveSummary(enabled: boolean): string | undefined {
+  const plans = usePlans(enabled);
+  const zones = useZones(enabled);
+  // Même clé que la carte Membres de « Ma cave » : le cache est partagé.
+  const members = useQuery({ queryKey: ['members'], queryFn: getMembers, enabled, retry: false });
+  if (!plans.data || !zones.data || !members.data) return undefined;
+  return caveSummary(plans.data.plans.length, zones.data.length, members.data.length);
 }
 
-/** Mon compte : installation, caves, sauvegarde, « Ma cave › Réglages » (propriétaire), version, déconnexion. Ouvert à tout compte connecté. */
+function useAdminSummary(enabled: boolean): ReactNode {
+  // Même clé que la carte Inscriptions de l'administration.
+  const regs = useQuery({ queryKey: ['admin', 'registrations'], queryFn: getRegistrations, enabled, retry: false });
+  if (!regs.data) return undefined;
+  if (regs.data.length === 0) return 'Comptes, coûts de l’IA, données du vin';
+  return <span className="badge badge--warn">{count(regs.data.length, 'inscription')} en attente</span>;
+}
+
+/** Hub « Mon compte » : profil, puis une carte par écran de réglage permis à ce compte. */
 export function ComptePage() {
-  const { isOwner, isAdmin, me } = useCurrentCave();
+  const { me, caves, isOwner, isAdmin } = useCurrentCave();
+  const caveText = useCaveSummary(isOwner);
+  const adminText = useAdminSummary(isAdmin);
   return (
     <>
       <TopBar title="Mon compte" back="/" />
-      <main className="page" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-        {me && <p className="list__meta">{me.displayName ?? me.email}</p>}
-        <InstallCard />
-        <CavesCard />
-        {isOwner && (
-          <section className="card">
-            <h2 style={{ fontSize: 18 }}>Sauvegarde</h2>
-            <p className="list__meta">Toute la cave affichée dans un classeur Excel : stock, journal, cotes.</p>
-            <a className="btn btn--primary" style={{ width: '100%' }} href={exportUrl()} download>
-              <Icon name="download" />
-              Télécharger la sauvegarde Excel
-            </a>
+      <main className="page">
+        {me && (
+          <section className="profile">
+            <span className="profile__avatar" aria-hidden="true">{initials(me.displayName ?? me.email)}</span>
+            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+              {me.displayName && <strong style={{ display: 'block' }}>{me.displayName}</strong>}
+              <span className="list__meta">{me.email}</span>
+            </span>
           </section>
         )}
-        {isOwner && <Link to="/ma-cave" className="btn btn--link">Ma cave › Réglages</Link>}
-        {isAdmin && <Link to="/admin" className="btn btn--link">Administration</Link>}
-        <p className="list__meta" aria-label={`Version ${APP_VERSION}`}>Version {APP_VERSION}</p>
-        <LogoutButton />
+        <NavCard to="/compte/moi" icon="person" title="Moi" summary={me && count(caves.length, 'cave')} />
+        {isOwner && <NavCard to="/ma-cave" icon="wine_bar" title="Ma cave" summary={caveText} />}
+        {isAdmin && <NavCard to="/admin" icon="admin_panel_settings" title="Application" summary={adminText} />}
+        <NavCard to="/compte/a-propos" icon="info" title="À propos" summary={`Version ${APP_VERSION}`} />
       </main>
       <BottomNav />
     </>
