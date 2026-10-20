@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { getLocations, getPlan, getZones, Location, LocationInput, Zone } from './api-client';
+import { getLocations, getPlans, getZones, Location, LocationInput, Zone } from './api-client';
 
 export const NO_LOCATION = 'Sans emplacement';
 export const NO_ZONE = 'Sans zone';
@@ -41,9 +41,9 @@ export function lastUsedInput(locations: Location[] | undefined): LocationInput 
   return l ? { zoneId: l.zoneId ?? null, casier: l.casier, position: l.position } : null;
 }
 
-/** Plan de la cave courante et repères des zones (lisibles par un membre). */
-export function usePlan(enabled = true) {
-  return useQuery({ queryKey: ['plan'], queryFn: getPlan, enabled, retry: false });
+/** Plans de la cave courante et repères des zones (lisibles par un membre). */
+export function usePlans(enabled = true) {
+  return useQuery({ queryKey: ['plans'], queryFn: getPlans, enabled, retry: false });
 }
 
 /** Zones de la cave dans l'ordre d'affichage (lisibles par un membre). Sans nouvelles tentatives : une erreur ne retient aucune saisie. */

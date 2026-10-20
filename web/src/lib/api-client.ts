@@ -127,9 +127,9 @@ export const getLocations = () => apiFetch<Location[]>('/locations');
 
 /**
  * Zone de la cave (« Ma cave › Réglages »), dans l'ordre d'affichage ; la photo se lit à `zonePhotoUrl(id)`.
- * `marker` : son repère sur le plan (fractions de la largeur et de la hauteur), gardé même sans plan.
+ * `marker` : son repère, sur un des plans (fractions de la largeur et de la hauteur de ce plan).
  */
-export interface Zone { id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; marker: { x: number; y: number } | null }
+export interface Zone { id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; marker: { planId: string; x: number; y: number } | null }
 export const getZones = () => apiFetch<Zone[]>('/caves/current/zones');
 export const createZone = (input: { name: string; indication?: string | null }) =>
   apiFetch<Zone>('/caves/current/zones', { method: 'POST', body: JSON.stringify(input) });
@@ -146,24 +146,31 @@ export function uploadZonePhoto(id: string, file: File | Blob) {
   return apiFetch<Zone>(`/caves/current/zones/${id}/photo`, { method: 'PUT', body: form });
 }
 export const removeZonePhoto = (id: string) => apiFetch<Zone>(`/caves/current/zones/${id}/photo`, { method: 'DELETE' });
-/** Plan de la cave : taille en pixels (mise en page avant chargement), date du dernier envoi (ISO). */
-export interface CavePlan { width: number; height: number; updatedAt: string }
-/** Repère affiché : `number` = rang parmi les zones qui ont un repère, dans l'ordre d'affichage. */
-export interface PlanMarker { zoneId: string; name: string; number: number; x: number; y: number }
-/** Plan de la cave courante et ses repères (aucun sans plan) ; lisible par un membre. */
-export const getPlan = () => apiFetch<{ plan: CavePlan | null; markers: PlanMarker[] }>('/caves/current/plan');
-export function uploadPlan(file: File | Blob) {
+/** Plan de la cave : nom, taille en pixels (mise en page avant chargement), date du dernier envoi (ISO). */
+export interface CavePlan { id: string; name: string; width: number; height: number; updatedAt: string }
+/** Repère d'une zone sur un plan ; `number` : son rang sur ce plan. */
+export interface PlanMarker { zoneId: string; planId: string; name: string; number: number; x: number; y: number }
+/** Plans de la cave courante (ordre de création) et repères des zones ; lisibles par un membre. */
+export const getPlans = () => apiFetch<{ plans: CavePlan[]; markers: PlanMarker[] }>('/caves/current/plans');
+function planForm(file: File | Blob, name?: string) {
   const form = new FormData();
+  if (name !== undefined) form.append('name', name);
   form.append('file', file, 'plan.jpg');
-  return apiFetch<CavePlan>('/caves/current/plan', { method: 'PUT', body: form });
+  return form;
 }
-/** Retire le plan ; les repères des zones sont gardés. */
-export const removePlan = () => apiFetch<void>('/caves/current/plan', { method: 'DELETE' });
-export const setZoneMarker = (id: string, x: number, y: number) =>
-  apiFetch<Zone>(`/caves/current/zones/${id}/marker`, { method: 'PUT', body: JSON.stringify({ x, y }) });
+export const createPlan = (name: string, file: File | Blob) =>
+  apiFetch<CavePlan>('/caves/current/plans', { method: 'POST', body: planForm(file, name) });
+export const renamePlan = (id: string, name: string) =>
+  apiFetch<CavePlan>(`/caves/current/plans/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+export const replacePlanImage = (id: string, file: File | Blob) =>
+  apiFetch<CavePlan>(`/caves/current/plans/${id}/image`, { method: 'PUT', body: planForm(file) });
+/** Supprime le plan ; les zones et leurs bouteilles sont gardées. */
+export const deletePlan = (id: string) => apiFetch<void>(`/caves/current/plans/${id}`, { method: 'DELETE' });
+export const setZoneMarker = (id: string, planId: string, x: number, y: number) =>
+  apiFetch<Zone>(`/caves/current/zones/${id}/marker`, { method: 'PUT', body: JSON.stringify({ planId, x, y }) });
 export const removeZoneMarker = (id: string) => apiFetch<Zone>(`/caves/current/zones/${id}/marker`, { method: 'DELETE' });
-/** Adresse de l'image du plan ; `updatedAt` la fait relire après un remplacement. */
-export const planImageUrl = (caveId: string, updatedAt: string) => `/api/caves/plans/${caveId}/image?v=${encodeURIComponent(updatedAt)}`;
+/** Adresse de l'image d'un plan ; `updatedAt` la fait relire après un remplacement. */
+export const planImageUrl = (planId: string, updatedAt: string) => `/api/caves/plans/${planId}/image?v=${encodeURIComponent(updatedAt)}`;
 
 /** Adresse de la photo d'une zone ; `version` force la relecture après un remplacement. */
 export const zonePhotoUrl = (id: string, version?: number) => `/api/caves/zones/${id}/photo${version ? `?v=${version}` : ''}`;

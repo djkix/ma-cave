@@ -12,13 +12,13 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { CaveRole, CurrentCave } from '../caves/cave-access.decorators';
 import { CaveAccessGuard } from '../caves/cave-access.guard';
 import type { CaveAccess } from '../caves/cave-context.service';
-import { createZoneSchema, markerSchema, PHOTO_TOO_LARGE, updateZoneSchema, ZONE_NOT_FOUND, zoneOrderSchema } from './zone';
+import { createZoneSchema, markerSchema, PHOTO_TOO_LARGE, PLAN_NOT_FOUND, updateZoneSchema, ZONE_NOT_FOUND, zoneOrderSchema } from './zone';
 import { ZonesService } from './zones.service';
 
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp']);
 export const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 
-function parse<T>(schema: ZodSchema<T>, body: unknown): T {
+export function parse<T>(schema: ZodSchema<T>, body: unknown): T {
   const parsed = schema.safeParse(body ?? {});
   if (!parsed.success) throw new BadRequestException(parsed.error.issues[0].message);
   return parsed.data;
@@ -96,11 +96,16 @@ export class CurrentCaveZonesController {
     return this.zones.setPhoto(cave.caveId, id, checkImage(file));
   }
 
-  /** Pose ou déplace le repère de la zone sur le plan : `{ x, y }`, fractions entre 0 et 1. */
+  /** Pose ou déplace le repère de la zone : `{ planId, x, y }`, un plan de la cave (sinon 404 « Plan introuvable ») et des fractions entre 0 et 1. */
   @Put(':id/marker')
   @CaveRole('OWNER')
   setMarker(@CurrentCave() cave: CaveAccess, @Param('id', zoneId) id: string, @Body() body: unknown) {
-    return this.zones.setMarker(cave.caveId, id, parse(markerSchema, body));
+    const parsed = markerSchema.safeParse(body ?? {});
+    if (!parsed.success) {
+      const { message } = parsed.error.issues[0];
+      throw message === PLAN_NOT_FOUND ? new NotFoundException(message) : new BadRequestException(message);
+    }
+    return this.zones.setMarker(cave.caveId, id, parsed.data);
   }
 
   @Delete(':id/marker')

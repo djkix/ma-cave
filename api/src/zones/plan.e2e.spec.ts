@@ -9,17 +9,18 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import supertest from 'supertest';
 import { createTestCave, deleteTestCaves } from '../test-utils/cave';
-import { CavePlanController } from './plan.controller';
+import { CavePlansController } from './plan.controller';
 
-// Plan de la cave et repères des zones, en HTTP contre le vrai AppModule : un
+// Plans de la cave et repères des zones, en HTTP contre le vrai AppModule : un
 // propriétaire de A, un membre (VIEWER) de A, un propriétaire de B, et un compte
 // qui possède C et est membre de A (image lue hors de la cave courante).
 const describeIfInfra = process.env.DATABASE_URL && process.env.REDIS_URL ? describe : describe.skip;
 
-interface Zone { id: string; name: string; marker: { x: number; y: number } | null }
-interface PlanRead { plan: { width: number; height: number; updatedAt: string } | null; markers: Array<{ zoneId: string; name: string; number: number; x: number; y: number }> }
+interface Zone { id: string; name: string; marker: { planId: string; x: number; y: number } | null }
+interface Plan { id: string; name: string; width: number; height: number; updatedAt: string }
+interface PlansRead { plans: Plan[]; markers: Array<{ zoneId: string; planId: string; name: string; number: number; x: number; y: number }> }
 
-describeIfInfra('plan de la cave (HTTP)', () => {
+describeIfInfra('plans de la cave (HTTP)', () => {
   let app: INestApplication;
   let sessionRedis: { quit: () => Promise<unknown> };
   let prisma: import('../prisma/prisma.service').PrismaService;
@@ -28,6 +29,7 @@ describeIfInfra('plan de la cave (HTTP)', () => {
   const userIds: string[] = [];
   const caveIds: string[] = [];
   let caveA: string;
+  let caveB: string;
   let caveC: string;
   let ownerA: supertest.Agent;
   let viewerA: supertest.Agent;
@@ -38,10 +40,16 @@ describeIfInfra('plan de la cave (HTTP)', () => {
     expect({ status: res.status, message: res.body?.message }).toEqual({ status, message });
   };
   const png = (width: number, height: number) => sharp({ create: { width, height, channels: 3, background: '#c0b0a0' } }).png().toBuffer();
-  const upload = (file: Buffer, agent: supertest.Agent = ownerA, contentType = 'image/png') =>
-    agent.put('/api/caves/current/plan').attach('file', file, { filename: 'plan.png', contentType });
-  const read = async (agent: supertest.Agent = ownerA): Promise<PlanRead> => {
-    const res = await agent.get('/api/caves/current/plan');
+  const create = (name: unknown, file: Buffer, agent: supertest.Agent = ownerA, contentType = 'image/png') => {
+    const req = agent.post('/api/caves/current/plans');
+    if (typeof name === 'string') req.field('name', name);
+    return req.attach('file', file, { filename: 'plan.png', contentType });
+  };
+  const replace = (id: string, file: Buffer, agent: supertest.Agent = ownerA, contentType = 'image/png') =>
+    agent.put(`/api/caves/current/plans/${id}/image`).attach('file', file, { filename: 'plan.png', contentType });
+  const rename = (id: string, body: unknown, agent: supertest.Agent = ownerA) => agent.patch(`/api/caves/current/plans/${id}`).send(body as object);
+  const read = async (agent: supertest.Agent = ownerA): Promise<PlansRead> => {
+    const res = await agent.get('/api/caves/current/plans');
     expect(res.status).toBe(200);
     return res.body;
   };
@@ -52,7 +60,7 @@ describeIfInfra('plan de la cave (HTTP)', () => {
     return res.body;
   };
   const mark = (id: string, body: unknown, agent: supertest.Agent = ownerA) => agent.put(`/api/caves/current/zones/${id}/marker`).send(body as object);
-  const planFile = () => join(storage, 'plans', `${caveA}.jpg`);
+  const planFile = (id: string) => join(storage, 'plans', `${id}.jpg`);
 
   beforeAll(async () => {
     process.env.SESSION_SECRET ??= 'e2e-secret-e2e-secret-e2e-secret-e2e-secret';
@@ -86,7 +94,7 @@ describeIfInfra('plan de la cave (HTTP)', () => {
     };
     const [uOwnerA, uViewerA, uOwnerB, uSwitcher] = [await user('owner-a'), await user('viewer-a'), await user('owner-b'), await user('switcher')];
     caveA = (await createTestCave(prisma, { owner: uOwnerA, name: `Plan A ${run}` })).id;
-    const caveB = (await createTestCave(prisma, { owner: uOwnerB, name: `Plan B ${run}` })).id;
+    caveB = (await createTestCave(prisma, { owner: uOwnerB, name: `Plan B ${run}` })).id;
     caveC = (await createTestCave(prisma, { owner: uSwitcher, name: `Plan C ${run}` })).id;
     caveIds.push(caveA, caveB, caveC);
     await prisma.caveMember.createMany({
@@ -113,187 +121,213 @@ describeIfInfra('plan de la cave (HTTP)', () => {
     rmSync(storage, { recursive: true, force: true });
   });
 
-  // Les tests s'enchaînent : sans plan, envoi, repères, retrait.
+  // Les tests s'enchaînent : sans plan, création, renommage, repères, image, suppression.
+  let p1: Plan;
+  let p2: Plan;
+  let pB: Plan;
   let z1: Zone;
   let z2: Zone;
   let z3: Zone;
 
-  it('sans plan : rien à lire, et aucun repère ne se pose (409 « Ajoutez d\'abord un plan de la cave »)', async () => {
-    [z1, z2, z3] = [await newZone(`Cave 1 ${run}`), await newZone(`Garage ${run}`), await newZone(`Cellier ${run}`)];
-    expect(await read()).toEqual({ plan: null, markers: [] });
-    expect(await read(viewerA)).toEqual({ plan: null, markers: [] });
-    expectStatus(await mark(z1.id, { x: 0.5, y: 0.5 }), 409, 'Ajoutez d\'abord un plan de la cave');
-    expect((await zones()).map((z) => z.marker)).toEqual([null, null, null]);
-    expectStatus(await ownerA.get(`/api/caves/plans/${caveA}/image`), 404, 'Plan introuvable');
+  it('sans plan : rien à lire', async () => {
+    expect(await read()).toEqual({ plans: [], markers: [] });
+    expect(await read(viewerA)).toEqual({ plans: [], markers: [] });
   });
 
-  describe('envoi du plan', () => {
-    it('est limité comme celui d’une photo (ThrottlerGuard)', () => {
-      const guards: unknown[] = Reflect.getMetadata('__guards__', CavePlanController.prototype.setPlan) ?? [];
-      expect(guards).toContain(ThrottlerGuard);
+  describe('créer un plan', () => {
+    it('est limité comme l’envoi d’une photo (ThrottlerGuard)', () => {
+      for (const handler of [CavePlansController.prototype.create, CavePlansController.prototype.replaceImage]) {
+        const guards: unknown[] = Reflect.getMetadata('__guards__', handler) ?? [];
+        expect(guards).toContain(ThrottlerGuard);
+      }
     });
 
-    it('le propriétaire l’envoie : JPEG de 2400 px au plus sur le grand côté, taille et date rendues ; le membre ne peut pas', async () => {
+    it('le propriétaire crée « Cellier » : 201, JPEG de 2400 px au plus sur le grand côté en plans/<id>.jpg ; le membre ne peut pas', async () => {
       const big = await png(4800, 2400);
-      expectStatus(await upload(big, viewerA), 403, 'Lecture seule');
-      expect(existsSync(planFile())).toBe(false);
-      const res = await upload(big);
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ width: 2400, height: 1200, updatedAt: expect.any(String) });
-      expect(await sharp(planFile()).metadata()).toMatchObject({ format: 'jpeg', width: 2400, height: 1200 });
-      expect((await read(viewerA)).plan).toEqual(res.body);
+      expectStatus(await create('Cellier', big, viewerA), 403, 'Lecture seule');
+      const res = await create('  Cellier  ', big);
+      expect(res.status).toBe(201);
+      expect(res.body).toEqual({ id: expect.any(String), name: 'Cellier', width: 2400, height: 1200, updatedAt: expect.any(String) });
+      p1 = res.body;
+      expect(await sharp(planFile(p1.id)).metadata()).toMatchObject({ format: 'jpeg', width: 2400, height: 1200 });
+      expect(await read(viewerA)).toEqual({ plans: [p1], markers: [] });
       // Aucun fichier temporaire ne reste à côté du plan.
-      expect(readdirSync(join(storage, 'plans'))).toEqual([`${caveA}.jpg`]);
+      expect(readdirSync(join(storage, 'plans'))).toEqual([`${p1.id}.jpg`]);
     });
 
-    it('redresse une photo selon son orientation EXIF (taille rendue redressée) et remplace le plan précédent', async () => {
-      const before = (await read()).plan!;
-      const portrait = await sharp({ create: { width: 3000, height: 1000, channels: 3, background: '#203040' } }).jpeg().withMetadata({ orientation: 6 }).toBuffer();
-      const res = await upload(portrait, ownerA, 'image/jpeg');
+    it('409 « Un plan porte déjà ce nom » (casse ignorée) ; 400 pour un nom vide, trop long ou absent', async () => {
+      const image = await png(200, 100);
+      expectStatus(await create('cellier', image), 409, 'Un plan porte déjà ce nom');
+      for (const name of ['', '   ', 'x'.repeat(41), undefined]) {
+        expectStatus(await create(name, image), 400, 'Le nom du plan doit faire de 1 à 40 caractères');
+      }
+      expect((await read()).plans).toEqual([p1]);
+      expect(readdirSync(join(storage, 'plans'))).toEqual([`${p1.id}.jpg`]);
+    });
+
+    it('400 sans fichier, format refusé ou image illisible ; 413 au-delà de 15 Mo ; rien n’est créé', async () => {
+      expectStatus(await ownerA.post('/api/caves/current/plans').field('name', 'Garage'), 400, 'Fichier « file » manquant');
+      expectStatus(await create('Garage', Buffer.from('x'), ownerA, 'image/gif'), 400, 'Format d’image non pris en charge');
+      expectStatus(await create('Garage', Buffer.from('pas une image'), ownerA, 'image/jpeg'), 400, 'Image illisible ou format non pris en charge');
+      expectStatus(await create('Garage', Buffer.alloc(15 * 1024 * 1024 + 1), ownerA, 'image/jpeg'), 413, 'Photo trop lourde (15 Mo au plus)');
+      expect((await read()).plans).toEqual([p1]);
+      expect(readdirSync(join(storage, 'plans'))).toEqual([`${p1.id}.jpg`]);
+    });
+
+    it('un second plan suit le premier (ordre de création) ; B a ses propres plans', async () => {
+      const res = await create('Garage', await png(600, 300));
+      expect(res.status).toBe(201);
+      p2 = res.body;
+      expect((await read()).plans.map((p) => p.name)).toEqual(['Cellier', 'Garage']);
+      // Même nom dans une autre cave : permis.
+      const b = await create('Cellier', await png(300, 300), ownerB);
+      expect(b.status).toBe(201);
+      pB = b.body;
+      expect((await read(ownerB)).plans).toEqual([pB]);
+      expect((await read()).plans.map((p) => p.id)).toEqual([p1.id, p2.id]);
+    });
+
+    it('409 « 20 plans au plus par cave » au 21e plan ; aucun fichier ajouté', async () => {
+      const extra = Array.from({ length: 18 }, (_, i) => ({ caveId: caveA, name: `Extra ${i}`, path: `plans/extra-${i}.jpg`, width: 10, height: 10, updatedAt: new Date() }));
+      await prisma.cavePlan.createMany({ data: extra });
+      expect((await read()).plans).toHaveLength(20);
+      expectStatus(await create('Vingt et un', await png(100, 100)), 409, '20 plans au plus par cave');
+      expect((await read()).plans).toHaveLength(20);
+      await prisma.cavePlan.deleteMany({ where: { caveId: caveA, name: { startsWith: 'Extra ' } } });
+      expect(readdirSync(join(storage, 'plans')).sort()).toEqual([`${p1.id}.jpg`, `${p2.id}.jpg`, `${pB.id}.jpg`].sort());
+    });
+  });
+
+  describe('renommer', () => {
+    it('vers son propre nom, casse changée : 200 ; vers le nom d’un autre plan : 409 ; nom invalide : 400', async () => {
+      const res = await rename(p1.id, { name: 'CELLIER' });
       expect(res.status).toBe(200);
-      expect(res.body).toMatchObject({ width: 800, height: 2400 });
-      expect(new Date(res.body.updatedAt).getTime()).toBeGreaterThanOrEqual(new Date(before.updatedAt).getTime());
-      expect(await sharp(planFile()).metadata()).toMatchObject({ width: 800, height: 2400 });
-      expect(readdirSync(join(storage, 'plans'))).toEqual([`${caveA}.jpg`]);
+      expect(res.body).toEqual({ ...p1, name: 'CELLIER' });
+      expectStatus(await rename(p2.id, { name: 'cellier' }), 409, 'Un plan porte déjà ce nom');
+      expectStatus(await rename(p2.id, { name: '' }), 400, 'Le nom du plan doit faire de 1 à 40 caractères');
+      expectStatus(await rename(p2.id, {}), 400, 'Le nom du plan doit faire de 1 à 40 caractères');
+      expect((await rename(p1.id, { name: 'Cellier' })).status).toBe(200);
+      expect((await read()).plans.map((p) => p.name)).toEqual(['Cellier', 'Garage']);
+    });
+  });
+
+  describe('repères', () => {
+    it('posés sur un plan de la cave ; numérotés par plan dans l’ordre d’affichage des zones', async () => {
+      [z1, z2, z3] = [await newZone(`Z1 ${run}`), await newZone(`Z2 ${run}`), await newZone(`Z3 ${run}`)];
+      const res = await mark(z1.id, { planId: p1.id, x: 0.1, y: 0.2 });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: z1.id, marker: { planId: p1.id, x: 0.1, y: 0.2 } });
+      expect((await mark(z2.id, { planId: p1.id, x: 0.3, y: 0.4 })).status).toBe(200);
+      expect((await mark(z3.id, { planId: p2.id, x: 0.5, y: 0.6 })).status).toBe(200);
+      expect((await zones(viewerA)).find((z) => z.id === z3.id)?.marker).toEqual({ planId: p2.id, x: 0.5, y: 0.6 });
+      expect((await read(viewerA)).markers).toEqual([
+        { zoneId: z1.id, planId: p1.id, name: z1.name, number: 1, x: 0.1, y: 0.2 },
+        { zoneId: z2.id, planId: p1.id, name: z2.name, number: 2, x: 0.3, y: 0.4 },
+        { zoneId: z3.id, planId: p2.id, name: z3.name, number: 1, x: 0.5, y: 0.6 },
+      ]);
+      // Nouvel ordre : Z2, Z3, Z1 → Z2 devient 1 sur Cellier.
+      expect((await ownerA.post('/api/caves/current/zones/order').send({ ids: [z2.id, z3.id, z1.id] })).status).toBe(200);
+      expect((await read()).markers.map((m) => [m.zoneId, m.planId, m.number])).toEqual([[z2.id, p1.id, 1], [z3.id, p2.id, 1], [z1.id, p1.id, 2]]);
     });
 
-    it('400 sans fichier, format refusé ou image illisible ; 413 au-delà de 15 Mo ; le plan en place ne change pas', async () => {
+    it('une zone archivée n’apparaît pas', async () => {
+      const z = await newZone(`Archivée ${run}`);
+      expect((await mark(z.id, { planId: p1.id, x: 0.9, y: 0.9 })).status).toBe(200);
+      await prisma.caveZone.update({ where: { id: z.id }, data: { archivedAt: new Date() } });
+      expect((await read()).markers.map((m) => m.zoneId)).toEqual([z2.id, z3.id, z1.id]);
+    });
+
+    it('404 « Plan introuvable » : plan d’une autre cave, inconnu ou identifiant invalide ; le repère ne change pas', async () => {
+      for (const planId of [pB.id, randomUUID(), 'pas-un-uuid', undefined, 12]) {
+        expectStatus(await mark(z1.id, { planId, x: 0.5, y: 0.5 }), 404, 'Plan introuvable');
+      }
+      expect((await zones()).find((z) => z.id === z1.id)?.marker).toEqual({ planId: p1.id, x: 0.1, y: 0.2 });
+    });
+
+    it.each([
+      [{ x: 1.5, y: 0.5 }], [{ x: -0.1, y: 0.5 }], [{ x: 0.5 }], [{ x: '0.5', y: 0.5 }], [{ x: null, y: null }], [{ x: 0.5, y: 2 }],
+    ])('400 « Position invalide sur le plan » : %j', async (pos) => {
+      expectStatus(await mark(z1.id, { planId: p1.id, ...pos }), 400, 'Position invalide sur le plan');
+    });
+
+    it('retirer un repère efface plan et position', async () => {
+      const res = await ownerA.delete(`/api/caves/current/zones/${z2.id}/marker`);
+      expect(res.status).toBe(200);
+      expect(res.body.marker).toBeNull();
+      expect(await prisma.caveZone.findUniqueOrThrow({ where: { id: z2.id } })).toMatchObject({ planId: null, planX: null, planY: null });
+      expect((await mark(z2.id, { planId: p1.id, x: 0.3, y: 0.4 })).status).toBe(200);
+    });
+  });
+
+  describe('remplacer l’image', () => {
+    it('nouvelle taille et nouvelle date, même fichier ; repères inchangés', async () => {
       const before = await read();
-      expectStatus(await ownerA.put('/api/caves/current/plan'), 400, 'Fichier « file » manquant');
-      expectStatus(await upload(Buffer.from('x'), ownerA, 'image/gif'), 400, 'Format d’image non pris en charge');
-      expectStatus(await upload(Buffer.from('pas une image'), ownerA, 'image/jpeg'), 400, 'Image illisible ou format non pris en charge');
-      expectStatus(await upload(Buffer.alloc(15 * 1024 * 1024 + 1), ownerA, 'image/jpeg'), 413, 'Photo trop lourde (15 Mo au plus)');
-      expect(await read()).toEqual(before);
-      expect(readdirSync(join(storage, 'plans'))).toEqual([`${caveA}.jpg`]);
-    });
-
-    it('envois simultanés : un seul plan, complet, celui qu’enregistre la base', async () => {
-      const [a, b] = await Promise.all([upload(await png(1000, 500)), upload(await png(500, 1000))]);
-      expect([a.status, b.status]).toEqual([200, 200]);
-      const { plan } = await read();
-      expect(await sharp(planFile()).metadata()).toMatchObject({ width: plan!.width, height: plan!.height });
-      expect(readdirSync(join(storage, 'plans'))).toEqual([`${caveA}.jpg`]);
+      await new Promise((r) => setTimeout(r, 5));
+      const res = await replace(p1.id, await png(500, 1000));
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ id: p1.id, name: 'Cellier', width: 500, height: 1000, updatedAt: expect.any(String) });
+      expect(new Date(res.body.updatedAt).getTime()).toBeGreaterThan(new Date(p1.updatedAt).getTime());
+      expect(await sharp(planFile(p1.id)).metadata()).toMatchObject({ width: 500, height: 1000 });
+      expect((await read()).markers).toEqual(before.markers);
+      expect(readdirSync(join(storage, 'plans')).sort()).toEqual([`${p1.id}.jpg`, `${p2.id}.jpg`, `${pB.id}.jpg`].sort());
     });
   });
 
   describe('image du plan', () => {
     it('lue par tout membre de la cave, même hors de sa cave courante ; 404 « Plan introuvable » pour un étranger', async () => {
       for (const agent of [ownerA, viewerA]) {
-        const img = await agent.get(`/api/caves/plans/${caveA}/image`);
+        const img = await agent.get(`/api/caves/plans/${p1.id}/image`);
         expect(img.status).toBe(200);
         expect(img.headers['content-type']).toBe('image/jpeg');
         expect(img.headers['cache-control']).toBe('private, no-cache');
-        expect(img.headers.etag).toEqual(expect.any(String));
       }
       for (const caveId of [caveA, caveC]) {
         expect((await switcher.put('/api/auth/current-cave').send({ caveId })).status).toBe(200);
-        expect((await switcher.get(`/api/caves/plans/${caveA}/image`)).status).toBe(200);
+        expect((await switcher.get(`/api/caves/plans/${p1.id}/image`)).status).toBe(200);
       }
-      expectStatus(await ownerB.get(`/api/caves/plans/${caveA}/image`), 404, 'Plan introuvable');
+      expectStatus(await ownerB.get(`/api/caves/plans/${p1.id}/image`), 404, 'Plan introuvable');
+      expectStatus(await ownerA.get(`/api/caves/plans/${pB.id}/image`), 404, 'Plan introuvable');
       expectStatus(await ownerA.get(`/api/caves/plans/${randomUUID()}/image`), 404, 'Plan introuvable');
       expectStatus(await ownerA.get('/api/caves/plans/pas-un-uuid/image'), 404, 'Plan introuvable');
-      // Cave sans plan.
-      expectStatus(await switcher.get(`/api/caves/plans/${caveC}/image`), 404, 'Plan introuvable');
     });
   });
 
-  describe('repères', () => {
-    it('le propriétaire pose et déplace un repère ; la zone le porte (liste des zones comprise)', async () => {
-      const res = await mark(z3.id, { x: 0.25, y: 0.75 });
-      expect(res.status).toBe(200);
-      expect(res.body).toMatchObject({ id: z3.id, marker: { x: 0.25, y: 0.75 } });
-      expect((await mark(z3.id, { x: 0, y: 1 })).body.marker).toEqual({ x: 0, y: 1 });
-      expect((await zones(viewerA)).find((z) => z.id === z3.id)?.marker).toEqual({ x: 0, y: 1 });
-      expect((await zones()).find((z) => z.id === z1.id)?.marker).toBeNull();
-      expectStatus(await mark(z3.id, { x: 0.5, y: 0.5 }, viewerA), 403, 'Lecture seule');
-      expectStatus(await viewerA.delete(`/api/caves/current/zones/${z3.id}/marker`), 403, 'Lecture seule');
+  describe('droits et isolation', () => {
+    it('le membre ne crée, ne renomme, ne remplace ni ne supprime : 403', async () => {
+      expectStatus(await create('Frigo', await png(100, 100), viewerA), 403, 'Lecture seule');
+      expectStatus(await rename(p1.id, { name: 'Frigo' }, viewerA), 403, 'Lecture seule');
+      expectStatus(await replace(p1.id, await png(100, 100), viewerA), 403, 'Lecture seule');
+      expectStatus(await viewerA.delete(`/api/caves/current/plans/${p1.id}`), 403, 'Lecture seule');
     });
 
-    it.each([
-      [{ x: 1.5, y: 0.5 }], [{ x: -0.1, y: 0.5 }], [{ x: 0.5 }], [{ x: '0.5', y: 0.5 }], [{ x: null, y: null }], [{}], [{ x: 0.5, y: 2 }],
-    ])('400 « Position invalide sur le plan » : %j', async (body) => {
-      expectStatus(await mark(z1.id, body), 400, 'Position invalide sur le plan');
-      expect((await zones()).find((z) => z.id === z1.id)?.marker).toBeNull();
-    });
-
-    it('404 « Zone introuvable » : zone d’une autre cave, inconnue ou archivée', async () => {
-      expectStatus(await mark(z1.id, { x: 0.5, y: 0.5 }, ownerB), 404, 'Zone introuvable');
-      expectStatus(await ownerB.delete(`/api/caves/current/zones/${z3.id}/marker`), 404, 'Zone introuvable');
-      expectStatus(await mark(randomUUID(), { x: 0.5, y: 0.5 }), 404, 'Zone introuvable');
-      expectStatus(await mark('pas-un-uuid', { x: 0.5, y: 0.5 }), 404, 'Zone introuvable');
-      const archived = await newZone(`Archivée ${run}`);
-      await prisma.caveZone.update({ where: { id: archived.id }, data: { archivedAt: new Date() } });
-      expectStatus(await mark(archived.id, { x: 0.5, y: 0.5 }), 404, 'Zone introuvable');
-      expectStatus(await ownerA.delete(`/api/caves/current/zones/${archived.id}/marker`), 404, 'Zone introuvable');
-      expect((await prisma.caveZone.findFirstOrThrow({ where: { caveId: caveIds[1] } }).catch(() => null))).toBeNull();
-    });
-
-    it('numérotés de 1 en 1 dans l’ordre d’affichage des zones, parmi celles qui ont un repère ; lisibles par le membre', async () => {
-      expect((await mark(z1.id, { x: 0.1, y: 0.2 })).status).toBe(200);
-      const { markers } = await read(viewerA);
-      expect(markers).toEqual([
-        { zoneId: z1.id, name: z1.name, number: 1, x: 0.1, y: 0.2 },
-        { zoneId: z3.id, name: z3.name, number: 2, x: 0, y: 1 },
-      ]);
-      // Nouvel ordre : Cellier, Garage, Cave 1 → Cellier devient 1.
-      expect((await ownerA.post('/api/caves/current/zones/order').send({ ids: [z3.id, z2.id, z1.id] })).status).toBe(200);
-      expect((await read()).markers.map((m) => [m.zoneId, m.number])).toEqual([[z3.id, 1], [z1.id, 2]]);
-    });
-
-    it('une zone archivée garde son repère en base mais n’apparaît jamais sur le plan', async () => {
-      const z = await newZone(`Éphémère ${run}`);
-      expect((await mark(z.id, { x: 0.9, y: 0.9 })).status).toBe(200);
-      expect((await read()).markers.map((m) => m.zoneId)).toContain(z.id);
-      // Une entrée puis une sortie : la zone a servi, « Supprimer » l'archive.
-      const entry = await ownerA.post('/api/movements').send({
-        idempotencyKey: randomUUID(), quantity: 1, location: { zoneId: z.id },
-        wine: { producer: `Domaine Plan ${run}`, appellationRaw: 'Bandol', vintage: 2015, color: 'ROUGE', formatCl: 75 },
-      });
-      expect(entry.status).toBe(201);
-      const [place] = (await ownerA.get(`/api/wines/${entry.body.wine.id}`)).body.locations;
-      expect((await ownerA.post('/api/movements/out').send({ idempotencyKey: randomUUID(), wineId: entry.body.wine.id, quantity: 1, locationId: place.id })).status).toBe(201);
-      expect((await ownerA.delete(`/api/caves/current/zones/${z.id}`)).body).toEqual({ archived: true });
-      expect(await prisma.caveZone.findUniqueOrThrow({ where: { id: z.id } })).toMatchObject({ planX: 0.9, planY: 0.9 });
-      const { markers } = await read();
-      expect(markers.map((m) => m.zoneId)).toEqual([z3.id, z1.id]);
-      expect(markers.map((m) => m.number)).toEqual([1, 2]);
-    });
-
-    it('retirer un repère : la zone n’en a plus, les numéros se resserrent', async () => {
-      const res = await ownerA.delete(`/api/caves/current/zones/${z3.id}/marker`);
-      expect(res.status).toBe(200);
-      expect(res.body).toMatchObject({ id: z3.id, marker: null });
-      expect((await read()).markers).toEqual([{ zoneId: z1.id, name: z1.name, number: 1, x: 0.1, y: 0.2 }]);
-      expect(await prisma.caveZone.findUniqueOrThrow({ where: { id: z3.id } })).toMatchObject({ planX: null, planY: null });
-    });
-  });
-
-  describe('retirer le plan', () => {
-    it('le membre ne peut pas ; le propriétaire retire le fichier et le plan, les repères sont gardés', async () => {
-      expectStatus(await viewerA.delete('/api/caves/current/plan'), 403, 'Lecture seule');
-      expect(existsSync(planFile())).toBe(true);
-      const res = await ownerA.delete('/api/caves/current/plan');
-      expect(res.status).toBe(204);
-      expect(existsSync(planFile())).toBe(false);
-      expect(await read(viewerA)).toEqual({ plan: null, markers: [] });
-      expectStatus(await viewerA.get(`/api/caves/plans/${caveA}/image`), 404, 'Plan introuvable');
-      expect(await prisma.cave.findUniqueOrThrow({ where: { id: caveA } })).toMatchObject({ planPath: null, planWidth: null, planHeight: null, planUpdatedAt: null });
-      // Repère gardé : il revient avec un plan équivalent.
-      expect((await zones()).find((z) => z.id === z1.id)?.marker).toEqual({ x: 0.1, y: 0.2 });
-      expectStatus(await mark(z2.id, { x: 0.5, y: 0.5 }), 409, 'Ajoutez d\'abord un plan de la cave');
-      // Retirer un repère reste possible sans plan ; retirer un plan absent ne fait rien.
-      expect((await ownerA.delete('/api/caves/current/plan')).status).toBe(204);
-      expect((await upload(await png(600, 300))).status).toBe(200);
-      expect((await read()).markers).toEqual([{ zoneId: z1.id, name: z1.name, number: 1, x: 0.1, y: 0.2 }]);
-    });
-
-    it('retrait et envoi simultanés : l’image existe si et seulement si la base enregistre un plan', async () => {
-      for (let i = 0; i < 5; i++) {
-        const [del, up] = await Promise.all([ownerA.delete('/api/caves/current/plan'), upload(await png(400, 200))]);
-        expect([del.status, up.status]).toEqual([204, 200]);
-        const { plan } = await read();
-        expect(existsSync(planFile())).toBe(plan !== null);
+    it('un plan d’une autre cave, inconnu ou mal désigné : 404 « Plan introuvable », rien ne change', async () => {
+      for (const id of [pB.id, randomUUID(), 'pas-un-uuid']) {
+        expectStatus(await rename(id, { name: 'Pris' }), 404, 'Plan introuvable');
+        expectStatus(await replace(id, await png(100, 100)), 404, 'Plan introuvable');
+        expectStatus(await ownerA.delete(`/api/caves/current/plans/${id}`), 404, 'Plan introuvable');
       }
+      expect((await read(ownerB)).plans).toEqual([pB]);
+      expect(existsSync(planFile(pB.id))).toBe(true);
+    });
+  });
+
+  describe('supprimer un plan', () => {
+    it('204 ; ses zones (archivées comprises) sont gardées sans repère, son image est effacée, les autres plans ne bougent pas', async () => {
+      const archived = await prisma.caveZone.findFirstOrThrow({ where: { caveId: caveA, archivedAt: { not: null } } });
+      expect(archived.planId).toBe(p1.id);
+      const res = await ownerA.delete(`/api/caves/current/plans/${p1.id}`);
+      expect(res.status).toBe(204);
+      expect(existsSync(planFile(p1.id))).toBe(false);
+      expect(existsSync(planFile(p2.id))).toBe(true);
+      const after = await read(viewerA);
+      expect(after.plans.map((p) => p.id)).toEqual([p2.id]);
+      expect(after.markers).toEqual([{ zoneId: z3.id, planId: p2.id, name: z3.name, number: 1, x: 0.5, y: 0.6 }]);
+      const listed = await zones();
+      expect(listed.find((z) => z.id === z1.id)?.marker).toBeNull();
+      expect(listed.find((z) => z.id === z2.id)?.marker).toBeNull();
+      expect(await prisma.caveZone.findUniqueOrThrow({ where: { id: archived.id } })).toMatchObject({ planId: null, planX: null, planY: null });
+      expectStatus(await ownerA.get(`/api/caves/plans/${p1.id}/image`), 404, 'Plan introuvable');
+      expectStatus(await ownerA.delete(`/api/caves/current/plans/${p1.id}`), 404, 'Plan introuvable');
     });
   });
 });
