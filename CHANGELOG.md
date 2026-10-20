@@ -11,6 +11,25 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.14.0](https://github.com/djkix/ma-cave/compare/v2.13.0...v2.14.0) (2026-10-20)
 
+### Résumé
+
+**Plusieurs plans par cave.** Dans « Ma cave › Réglages », la carte *Plans de
+la cave* présente des onglets « Plan principal · Cellier · + Ajouter un plan »
+(20 plans au plus). Chaque plan se renomme, change de photo ou se supprime ;
+supprimer un plan garde ses zones et leurs bouteilles, seuls les repères
+disparaissent. Les zones se créent comme avant en touchant le plan de l'onglet,
+avec des repères numérotés plan par plan. La fiche du vin et « À boire »
+montrent le plan de la zone avec son nom en légende.
+
+**Migration.** Le plan existant devient « Plan principal » avec ses repères ;
+les repères orphelins d'un plan retiré auparavant sont effacés. Lire « Passage
+à la 2.14.0 » dans le README avant la mise à jour : sauvegarde, requête de
+contrôle, et retour arrière par restauration (une image 2.13 ne tourne plus sur
+une base migrée).
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 

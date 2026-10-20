@@ -1284,6 +1284,14 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
 Le détail par version, avec le lien vers chaque commit, est dans
 [`CHANGELOG.md`](CHANGELOG.md) ; voici les versions publiées.
 
+### 2.14.0 — 20 octobre 2026
+
+Publiée ([v2.14.0](https://github.com/djkix/ma-cave/releases/tag/v2.14.0)),
+images `ghcr.io/djkix/ma-cave-api:2.14.0` et `-web:2.14.0`.
+
+**Plusieurs plans par cave** : onglets dans « Ma cave › Réglages », légende du
+plan sur la fiche vin. Migration automatique : lire « Passage à la 2.14.0 ».
+
 ### 2.13.0 — 18 octobre 2026
 
 Publiée ([v2.13.0](https://github.com/djkix/ma-cave/releases/tag/v2.13.0)),
