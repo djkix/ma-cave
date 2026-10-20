@@ -22,7 +22,7 @@ utilisée depuis un téléphone (PWA installable).
   également livré : emplacements dans la cave (zone / casier / position,
   déplacement, filtre) et cote iDealwine saisie à la main (le relevé
   automatique prévu au cahier des charges a été abandonné, voir *Limites*).
-  Depuis la 2.6.0 : page « Ma cave › Réglages » et zones de la cave (nom, indication,
+  Depuis la 2.6.0 : page « Ma cave » (réglages de la cave) et zones de la cave (nom, indication,
   photo, ordre). Depuis la 2.8.0 : plan de la cave avec le repère
   numéroté de chaque zone, montré sur la fiche et dans « À boire » ; depuis la
   2.14.0, jusqu'à 20 plans par cave.
@@ -56,15 +56,17 @@ elle, entre directement, sans validation. Un identifiant (vin, photo,
 mouvement, membre) d'une autre cave répond comme un identifiant inconnu (404),
 et une cave à laquelle le compte n'a pas accès répond « Cave introuvable ».
 
-**Ma cave › Réglages.** Depuis l'accueil ou *Mon compte*, le lien *Ma cave › Réglages* (page
-`/ma-cave`, propriétaire seulement ; l'ancienne adresse `/membres` y mène)
-regroupe, dans cet ordre, le **nom de la cave**, ses **plans**, ses **zones**
-et ses **membres**.
+**Ma cave.** Depuis l'accueil (lien *Ma cave › Réglages*) ou la carte *Ma cave* de
+*Mon compte*, la page `/ma-cave` (propriétaire seulement ; l'ancienne adresse
+`/membres` y mène) regroupe, dans cet ordre, le **nom de la cave**, ses
+**plans** (menu ⋯ : *Renommer*, *Remplacer la photo*, *Supprimer le plan*), ses
+**zones** (*Modifier* ouvre une feuille en bas d'écran), ses **membres** et la
+**sauvegarde Excel** de la cave.
 
 **Zones de la cave.** Une zone est un endroit de la cave où l'on range des
-bouteilles (« Cave 1 », « Garage »). Dans *Ma cave › Réglages*, le propriétaire en ajoute
+bouteilles (« Cave 1 », « Garage »). Dans *Ma cave*, le propriétaire en ajoute
 (*Ajouter une zone*), les range dans l'ordre voulu avec ↑ et ↓, les modifie
-(*Modifier*, dans la ligne) et les supprime (*Supprimer*, après confirmation).
+(*Modifier*, dans une feuille en bas d'écran) et les supprime (*Supprimer*, après confirmation).
 Chaque zone a :
 
 - un **nom**, de 1 à 40 caractères, unique dans la cave sans tenir compte de la
@@ -80,7 +82,7 @@ refusé tant que des bouteilles y sont rangées (« Des bouteilles sont encore
 rangées dans cette zone ») ; une zone qui a servi dans l'historique est
 **archivée** : elle disparaît de la liste et du choix de la zone, et
 l'historique garde son libellé ; une zone jamais utilisée est supprimée
-(*Ma cave › Réglages* affiche « Zone supprimée » ou « Zone archivée (elle reste dans
+(*Ma cave* affiche « Zone supprimée » ou « Zone archivée (elle reste dans
 l'historique) »). Si des bouteilles reviennent ensuite dans une zone archivée
 (annulation d'une sortie, inventaire en hausse à cet emplacement), la zone est
 rétablie en fin de liste ; si son nom a été repris par une autre zone, c'est
@@ -94,12 +96,12 @@ sans pouvoir les changer. API : `GET`, `POST /api/caves/current/zones`,
 
 **Plans de la cave.** Jusqu'à **20 plans** par cave, chacun avec son nom : une
 photo de la pièce, un schéma dessiné à la main, un étage, un cellier. Dans *Ma
-cave › Réglages*, la carte *Plans de la cave* (avant *Zones*) montre un onglet par
+cave*, la carte *Plans de la cave* (avant *Zones*) montre un onglet par
 plan et *+ Ajouter un plan* : on donne le *Nom du plan* (40 caractères au plus,
 unique dans la cave sans tenir compte de la casse), puis sa photo (réduite à
 2400 px par le téléphone avant l'envoi, 15 Mo au plus, redressée selon l'EXIF,
 ramenée à 2400 px sur le grand côté, en JPEG ; le téléphone propose de prendre
-une photo ou d'en choisir une dans la galerie). Sur l'onglet d'un plan :
+une photo ou d'en choisir une dans la galerie). Dans le menu ⋯ du plan :
 *Renommer*, *Remplacer la photo* (les repères restent à leur place) et
 *Supprimer le plan* (après confirmation). Sans plan, la carte explique :
 « Photographiez la pièce ou un schéma dessiné à la main, puis placez vos zones
@@ -126,7 +128,7 @@ photo de sa zone, le plan de la zone avec son repère mis en avant et, en légen
 le nom du plan) et dans **« À boire prochainement »** (un petit plan sous chaque
 en-tête d'une zone placée, avec son nom en légende, qui s'agrandit au toucher).
 Un membre en lecture seule voit les plans et les repères depuis la fiche et À
-boire (*Ma cave › Réglages* est réservée au propriétaire), sans rien pouvoir
+boire (*Ma cave* est réservée au propriétaire), sans rien pouvoir
 changer. API : `GET /api/caves/current/plans` (`{ plans: [{ id, name, width,
 height, updatedAt }], markers: [{ zoneId, planId, name, number, x, y }] }`, les
 plans par ordre de création), `POST /api/caves/current/plans` (`{ name }` ;
@@ -137,7 +139,7 @@ plans par ordre de création), `POST /api/caves/current/plans` (`{ name }` ;
 et de la hauteur entre 0 et 1, sinon « Position invalide sur le plan ») et
 `DELETE` ; chaque zone porte `marker: { planId, x, y } | null`.
 
-**Membres en lecture seule.** Dans *Ma cave › Réglages* (propriétaire seulement), la
+**Membres en lecture seule.** Dans *Ma cave* (propriétaire seulement), la
 section *Membres* liste les membres, invite une adresse Google (« Cette
 adresse est déjà membre » si elle l'est déjà), retire un membre (jamais le
 propriétaire) et renomme la cave (1 à 80 caractères). Un membre voit la cave
@@ -157,8 +159,9 @@ images des photos lui sont servies pour toutes les caves dont il est membre.
 
 **Sélecteur de cave.** Un compte qui a accès à plusieurs caves (la sienne et
 celles où il est invité) choisit la cave courante dans l'en-tête ; une cave
-en lecture seule porte la mention « (lecture) », et un badge « Lecture
-seule » rappelle le rôle courant. Le choix est gardé dans la session ; par
+en lecture seule se reconnaît à son menu (« <nom> · Lecture seule »), et un
+badge « Lecture seule » rappelle le rôle courant ; le membre invité est
+désigné « Lecture seule » partout dans l'application. Le choix est gardé dans la session ; par
 défaut, c'est la cave dont le compte est propriétaire, sinon sa plus ancienne
 invitation. Un compte actif qui n'a aucune cave (ni la sienne, ni une
 invitation) voit « Vous n’avez pas encore de cave. Un administrateur peut
@@ -239,7 +242,7 @@ décrit par une zone, un casier et une position (un seul des trois suffit ;
 rien vaut « Sans emplacement »), propre à la cave courante. La **zone** se
 choisit dans la liste des zones de la cave, dans leur ordre, ou « Sans zone » ;
 la zone choisie montre dessous son indication et sa vignette, et, tant que la
-cave n'a aucune zone, un lien *Créer une zone* mène à *Ma cave › Réglages*. Le **casier**
+cave n'a aucune zone, un lien *Créer une zone* mène à *Ma cave*. Le **casier**
 et la **position** restent du texte libre, avec les valeurs déjà utilisées en
 suggestion. Ce choix est proposé à l'entrée (unitaire et « À confirmer », bloc
 replié par défaut, pré-rempli avec le dernier emplacement d'entrée de la cave),
@@ -310,7 +313,7 @@ appel, quand la pause se termine ; une analyse de sortie échoue tout de suite
 avec le message « Gemini en pause jusqu'à HH:MM (motif) » et l'écran propose la
 recherche dans la cave ; les accords et descriptifs attendent la fin de la pause sans consommer de
 tentative, puis partent par lots ; la recherche d'image répond aussitôt par ce même message. La section
-*Consommation Gemini* de l'Administration montre, sur 7 ou 30 jours, les appels
+*Coûts de l'IA* de l'Administration (onglet *Coûts*) montre, sur 7 ou 30 jours, les appels
 par jour et par usage (réussis, refusés saturé ou quota, erreurs, coût), leurs
 totaux et la pause en cours. API : `GET /api/admin/gemini-usage?days=7` (1 à 90
 jours).
@@ -353,14 +356,25 @@ minute. API : `POST /api/wines/:id/image-search`, `GET
 /api/image-candidates/:id`, `POST`/`DELETE /api/wines/:id/reference-image`.
 
 **Mon compte.** L'icône en haut à droite de chaque écran ouvre « Mon compte »,
-ouvert à tout compte connecté : **installer l'application** sur le téléphone
-(bouton « Installer l'application » quand le navigateur le propose, sur
-Android ; sur iPhone, l'indication *Safari → Partager → Sur l'écran
-d'accueil*), **mes caves** (la sienne et celles où l'on est invité, avec
-« Afficher » pour en changer), **sauvegarde Excel** de la cave affichée
-(propriétaire seulement), lien vers l'Administration (administrateur), **numéro
-de version** et **« Se déconnecter »**. La version n'apparaît plus dans l'en-tête
-des écrans, seulement là et sur l'écran de connexion (avant de s'identifier).
+un **hub** ouvert à tout compte connecté, avec le profil (initiales, nom,
+e-mail) puis une carte par écran, chacune avec son résumé :
+
+- **Moi** (`/compte/moi`) : **mes caves** (la sienne et celles où l'on est
+  invité, avec « Afficher » pour en changer), **installer l'application** sur le
+  téléphone (bouton « Installer l'application » quand le navigateur le propose,
+  sur Android ; sur iPhone, l'indication *Safari → Partager → Sur l'écran
+  d'accueil*) et **« Se déconnecter »** ;
+- **Ma cave** (propriétaire seulement) : la page `/ma-cave` décrite plus haut,
+  sauvegarde Excel comprise ;
+- **Application** (administrateur seulement) : l'Administration, en trois
+  onglets (voir *Comptes et administration*), avec le nombre d'inscriptions en
+  attente ;
+- **À propos** (`/compte/a-propos`) : **numéro de version**, état de
+  l'installation et lien vers les **Règles de confidentialité**.
+
+L'écran « en attente » d'un compte non validé propose *Actualiser* pour
+revérifier sans se reconnecter. La version n'apparaît plus dans l'en-tête
+des écrans, seulement dans *À propos* et sur l'écran de connexion (avant de s'identifier).
 Une image publiée affiche son numéro (`1.0.0`) ; une image `latest` construite
 depuis `main` affiche ce numéro suivi de l'empreinte du commit
 (`1.0.0+ab12cd3`), pour ne jamais faire passer des changements non publiés pour
@@ -394,8 +408,7 @@ proposée. *Corriger* permet au propriétaire de la cave de fixer deux années,
 qui priment alors toujours sur les règles ; *Revenir à l'estimation* efface la
 correction. L'onglet *Cave* porte une mention courte par ligne (« À boire
 2024-2036 », « Trop jeune (2027) », « À boire vite », « Apogée passée »).
-Réservée aux administrateurs, l'**administration des règles** (espace
-Administration) permet de qualifier le millésime d'une région (grand / moyen /
+Réservée aux administrateurs, l'**administration des règles** (Administration, onglet *Données*) permet de qualifier le millésime d'une région (grand / moyen /
 faible) et d'ajuster la garde d'une appellation (pour toutes les couleurs ou
 une seule) ; les changements s'appliquent immédiatement partout, sur toutes
 les fiches concernées, dans toutes les caves.
@@ -426,8 +439,7 @@ endroits et leur quantité).
 
 **Mesure « zéro saisie ».** Chaque entrée par photo (en rafale, ou saisie à la
 main après une lecture impossible) garde la fiche telle qu'elle a été
-confirmée. L'espace
-Administration affiche, pour les administrateurs, la section *Qualité de la
+confirmée. L'Administration (onglet *Données*) affiche, pour les administrateurs, la section *Qualité de la
 lecture* : la part des champs corrigés à la main sur les 90 derniers jours
 (objectif du cahier des charges : moins de 15 %), avec le détail par champ
 (producteur, cuvée, appellation, millésime, couleur, format) pour voir lequel
@@ -581,18 +593,20 @@ et délai bornés.
 le compte reste **en attente** jusqu'à ce qu'un administrateur le valide. Les
 adresses de `ADMIN_EMAILS` sont actives et administratrices dès leur première
 connexion, et une adresse invitée par un propriétaire est active d'emblée,
-en lecture seule sur la cave qui l'a invitée. L'espace `/admin` (lien sur
-l'accueil) réunit, pour les administrateurs :
+en lecture seule sur la cave qui l'a invitée. L'espace `/admin` (carte *Application* de *Mon compte*) réunit, pour les
+administrateurs, trois onglets : *Comptes* (`/admin/comptes`, ouvert par défaut),
+*Coûts* (`/admin/couts`) et *Données* (`/admin/donnees`) :
 
-- **Inscriptions** (en tête) : les comptes en attente (nom, e-mail, date
+- *Comptes* — **Inscriptions** (en tête) : les comptes en attente (nom, e-mail, date
   d'inscription), avec *Valider* — le compte devient actif et reçoit sa cave,
   « Cave de {nom affiché ou e-mail} », dont il est propriétaire — et
   *Refuser* — le compte est bloqué.
-- **Comptes** : liste des comptes, blocage/réactivation,
-  promotion/retrait des droits d'administration, et *Créer sa cave* pour un
+- *Comptes* — **Comptes** : liste des comptes ; les actions sont dans un menu ⋯
+  par compte (blocage/réactivation, promotion/retrait des droits
+  d'administration, avec confirmation pour *Bloquer* et *Retirer les droits*, et *Créer sa cave*) pour un
   compte actif qui n'en a pas (un invité qui veut aussi sa propre cave, ou un
   administrateur). Un compte n'est propriétaire que d'une seule cave.
-- **Budget** : la dépense Gemini du mois et la **part maximale par cave**
+- *Coûts* — **Budget** (jauge de consommation) : la dépense Gemini du mois et la **part maximale par cave**
   (20 % du plafond mensuel `GEMINI_MONTHLY_CAP_CENTS` par défaut, réglable de
   0 à 100 %). Une cave qui a atteint sa part voit ses analyses reportées avec
   le motif « Part mensuelle de cette cave atteinte — reprise le mois
@@ -606,10 +620,14 @@ l'accueil) réunit, pour les administrateurs :
   prochain »).
   Les accords mets-vins et les descriptifs de domaine ne sont soumis à
   aucune part, seulement au plafond global.
-- **Qualité de la lecture** et **règles d'apogée** (voir plus haut).
+- *Coûts* — **Coûts de l'IA** : chiffres clés, barres empilées par jour et
+  repliable « Détail par jour » (voir *Consommation Gemini* plus haut).
+- *Données* — **Qualité de la lecture** et **règles d'apogée** (millésimes et
+  gardes ; l'ajustement d'une garde se fait dans une feuille en bas d'écran,
+  voir plus haut).
 
 Les **membres** d'une cave se gèrent, eux, par son propriétaire, depuis
-*Ma cave › Réglages* (voir *Membres en lecture seule*).
+*Ma cave* (voir *Membres en lecture seule*).
 
 `ADMIN_EMAILS` est un **plancher garanti, jamais un plafond** : une adresse qui
 y figure est administratrice même si la base dit le contraire (le propriétaire
@@ -789,8 +807,8 @@ pas dans `ADMIN_EMAILS` reste valable durablement, connexion après connexion.
 ADMIN_EMAILS=vous@gmail.com
 ```
 
-Une fois connecté avec cette adresse, l'espace **Administration** (lien sur
-l'accueil, ou `/admin`) valide ou refuse les inscriptions, liste tous les
+Une fois connecté avec cette adresse, l'espace **Administration** (carte
+*Application* de *Mon compte*, ou `/admin`) valide ou refuse les inscriptions, liste tous les
 comptes créés et permet de bloquer un compte indésirable, de le réactiver, de
 promouvoir/retirer d'autres administrateurs, de créer la cave d'un compte qui
 n'en a pas et de régler la part de budget par cave. Un administrateur ne peut
@@ -819,13 +837,13 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
    simplement (« La connexion n’a pas abouti », puis quoi faire). L'écran ne
    montre que Google : le compte de secours s'ouvre par
    <https://cave.example.org/login?secours>, et la page de confidentialité
-   (`/confidentialite`, publique pour Google) est liée depuis l'Administration.
+   (`/confidentialite`, publique pour Google) est liée depuis *Mon compte → À propos*.
 2. « Se connecter avec Google » puis rentrer une bouteille avec une vraie photo
    d'étiquette : la fiche doit arriver dans « À confirmer » en moins d'une
    minute.
 3. **Journal → Exporter le classeur** : la bouteille figure dans la feuille
    `Stock`.
-4. **Mon compte → Application sur le téléphone** : bouton « Installer
+4. **Mon compte → Moi → Installer l'application** : bouton « Installer
    l'application » sur Android, indication *Partager → Sur l'écran d'accueil*
    sur iPhone. L'icône est une niche voûtée en pierre claire où se tiennent
    trois bouteilles debout — Bordeaux, Champagne, Bourgogne
@@ -869,7 +887,7 @@ cd /opt/stacks/ma-cave && docker compose exec -T postgres sh -c 'pg_dump -U "$PO
 docker compose pull && docker compose up -d
 ```
 
-À l'écran : *Ma cave › Réglages* affiche *Plans de la cave* avec un onglet
+À l'écran : *Ma cave* affiche *Plans de la cave* avec un onglet
 « Plan principal » (les repères sont où ils étaient) et *+ Ajouter un plan* ;
 la fiche du vin et « À boire » indiquent le nom du plan. Seule donnée perdue :
 les repères d'une cave dont le plan avait été retiré (gardés jusqu'ici mais
@@ -919,7 +937,7 @@ done
 cd /opt/stacks/ma-cave && docker compose pull && docker compose up -d
 ```
 
-Vérifier ensuite la connexion, la version dans « Mon compte » et quelques
+Vérifier ensuite la connexion, la version dans « Mon compte → À propos » et quelques
 photos. La nouvelle stack apparaît d'elle-même dans Dockge (elle est dans
 `/opt/stacks`). Quand tout est bon, quelques jours plus tard, supprimer
 l'ancienne : `rm -rf /opt/stacks/cave-a-vin` puis
@@ -967,7 +985,7 @@ sont **converties automatiquement** : une zone par cave et par nom distinct
 (espaces autour et casse ignorés : « Cave 1 » et « cave 1 » deviennent une
 seule zone, sous l'une des graphies saisies), rangées par nom ; chaque
 bouteille garde le même emplacement et le même stock. Les indications et les
-photos se renseignent ensuite dans *Ma cave › Réglages*.
+photos se renseignent ensuite dans *Ma cave*.
 
 **Retour arrière** : seulement en restaurant cette sauvegarde (procédure du
 retour arrière de la 2.0.0), ce qui **perd tout ce qui a été saisi depuis la
@@ -1020,7 +1038,7 @@ votre adresse Google.
 administrateur n'existait : la cave a été créée sans propriétaire et votre
 compte en est devenu membre. Ajoutez `ADMIN_EMAILS=votre.adresse@gmail.com` au
 `.env`, relancez `docker compose up -d --force-recreate api worker`, puis
-reconnectez-vous avec Google (« Se déconnecter » dans Mon compte, ou
+reconnectez-vous avec Google (« Se déconnecter » dans Mon compte → Moi, ou
 directement `https://votre-domaine/api/auth/google`) : le premier
 administrateur qui se connecte reçoit la cave sans propriétaire.
 
