@@ -47,9 +47,9 @@ type Expected = { status: number; message?: string };
 type Ids = {
   caveA: string; caveB: string; wineA: string; wineA2: string; movementA: string; movementCancelA: string;
   photoA: string; photoDismissA: string; memberA: string; candidateA: string; producerKeyA: string;
-  pendingUser: string; noCaveUser: string; locationA: string; wineB: string; zoneA: string; zoneDeleteA: string;
+  pendingUser: string; noCaveUser: string; locationA: string; wineB: string; zoneA: string; zoneDeleteA: string; planA: string;
 };
-type Request = { url: string; body?: unknown; upload?: boolean };
+type Request = { url: string; body?: unknown; upload?: boolean; fields?: Record<string, string> };
 
 interface Route {
   method: Method;
@@ -198,27 +198,38 @@ const ROUTES: Route[] = [
     foreign: NOT_FOUND_ZONE, happy: { status: 200, check: (res) => expect(res.body.hasPhoto).toBe(false) },
   },
 
-  // ── Plan de la cave et repères des zones ────────────────────────────────────
+  // ── Plans de la cave et repères des zones ───────────────────────────────────
   // Lus (membre compris) avec le plan et le repère de A, puis repère déplacé et
-  // retiré, plan remplacé et retiré. B, sans plan : sa cave seulement.
+  // retiré, plan créé, renommé, remplacé et retiré. B, sans plan : sa cave seulement.
   {
-    method: 'GET', path: '/api/caves/current/plan', kind: 'cave-viewer-read', req: () => ({ url: '/api/caves/current/plan' }), foreign: 'own',
-    readable: (res, i) => expect(res.body).toEqual({ plan: { width: 120, height: 160, updatedAt: expect.any(String) }, markers: [{ zoneId: i.zoneA, name: 'Cave A', number: 1, x: 0.5, y: 0.5 }] }),
+    method: 'GET', path: '/api/caves/current/plans', kind: 'cave-viewer-read', req: () => ({ url: '/api/caves/current/plans' }), foreign: 'own',
+    readable: (res, i) => expect(res.body).toEqual({
+      plans: [{ id: i.planA, name: 'Plan A', width: 120, height: 160, updatedAt: expect.any(String) }],
+      markers: [{ zoneId: i.zoneA, planId: i.planA, name: 'Cave A', number: 1, x: 0.5, y: 0.5 }],
+    }),
   },
-  { method: 'GET', path: '/api/caves/plans/:caveId/image', kind: 'photo-image', req: (i) => ({ url: `/api/caves/plans/${i.caveA}/image` }), foreign: NOT_FOUND_PLAN, happy: { status: 200 } },
+  { method: 'GET', path: '/api/caves/plans/:planId/image', kind: 'photo-image', req: (i) => ({ url: `/api/caves/plans/${i.planA}/image` }), foreign: NOT_FOUND_PLAN, happy: { status: 200 } },
   {
-    method: 'PUT', path: '/api/caves/current/zones/:id/marker', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/zones/${i.zoneA}/marker`, body: { x: 0.25, y: 0.75 } }),
-    foreign: NOT_FOUND_ZONE, happy: { status: 200, check: (res) => expect(res.body.marker).toEqual({ x: 0.25, y: 0.75 }) },
+    method: 'PUT', path: '/api/caves/current/zones/:id/marker', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/zones/${i.zoneA}/marker`, body: { planId: i.planA, x: 0.25, y: 0.75 } }),
+    foreign: NOT_FOUND_ZONE, happy: { status: 200, check: (res, i) => expect(res.body.marker).toEqual({ planId: i.planA, x: 0.25, y: 0.75 }) },
   },
   {
     method: 'DELETE', path: '/api/caves/current/zones/:id/marker', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/zones/${i.zoneA}/marker` }),
     foreign: NOT_FOUND_ZONE, happy: { status: 200, check: (res) => expect(res.body.marker).toBeNull() },
   },
   {
-    method: 'PUT', path: '/api/caves/current/plan', kind: 'cave-owner', req: () => ({ url: '/api/caves/current/plan', upload: true }), foreign: 'own',
-    happy: { status: 200, check: (res) => expect(res.body).toEqual({ width: 120, height: 160, updatedAt: expect.any(String) }) },
+    method: 'POST', path: '/api/caves/current/plans', kind: 'cave-owner', req: () => ({ url: '/api/caves/current/plans', upload: true, fields: { name: 'Plan iso' } }), foreign: 'own',
+    happy: { status: 201, check: (res) => expect(res.body).toEqual({ id: expect.any(String), name: 'Plan iso', width: 120, height: 160, updatedAt: expect.any(String) }) },
   },
-  { method: 'DELETE', path: '/api/caves/current/plan', kind: 'cave-owner', req: () => ({ url: '/api/caves/current/plan' }), foreign: 'own', happy: { status: 204 } },
+  {
+    method: 'PATCH', path: '/api/caves/current/plans/:id', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/plans/${i.planA}`, body: { name: 'Renommé' } }),
+    foreign: NOT_FOUND_PLAN, happy: { status: 200, check: (res) => expect(res.body.name).toBe('Renommé') },
+  },
+  {
+    method: 'PUT', path: '/api/caves/current/plans/:id/image', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/plans/${i.planA}/image`, upload: true }),
+    foreign: NOT_FOUND_PLAN, happy: { status: 200, check: (res) => expect(res.body).toMatchObject({ width: 120, height: 160 }) },
+  },
+  { method: 'DELETE', path: '/api/caves/current/plans/:id', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/plans/${i.planA}` }), foreign: NOT_FOUND_PLAN, happy: { status: 204 } },
 
   // ── Propriétaire : photos, « À confirmer », suivi ───────────────────────────
   { method: 'POST', path: '/api/photos', kind: 'cave-owner', req: () => ({ url: '/api/photos', upload: true }), foreign: 'own', happy: { status: 202 } },
@@ -364,6 +375,7 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
     // Plan de A et photo de sa zone, sur disque (écrits plus bas avec les photos) ; la zone porte son repère sur ce plan.
     const planA = await prisma.cavePlan.create({ data: { caveId: ids.caveA, name: 'Plan A', path: `plans/${ids.caveA}.jpg`, width: 120, height: 160, updatedAt: new Date() } });
     await prisma.caveZone.update({ where: { id: ids.zoneA }, data: { photoPath: `zones/${ids.zoneA}.jpg`, planId: planA.id, planX: 0.5, planY: 0.5 } });
+    ids.planA = planA.id;
 
     // Photo d'entrée lue, sans mouvement : « À confirmer » de A, avec son image sur disque.
     const photo = (name: string) =>
@@ -417,9 +429,9 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
     return id;
   }
 
-  function send(agent: supertest.Agent, method: Method, { url, body, upload }: Request): supertest.Test {
+  function send(agent: supertest.Agent, method: Method, { url, body, upload, fields }: Request): supertest.Test {
     const req = { GET: agent.get, POST: agent.post, PUT: agent.put, PATCH: agent.patch, DELETE: agent.delete }[method].call(agent, url);
-    if (upload) return req.attach('file', jpeg, { filename: 'etiquette.jpg', contentType: 'image/jpeg' });
+    if (upload) return Object.entries(fields ?? {}).reduce((r, [k, v]) => r.field(k, v), req).attach('file', jpeg, { filename: 'etiquette.jpg', contentType: 'image/jpeg' });
     return body === undefined ? req : req.send(body as object);
   }
 
