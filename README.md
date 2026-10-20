@@ -112,8 +112,8 @@ d'ajout tant qu'il y a un plan (« Pour ajouter une zone, touchez un plan
 ci-dessus à son endroit. ») ; elle sert à compléter les zones (indication,
 photo, ordre, archive). Sans plan, on ajoute les zones dans la carte *Zones*
 comme avant. Toucher un repère montre sa zone (nom, indication), avec
-*Déplacer* (puis toucher le nouvel endroit, sur ce plan ou sur un autre onglet)
-et *Retirer le repère*. Une zone a au plus un repère, donc sur **un seul plan** ;
+*Déplacer* (puis toucher le nouvel endroit, sur ce plan ; pour changer de plan,
+*Retirer le repère* puis poser la zone depuis l'autre onglet) et *Retirer le repère*. Une zone a au plus un repère, donc sur **un seul plan** ;
 les repères sont **numérotés par plan, dans l'ordre d'affichage des zones** (1,
 2, 3… parmi les zones repérées sur ce plan : changer l'ordre des zones change
 les numéros), et une zone archivée n'apparaît jamais sur un plan (son repère
@@ -130,7 +130,7 @@ boire (*Ma cave › Réglages* est réservée au propriétaire), sans rien pouvo
 changer. API : `GET /api/caves/current/plans` (`{ plans: [{ id, name, width,
 height, updatedAt }], markers: [{ zoneId, planId, name, number, x, y }] }`, les
 plans par ordre de création), `POST /api/caves/current/plans` (`{ name }` ;
-« 20 plans au plus » au-delà, nom déjà pris refusé), `PATCH` (`{ name }`) et
+« 20 plans au plus par cave » au-delà, « Un plan porte déjà ce nom » si le nom est pris), `PATCH` (`{ name }`) et
 `DELETE /api/caves/current/plans/:id`, `PUT /api/caves/current/plans/:id/image`
 (champ `file`), `GET /api/caves/plans/:planId/image` (toute cave du compte), `PUT
 /api/caves/current/zones/:id/marker` (`{ planId, x, y }`, fractions de la largeur
@@ -854,7 +854,15 @@ image, taille), reprend le plan de chaque cave sous le nom **« Plan principal �
 zones à ce plan, puis **supprime les colonnes `plan_*` de `cave`**. Elle est
 appliquée toute seule au démarrage de l'api. **Faire une sauvegarde avant la
 mise à jour** (même commande qu'au passage à Ma Cave, fichier
-`backups/cave-avant-2.14.0.sql.gz`) :
+`backups/cave-avant-2.14.0.sql.gz`). **Vérifier d'abord** qu'aucune cave n'a un
+plan incomplet (la requête doit renvoyer 0 ligne, sinon corriger avant de
+migrer) :
+
+```bash
+cd /opt/stacks/ma-cave && docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, name FROM cave WHERE plan_path IS NOT NULL AND (plan_width IS NULL OR plan_height IS NULL OR plan_updated_at IS NULL);"'
+```
+
+Puis sauvegarder et mettre à jour :
 
 ```bash
 cd /opt/stacks/ma-cave && docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' | gzip > backups/cave-avant-2.14.0.sql.gz
@@ -867,7 +875,20 @@ la fiche du vin et « À boire » indiquent le nom du plan. Seule donnée perdue
 les repères d'une cave dont le plan avait été retiré (gardés jusqu'ici mais
 invisibles) sont effacés ; les zones, elles, restent. Les colonnes de `cave`
 disparaissant, **une image 2.13.x ne tourne plus sur la base migrée** : le
-retour arrière passe par la restauration de la sauvegarde.
+retour arrière passe par la restauration de la sauvegarde, comme au passage à la
+2.0.0 (« Retour arrière » plus bas) : arrêter l'api et le worker, vider le
+schéma, restaurer, puis **remettre `IMAGE_TAG=2.13.0` dans le `.env` avant de
+relancer** (sinon `latest` rejoue la migration) :
+
+```bash
+cd /opt/stacks/ma-cave && docker compose stop api worker
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
+gunzip -c backups/cave-avant-2.14.0.sql.gz | docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+docker compose up -d
+```
+
+Les images des plans créés après la mise à jour restent, inutilisées, sous
+`plans/` dans le volume `photo_data`.
 
 ### Passage à Ma Cave (anciennement « cave-a-vin »)
 

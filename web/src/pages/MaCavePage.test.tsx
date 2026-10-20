@@ -46,7 +46,7 @@ it('regroupe le nom de la cave, le plan, les zones puis les membres, sous le tit
   mount();
   expect(screen.getByRole('heading', { level: 1, name: 'Ma cave › Réglages' })).toBeInTheDocument();
   await screen.findByText('proprietaire@example.com');
-  const order = [screen.getByLabelText('Nom de la cave'), screen.getByRole('region', { name: 'Plan de la cave' }), screen.getByRole('region', { name: 'Zones' }), screen.getByRole('region', { name: 'Membres' })];
+  const order = [screen.getByLabelText('Nom de la cave'), screen.getByRole('region', { name: 'Plans de la cave' }), screen.getByRole('region', { name: 'Zones' }), screen.getByRole('region', { name: 'Membres' })];
   for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
@@ -297,7 +297,7 @@ describe('plan de la cave', () => {
   const withPlan = { plans: [main], markers: [m1] };
   const twoPlans = { plans: [main, cellier], markers: [m1, m3] };
   const twoPlaced: api.Zone[] = [placed[0], zones[1], { ...zones[2], marker: { planId: 'p2', x: 0.6, y: 0.4 } }];
-  const planCard = () => within(screen.getByRole('region', { name: 'Plan de la cave' }));
+  const planCard = () => within(screen.getByRole('region', { name: 'Plans de la cave' }));
   const tabs = () => within(planCard().getByRole('tablist', { name: 'Plans de la cave' }));
   /** Onglet nommé, une fois les plans lus. */
   const findTab = async (name: string) => within(await planCard().findByRole('tablist', { name: 'Plans de la cave' })).getByRole('tab', { name });
