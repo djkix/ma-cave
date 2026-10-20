@@ -11,7 +11,6 @@ import {
 } from '../lib/api-client';
 import { usePlans, useZones } from '../lib/locations';
 import { shrinkPhoto } from '../lib/shrink-photo';
-
 import { useCurrentCave } from '../lib/use-current-cave';
 
 /** Plus grand côté du plan envoyé : celui que garde l'api. */
@@ -333,7 +332,7 @@ function PlanCard() {
 
   return (
     <section className="card" aria-labelledby={titleId} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-      <h2 id={titleId} style={{ fontSize: 18, margin: 0 }}>Plan de la cave</h2>
+      <h2 id={titleId} style={{ fontSize: 18, margin: 0 }}>Plans de la cave</h2>
       {query.isError && <p role="alert" className="text-error">{(query.error as Error).message}</p>}
       {query.isSuccess && plans.length === 0 && (
         <p className="list__meta" style={{ margin: 0 }}>Photographiez la pièce ou un schéma dessiné à la main, puis placez vos zones dessus.</p>
