@@ -298,3 +298,12 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 .nav-card__text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .nav-card__title { font: 500 18px var(--font-serif); color: var(--color-primary); }
 .nav-card:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
+
+/* Coûts de l'IA : barres verticales empilées par jour, une couleur par usage. */
+.usage-chart { display: flex; align-items: stretch; gap: 2px; height: 120px; margin-top: var(--space-md); }
+.usage-chart__col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.usage-chart__bar { flex: 1; width: 100%; max-width: 32px; display: flex; flex-direction: column-reverse; overflow: hidden; border-radius: 2px 2px 0 0; }
+.usage-chart__seg { display: block; flex-shrink: 0; }
+.usage-chart .histo__label { white-space: nowrap; }
+.usage-legend { list-style: none; margin: var(--space-xs) 0 var(--space-sm); padding: 0; display: flex; flex-wrap: wrap; gap: 2px var(--space-sm); }
+.usage-legend .histo__key { margin-right: 4px; }
