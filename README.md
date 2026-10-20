@@ -313,7 +313,7 @@ appel, quand la pause se termine ; une analyse de sortie échoue tout de suite
 avec le message « Gemini en pause jusqu'à HH:MM (motif) » et l'écran propose la
 recherche dans la cave ; les accords et descriptifs attendent la fin de la pause sans consommer de
 tentative, puis partent par lots ; la recherche d'image répond aussitôt par ce même message. La section
-*Coûts de l'IA* de l'Administration (onglet *Coûts*) montre, sur 7 ou 30 jours, les appels
+*Consommation Gemini* de l'onglet *Coûts de l’IA* de l'Administration montre, sur 7 ou 30 jours, les appels
 par jour et par usage (réussis, refusés saturé ou quota, erreurs, coût), leurs
 totaux et la pause en cours. API : `GET /api/admin/gemini-usage?days=7` (1 à 90
 jours).
@@ -368,7 +368,8 @@ e-mail) puis une carte par écran, chacune avec son résumé :
   sauvegarde Excel comprise ;
 - **Application** (administrateur seulement) : l'Administration, en trois
   onglets (voir *Comptes et administration*), avec le nombre d'inscriptions en
-  attente ;
+  attente (la page d'accueil garde aussi un lien *Administration* pour les
+  administrateurs) ;
 - **À propos** (`/compte/a-propos`) : **numéro de version**, état de
   l'installation et lien vers les **Règles de confidentialité**.
 
@@ -408,7 +409,7 @@ proposée. *Corriger* permet au propriétaire de la cave de fixer deux années,
 qui priment alors toujours sur les règles ; *Revenir à l'estimation* efface la
 correction. L'onglet *Cave* porte une mention courte par ligne (« À boire
 2024-2036 », « Trop jeune (2027) », « À boire vite », « Apogée passée »).
-Réservée aux administrateurs, l'**administration des règles** (Administration, onglet *Données*) permet de qualifier le millésime d'une région (grand / moyen /
+Réservée aux administrateurs, l'**administration des règles** (Administration, onglet *Données du vin*) permet de qualifier le millésime d'une région (grand / moyen /
 faible) et d'ajuster la garde d'une appellation (pour toutes les couleurs ou
 une seule) ; les changements s'appliquent immédiatement partout, sur toutes
 les fiches concernées, dans toutes les caves.
@@ -439,7 +440,7 @@ endroits et leur quantité).
 
 **Mesure « zéro saisie ».** Chaque entrée par photo (en rafale, ou saisie à la
 main après une lecture impossible) garde la fiche telle qu'elle a été
-confirmée. L'Administration (onglet *Données*) affiche, pour les administrateurs, la section *Qualité de la
+confirmée. L'Administration (onglet *Données du vin*) affiche, pour les administrateurs, la section *Qualité de la
 lecture* : la part des champs corrigés à la main sur les 90 derniers jours
 (objectif du cahier des charges : moins de 15 %), avec le détail par champ
 (producteur, cuvée, appellation, millésime, couleur, format) pour voir lequel
@@ -595,7 +596,7 @@ adresses de `ADMIN_EMAILS` sont actives et administratrices dès leur première
 connexion, et une adresse invitée par un propriétaire est active d'emblée,
 en lecture seule sur la cave qui l'a invitée. L'espace `/admin` (carte *Application* de *Mon compte*) réunit, pour les
 administrateurs, trois onglets : *Comptes* (`/admin/comptes`, ouvert par défaut),
-*Coûts* (`/admin/couts`) et *Données* (`/admin/donnees`) :
+*Coûts de l’IA* (`/admin/couts`) et *Données du vin* (`/admin/donnees`) :
 
 - *Comptes* — **Inscriptions** (en tête) : les comptes en attente (nom, e-mail, date
   d'inscription), avec *Valider* — le compte devient actif et reçoit sa cave,
@@ -606,7 +607,7 @@ administrateurs, trois onglets : *Comptes* (`/admin/comptes`, ouvert par défaut
   d'administration, avec confirmation pour *Bloquer* et *Retirer les droits*, et *Créer sa cave*) pour un
   compte actif qui n'en a pas (un invité qui veut aussi sa propre cave, ou un
   administrateur). Un compte n'est propriétaire que d'une seule cave.
-- *Coûts* — **Budget** (jauge de consommation) : la dépense Gemini du mois et la **part maximale par cave**
+- *Coûts de l’IA* — **Budget** (jauge de consommation) : la dépense Gemini du mois et la **part maximale par cave**
   (20 % du plafond mensuel `GEMINI_MONTHLY_CAP_CENTS` par défaut, réglable de
   0 à 100 %). Une cave qui a atteint sa part voit ses analyses reportées avec
   le motif « Part mensuelle de cette cave atteinte — reprise le mois
@@ -620,9 +621,9 @@ administrateurs, trois onglets : *Comptes* (`/admin/comptes`, ouvert par défaut
   prochain »).
   Les accords mets-vins et les descriptifs de domaine ne sont soumis à
   aucune part, seulement au plafond global.
-- *Coûts* — **Coûts de l'IA** : chiffres clés, barres empilées par jour et
+- *Coûts de l’IA* — **Consommation Gemini** : chiffres clés, barres empilées par jour et
   repliable « Détail par jour » (voir *Consommation Gemini* plus haut).
-- *Données* — **Qualité de la lecture** et **règles d'apogée** (millésimes et
+- *Données du vin* — **Qualité de la lecture** et **règles d'apogée** (millésimes et
   gardes ; l'ajustement d'une garde se fait dans une feuille en bas d'écran,
   voir plus haut).
 

@@ -308,6 +308,6 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 .usage-chart__seg + .usage-chart__seg { border-bottom: 1px solid var(--color-surface-lowest); }
 /* Hauteur fixe, étiquette vide comprise : toutes les barres partagent la même hauteur utile. */
 .usage-chart__label { height: 15px; line-height: 15px; white-space: nowrap; }
-.usage-details__summary { display: flex; align-items: center; min-height: var(--size-touch-target); cursor: pointer; }
+.usage-details__summary { display: list-item; min-height: var(--size-touch-target); line-height: var(--size-touch-target); cursor: pointer; }
 .usage-legend { list-style: none; margin: var(--space-xs) 0 var(--space-sm); padding: 0; display: flex; flex-wrap: wrap; gap: 2px var(--space-sm); }
 .usage-legend .histo__key { margin-right: 4px; }

@@ -111,11 +111,13 @@ function ZoneForm({ label, initial, submitLabel, busy, onSubmit, onCancel, idPre
   );
 }
 
-function ZoneRow({ zone, index, count, busy, error, photoVersion, onMove, onAction, onPhotoChanged }: {
+function ZoneRow({ zone, index, count, busy, error, photoVersion, onMove, onAction, onPhotoChanged, onEdit }: {
   zone: Zone; index: number; count: number; busy: boolean; photoVersion?: number;
   /** Refus de l'api, repris dans la feuille « Modifier » qui masque la carte. */
   error: string | null;
   onMove: (delta: -1 | 1) => void; onPhotoChanged: () => void;
+  /** Ouverture de « Modifier » : efface l'ancien refus, pour qu'il ne reparaisse pas dans la feuille. */
+  onEdit: () => void;
   /** `run` peut rendre un message d'état à annoncer (« Zone supprimée »). */
   onAction: (run: () => Promise<unknown>, after?: () => void) => void;
 }) {
@@ -140,7 +142,7 @@ function ZoneRow({ zone, index, count, busy, error, photoVersion, onMove, onActi
       </div>
       <ZoneDetails key={photoVersion} zone={zone} version={photoVersion} />
       <div className="zone-row__actions">
-        <Button variant="link" disabled={busy} onClick={() => setEditing(true)}>Modifier</Button>
+        <Button variant="link" disabled={busy} onClick={() => { onEdit(); setEditing(true); }}>Modifier</Button>
         <Button variant="link" disabled={busy} onClick={confirmDelete}>Supprimer</Button>
       </div>
       <BottomSheet open={editing} title={`Modifier ${zone.name}`} onClose={() => setEditing(false)}>
@@ -210,7 +212,7 @@ function ZonesCard() {
         <ul className="zone-list">
           {list.map((z, i) => (
             <ZoneRow key={z.id} zone={z} index={i} count={list.length} busy={busy} error={error} photoVersion={versions[z.id]}
-              onMove={(d) => move(i, d)} onAction={(run, after) => void act(run, after)}
+              onEdit={() => setError(null)} onMove={(d) => move(i, d)} onAction={(run, after) => void act(run, after)}
               onPhotoChanged={() => setVersions((v) => ({ ...v, [z.id]: Date.now() }))} />
           ))}
         </ul>
@@ -352,7 +354,7 @@ function PlanCard() {
           </div>
           {plan && (
             <ActionMenu label={`Actions du plan ${plan.name}`} items={[
-              { label: 'Renommer', disabled: busy, onSelect: () => { setMode({ kind: 'idle' }); setRenaming(plan.name); } },
+              { label: 'Renommer', disabled: busy, onSelect: () => { setMode({ kind: 'idle' }); setError(null); setRenaming(plan.name); } },
               { label: 'Remplacer la photo', disabled: busy, onSelect: () => photoRef.current?.click() },
               { label: 'Supprimer le plan', disabled: busy, onSelect: () => confirmDelete(plan.id, plan.name) },
             ]} />
@@ -465,7 +467,7 @@ export function MaCavePage() {
 
   return (
     <>
-      <TopBar title="Ma cave › Réglages" back="/" />
+      <TopBar title="Ma cave" back="/compte" />
       <main className="page">
         <RenameCard />
 

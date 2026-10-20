@@ -47,10 +47,11 @@ const rowOf = (email: string) => screen.getByText(email).closest<HTMLElement>('.
 const zonesCard = () => within(screen.getByRole('region', { name: 'Zones' }));
 const zoneRow = (name: string) => within(zonesCard().getByRole('listitem', { name }));
 
-it('regroupe le nom de la cave, le plan, les zones, les membres puis la sauvegarde, sous le titre « Ma cave › Réglages »', async () => {
+it('regroupe le nom de la cave, le plan, les zones, les membres puis la sauvegarde, sous le titre « Ma cave », retour vers Mon compte', async () => {
   vi.spyOn(api, 'getMembers').mockResolvedValue(members);
   mount();
-  expect(screen.getByRole('heading', { level: 1, name: 'Ma cave › Réglages' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 1, name: 'Ma cave' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /retour/i })).toHaveAttribute('href', '/compte');
   await screen.findByText('franck@example.com');
   const order = [screen.getByLabelText('Nom de la cave'), screen.getByRole('region', { name: 'Plans de la cave' }), screen.getByRole('region', { name: 'Zones' }), screen.getByRole('region', { name: 'Membres' }), screen.getByRole('region', { name: 'Sauvegarde' })];
   for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -149,6 +150,20 @@ describe('zones', () => {
     await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
     await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { name: 'Cellier du bas', indication: null }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Modifier Cellier' })).not.toBeInTheDocument());
+  });
+
+  it('« Modifier » : le refus de l’api s’affiche dans la feuille, et ne revient pas à la réouverture', async () => {
+    vi.spyOn(api, 'getZones').mockResolvedValue(zones);
+    vi.spyOn(api, 'updateZone').mockRejectedValue(new api.ApiError(409, 'Une zone porte déjà ce nom'));
+    mount();
+    await zonesCard().findByText('Cellier');
+    await userEvent.click(zoneRow('Cellier').getByRole('button', { name: 'Modifier' }));
+    const sheet = within(screen.getByRole('dialog', { name: 'Modifier Cellier' }));
+    await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
+    expect(await sheet.findByRole('alert')).toHaveTextContent('Une zone porte déjà ce nom');
+    await userEvent.click(sheet.getByRole('button', { name: 'Annuler' }));
+    await userEvent.click(zoneRow('Cellier').getByRole('button', { name: 'Modifier' }));
+    expect(within(screen.getByRole('dialog', { name: 'Modifier Cellier' })).queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('« Modifier » puis « Annuler » ferme la feuille sans appel', async () => {

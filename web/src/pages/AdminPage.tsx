@@ -123,14 +123,14 @@ export function AdminPage() {
         {me.data && !isAdmin && <p className="centered">Réservé à l’administrateur.</p>}
         {me.data?.isAdmin && (
           <>
-            <div role="tablist" aria-label="Administration" className="plan-tabs">
+            <nav aria-label="Administration" className="plan-tabs">
               {TABS.map((t) => (
                 <Link key={t.id} to={`/admin/${t.id}`} className="plan-tabs__tab" aria-current={t.id === tab ? 'page' : undefined}>
                   {t.label}
                   {t.id === 'comptes' && !!regs.data?.length && <span className="badge badge--warn">{regs.data.length}</span>}
                 </Link>
               ))}
-            </div>
+            </nav>
             {tab === 'comptes' && (
               <>
                 <RegistrationsSection />
