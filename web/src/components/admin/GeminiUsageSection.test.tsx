@@ -134,3 +134,24 @@ it('le détail par jour est replié dans un <details>', async () => {
   expect(details).not.toHaveAttribute('open');
   expect(within(details).getByText('Détail par jour').tagName).toBe('SUMMARY');
 });
+
+it('30 jours : chaque colonne garde sa ligne d’étiquette, même vide, pour des barres comparables', async () => {
+  const rows = Array.from({ length: 9 }, (_, i) => (
+    { day: `2026-10-${String(10 + i)}`, usage: 'ACCORDS' as const, ok: 2, refused503: 0, refused429: 0, errors: 0, costCents: 1 }
+  ));
+  vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage({ rows, totals: { ok: 18, refused: 0, errors: 0, costCents: 9 } }));
+  mount();
+  const bars = await screen.findAllByRole('img');
+  expect(bars).toHaveLength(9);
+  const labels = bars.map((b) => b.parentElement!.querySelector('.usage-chart__label')!);
+  expect(labels.every(Boolean)).toBe(true);
+  expect(labels.filter((l) => l.textContent === '')).not.toHaveLength(0);
+  expect(new Set(bars.map((b) => segments(b)[0].style.height))).toEqual(new Set(['100%']));
+});
+
+it('« Détail par jour » : résumé en cible tactile', async () => {
+  vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage());
+  mount();
+  await screen.findByRole('table');
+  expect(screen.getByText('Détail par jour')).toHaveClass('usage-details__summary');
+});

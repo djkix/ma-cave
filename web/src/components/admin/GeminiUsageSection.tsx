@@ -64,7 +64,7 @@ function DailyChart({ rows }: { rows: GeminiUsageRow[] }) {
                 return n > 0 && <span key={u} className="usage-chart__seg" style={{ height: `${+((n / max) * 100).toFixed(2)}%`, background: USAGE_COLOR[u] }} />;
               })}
             </span>
-            <span className="histo__label" aria-hidden="true">{i % every === 0 ? shortDay(day) : ''}</span>
+            <span className="histo__label usage-chart__label" aria-hidden="true">{i % every === 0 ? shortDay(day) : ''}</span>
           </div>
         ))}
       </div>
@@ -122,7 +122,7 @@ export function GeminiUsageSection() {
           <KeyFigures totals={d.totals} />
           <DailyChart rows={d.rows} />
           <details>
-            <summary style={{ cursor: 'pointer' }}>Détail par jour</summary>
+            <summary className="usage-details__summary">Détail par jour</summary>
             {/* Sept colonnes : défilement horizontal dans la carte à 375 px, jamais de la page. */}
             <div style={{ overflowX: 'auto', marginTop: 'var(--space-sm)' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
