@@ -9,6 +9,7 @@ export function ActionMenu({ label, items }: { label: string; items: { label: st
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
+  const pressed = useRef(false);
   const listId = useId();
 
   useEffect(() => {
@@ -24,8 +25,16 @@ export function ActionMenu({ label, items }: { label: string; items: { label: st
   }, [open]);
 
   return (
-    <div ref={root} className="action-menu" onBlur={(e) => { // relatedTarget nul (Safari ne focalise pas un bouton cliqué) : on ne ferme pas, le clic extérieur s'en charge.
-      if (open && e.relatedTarget && !root.current?.contains(e.relatedTarget as Node)) setOpen(false); }}>
+    <div
+      ref={root}
+      className="action-menu"
+      onPointerDown={() => { pressed.current = true; }}
+      onPointerUp={() => { pressed.current = false; }}
+      onBlur={(e) => {
+        // Clic dans le menu : Safari ne focalise pas le bouton cliqué (relatedTarget nul), on ne ferme pas.
+        if (open && !pressed.current && !root.current?.contains(e.relatedTarget as Node | null)) setOpen(false);
+      }}
+    >
       <button ref={button} type="button" className="action-menu__button" aria-label={label} aria-expanded={open} aria-controls={open ? listId : undefined} onClick={() => setOpen((o) => !o)}>⋯</button>
       {open && (
         <div id={listId} className="action-menu__list">
