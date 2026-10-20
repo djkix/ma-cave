@@ -6,15 +6,17 @@ import { ZoneDetails } from '../components/LocationFields';
 import { PlanView } from '../components/PlanView';
 import { TopBar } from '../components/TopBar';
 import {
-  createZone, deleteZone, getMembers, inviteMember, MemberView, planImageUrl, removeMember, removePlan, removeZoneMarker, removeZonePhoto, renameCave,
-  reorderZones, setZoneMarker, updateZone, uploadPlan, uploadZonePhoto, Zone,
+  createPlan, createZone, deletePlan, deleteZone, getMembers, inviteMember, MemberView, planImageUrl, removeMember, removeZoneMarker, removeZonePhoto,
+  renameCave, renamePlan, reorderZones, replacePlanImage, setZoneMarker, updateZone, uploadZonePhoto, Zone,
 } from '../lib/api-client';
-import { usePlan, useZones } from '../lib/locations';
+import { usePlans, useZones } from '../lib/locations';
 import { shrinkPhoto } from '../lib/shrink-photo';
+
+import { useCurrentCave } from '../lib/use-current-cave';
 
 /** Plus grand côté du plan envoyé : celui que garde l'api. */
 const PLAN_MAX_SIDE = 2400;
-import { useCurrentCave } from '../lib/use-current-cave';
+const PLAN_NAME_MAX = 40;
 
 const NAME_MAX = 80;
 const NAME_ERROR = 'Le nom de la cave doit faire de 1 à 80 caractères';
@@ -159,8 +161,8 @@ function ZoneRow({ zone, index, count, busy, photoVersion, onMove, onAction, onP
 function ZonesCard() {
   const qc = useQueryClient();
   const zones = useZones();
-  // Avec un plan, une zone naît d'un toucher sur le plan (PlanCard) : pas de second formulaire d'ajout ici.
-  const hasPlan = !!usePlan().data?.plan;
+  // Avec un plan, une zone naît d'un toucher sur un plan (PlanCard) : pas de second formulaire d'ajout ici.
+  const hasPlan = !!usePlans().data?.plans.length;
   const titleId = useId();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -184,7 +186,7 @@ function ZonesCard() {
     } finally {
       setBusy(false);
       // Zones et libellés (emplacements, fiches, cave) suivent un renommage ou un nouvel ordre.
-      void qc.invalidateQueries({ predicate: (q) => ['zones', 'plan', 'locations', 'wine', 'cave', 'movements'].includes(String(q.queryKey[0])) });
+      void qc.invalidateQueries({ predicate: (q) => ['zones', 'plans', 'locations', 'wine', 'cave', 'movements'].includes(String(q.queryKey[0])) });
     }
   }
 
@@ -213,7 +215,7 @@ function ZonesCard() {
       {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
       {status && <p role="status" className="list__meta" style={{ margin: 0 }}>{status}</p>}
       {hasPlan ? (
-        <p className="list__meta" style={{ margin: 0 }}>Pour ajouter une zone, touchez le plan ci-dessus à son endroit.</p>
+        <p className="list__meta" style={{ margin: 0 }}>Pour ajouter une zone, touchez un plan ci-dessus à son endroit.</p>
       ) : (
         <ZoneForm key={addKey} label="Ajouter une zone" idPrefix={`${titleId}-new`} initial={{ name: '', indication: '' }} submitLabel="Ajouter une zone" busy={busy}
           onSubmit={(v) => void act(() => createZone(v), () => setAddKey((k) => k + 1))} />
@@ -226,27 +228,34 @@ function ZonesCard() {
 type PlanMode = { kind: 'idle' } | { kind: 'pending'; x: number; y: number } | { kind: 'selected'; zoneId: string } | { kind: 'moving'; zoneId: string; x: number; y: number };
 
 /**
- * Plan de la cave : envoyer, remplacer ou retirer l'image, puis y créer les
- * zones. Toucher le plan pose un « + » et demande le nom de l'endroit : la zone
- * est créée avec son repère (ou on choisit une zone existante encore sans
- * repère). Toucher un repère montre sa zone, avec « Déplacer » et « Retirer le
- * repère ». Erreurs de l'api telles quelles.
+ * Plans de la cave, en onglets : en ajouter un (nom puis photo), renommer,
+ * remplacer la photo ou supprimer le plan affiché, puis y créer les zones.
+ * Toucher le plan pose un « + » et demande le nom de l'endroit : la zone est
+ * créée avec son repère sur ce plan (ou on choisit une zone existante encore
+ * sans repère). Toucher un repère montre sa zone, avec « Déplacer » et
+ * « Retirer le repère ». Erreurs de l'api telles quelles.
  */
 function PlanCard() {
   const qc = useQueryClient();
-  const { caveId } = useCurrentCave();
-  const query = usePlan();
+  const query = usePlans();
   const zones = useZones();
   const titleId = useId();
   const inputId = useId();
   const planRef = useRef<HTMLSpanElement>(null);
+  // Onglet choisi : id d'un plan, ou « new » pour l'ajout.
+  const [tab, setTab] = useState('');
   const [mode, setMode] = useState<PlanMode>({ kind: 'idle' });
   const [newName, setNewName] = useState('');
+  const [planName, setPlanName] = useState('');
+  const [renaming, setRenaming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const plan = query.data?.plan ?? null;
-  const markers = query.data?.markers ?? [];
+  const plans = query.data?.plans ?? [];
+  // Plan affiché : celui de l'onglet, sinon le premier (premier affichage, plan supprimé).
+  const plan = tab === 'new' ? null : plans.find((p) => p.id === tab) ?? plans[0] ?? null;
+  const adding = query.isSuccess && !plan;
+  const markers = (query.data?.markers ?? []).filter((m) => m.planId === plan?.id);
   const list = zones.data ?? [];
 
   async function act(run: () => Promise<unknown>, done?: string) {
@@ -261,36 +270,58 @@ function PlanCard() {
       setError(e instanceof Error ? e.message : 'Action impossible');
     } finally {
       setBusy(false);
-      void qc.invalidateQueries({ predicate: (q) => ['plan', 'zones'].includes(String(q.queryKey[0])) });
+      void qc.invalidateQueries({ predicate: (q) => ['plans', 'zones'].includes(String(q.queryKey[0])) });
     }
   }
 
-  function pick(e: ChangeEvent<HTMLInputElement>) {
+  function choose(id: string) {
+    setTab(id);
+    setMode({ kind: 'idle' });
+    setRenaming(null);
+    setError(null);
+    setStatus(null);
+  }
+
+  /** Fichier choisi, réduit à 2400 px (ce que garde l'api, plus fin qu'une photo d'étiquette) ; l'original si la réduction échoue. */
+  function picked(e: ChangeEvent<HTMLInputElement>, send: (file: File | Blob) => Promise<unknown>) {
     const file = e.target.files?.[0];
     e.target.value = '';
-    // Réduit à 2400 px (ce que garde l'api, plus fin qu'une photo d'étiquette) ; l'original si la réduction échoue.
-    if (file) void act(async () => uploadPlan(await shrinkPhoto(file, PLAN_MAX_SIDE)));
+    if (file) void act(async () => send(await shrinkPhoto(file, PLAN_MAX_SIDE)));
   }
 
-  function confirmRemove() {
-    if (window.confirm('Retirer le plan de la cave ? Les repères des zones sont gardés.')) void act(removePlan, 'Plan retiré. Les repères des zones sont gardés.');
+  function add(e: ChangeEvent<HTMLInputElement>) {
+    const name = planName.trim();
+    picked(e, async (file) => {
+      setTab((await createPlan(name, file)).id);
+      setPlanName('');
+    });
   }
 
-  function tap(x: number, y: number) {
+  function rename(e: FormEvent, id: string) {
+    e.preventDefault();
+    const name = renaming?.trim();
+    if (name) void act(async () => { await renamePlan(id, name); setRenaming(null); });
+  }
+
+  function confirmDelete(id: string, name: string) {
+    if (window.confirm(`Supprimer le plan « ${name} » ? Les zones et leurs bouteilles sont gardées.`)) void act(() => deletePlan(id), `Plan « ${name} » supprimé.`);
+  }
+
+  function tap(planId: string, x: number, y: number) {
     if (busy) return;
-    if (mode.kind === 'moving') void act(() => setZoneMarker(mode.zoneId, x, y));
+    if (mode.kind === 'moving') void act(() => setZoneMarker(mode.zoneId, planId, x, y));
     else {
       if (mode.kind !== 'pending') setNewName('');
       setMode({ kind: 'pending', x, y });
     }
   }
 
-  function createHere(e: FormEvent, x: number, y: number) {
+  function createHere(e: FormEvent, planId: string, x: number, y: number) {
     e.preventDefault();
     const name = newName.trim();
     if (!name) return;
     // ponytail: deux appels ; si le repère échoue, la zone reste sans repère et revient en raccourci au prochain toucher.
-    void act(async () => setZoneMarker((await createZone({ name })).id, x, y), `Zone « ${name} » ajoutée.`);
+    void act(async () => setZoneMarker((await createZone({ name })).id, planId, x, y), `Zone « ${name} » ajoutée.`);
   }
 
   function startMoving(zone: Zone) {
@@ -304,21 +335,39 @@ function PlanCard() {
     <section className="card" aria-labelledby={titleId} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
       <h2 id={titleId} style={{ fontSize: 18, margin: 0 }}>Plan de la cave</h2>
       {query.isError && <p role="alert" className="text-error">{(query.error as Error).message}</p>}
-      {query.isSuccess && !plan && (
+      {query.isSuccess && plans.length === 0 && (
         <p className="list__meta" style={{ margin: 0 }}>Photographiez la pièce ou un schéma dessiné à la main, puis placez vos zones dessus.</p>
       )}
-      {plan && caveId && (
+      {query.isSuccess && (
+        <div role="tablist" aria-label="Plans de la cave" className="plan-tabs">
+          {plans.map((p) => (
+            <button key={p.id} type="button" role="tab" className="plan-tabs__tab" aria-selected={p.id === plan?.id} onClick={() => choose(p.id)}>{p.name}</button>
+          ))}
+          <button type="button" role="tab" className="plan-tabs__tab" aria-selected={adding} onClick={() => choose('new')}>+ Ajouter un plan</button>
+        </div>
+      )}
+      {adding && (
+        <div className="zone-form">
+          <label className="field__label" htmlFor={`${inputId}-new-name`}>Nom du plan</label>
+          <input id={`${inputId}-new-name`} value={planName} maxLength={PLAN_NAME_MAX} autoComplete="off" placeholder="Plan principal, cellier, garage…"
+            onChange={(e) => setPlanName(e.target.value)} />
+          <label className="field__label" htmlFor={`${inputId}-new-photo`}>Photo du plan</label>
+          <input id={`${inputId}-new-photo`} type="file" accept="image/*" disabled={busy || !planName.trim()} onChange={add} />
+        </div>
+      )}
+      {plan && (
         <>
           {mode.kind === 'idle' && <p className="list__meta" style={{ margin: 0 }}>Touchez le plan à l’endroit où vous rangez des bouteilles, puis nommez-le.</p>}
-          <PlanView src={planImageUrl(caveId, plan.updatedAt)} plan={plan} markers={markers}
-            pending={mode.kind === 'pending' || mode.kind === 'moving' ? { x: mode.x, y: mode.y } : null} highlightZoneId={selected?.id} onPlanClick={tap} planRef={planRef}
+          <PlanView src={planImageUrl(plan.id, plan.updatedAt)} plan={plan} markers={markers}
+            pending={mode.kind === 'pending' || mode.kind === 'moving' ? { x: mode.x, y: mode.y } : null} highlightZoneId={selected?.id}
+            onPlanClick={(x, y) => tap(plan.id, x, y)} planRef={planRef}
             onMarkerClick={mode.kind === 'moving' ? undefined : (zoneId) => setMode({ kind: 'selected', zoneId })}
             onPendingMove={(x, y) => setMode((m) => (m.kind === 'pending' || m.kind === 'moving' ? { ...m, x, y } : m))} onCancel={() => setMode({ kind: 'idle' })} />
         </>
       )}
-      {mode.kind === 'pending' && (
+      {plan && mode.kind === 'pending' && (
         <div role="group" aria-label="Nommer cet endroit" className="plan-chooser">
-          <form className="zone-form" aria-label="Nouvelle zone" onSubmit={(e) => createHere(e, mode.x, mode.y)}>
+          <form className="zone-form" aria-label="Nouvelle zone" onSubmit={(e) => createHere(e, plan.id, mode.x, mode.y)}>
             <label className="field__label" htmlFor={`${inputId}-zone`}>Nom de l’endroit</label>
             <input id={`${inputId}-zone`} value={newName} maxLength={ZONE_NAME_MAX} autoComplete="off" placeholder="Casier gauche, étagère du fond…"
               onChange={(e) => setNewName(e.target.value)} />
@@ -326,7 +375,7 @@ function PlanCard() {
           </form>
           {list.some((z) => !z.marker) && <p className="list__meta" style={{ margin: 0 }}>ou choisir une zone existante :</p>}
           {list.filter((z) => !z.marker).map((z) => (
-            <Button key={z.id} variant="outline" disabled={busy} onClick={() => void act(() => setZoneMarker(z.id, mode.x, mode.y))}>{z.name}</Button>
+            <Button key={z.id} variant="outline" disabled={busy} onClick={() => void act(() => setZoneMarker(z.id, plan.id, mode.x, mode.y))}>{z.name}</Button>
           ))}
           <Button variant="link" onClick={() => setMode({ kind: 'idle' })}>Annuler</Button>
         </div>
@@ -350,11 +399,23 @@ function PlanCard() {
       )}
       {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
       {status && <p role="status" className="list__meta" style={{ margin: 0 }}>{status}</p>}
-      <div className="zone-row__actions">
-        <label className="field__label" htmlFor={inputId}>{plan ? 'Remplacer le plan' : 'Ajouter le plan de la cave'}</label>
-        <input id={inputId} type="file" accept="image/*" disabled={busy} onChange={pick} />
-        {plan && <Button variant="link" disabled={busy} onClick={confirmRemove}>Retirer le plan</Button>}
-      </div>
+      {plan && (renaming !== null ? (
+        <form className="zone-form" aria-label="Renommer le plan" onSubmit={(e) => rename(e, plan.id)}>
+          <label className="field__label" htmlFor={`${inputId}-name`}>Nom du plan</label>
+          <input id={`${inputId}-name`} value={renaming} maxLength={PLAN_NAME_MAX} autoComplete="off" onChange={(e) => setRenaming(e.target.value)} />
+          <div className="zone-row__actions">
+            <button type="submit" className="btn btn--primary" disabled={!renaming.trim() || busy}>Enregistrer</button>
+            <Button variant="link" onClick={() => setRenaming(null)}>Annuler</Button>
+          </div>
+        </form>
+      ) : (
+        <div className="zone-row__actions">
+          <Button variant="outline" disabled={busy} onClick={() => { setMode({ kind: 'idle' }); setRenaming(plan.name); }}>Renommer</Button>
+          <label className="field__label" htmlFor={`${inputId}-photo`}>Remplacer la photo</label>
+          <input id={`${inputId}-photo`} type="file" accept="image/*" disabled={busy} onChange={(e) => picked(e, (file) => replacePlanImage(plan.id, file))} />
+          <Button variant="link" disabled={busy} onClick={() => confirmDelete(plan.id, plan.name)}>Supprimer le plan</Button>
+        </div>
+      ))}
     </section>
   );
 }
