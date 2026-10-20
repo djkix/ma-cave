@@ -438,7 +438,7 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
   /** Ce qu'une requête refusée ne doit jamais changer : la cave A et les comptes de la suite. */
   async function snapshot(): Promise<string> {
     const inA = { caveId: ids.caveA };
-    const [cave, members, wines, movements, photos, pairings, exports, costs, users, ownedCaves, profile, locations, quotes, zones] = await Promise.all([
+    const [cave, members, wines, movements, photos, pairings, exports, costs, users, ownedCaves, profile, locations, quotes, zones, plans] = await Promise.all([
       prisma.cave.findUnique({ where: { id: ids.caveA } }),
       prisma.caveMember.findMany({ where: inA, orderBy: { id: 'asc' } }),
       prisma.wine.findMany({ where: inA, orderBy: { id: 'asc' } }),
@@ -453,8 +453,9 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
       prisma.location.findMany({ where: inA, orderBy: { id: 'asc' } }),
       prisma.priceQuote.findMany({ where: { wine: inA }, orderBy: { id: 'asc' } }),
       prisma.caveZone.findMany({ where: inA, orderBy: { id: 'asc' } }),
+      prisma.cavePlan.findMany({ where: inA, orderBy: { id: 'asc' } }),
     ]);
-    return JSON.stringify({ cave, members, wines, movements, photos, pairings, exports, costs, users, ownedCaves, profile, locations, quotes, zones });
+    return JSON.stringify({ cave, members, wines, movements, photos, pairings, exports, costs, users, ownedCaves, profile, locations, quotes, zones, plans });
   }
 
   /** La requête, et la preuve qu'elle n'a rien changé à A. */
@@ -469,7 +470,7 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
 
   /** Aucun identifiant ni nom de A dans une réponse lue par B. */
   function expectNothingOfA(res: supertest.Response) {
-    for (const marker of [ids.caveA, ids.wineA, ids.wineA2, ids.movementA, ids.photoA, ids.memberA, ids.locationA, ids.zoneA, caveAName, `Domaine Iso ${run} a`]) {
+    for (const marker of [ids.caveA, ids.wineA, ids.wineA2, ids.movementA, ids.photoA, ids.memberA, ids.locationA, ids.zoneA, ids.planA, caveAName, `Domaine Iso ${run} a`]) {
       expect(res.text ?? '').not.toContain(marker);
     }
   }
@@ -571,6 +572,19 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
       }
     });
   }
+
+  describe('plans : celui de A est introuvable pour B', () => {
+    it('repère d\'une zone de B sur le plan de A : 404 « Plan introuvable », A inchangée', async () => {
+      const zoneB = await prisma.caveZone.create({ data: { caveId: ids.caveB, name: `Iso B ${run}` } });
+      try {
+        const req: Request = { url: `/api/caves/current/zones/${zoneB.id}/marker`, body: { planId: ids.planA, x: 0.1, y: 0.2 } };
+        expectNothingOfA(await refused(agents.ownerB, { method: 'PUT', path: req.url, kind: 'cave-owner', req: () => req }, NOT_FOUND_PLAN));
+        expect((await prisma.caveZone.findUnique({ where: { id: zoneB.id } }))?.planId).toBeNull();
+      } finally {
+        await prisma.caveZone.delete({ where: { id: zoneB.id } });
+      }
+    });
+  });
 
   describe('emplacements : ceux de A sont introuvables pour B', () => {
     it('sortie, inventaire, déplacement et filtre de B avec un emplacement de A : 404 « Emplacement introuvable », A inchangée', async () => {
