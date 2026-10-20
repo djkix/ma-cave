@@ -31,3 +31,12 @@ it('plafond nul : jauge vide, sans erreur', async () => {
   expect(meter).toHaveAttribute('aria-valuemax', '0');
   expect(meter.firstElementChild).toHaveStyle({ width: '0%' });
 });
+
+it('dépassement du plafond : jauge pleine, texte avec le vrai montant', async () => {
+  mount({ caveShare: 0.3, invitedShare: 0.5, capCents: 1000, spentThisMonthCents: 1250 });
+  const meter = await screen.findByRole('meter');
+  expect(meter).toHaveAttribute('aria-valuenow', '1000');
+  expect(meter).toHaveAttribute('aria-valuemax', '1000');
+  expect(meter.firstElementChild).toHaveStyle({ width: '100%' });
+  expect(screen.getByText(/Dépensé ce mois/)).toHaveTextContent('Dépensé ce mois : 12,50 € sur 10,00 €');
+});

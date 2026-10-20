@@ -50,13 +50,13 @@ export function BudgetSection() {
           <p id="budget-spent" className="num" style={{ margin: 'var(--space-xs) 0' }}>
             Dépensé ce mois : {euros(budget.data.spentThisMonthCents)} sur {euros(budget.data.capCents)}
           </p>
-          {/* Plafond nul : jauge vide plutôt qu'une division par zéro. */}
+          {/* Plafond nul : jauge vide plutôt qu'une division par zéro ; au-delà du plafond, la jauge s'arrête au plein (le texte garde les vrais montants). */}
           <span
             className="bars__track"
             role="meter"
             aria-labelledby="budget-spent"
             aria-valuemin={0}
-            aria-valuenow={budget.data.spentThisMonthCents}
+            aria-valuenow={Math.min(budget.data.spentThisMonthCents, budget.data.capCents)}
             aria-valuemax={budget.data.capCents}
             style={{ marginBottom: 'var(--space-sm)' }}
           >

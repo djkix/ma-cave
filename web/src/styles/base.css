@@ -304,6 +304,10 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 .usage-chart__col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
 .usage-chart__bar { flex: 1; width: 100%; max-width: 32px; display: flex; flex-direction: column-reverse; overflow: hidden; border-radius: 2px 2px 0 0; }
 .usage-chart__seg { display: block; flex-shrink: 0; }
-.usage-chart .histo__label { white-space: nowrap; }
+/* Filet clair entre deux usages voisins : deux couleurs sombres restent distinctes. */
+.usage-chart__seg + .usage-chart__seg { border-bottom: 1px solid var(--color-surface-lowest); }
+/* Hauteur fixe, étiquette vide comprise : toutes les barres partagent la même hauteur utile. */
+.usage-chart__label { height: 15px; line-height: 15px; white-space: nowrap; }
+.usage-details__summary { display: flex; align-items: center; min-height: var(--size-touch-target); cursor: pointer; }
 .usage-legend { list-style: none; margin: var(--space-xs) 0 var(--space-sm); padding: 0; display: flex; flex-wrap: wrap; gap: 2px var(--space-sm); }
 .usage-legend .histo__key { margin-right: 4px; }
