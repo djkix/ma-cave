@@ -9,6 +9,26 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.15.0](https://github.com/djkix/ma-cave/compare/v2.14.0...v2.15.0) (2026-10-20)
+
+
+### Fonctionnalités
+
+* **web:** Administration en trois onglets, actions des comptes dans un menu ([24ab2ed](https://github.com/djkix/ma-cave/commit/24ab2edca156630b7bcc6af24b5886226a76693c))
+* **web:** coûts de l'IA, chiffres clés, barres par jour et jauge du budget ([9c35c26](https://github.com/djkix/ma-cave/commit/9c35c26ad996fc78536be395f6735ff4c857795e))
+* **web:** feuille du bas, menu ⋯ et ligne de personne communs ([720d61b](https://github.com/djkix/ma-cave/commit/720d61b91c7e00b506c477cb982ceca660cbab04))
+* **web:** hub Mon compte, écrans Moi et À propos ([8872a92](https://github.com/djkix/ma-cave/commit/8872a9296016fcab1713011a9d90970f0db70ce9))
+* **web:** Ma cave, sauvegarde, menu du plan et éditions en feuille du bas ([4d983d5](https://github.com/djkix/ma-cave/commit/4d983d5ba90753098ae94bc3027883c803c339b0))
+
+
+### Corrections
+
+* **web:** coûts de l'IA, barres comparables, résumé tactile et jauge bornée ([d01fa0c](https://github.com/djkix/ma-cave/commit/d01fa0c93987a39f200c4b91c199b7ae783d1b4c))
+* **web:** fond de la feuille, focus du menu ⋯, défilement bloqué ([3d1b80c](https://github.com/djkix/ma-cave/commit/3d1b80c21c8fca3c98d2901d0382597df7dedfcb))
+* **web:** la feuille reste ouverte sous StrictMode, appui du menu ⋯ toujours relâché ([6a485c9](https://github.com/djkix/ma-cave/commit/6a485c9efd71171010a8649a927ce4021e76e0b2))
+* **web:** le menu ⋯ se ferme à Tab sans perdre les clics ([7e2db8c](https://github.com/djkix/ma-cave/commit/7e2db8c9f0e9547b8ae2c24fff00017268677e48))
+* **web:** libellés du README, retour de Ma cave, navigation de l'Administration ([05543b7](https://github.com/djkix/ma-cave/commit/05543b7d32ca25fca81cd52bcc9d73fe5ba69c30))
+
 ## [2.14.0](https://github.com/djkix/ma-cave/compare/v2.13.0...v2.14.0) (2026-10-20)
 
 ### Résumé
