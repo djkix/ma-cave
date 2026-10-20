@@ -1,7 +1,7 @@
 import { pathAfterCaveSwitch } from './CaveSwitcher';
 
 it('garde les listes valables pour tout rôle et l’administration', () => {
-  for (const p of ['/', '/cave', '/stats', '/admin']) {
+  for (const p of ['/', '/cave', '/stats', '/admin', '/compte', '/compte/moi', '/compte/a-propos']) {
     expect(pathAfterCaveSwitch(p, false)).toBe(p);
     expect(pathAfterCaveSwitch(p, true)).toBe(p);
   }

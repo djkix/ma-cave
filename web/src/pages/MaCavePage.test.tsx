@@ -7,6 +7,12 @@ import { MaCavePage } from './MaCavePage';
 
 afterEach(() => vi.restoreAllMocks());
 
+// jsdom n'a ni showModal ni close : simulés comme dans les tests de BottomSheet.
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.open = true; };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) { this.open = false; };
+});
+
 const zones: api.Zone[] = [
   { id: 'z1', name: 'Cave 1', indication: 'À gauche en entrant', hasPhoto: true, sortOrder: 0, marker: null },
   { id: 'z2', name: 'Garage', indication: null, hasPhoto: false, sortOrder: 1, marker: null },
@@ -41,13 +47,24 @@ const rowOf = (email: string) => screen.getByText(email).closest<HTMLElement>('.
 const zonesCard = () => within(screen.getByRole('region', { name: 'Zones' }));
 const zoneRow = (name: string) => within(zonesCard().getByRole('listitem', { name }));
 
-it('regroupe le nom de la cave, le plan, les zones puis les membres, sous le titre « Ma cave › Réglages »', async () => {
+it('regroupe le nom de la cave, le plan, les zones, les membres puis la sauvegarde, sous le titre « Ma cave », retour vers Mon compte', async () => {
   vi.spyOn(api, 'getMembers').mockResolvedValue(members);
   mount();
-  expect(screen.getByRole('heading', { level: 1, name: 'Ma cave › Réglages' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 1, name: 'Ma cave' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /retour/i })).toHaveAttribute('href', '/compte');
   await screen.findByText('proprietaire@example.com');
-  const order = [screen.getByLabelText('Nom de la cave'), screen.getByRole('region', { name: 'Plans de la cave' }), screen.getByRole('region', { name: 'Zones' }), screen.getByRole('region', { name: 'Membres' })];
+  const order = [screen.getByLabelText('Nom de la cave'), screen.getByRole('region', { name: 'Plans de la cave' }), screen.getByRole('region', { name: 'Zones' }), screen.getByRole('region', { name: 'Membres' }), screen.getByRole('region', { name: 'Sauvegarde' })];
   for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it('carte « Sauvegarde » : texte et lien de téléchargement du classeur Excel', async () => {
+  vi.spyOn(api, 'getMembers').mockResolvedValue([]);
+  mount();
+  const card = within(screen.getByRole('region', { name: 'Sauvegarde' }));
+  expect(card.getByText('Toute la cave dans un classeur Excel : stock, journal, cotes.')).toBeInTheDocument();
+  const link = card.getByRole('link', { name: 'Télécharger la sauvegarde Excel' });
+  expect(link).toHaveAttribute('href', '/api/export.xlsx');
+  expect(link).toHaveAttribute('download');
 });
 
 describe('zones', () => {
@@ -117,20 +134,50 @@ describe('zones', () => {
     await waitFor(() => expect(reorder).toHaveBeenLastCalledWith(['z2', 'z1', 'z3']));
   });
 
-  it('« Modifier » ouvre un formulaire prérempli dans la ligne et enregistre nom et indication', async () => {
+  it('« Modifier » ouvre la feuille « Modifier Cellier » préremplie et enregistre nom et indication', async () => {
     vi.spyOn(api, 'getZones').mockResolvedValue(zones);
     const update = vi.spyOn(api, 'updateZone').mockResolvedValue({ ...zones[2], name: 'Cellier du bas', indication: null });
     mount();
     await zonesCard().findByText('Cellier');
     await userEvent.click(zoneRow('Cellier').getByRole('button', { name: 'Modifier' }));
-    const name = zoneRow('Cellier').getByLabelText('Nom');
+    const sheet = within(screen.getByRole('dialog', { name: 'Modifier Cellier' }));
+    const name = sheet.getByLabelText('Nom');
     expect(name).toHaveValue('Cellier');
-    expect(zoneRow('Cellier').getByLabelText('Indication')).toHaveValue('Au fond, derrière l’escalier');
+    expect(sheet.getByLabelText('Indication')).toHaveValue('Au fond, derrière l’escalier');
     await userEvent.clear(name);
     await userEvent.type(name, 'Cellier du bas');
-    await userEvent.clear(zoneRow('Cellier').getByLabelText('Indication'));
-    await userEvent.click(zoneRow('Cellier').getByRole('button', { name: 'Enregistrer' }));
+    await userEvent.clear(sheet.getByLabelText('Indication'));
+    await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
     await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { name: 'Cellier du bas', indication: null }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Modifier Cellier' })).not.toBeInTheDocument());
+  });
+
+  it('« Modifier » : le refus de l’api s’affiche dans la feuille, et ne revient pas à la réouverture', async () => {
+    vi.spyOn(api, 'getZones').mockResolvedValue(zones);
+    vi.spyOn(api, 'updateZone').mockRejectedValue(new api.ApiError(409, 'Une zone porte déjà ce nom'));
+    mount();
+    await zonesCard().findByText('Cellier');
+    await userEvent.click(zoneRow('Cellier').getByRole('button', { name: 'Modifier' }));
+    const sheet = within(screen.getByRole('dialog', { name: 'Modifier Cellier' }));
+    await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
+    expect(await sheet.findByRole('alert')).toHaveTextContent('Une zone porte déjà ce nom');
+    await userEvent.click(sheet.getByRole('button', { name: 'Annuler' }));
+    await userEvent.click(zoneRow('Cellier').getByRole('button', { name: 'Modifier' }));
+    expect(within(screen.getByRole('dialog', { name: 'Modifier Cellier' })).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('« Modifier » puis « Annuler » ferme la feuille sans appel', async () => {
+    vi.spyOn(api, 'getZones').mockResolvedValue(zones);
+    const update = vi.spyOn(api, 'updateZone');
+    mount();
+    await zonesCard().findByText('Garage');
+    await userEvent.click(zoneRow('Garage').getByRole('button', { name: 'Modifier' }));
+    const sheet = within(screen.getByRole('dialog', { name: 'Modifier Garage' }));
+    expect(sheet.getByLabelText('Nom')).toHaveValue('Garage');
+    expect(sheet.getByLabelText('Indication')).toHaveValue('');
+    await userEvent.click(sheet.getByRole('button', { name: 'Annuler' }));
+    expect(screen.queryByRole('dialog', { name: 'Modifier Garage' })).not.toBeInTheDocument();
+    expect(update).not.toHaveBeenCalled();
   });
 
   it('« Supprimer » demande confirmation et affiche tel quel le 409 des bouteilles encore rangées', async () => {
@@ -181,15 +228,19 @@ it('liste les membres avec leur rôle, l’invitation en attente et « Retirer �
   vi.spyOn(api, 'getMembers').mockResolvedValue(members);
   mount();
   expect(await screen.findByText('proprietaire@example.com')).toBeInTheDocument();
+  // Ligne de personne commune : nom affiché en titre, e-mail dessous ; sans nom, l'e-mail en titre.
+  expect(rowOf('proprietaire@example.com')).toHaveClass('person-row');
   const owner = within(rowOf('proprietaire@example.com'));
-  expect(owner.getByText('djkix')).toBeInTheDocument();
+  expect(owner.getByText('djkix').tagName).toBe('STRONG');
   expect(owner.getByText('Propriétaire')).toBeInTheDocument();
   expect(owner.queryByRole('button', { name: /Retirer/ })).not.toBeInTheDocument();
   const paul = within(rowOf('paul@example.com'));
   expect(paul.getByText('Paul')).toBeInTheDocument();
   expect(paul.getByText('Lecture seule')).toBeInTheDocument();
   expect(paul.getByRole('button', { name: /Retirer/ })).toBeInTheDocument();
+  expect(screen.getByText('lea@example.com').tagName).toBe('STRONG');
   const lea = within(rowOf('lea@example.com'));
+  expect(lea.getByText('Lecture seule')).toBeInTheDocument();
   expect(lea.getByText('Invitation en attente')).toBeInTheDocument();
   expect(lea.queryByText(/null/)).not.toBeInTheDocument();
   expect(lea.getByRole('button', { name: /Retirer/ })).toBeInTheDocument();
@@ -323,7 +374,7 @@ describe('plan de la cave', () => {
     expect(input).toHaveAttribute('accept', 'image/*');
     // Sans « capture » : le téléphone propose l'appareil photo ou la galerie.
     expect(input).not.toHaveAttribute('capture');
-    expect(planCard().queryByRole('button', { name: 'Supprimer le plan' })).not.toBeInTheDocument();
+    expect(planCard().queryByRole('button', { name: /^Actions du plan/ })).not.toBeInTheDocument();
   });
 
   it('deux plans : un onglet par plan puis « + Ajouter un plan », le premier choisi ; un autre onglet montre son image et ses repères', async () => {
@@ -358,29 +409,75 @@ describe('plan de la cave', () => {
     expect(await planImage()).toHaveAttribute('src', '/api/caves/plans/p3/image?v=2026-10-20T10%3A00%3A00.000Z');
   });
 
-  it('« Renommer » : champ prérempli, puis le nouveau nom est envoyé', async () => {
+  /** Choisit une action du menu « ⋯ » du plan affiché. */
+  async function planAction(plan: string, action: string) {
+    await userEvent.click(planCard().getByRole('button', { name: `Actions du plan ${plan}` }));
+    await userEvent.click(planCard().getByRole('button', { name: action }));
+  }
+
+  it('menu « ⋯ » du plan affiché : Renommer, Remplacer la photo, Supprimer le plan', async () => {
+    vi.spyOn(api, 'getPlans').mockResolvedValue(twoPlans);
+    mount();
+    await userEvent.click(await findTab('Cellier'));
+    expect(planCard().queryByRole('button', { name: 'Renommer' })).not.toBeInTheDocument();
+    const menu = planCard().getByRole('button', { name: 'Actions du plan Cellier' });
+    expect(menu).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(menu);
+    expect(menu).toHaveAttribute('aria-expanded', 'true');
+    for (const name of ['Renommer', 'Remplacer la photo', 'Supprimer le plan']) expect(planCard().getByRole('button', { name })).toBeInTheDocument();
+  });
+
+  it('« Renommer » : feuille « Renommer le plan », champ prérempli, puis le nouveau nom est envoyé', async () => {
     vi.spyOn(api, 'getPlans').mockResolvedValue(twoPlans);
     const rename = vi.spyOn(api, 'renamePlan').mockResolvedValue({ ...cellier, name: 'Cave du fond' });
     mount();
     await userEvent.click(await findTab('Cellier'));
-    await userEvent.click(planCard().getByRole('button', { name: 'Renommer' }));
-    const input = planCard().getByLabelText('Nom du plan');
+    await planAction('Cellier', 'Renommer');
+    const sheet = within(screen.getByRole('dialog', { name: 'Renommer le plan' }));
+    const input = sheet.getByLabelText('Nom du plan');
     expect(input).toHaveValue('Cellier');
     await userEvent.clear(input);
     await userEvent.type(input, 'Cave du fond');
-    await userEvent.click(planCard().getByRole('button', { name: 'Enregistrer' }));
+    await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
     await waitFor(() => expect(rename).toHaveBeenCalledWith('p2', 'Cave du fond'));
-    await waitFor(() => expect(planCard().queryByLabelText('Nom du plan')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Renommer le plan' })).not.toBeInTheDocument());
   });
 
-  it('« Remplacer la photo » envoie la nouvelle image du plan affiché', async () => {
+  it('« Renommer » : le refus de l’api s’affiche dans la feuille, qui reste ouverte', async () => {
+    vi.spyOn(api, 'getPlans').mockResolvedValue(twoPlans);
+    vi.spyOn(api, 'renamePlan').mockRejectedValue(new api.ApiError(409, 'Un plan porte déjà ce nom'));
+    mount();
+    await userEvent.click(await findTab('Cellier'));
+    await planAction('Cellier', 'Renommer');
+    const sheet = within(screen.getByRole('dialog', { name: 'Renommer le plan' }));
+    await userEvent.type(sheet.getByLabelText('Nom du plan'), ' bis');
+    await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
+    expect(await sheet.findByRole('alert')).toHaveTextContent('Un plan porte déjà ce nom');
+  });
+
+  it('« Renommer » puis « Annuler » ferme la feuille sans appel', async () => {
+    vi.spyOn(api, 'getPlans').mockResolvedValue(twoPlans);
+    const rename = vi.spyOn(api, 'renamePlan');
+    mount();
+    await userEvent.click(await findTab('Cellier'));
+    await planAction('Cellier', 'Renommer');
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Renommer le plan' })).getByRole('button', { name: 'Annuler' }));
+    expect(screen.queryByRole('dialog', { name: 'Renommer le plan' })).not.toBeInTheDocument();
+    expect(rename).not.toHaveBeenCalled();
+  });
+
+  it('« Remplacer la photo » ouvre le choix de fichier et envoie la nouvelle image du plan affiché', async () => {
     vi.spyOn(api, 'getPlans').mockResolvedValue(twoPlans);
     const replace = vi.spyOn(api, 'replacePlanImage').mockResolvedValue(cellier);
     mount();
     await userEvent.click(await findTab('Cellier'));
-    const input = planCard().getByLabelText('Remplacer la photo');
+    const input = planCard().getByLabelText('Photo de remplacement du plan Cellier');
     expect(input).toHaveAttribute('type', 'file');
+    expect(input).toHaveAttribute('accept', 'image/*');
     expect(input).not.toHaveAttribute('capture');
+    const click = vi.spyOn(input, 'click');
+    await planAction('Cellier', 'Remplacer la photo');
+    expect(click).toHaveBeenCalledTimes(1);
     const file = new File(['x'], 'cellier.jpg', { type: 'image/jpeg' });
     await userEvent.upload(input, file);
     await waitFor(() => expect(replace).toHaveBeenCalledWith('p2', file));
@@ -392,10 +489,10 @@ describe('plan de la cave', () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
     mount();
     await userEvent.click(await findTab('Cellier'));
-    await userEvent.click(planCard().getByRole('button', { name: 'Supprimer le plan' }));
+    await planAction('Cellier', 'Supprimer le plan');
     expect(confirm).toHaveBeenLastCalledWith('Supprimer le plan « Cellier » ? Les zones et leurs bouteilles sont gardées.');
     expect(remove).not.toHaveBeenCalled();
-    await userEvent.click(planCard().getByRole('button', { name: 'Supprimer le plan' }));
+    await planAction('Cellier', 'Supprimer le plan');
     await waitFor(() => expect(remove).toHaveBeenCalledWith('p2'));
     await waitFor(() => expect(tabs().queryByRole('tab', { name: 'Cellier' })).not.toBeInTheDocument());
     expect(tabs().getByRole('tab', { name: 'Plan principal' })).toHaveAttribute('aria-selected', 'true');

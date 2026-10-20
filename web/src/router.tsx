@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, RouteObject } from 'react-router-dom';
 import { RequireAuth, RequireOwner } from './components/RequireAuth';
 import { ABoirePage } from './pages/ABoirePage';
+import { AProposPage } from './pages/AProposPage';
 import { AdminPage } from './pages/AdminPage';
 import { AConfirmerPage } from './pages/AConfirmerPage';
 import { CavePage } from './pages/CavePage';
@@ -13,6 +14,7 @@ import { HomePage } from './pages/HomePage';
 import { JournalPage } from './pages/JournalPage';
 import { LoginPage } from './pages/LoginPage';
 import { MaCavePage } from './pages/MaCavePage';
+import { MoiPage } from './pages/MoiPage';
 import { SortieCapturePage } from './pages/SortieCapturePage';
 import { SortieResolutionPage } from './pages/SortieResolutionPage';
 import { StatsPage } from './pages/StatsPage';
@@ -33,6 +35,8 @@ export const routes: RouteObject[] = [
           { path: '/', element: <HomePage /> },
           { path: '/stats', element: <StatsPage /> },
           { path: '/compte', element: <ComptePage /> },
+          { path: '/compte/moi', element: <MoiPage /> },
+          { path: '/compte/a-propos', element: <AProposPage /> },
           { path: '/a-boire', element: <ABoirePage /> },
           { path: '/cave', element: <CavePage /> },
           { path: '/cave/:wineId', element: <WinePage /> },
@@ -55,7 +59,8 @@ export const routes: RouteObject[] = [
               { path: '/membres', element: <Navigate to="/ma-cave" replace /> },
             ],
           },
-          { path: '/admin', element: <AdminPage /> },
+          { path: '/admin', element: <Navigate to="/admin/comptes" replace /> },
+          { path: '/admin/:tab', element: <AdminPage /> },
           // Derrière RequireAuth : une URL inconnue commence par demander la session,
           // comme n'importe quelle page de l'application.
           { path: '*', element: <NotFoundPage /> },

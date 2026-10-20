@@ -4,7 +4,7 @@ import { Me, setCurrentCave } from '../lib/api-client';
 import { useCurrentCave } from '../lib/use-current-cave';
 
 // Listes qui valent pour n'importe quelle cave : on y reste après un changement.
-const ANY_ROLE = ['/', '/cave', '/stats', '/compte', '/a-boire'];
+const ANY_ROLE = ['/', '/cave', '/stats', '/compte', '/compte/moi', '/compte/a-propos', '/a-boire'];
 const OWNER_ONLY = ['/entree', '/sortie', '/journal', '/a-confirmer', '/ma-cave'];
 
 /**
@@ -74,7 +74,7 @@ export function CaveSwitcher() {
           onChange={(e) => change.mutate(e.target.value)}
         >
           {caves.map((c) => (
-            <option key={c.id} value={c.id}>{c.role === 'VIEWER' ? `${c.name} (lecture)` : c.name}</option>
+            <option key={c.id} value={c.id}>{c.role === 'VIEWER' ? `${c.name} · Lecture seule` : c.name}</option>
           ))}
         </select>
       )}

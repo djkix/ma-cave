@@ -111,3 +111,13 @@ it('désigne le propriétaire connecté comme compte d’envoi de la file', asyn
   expect(await screen.findByText('Protégé')).toBeInTheDocument();
   expect(account).toHaveBeenLastCalledWith('u1');
 });
+
+it('relit la session depuis l’écran d’attente et ouvre l’application une fois le compte validé', async () => {
+  const get = vi.spyOn(api, 'getMe')
+    .mockResolvedValueOnce(meFixture({ status: 'PENDING', caves: [], currentCaveId: null }))
+    .mockResolvedValue(meFixture());
+  mount();
+  await userEvent.click(await screen.findByRole('button', { name: 'Actualiser' }));
+  expect(await screen.findByText('Protégé')).toBeInTheDocument();
+  expect(get).toHaveBeenCalledTimes(2);
+});
