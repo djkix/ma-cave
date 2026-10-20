@@ -23,8 +23,9 @@ utilisée depuis un téléphone (PWA installable).
   déplacement, filtre) et cote iDealwine saisie à la main (le relevé
   automatique prévu au cahier des charges a été abandonné, voir *Limites*).
   Depuis la 2.6.0 : page « Ma cave › Réglages » et zones de la cave (nom, indication,
-  photo, ordre). Depuis la 2.8.0 : plan de la cave (une image) avec le repère
-  numéroté de chaque zone, montré sur la fiche et dans « À boire ».
+  photo, ordre). Depuis la 2.8.0 : plan de la cave avec le repère
+  numéroté de chaque zone, montré sur la fiche et dans « À boire » ; depuis la
+  2.14.0, jusqu'à 20 plans par cave.
 - **Reporté** : aucune alerte hors de l'application (notification ou e-mail) :
   la liste « à boire en priorité » se consulte dans l'application. Voir
   `cahier-des-charges.md`.
@@ -57,7 +58,7 @@ et une cave à laquelle le compte n'a pas accès répond « Cave introuvable ».
 
 **Ma cave › Réglages.** Depuis l'accueil ou *Mon compte*, le lien *Ma cave › Réglages* (page
 `/ma-cave`, propriétaire seulement ; l'ancienne adresse `/membres` y mène)
-regroupe, dans cet ordre, le **nom de la cave**, son **plan**, ses **zones**
+regroupe, dans cet ordre, le **nom de la cave**, ses **plans**, ses **zones**
 et ses **membres**.
 
 **Zones de la cave.** Une zone est un endroit de la cave où l'on range des
@@ -91,44 +92,50 @@ sans pouvoir les changer. API : `GET`, `POST /api/caves/current/zones`,
 /api/caves/current/zones/:id/photo` et `GET /api/caves/zones/:id/photo`
 (toute cave du compte).
 
-**Plan de la cave.** Une image par cave : une photo de la pièce, ou d'un
-schéma dessiné à la main. Dans *Ma cave › Réglages*, la carte *Plan de la cave* (avant
-*Zones*) l'envoie (*Ajouter le plan de la cave*, puis *Remplacer le plan* ;
-réduite à 2400 px par le téléphone avant l'envoi, 15 Mo au plus, redressée
-selon l'EXIF, ramenée à 2400 px sur le grand côté, en
-JPEG) et la retire (*Retirer le plan*, après confirmation). Pour le plan comme
-pour la photo d'une zone, le téléphone propose de prendre une photo ou d'en
-choisir une dans la galerie. Sans plan, elle
-explique : « Photographiez la pièce ou un schéma dessiné à la main, puis
-placez vos zones dessus. ». **Avec un plan, une zone se crée depuis le plan** :
-le propriétaire touche l'endroit (ou Entrée au clavier), un « + » y apparaît,
-il tape le *Nom de l'endroit* puis *Enregistrer* : la zone est créée avec son
-repère numéroté. Les zones existantes encore sans repère sont proposées en
-raccourci sous le champ (« ou choisir une zone existante »). La carte *Zones*
-ne propose plus d'ajout tant qu'il y a un plan (« Pour ajouter une zone,
-touchez le plan ci-dessus à son endroit. ») ; elle sert à compléter les zones
-(indication, photo, ordre, archive). Sans plan, on ajoute les zones dans la
-carte *Zones* comme avant. Toucher un repère
-montre sa zone (nom, indication), avec *Déplacer* (puis toucher le nouvel
-endroit) et *Retirer le repère*. Une zone a au plus un repère ; les repères
-sont **numérotés dans l'ordre d'affichage des zones** (1, 2, 3… parmi les
-zones qui en ont un : changer l'ordre des zones change les numéros), et une
-zone archivée n'apparaît jamais sur le plan (son repère reste en base).
-**Retirer le plan garde les repères** (*Ma cave › Réglages* le dit : « Les repères des
-zones sont gardés ») : un plan équivalent remis ensuite les retrouve à leur
-place ; poser un repère sans plan est refusé (« Ajoutez d'abord un plan de la
-cave »). Le plan se retrouve sur la **fiche du vin** (toucher un emplacement
-montre, sous l'indication et la photo de sa zone, le plan avec son repère mis
-en avant) et dans **« À boire prochainement »** (un petit plan sous chaque
-en-tête d'une zone placée, qui s'agrandit au toucher). Un membre en lecture
-seule voit le plan et les repères depuis la fiche et À boire (*Ma cave › Réglages* est
-réservée au propriétaire), sans rien pouvoir changer. API : `GET /api/caves/current/plan`
-(`{ plan: { width, height, updatedAt } | null, markers: [{ zoneId, name,
-number, x, y }] }`, aucun repère sans plan), `PUT` (champ `file`) et `DELETE
-/api/caves/current/plan`, `GET /api/caves/plans/:caveId/image` (toute cave du
-compte), `PUT /api/caves/current/zones/:id/marker` (`{ x, y }`, fractions de
-la largeur et de la hauteur entre 0 et 1, sinon « Position invalide sur le
-plan ») et `DELETE` ; chaque zone porte `marker: { x, y } | null`.
+**Plans de la cave.** Jusqu'à **20 plans** par cave, chacun avec son nom : une
+photo de la pièce, un schéma dessiné à la main, un étage, un cellier. Dans *Ma
+cave › Réglages*, la carte *Plans de la cave* (avant *Zones*) montre un onglet par
+plan et *+ Ajouter un plan* : on donne le *Nom du plan* (40 caractères au plus,
+unique dans la cave sans tenir compte de la casse), puis sa photo (réduite à
+2400 px par le téléphone avant l'envoi, 15 Mo au plus, redressée selon l'EXIF,
+ramenée à 2400 px sur le grand côté, en JPEG ; le téléphone propose de prendre
+une photo ou d'en choisir une dans la galerie). Sur l'onglet d'un plan :
+*Renommer*, *Remplacer la photo* (les repères restent à leur place) et
+*Supprimer le plan* (après confirmation). Sans plan, la carte explique :
+« Photographiez la pièce ou un schéma dessiné à la main, puis placez vos zones
+dessus. ». **Avec un plan, une zone se crée depuis le plan** : le propriétaire
+touche l'endroit (ou Entrée au clavier), un « + » y apparaît, il tape le *Nom de
+l'endroit* puis *Enregistrer* : la zone est créée avec son repère numéroté sur ce
+plan. Les zones existantes encore sans repère sont proposées en raccourci sous
+le champ (« ou choisir une zone existante »). La carte *Zones* ne propose plus
+d'ajout tant qu'il y a un plan (« Pour ajouter une zone, touchez un plan
+ci-dessus à son endroit. ») ; elle sert à compléter les zones (indication,
+photo, ordre, archive). Sans plan, on ajoute les zones dans la carte *Zones*
+comme avant. Toucher un repère montre sa zone (nom, indication), avec
+*Déplacer* (puis toucher le nouvel endroit, sur ce plan ou sur un autre onglet)
+et *Retirer le repère*. Une zone a au plus un repère, donc sur **un seul plan** ;
+les repères sont **numérotés par plan, dans l'ordre d'affichage des zones** (1,
+2, 3… parmi les zones repérées sur ce plan : changer l'ordre des zones change
+les numéros), et une zone archivée n'apparaît jamais sur un plan (son repère
+reste en base). **Supprimer un plan garde les zones et leurs bouteilles** : seuls
+ses repères disparaissent (la confirmation le dit), et ces zones redeviennent
+des raccourcis « zones sans repère » à placer sur un autre plan. Poser un repère
+sur un plan inexistant ou d'une autre cave est refusé. Le plan se retrouve sur
+la **fiche du vin** (toucher un emplacement montre, sous l'indication et la
+photo de sa zone, le plan de la zone avec son repère mis en avant et, en légende,
+le nom du plan) et dans **« À boire prochainement »** (un petit plan sous chaque
+en-tête d'une zone placée, avec son nom en légende, qui s'agrandit au toucher).
+Un membre en lecture seule voit les plans et les repères depuis la fiche et À
+boire (*Ma cave › Réglages* est réservée au propriétaire), sans rien pouvoir
+changer. API : `GET /api/caves/current/plans` (`{ plans: [{ id, name, width,
+height, updatedAt }], markers: [{ zoneId, planId, name, number, x, y }] }`, les
+plans par ordre de création), `POST /api/caves/current/plans` (`{ name }` ;
+« 20 plans au plus » au-delà, nom déjà pris refusé), `PATCH` (`{ name }`) et
+`DELETE /api/caves/current/plans/:id`, `PUT /api/caves/current/plans/:id/image`
+(champ `file`), `GET /api/caves/plans/:planId/image` (toute cave du compte), `PUT
+/api/caves/current/zones/:id/marker` (`{ planId, x, y }`, fractions de la largeur
+et de la hauteur entre 0 et 1, sinon « Position invalide sur le plan ») et
+`DELETE` ; chaque zone porte `marker: { planId, x, y } | null`.
 
 **Membres en lecture seule.** Dans *Ma cave › Réglages* (propriétaire seulement), la
 section *Membres* liste les membres, invite une adresse Google (« Cette
@@ -838,6 +845,29 @@ Si les images sont construites localement, remplacer `docker compose pull` par
 `docker compose build`. Pour figer une version plutôt que suivre `latest`,
 fusionner la demande de version proposée par release-please puis renseigner
 `IMAGE_TAG=<version>` dans le `.env`.
+
+### Passage à la 2.14.0 (plusieurs plans)
+
+La migration `20261020000000_plusieurs_plans` crée la table `cave_plan` (nom,
+image, taille), reprend le plan de chaque cave sous le nom **« Plan principal »**
+(même fichier sous `plans/`, aucun fichier déplacé), rattache les repères des
+zones à ce plan, puis **supprime les colonnes `plan_*` de `cave`**. Elle est
+appliquée toute seule au démarrage de l'api. **Faire une sauvegarde avant la
+mise à jour** (même commande qu'au passage à Ma Cave, fichier
+`backups/cave-avant-2.14.0.sql.gz`) :
+
+```bash
+cd /opt/stacks/ma-cave && docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' | gzip > backups/cave-avant-2.14.0.sql.gz
+docker compose pull && docker compose up -d
+```
+
+À l'écran : *Ma cave › Réglages* affiche *Plans de la cave* avec un onglet
+« Plan principal » (les repères sont où ils étaient) et *+ Ajouter un plan* ;
+la fiche du vin et « À boire » indiquent le nom du plan. Seule donnée perdue :
+les repères d'une cave dont le plan avait été retiré (gardés jusqu'ici mais
+invisibles) sont effacés ; les zones, elles, restent. Les colonnes de `cave`
+disparaissant, **une image 2.13.x ne tourne plus sur la base migrée** : le
+retour arrière passe par la restauration de la sauvegarde.
 
 ### Passage à Ma Cave (anciennement « cave-a-vin »)
 
