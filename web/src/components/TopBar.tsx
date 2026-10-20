@@ -14,7 +14,7 @@ export function TopBar({ title, back }: { title?: string; back?: string }) {
       )}
       <h1 className="topbar__title">{title ?? 'Ma Cave'}</h1>
       <CaveSwitcher />
-      {/* Mon compte : installation, caves, sauvegarde, version, déconnexion. */}
+      {/* Mon compte : hub vers Moi, Ma cave, Application et À propos. */}
       <Link to="/compte" aria-label="Mon compte" className="topbar__account">
         <Icon name="account_circle" />
       </Link>

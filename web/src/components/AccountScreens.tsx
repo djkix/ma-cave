@@ -1,10 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { logout } from '../lib/api-client';
+import { useMe } from '../lib/use-current-cave';
 import { APP_VERSION } from '../lib/version';
 import { Button } from './Button';
 
-export function LogoutButton() {
+export function LogoutButton({ variant = 'outline' }: { variant?: 'outline' | 'dark' }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   async function run() {
@@ -13,7 +14,7 @@ export function LogoutButton() {
     navigate('/login', { replace: true });
     qc.clear();
   }
-  return <Button variant="outline" onClick={run}>Se déconnecter</Button>;
+  return <Button variant={variant} onClick={run}>Se déconnecter</Button>;
 }
 
 function AccountScreen({ children }: { children: React.ReactNode }) {
@@ -31,11 +32,14 @@ function AccountScreen({ children }: { children: React.ReactNode }) {
 
 /** Compte inscrit, pas encore validé par un administrateur : aucune route ne lui répond. */
 export function PendingScreen() {
+  const me = useMe();
   return (
     <AccountScreen>
       <p className="centered" role="status">
         Inscription en attente de validation — revenez plus tard : l’accès s’ouvrira dès qu’un administrateur l’aura validée.
       </p>
+      {/* Relit la session : un compte validé entre-temps ouvre l'application. */}
+      <Button variant="outline" disabled={me.isFetching} onClick={() => me.refetch()}>Actualiser</Button>
     </AccountScreen>
   );
 }

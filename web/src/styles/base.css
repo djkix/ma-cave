@@ -283,3 +283,14 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 /* Ligne de personne (PersonRow) : texte à gauche qui rétrécit, action à droite. */
 .person-row__main { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .person-row__tags { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); margin-top: 4px; }
+/* Hub « Mon compte » : profil, puis cartes de navigation pleine largeur (icône, titre, résumé, chevron). */
+.profile { display: flex; align-items: center; gap: var(--space-md); }
+.profile__avatar {
+  flex: none; width: 56px; height: 56px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--color-primary-action); color: var(--color-on-primary); font: 500 22px var(--font-serif);
+}
+.nav-card { display: flex; align-items: center; gap: var(--space-md); min-height: var(--size-touch-target); text-decoration: none; color: inherit; }
+.nav-card__icon { color: var(--color-primary); }
+.nav-card__text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.nav-card__title { font: 500 18px var(--font-serif); color: var(--color-primary); }
+.nav-card:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
