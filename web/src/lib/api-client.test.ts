@@ -79,15 +79,20 @@ describe('caves, membres et administration', () => {
     expect(api.zonePhotoUrl('z1', 3)).toBe('/api/caves/zones/z1/photo?v=3');
   });
 
-  it('plan de la cave : lecture, envoi, retrait, repères des zones, image', async () => {
-    expect(await call(() => api.getPlan(), '{"plan":null,"markers":[]}')).toEqual({ url: '/api/caves/current/plan', method: 'GET', body: undefined });
-    const upload = await call(() => api.uploadPlan(new Blob(['x'], { type: 'image/jpeg' })));
-    expect({ url: upload.url, method: upload.method }).toEqual({ url: '/api/caves/current/plan', method: 'PUT' });
-    expect((upload.body as FormData).get('file')).toBeInstanceOf(Blob);
-    expect(await call(() => api.removePlan(), '', 204)).toEqual({ url: '/api/caves/current/plan', method: 'DELETE', body: undefined });
-    expect(await call(() => api.setZoneMarker('z1', 0.25, 0.5))).toEqual({ url: '/api/caves/current/zones/z1/marker', method: 'PUT', body: '{"x":0.25,"y":0.5}' });
+  it('plans de la cave : lecture, ajout, renommage, photo, suppression, repères des zones, image', async () => {
+    expect(await call(() => api.getPlans(), '{"plans":[],"markers":[]}')).toEqual({ url: '/api/caves/current/plans', method: 'GET', body: undefined });
+    const created = await call(() => api.createPlan('Cellier', new Blob(['x'], { type: 'image/jpeg' })));
+    expect({ url: created.url, method: created.method }).toEqual({ url: '/api/caves/current/plans', method: 'POST' });
+    expect((created.body as FormData).get('name')).toBe('Cellier');
+    expect((created.body as FormData).get('file')).toBeInstanceOf(Blob);
+    expect(await call(() => api.renamePlan('p2', 'Cave du fond'))).toEqual({ url: '/api/caves/current/plans/p2', method: 'PATCH', body: '{"name":"Cave du fond"}' });
+    const replaced = await call(() => api.replacePlanImage('p2', new Blob(['x'], { type: 'image/jpeg' })));
+    expect({ url: replaced.url, method: replaced.method }).toEqual({ url: '/api/caves/current/plans/p2/image', method: 'PUT' });
+    expect((replaced.body as FormData).get('file')).toBeInstanceOf(Blob);
+    expect(await call(() => api.deletePlan('p2'), '', 204)).toEqual({ url: '/api/caves/current/plans/p2', method: 'DELETE', body: undefined });
+    expect(await call(() => api.setZoneMarker('z1', 'p2', 0.25, 0.5))).toEqual({ url: '/api/caves/current/zones/z1/marker', method: 'PUT', body: '{"planId":"p2","x":0.25,"y":0.5}' });
     expect(await call(() => api.removeZoneMarker('z1'))).toEqual({ url: '/api/caves/current/zones/z1/marker', method: 'DELETE', body: undefined });
-    expect(api.planImageUrl('c1', '2026-10-13T10:00:00.000Z')).toBe('/api/caves/plans/c1/image?v=2026-10-13T10%3A00%3A00.000Z');
+    expect(api.planImageUrl('p2', '2026-10-13T10:00:00.000Z')).toBe('/api/caves/plans/p2/image?v=2026-10-13T10%3A00%3A00.000Z');
   });
 
   it('gère les inscriptions, la cave d’un compte et le budget', async () => {

@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useId, useMemo, useRef, useState } from 'react';
 import { LocationInput, moveWine, Place, Zone } from '../lib/api-client';
-import { EMPTY_LOCATION, toLocationInput, useLocations, usePlan, useZones } from '../lib/locations';
+import { EMPTY_LOCATION, toLocationInput, useLocations, usePlans, useZones } from '../lib/locations';
 import { Button } from './Button';
 import { Icon } from './Icon';
 import { LocationFields, ZoneDetails } from './LocationFields';
@@ -9,13 +9,13 @@ import { ZonePlan } from './PlanView';
 
 /**
  * Un endroit du vin ; touché, il montre ou cache l'indication et la photo de sa
- * zone, puis le plan avec son repère (pour tous, membre compris). Le plan n'est
- * lu que pour une zone qui a un repère.
+ * zone, puis le plan de son repère (pour tous, membre compris). Les plans ne
+ * sont lus que pour une zone qui a un repère.
  */
 function PlaceItem({ place, zone }: { place: Place; zone: Zone | undefined }) {
   const [open, setOpen] = useState(false);
-  const plan = usePlan(!!zone?.marker);
-  const onPlan = !!zone?.marker && !!plan.data?.markers.some((m) => m.zoneId === zone.id);
+  const plans = usePlans(!!zone?.marker);
+  const onPlan = !!zone?.marker && !!plans.data?.markers.some((m) => m.zoneId === zone.id);
   const detailsId = useId();
   const text = (
     <>
@@ -36,8 +36,8 @@ function PlaceItem({ place, zone }: { place: Place; zone: Zone | undefined }) {
 
 /** Contenu de la fenêtre « Emplacement » : chaque endroit, la photo et l'indication de sa zone, puis le plan. */
 function PlaceDetails({ place, zone }: { place: Place; zone: Zone | undefined }) {
-  const plan = usePlan(!!zone?.marker);
-  const onPlan = !!zone?.marker && !!plan.data?.markers.some((m) => m.zoneId === zone.id);
+  const plans = usePlans(!!zone?.marker);
+  const onPlan = !!zone?.marker && !!plans.data?.markers.some((m) => m.zoneId === zone.id);
   return (
     <li>
       <p className="locations-list__label" style={{ margin: 0 }}>{place.label}<span className="num">{` × ${place.quantity}`}</span></p>

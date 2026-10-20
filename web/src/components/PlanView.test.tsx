@@ -1,12 +1,14 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as api from '../lib/api-client';
 import type { PlanMarker } from '../lib/api-client';
-import { PlanView } from './PlanView';
+import { PlanView, ZonePlan } from './PlanView';
 
 const plan = { width: 2400, height: 1200, updatedAt: '2026-10-13T10:00:00.000Z' };
 const markers: PlanMarker[] = [
-  { zoneId: 'z1', name: 'Cave 1', number: 1, x: 0.1, y: 0.2 },
-  { zoneId: 'z2', name: 'Garage', number: 2, x: 0.75, y: 0.5 },
+  { zoneId: 'z1', planId: 'p1', name: 'Cave 1', number: 1, x: 0.1, y: 0.2 },
+  { zoneId: 'z2', planId: 'p1', name: 'Garage', number: 2, x: 0.75, y: 0.5 },
 ];
 
 it('montre l’image (texte alternatif), réserve sa place au format du plan et place les repères en pourcentage', () => {
@@ -108,5 +110,46 @@ describe('au clavier', () => {
     await userEvent.keyboard('{Enter}');
     expect(onMarkerClick).toHaveBeenCalledWith('z1');
     expect(onPlanClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('ZonePlan', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const plans: api.CavePlan[] = [
+    { id: 'p1', name: 'Plan principal', width: 2000, height: 1000, updatedAt: '2026-10-13T10:00:00.000Z' },
+    { id: 'p2', name: 'Cellier', width: 800, height: 600, updatedAt: '2026-10-20T09:00:00.000Z' },
+  ];
+  const all: api.PlanMarker[] = [
+    { zoneId: 'z1', planId: 'p1', name: 'Cave 1', number: 1, x: 0.1, y: 0.2 },
+    { zoneId: 'z2', planId: 'p2', name: 'Garage', number: 1, x: 0.3, y: 0.3 },
+    { zoneId: 'z3', planId: 'p2', name: 'Étagère', number: 2, x: 0.7, y: 0.6 },
+  ];
+  const mountZone = (ui: React.ReactNode) => {
+    vi.spyOn(api, 'getPlans').mockResolvedValue({ plans, markers: all });
+    return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>);
+  };
+
+  it('montre le plan du repère de la zone, ses seuls repères, celui de la zone en avant, et le nom du plan en légende', async () => {
+    mountZone(<ZonePlan zoneId="z3" />);
+    expect(await screen.findByRole('img', { name: 'Plan de la cave' })).toHaveAttribute('src', api.planImageUrl('p2', '2026-10-20T09:00:00.000Z'));
+    expect(screen.getByText('Cellier')).toHaveClass('plan-caption');
+    expect(screen.getByRole('img', { name: 'Zone 2 : Étagère' })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('img', { name: 'Zone 1 : Garage' })).not.toHaveAttribute('aria-current');
+    expect(screen.queryByRole('img', { name: 'Zone 1 : Cave 1' })).not.toBeInTheDocument();
+  });
+
+  it('zone sans repère : rien', async () => {
+    const { container } = mountZone(<ZonePlan zoneId="z9" />);
+    await vi.waitFor(() => expect(api.getPlans).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('petit plan : la légende aussi', async () => {
+    mountZone(<ZonePlan zoneId="z3" mini />);
+    const mini = await screen.findByRole('button', { name: 'Agrandir le plan' });
+    expect(within(mini).getByRole('img', { name: 'Zone 2 : Étagère' })).toBeInTheDocument();
+    expect(screen.getByText('Cellier')).toHaveClass('plan-caption');
   });
 });
