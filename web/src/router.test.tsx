@@ -71,6 +71,14 @@ it('redirige l’ancienne adresse /membres vers « Ma cave › Réglages »', as
   expect(await screen.findByRole('region', { name: 'Membres' })).toBeInTheDocument();
 });
 
+it('redirige /admin vers l’onglet Comptes', async () => {
+  vi.spyOn(api, 'getAdminUsers').mockResolvedValue([]);
+  vi.spyOn(api, 'getRegistrations').mockResolvedValue([]);
+  const router = mountAt('/admin', meFixture({ isAdmin: true }));
+  await waitFor(() => expect(router.state.location.pathname).toBe('/admin/comptes'));
+  expect(await screen.findByRole('heading', { name: 'Comptes' })).toBeInTheDocument();
+});
+
 describe('changement de cave', () => {
   const twoCaves = meFixture({ caves: [OWNER_CAVE, VIEWER_CAVE], currentCaveId: OWNER_CAVE.id });
   const wineA: api.CaveRow = {

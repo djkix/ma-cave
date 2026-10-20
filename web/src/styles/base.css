@@ -250,7 +250,9 @@ button.plan-view__marker { cursor: pointer; }
   flex-shrink: 0; min-height: var(--size-touch-target); padding: 0 var(--space-sm); border-radius: 999px; white-space: nowrap; cursor: pointer;
   border: 1px solid var(--color-outline-subtle); background: none; color: var(--color-primary); font: 600 14px var(--font-sans);
 }
-.plan-tabs__tab[aria-selected="true"] { background: var(--color-primary-action); border-color: var(--color-primary-action); color: var(--color-on-primary); }
+/* Mêmes pastilles pour les onglets liens de l'Administration (aria-current). */
+a.plan-tabs__tab { display: inline-flex; align-items: center; gap: var(--space-xs); text-decoration: none; }
+.plan-tabs__tab[aria-selected="true"], .plan-tabs__tab[aria-current="page"] { background: var(--color-primary-action); border-color: var(--color-primary-action); color: var(--color-on-primary); }
 .plan-tabs__tab:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
 
 /* Feuille du bas (BottomSheet) : <dialog> collé en bas, coins hauts arrondis. */
