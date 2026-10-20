@@ -12,6 +12,14 @@ export function ActionMenu({ label, items }: { label: string; items: { label: st
   const pressed = useRef(false);
   const listId = useId();
 
+  // Fin de tout appui (même relâché dehors ou annulé) : l'appui n'est plus en cours.
+  useEffect(() => {
+    const end = () => { pressed.current = false; };
+    document.addEventListener('pointerup', end);
+    document.addEventListener('pointercancel', end);
+    return () => { document.removeEventListener('pointerup', end); document.removeEventListener('pointercancel', end); };
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false); };
@@ -29,7 +37,6 @@ export function ActionMenu({ label, items }: { label: string; items: { label: st
       ref={root}
       className="action-menu"
       onPointerDown={() => { pressed.current = true; }}
-      onPointerUp={() => { pressed.current = false; }}
       onBlur={(e) => {
         // Clic dans le menu : Safari ne focalise pas le bouton cliqué (relatedTarget nul), on ne ferme pas.
         if (open && !pressed.current && !root.current?.contains(e.relatedTarget as Node | null)) setOpen(false);
