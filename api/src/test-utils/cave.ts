@@ -18,7 +18,7 @@ export async function createTestCave(prisma: PrismaClient, opts: { owner?: { id:
 
 /**
  * Supprime les caves de test et tout ce qu'elles contiennent (mouvements,
- * emplacements, zones, accords, vins, photos, exports, coûts de recherche d'image ; les membres
+ * emplacements, zones, plans, accords, vins, photos, exports, coûts de recherche d'image ; les membres
  * suivent par cascade). Chaque route écrit dans la cave courante de son compte :
  * une cave créée par une suite ne reçoit que les lignes de cette suite, qu'on
  * peut donc effacer sans toucher aux suites qui tournent en parallèle.
@@ -30,6 +30,7 @@ export async function deleteTestCaves(prisma: PrismaClient, ids: string[]): Prom
     prisma.movement.deleteMany({ where: { OR: [{ wine: inCaves }, { photo: inCaves }] } }),
     prisma.location.deleteMany({ where: inCaves }),
     prisma.caveZone.deleteMany({ where: inCaves }),
+    prisma.cavePlan.deleteMany({ where: inCaves }),
     prisma.pairing.deleteMany({ where: { wine: inCaves } }),
     prisma.wine.deleteMany({ where: inCaves }),
     prisma.photo.deleteMany({ where: inCaves }),

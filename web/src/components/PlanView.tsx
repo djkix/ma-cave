@@ -1,7 +1,6 @@
 import { KeyboardEvent, MouseEvent, Ref, useState } from 'react';
 import { type CavePlan, type PlanMarker, planImageUrl } from '../lib/api-client';
-import { usePlan } from '../lib/locations';
-import { useCurrentCave } from '../lib/use-current-cave';
+import { usePlans } from '../lib/locations';
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
 /** Pas des flèches, en fraction de l'image (Maj : 10 %), arrondi pour éviter 0.54000000000000004. */
@@ -21,7 +20,7 @@ const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRigh
  * (`onPendingMove`, 2 %, Maj 10 %), Échap appelle `onCancel`.
  */
 export function PlanView({ src, plan, markers, highlightZoneId, pending, onPlanClick, onMarkerClick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
-  src: string; plan: CavePlan; markers: PlanMarker[]; highlightZoneId?: string | null; pending?: { x: number; y: number } | null;
+  src: string; plan: Pick<CavePlan, 'width' | 'height'>; markers: PlanMarker[]; highlightZoneId?: string | null; pending?: { x: number; y: number } | null;
   onPlanClick?: (x: number, y: number) => void; onMarkerClick?: (zoneId: string) => void;
   onPendingMove?: (x: number, y: number) => void; onCancel?: () => void; planRef?: Ref<HTMLSpanElement>; maxWidth?: number; alt?: string;
 }) {
@@ -68,27 +67,35 @@ export function PlanView({ src, plan, markers, highlightZoneId, pending, onPlanC
 }
 
 /**
- * Plan de la cave, repère de la zone en avant (fiche du vin, « À boire »),
- * en lecture seule pour tous. À n'afficher que pour une zone qui a un repère
- * (`zone.marker`) : le plan n'est lu qu'alors. Rien sans plan. `mini` : petit
- * plan (160 px) avec ce seul repère, qui s'agrandit au toucher avec tous les repères.
+ * Plan où se trouve la zone (celui de son repère), repère de la zone en avant
+ * (fiche du vin, « À boire »), en lecture seule pour tous, nom du plan en
+ * légende. À n'afficher que pour une zone qui a un repère (`zone.marker`) : les
+ * plans ne sont lus qu'alors. Rien sans repère. `mini` : petit plan (160 px)
+ * avec ce seul repère, qui s'agrandit au toucher avec tous les repères du plan.
  */
 export function ZonePlan({ zoneId, mini }: { zoneId: string; mini?: boolean }) {
-  const { caveId } = useCurrentCave();
-  const data = usePlan().data;
+  const data = usePlans().data;
   const [open, setOpen] = useState(false);
-  if (!caveId || !data?.plan || !data.markers.some((m) => m.zoneId === zoneId)) return null;
-  const src = planImageUrl(caveId, data.plan.updatedAt);
+  const planId = data?.markers.find((m) => m.zoneId === zoneId)?.planId;
+  const plan = data?.plans.find((p) => p.id === planId);
+  if (!plan) return null;
+  const src = planImageUrl(plan.id, plan.updatedAt);
+  const markers = data!.markers.filter((m) => m.planId === plan.id);
+  const caption = <p className="plan-caption">{plan.name}</p>;
   if (mini && !open) {
     return (
-      <button type="button" className="plan-mini" aria-label="Agrandir le plan" onClick={() => setOpen(true)}>
-        <PlanView src={src} plan={data.plan} markers={data.markers.filter((m) => m.zoneId === zoneId)} highlightZoneId={zoneId} maxWidth={160} />
-      </button>
+      <>
+        <button type="button" className="plan-mini" aria-label="Agrandir le plan" onClick={() => setOpen(true)}>
+          <PlanView src={src} plan={plan} markers={markers.filter((m) => m.zoneId === zoneId)} highlightZoneId={zoneId} maxWidth={160} />
+        </button>
+        {caption}
+      </>
     );
   }
   return (
     <div className="plan-chooser">
-      <PlanView src={src} plan={data.plan} markers={data.markers} highlightZoneId={zoneId} />
+      <PlanView src={src} plan={plan} markers={markers} highlightZoneId={zoneId} />
+      {caption}
       {mini && <button type="button" className="btn btn--link" onClick={() => setOpen(false)}>Réduire le plan</button>}
     </div>
   );

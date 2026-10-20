@@ -241,3 +241,12 @@ button.plan-view__marker { cursor: pointer; }
 .plan-view__marker--highlight { background: #c62828; transform: translate(-50%, -50%) scale(1.25); z-index: 1; }
 .plan-mini { display: block; padding: 0; border: 0; background: none; width: 160px; max-width: 100%; cursor: zoom-in; margin-bottom: var(--space-sm); }
 .plan-chooser { display: grid; gap: var(--space-xs); }
+.plan-caption { margin: 0 0 var(--space-sm); font-size: 13px; color: var(--color-secondary); }
+/* Onglets des plans : une rangée qui défile seule, sans élargir la page. */
+.plan-tabs { display: flex; gap: var(--space-xs); overflow-x: auto; max-width: 100%; min-width: 0; padding-bottom: 2px; }
+.plan-tabs__tab {
+  flex-shrink: 0; min-height: var(--size-touch-target); padding: 0 var(--space-sm); border-radius: 999px; white-space: nowrap; cursor: pointer;
+  border: 1px solid var(--color-outline-subtle); background: none; color: var(--color-primary); font: 600 14px var(--font-sans);
+}
+.plan-tabs__tab[aria-selected="true"] { background: var(--color-primary-action); border-color: var(--color-primary-action); color: var(--color-on-primary); }
+.plan-tabs__tab:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
