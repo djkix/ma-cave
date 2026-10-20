@@ -63,7 +63,7 @@ describe('Onglets', () => {
       { id: 'r2', email: 'zoe@example.com', displayName: null, createdAt: '2026-10-05T18:00:00Z' },
     ]);
     mount('/admin/couts');
-    const tabs = within(await screen.findByRole('tablist', { name: 'Administration' }));
+    const tabs = within(await screen.findByRole('navigation', { name: 'Administration' }));
     const comptes = tabs.getByRole('link', { name: /Comptes/ });
     expect(comptes).toHaveAttribute('href', '/admin/comptes');
     expect(await within(comptes).findByText('2')).toHaveClass('badge', 'badge--warn');
@@ -95,7 +95,7 @@ describe('Onglets', () => {
     vi.spyOn(api, 'getAdminUsers').mockResolvedValue(users);
     for (const path of ['/admin/comptes', '/admin/couts', '/admin/donnees']) {
       mount(path);
-      await screen.findByRole('tablist', { name: 'Administration' });
+      await screen.findByRole('navigation', { name: 'Administration' });
       expect(screen.queryByRole('link', { name: /Confidentialité/ })).not.toBeInTheDocument();
       cleanup();
     }
@@ -269,6 +269,19 @@ describe('Créer sa cave', () => {
     await choose('sophie@example.fr', 'Créer sa cave');
     await waitFor(() => expect(create).toHaveBeenCalledWith('u2'));
     await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+  });
+
+  it('un administrateur sans cave la crée depuis sa propre ligne', async () => {
+    vi.spyOn(api, 'getMe').mockResolvedValue(me);
+    vi.spyOn(api, 'getAdminUsers').mockResolvedValue([{ ...users[0], hasCave: false }, users[1]]);
+    const create = vi.spyOn(api, 'createUserCave').mockResolvedValue({ id: 'c8', name: 'Cave admin' });
+    mount();
+    await screen.findByText('sophie@example.fr');
+    expect(within(rowOf('admin@example.com')).getByText('votre compte')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Actions pour admin@example.com' }));
+    expect(screen.queryByRole('button', { name: /Bloquer|Retirer les droits|Promouvoir/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Créer sa cave' }));
+    await waitFor(() => expect(create).toHaveBeenCalledWith(users[0].id));
   });
 
   it('affiche le refus de l’api', async () => {
