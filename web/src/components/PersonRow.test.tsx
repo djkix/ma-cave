@@ -14,6 +14,7 @@ it('montre titre, sous-titre, badges, méta et action', () => {
 });
 
 it('n’affiche pas de sous-titre absent', () => {
-  const { container } = render(<PersonRow title="Paul" subtitle={null} />);
+  const { container } = render(<PersonRow title="Paul" subtitle={null} badges={[{ label: 'Actif', tone: 'ok' }]} />);
   expect(container.querySelector('.list__meta')).toBeNull();
+  expect(screen.getByText('Actif')).toBeInTheDocument();
 });
