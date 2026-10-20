@@ -30,7 +30,7 @@ export function BottomSheet({ open, title, onClose, children }: { open: boolean;
       className="sheet"
       aria-labelledby={titleId}
       onCancel={(e) => { e.preventDefault(); onClose(); }}
-      onClose={() => { if (openRef.current) onClose(); }}
+      onClose={(e) => { if (openRef.current && !e.currentTarget.open) onClose(); }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="sheet__body">

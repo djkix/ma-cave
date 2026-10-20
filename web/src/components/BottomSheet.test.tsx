@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { BottomSheet } from './BottomSheet';
 
 // jsdom n'a ni showModal ni close : on les simule comme les autres tests de <dialog>.
@@ -30,7 +30,9 @@ it('Échap et clic sur le fond appellent onClose', async () => {
 it('la fermeture native appelle onClose, pas la fermeture par React', () => {
   const onClose = vi.fn();
   const { rerender } = render(<BottomSheet open title="T" onClose={onClose}>x</BottomSheet>);
-  screen.getByRole('dialog').dispatchEvent(new Event('close'));
+  const d = screen.getByRole('dialog') as HTMLDialogElement;
+  d.open = false; // fermé nativement
+  d.dispatchEvent(new Event('close'));
   expect(onClose).toHaveBeenCalledTimes(1);
   rerender(<BottomSheet open={false} title="T" onClose={onClose}>x</BottomSheet>);
   document.querySelector('dialog')!.dispatchEvent(new Event('close'));
@@ -55,4 +57,14 @@ it('fermé, rend le focus au bouton qui l’a ouverte', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Fermer' }));
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(opener).toHaveFocus();
+});
+
+it('monté ouvert sous StrictMode, reste ouvert malgré le close asynchrone', async () => {
+  const onClose = vi.fn();
+  render(<StrictMode><BottomSheet open title="T" onClose={onClose}><p>x</p></BottomSheet></StrictMode>);
+  const dialog = screen.getByRole('dialog');
+  // le navigateur émet `close` après le close() de la phase de nettoyage, quand la feuille est déjà rouverte
+  dialog.dispatchEvent(new Event('close'));
+  expect(onClose).not.toHaveBeenCalled();
+  expect(dialog).toHaveAttribute('open');
 });
