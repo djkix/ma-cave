@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
+import { ActionMenu } from '../components/ActionMenu';
 import { BottomNav } from '../components/BottomNav';
-import { Button } from '../components/Button';
+import { PersonRow } from '../components/PersonRow';
 import { TopBar } from '../components/TopBar';
 import { BudgetSection } from '../components/admin/BudgetSection';
 import { GeminiUsageSection } from '../components/admin/GeminiUsageSection';
@@ -9,58 +10,69 @@ import { GuardsSection } from '../components/admin/GuardsSection';
 import { ReadingQualitySection } from '../components/admin/ReadingQualitySection';
 import { RegistrationsSection } from '../components/admin/RegistrationsSection';
 import { VintagesSection } from '../components/admin/VintagesSection';
-import { AdminUser, createUserCave, getAdminUsers, updateAdminUser } from '../lib/api-client';
+import { AdminUser, createUserCave, getAdminUsers, getRegistrations, updateAdminUser } from '../lib/api-client';
 import { useMe } from '../lib/use-current-cave';
 
 const fmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-function AdminUserRow({ user, isSelf, onToggleStatus, onToggleAdmin, onCreateCave, pending }: {
+const TABS = [
+  { id: 'comptes', label: 'Comptes' },
+  { id: 'couts', label: 'Coûts de l’IA' },
+  { id: 'donnees', label: 'Données du vin' },
+] as const;
+
+type Patch = { status?: AdminUser['status']; isAdmin?: boolean };
+
+function AdminUserRow({ user, isSelf, onUpdate, onCreateCave, pending }: {
   user: AdminUser;
   isSelf: boolean;
-  onToggleStatus: (u: AdminUser) => void;
-  onToggleAdmin: (u: AdminUser) => void;
-  onCreateCave: (u: AdminUser) => void;
+  onUpdate: (patch: Patch) => void;
+  onCreateCave: () => void;
   pending: boolean;
 }) {
+  const blocked = user.status === 'BLOCKED';
+  // Compte actif sans cave à lui (invité seulement, ou validé à la main) : l'administrateur peut la créer.
+  const canCreateCave = user.status === 'ACTIVE' && !user.hasCave;
+  const items = isSelf ? [] : [
+    blocked
+      ? { label: 'Réactiver', onSelect: () => onUpdate({ status: 'ACTIVE' }) }
+      : { label: 'Bloquer', onSelect: () => window.confirm(`Bloquer ${user.email} ? Le compte ne pourra plus se connecter.`) && onUpdate({ status: 'BLOCKED' }) },
+    user.isAdmin
+      ? { label: 'Retirer les droits', onSelect: () => window.confirm(`Retirer les droits d’administrateur de ${user.email} ?`) && onUpdate({ isAdmin: false }) }
+      : { label: 'Promouvoir administrateur', onSelect: () => onUpdate({ isAdmin: true }) },
+  ];
+  // Sa propre ligne n'a pas de menu, sauf pour créer sa cave s'il n'en a pas.
+  if (canCreateCave) items.push({ label: 'Créer sa cave', onSelect: onCreateCave });
   return (
-    <div className="list__row">
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p className="list__title" style={{ margin: 0 }}>
-          {user.displayName ?? user.email}
-          {user.isAdmin && <span className="badge badge--ok" style={{ marginLeft: 'var(--space-sm)' }}>Administrateur</span>}
-          {user.status === 'BLOCKED' && <span className="badge badge--warn" style={{ marginLeft: 'var(--space-sm)' }}>Bloqué</span>}
-          {user.status === 'PENDING' && <span className="badge badge--warn" style={{ marginLeft: 'var(--space-sm)' }}>En attente</span>}
-        </p>
-        <span className="list__meta">{user.email}</span>
-        <br />
+    <PersonRow
+      title={user.displayName ?? user.email}
+      subtitle={user.displayName ? user.email : null}
+      badges={[
+        ...(user.isAdmin ? [{ label: 'Administrateur', tone: 'ok' as const }] : []),
+        ...(blocked ? [{ label: 'Bloqué', tone: 'warn' as const }] : []),
+        ...(user.status === 'PENDING' ? [{ label: 'En attente', tone: 'warn' as const }] : []),
+      ]}
+      meta={
         <span className="list__meta">
           Créé le {fmt.format(new Date(user.createdAt))} · Dernière connexion{' '}
           {user.lastLoginAt ? fmt.format(new Date(user.lastLoginAt)) : 'jamais'}
         </span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-        <Button variant="outline" disabled={isSelf || pending} onClick={() => onToggleStatus(user)}>
-          {user.status === 'BLOCKED' ? 'Réactiver' : 'Bloquer'}
-        </Button>
-        <Button variant="outline" disabled={isSelf || pending} onClick={() => onToggleAdmin(user)}>
-          {user.isAdmin ? 'Retirer les droits' : 'Promouvoir administrateur'}
-        </Button>
-        {/* Compte actif sans cave à lui (invité seulement, ou validé à la main) : l'administrateur peut la créer. */}
-        {user.status === 'ACTIVE' && !user.hasCave && (
-          <Button variant="outline" disabled={pending} onClick={() => onCreateCave(user)}>Créer sa cave</Button>
-        )}
-        {isSelf && <span className="list__meta">votre compte</span>}
-      </div>
-    </div>
+      }
+      action={
+        <>
+          {isSelf && <span className="list__meta">votre compte</span>}
+          {items.length > 0 && <ActionMenu label={`Actions pour ${user.email}`} items={items.map((it) => ({ ...it, disabled: pending }))} />}
+        </>
+      }
+    />
   );
 }
 
-export function AdminPage() {
+function AccountsCard({ meId }: { meId: string }) {
   const qc = useQueryClient();
-  const me = useMe();
-  const users = useQuery({ queryKey: ['admin', 'users'], queryFn: getAdminUsers, enabled: me.data?.isAdmin === true });
+  const users = useQuery({ queryKey: ['admin', 'users'], queryFn: getAdminUsers });
   const update = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: { status?: AdminUser['status']; isAdmin?: boolean } }) => updateAdminUser(id, patch),
+    mutationFn: ({ id, patch }: { id: string; patch: Patch }) => updateAdminUser(id, patch),
     onMutate: (): void => createCave.reset(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
   });
@@ -73,36 +85,71 @@ export function AdminPage() {
   const rowError = (update.error ?? createCave.error) as Error | null;
 
   return (
+    <section className="card">
+      <h2 style={{ fontSize: 18 }}>Comptes</h2>
+      {rowError && <p role="alert" className="text-error">{rowError.message}</p>}
+      {users.isError && <p role="alert" className="text-error">{(users.error as Error).message}</p>}
+      <div className="list">
+        {users.data?.map((u) => (
+          <AdminUserRow
+            key={u.id}
+            user={u}
+            isSelf={u.id === meId}
+            pending={update.isPending || createCave.isPending}
+            onUpdate={(patch) => update.mutate({ id: u.id, patch })}
+            onCreateCave={() => createCave.mutate(u.id)}
+          />
+        ))}
+        {users.data?.length === 0 && <p className="centered">Aucun compte.</p>}
+      </div>
+    </section>
+  );
+}
+
+/** Administration (« Application » du hub) : un onglet par adresse, /admin/comptes, /admin/couts, /admin/donnees. */
+export function AdminPage() {
+  const { tab } = useParams();
+  const me = useMe();
+  const isAdmin = me.data?.isAdmin === true;
+  // Même clé que la carte Inscriptions : le badge de l'onglet Comptes ne coûte pas de requête de plus.
+  const regs = useQuery({ queryKey: ['admin', 'registrations'], queryFn: getRegistrations, enabled: isAdmin });
+
+  if (!TABS.some((t) => t.id === tab)) return <Navigate to="/admin/comptes" replace />;
+
+  return (
     <>
-      <TopBar title="Administration" back="/" />
+      <TopBar title="Administration" back="/compte" />
       <main className="page">
-        {me.data && !me.data.isAdmin && <p className="centered">Réservé à l’administrateur.</p>}
+        {me.data && !isAdmin && <p className="centered">Réservé à l’administrateur.</p>}
         {me.data?.isAdmin && (
           <>
-            <RegistrationsSection />
-            {rowError && <p role="alert" className="text-error">{rowError.message}</p>}
-            {users.isError && <p role="alert" className="text-error">{(users.error as Error).message}</p>}
-            <div className="list">
-              {users.data?.map((u) => (
-                <AdminUserRow
-                  key={u.id}
-                  user={u}
-                  isSelf={u.id === me.data.id}
-                  pending={update.isPending || createCave.isPending}
-                  onToggleStatus={(user) => update.mutate({ id: user.id, patch: { status: user.status === 'BLOCKED' ? 'ACTIVE' : 'BLOCKED' } })}
-                  onToggleAdmin={(user) => update.mutate({ id: user.id, patch: { isAdmin: !user.isAdmin } })}
-                  onCreateCave={(user) => createCave.mutate(user.id)}
-                />
+            <div role="tablist" aria-label="Administration" className="plan-tabs">
+              {TABS.map((t) => (
+                <Link key={t.id} to={`/admin/${t.id}`} className="plan-tabs__tab" aria-current={t.id === tab ? 'page' : undefined}>
+                  {t.label}
+                  {t.id === 'comptes' && !!regs.data?.length && <span className="badge badge--warn">{regs.data.length}</span>}
+                </Link>
               ))}
-              {users.data?.length === 0 && <p className="centered">Aucun compte.</p>}
             </div>
-            <BudgetSection />
-            <GeminiUsageSection />
-            <ReadingQualitySection />
-            <VintagesSection />
-            <GuardsSection />
-            {/* Page publique (Google la demande pour l'écran de consentement), liée d'ici seulement. */}
-            <Link to="/confidentialite" className="btn btn--link">Confidentialité</Link>
+            {tab === 'comptes' && (
+              <>
+                <RegistrationsSection />
+                <AccountsCard meId={me.data.id} />
+              </>
+            )}
+            {tab === 'couts' && (
+              <>
+                <BudgetSection />
+                <GeminiUsageSection />
+              </>
+            )}
+            {tab === 'donnees' && (
+              <>
+                <ReadingQualitySection />
+                <VintagesSection />
+                <GuardsSection />
+              </>
+            )}
           </>
         )}
       </main>

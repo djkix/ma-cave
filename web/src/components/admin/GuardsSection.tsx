@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { deleteGuard, GuardAppellation, putGuard, searchGuards, WineColor } from '../../lib/api-client';
+import { BottomSheet } from '../BottomSheet';
 import { Button } from '../Button';
 
 const COLOR_LABEL: Record<WineColor, string> = { ROUGE: 'Rouge', BLANC: 'Blanc', ROSE: 'Rosé', PETILLANT: 'Pétillant' };
@@ -39,7 +40,7 @@ export function GuardsSection() {
   const min = /^\d{1,3}$/.test(minText) ? Number(minText) : null;
   const max = /^\d{1,3}$/.test(maxText) ? Number(maxText) : null;
   const valid = min !== null && max !== null && min <= max && max <= 100;
-  const error = (put.error ?? del.error) as Error | null;
+  const putError = put.error as Error | null;
 
   return (
     <section className="card">
@@ -49,7 +50,7 @@ export function GuardsSection() {
       </p>
       <label htmlFor="guard-search" className="field__label">Appellation</label>
       <input id="guard-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Au moins deux lettres" />
-      {error && <p role="alert" className="text-error">{error.message}</p>}
+      {del.error && <p role="alert" className="text-error">{(del.error as Error).message}</p>}
       <div className="list" style={{ marginTop: 'var(--space-sm)' }}>
         {results.data?.map((a) => (
           <div key={a.id} className="list__row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
@@ -64,30 +65,32 @@ export function GuardsSection() {
                 </Button>
               </span>
             ))}
-            <Button variant="outline" aria-label={`Ajuster ${a.canonicalName}`} onClick={() => { setSelected(a); setColor(''); setMinText(''); setMaxText(''); }}>
+            <Button variant="outline" aria-label={`Ajuster ${a.canonicalName}`} onClick={() => { put.reset(); setSelected(a); setColor(''); setMinText(''); setMaxText(''); }}>
               Ajuster
             </Button>
-            {selected?.id === a.id && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)', alignItems: 'center' }}>
-                <label htmlFor="guard-color" className="field__label">Couleur</label>
-                <select id="guard-color" value={color} onChange={(e) => setColor(e.target.value as WineColor | '')}>
-                  <option value="">Toutes couleurs</option>
-                  {(Object.keys(COLOR_LABEL) as WineColor[]).map((c) => <option key={c} value={c}>{COLOR_LABEL[c]}</option>)}
-                </select>
-                <label htmlFor="guard-min" className="field__label">Garde minimale</label>
-                <input id="guard-min" inputMode="numeric" value={minText} onChange={(e) => setMinText(e.target.value.trim())} style={{ width: 72 }} />
-                <label htmlFor="guard-max" className="field__label">Garde maximale</label>
-                <input id="guard-max" inputMode="numeric" value={maxText} onChange={(e) => setMaxText(e.target.value.trim())} style={{ width: 72 }} />
-                <Button variant="dark" disabled={!valid || put.isPending}
-                  onClick={() => valid && put.mutate({ appellationId: a.id, color: color || null, min: min!, max: max! })}>
-                  Enregistrer la garde
-                </Button>
-              </div>
-            )}
           </div>
         ))}
         {results.data?.length === 0 && <p className="centered">Aucune appellation ne correspond.</p>}
       </div>
+      <BottomSheet open={selected !== null} title={`Ajuster la garde de ${selected?.canonicalName ?? ''}`} onClose={() => setSelected(null)}>
+        <form className="zone-form" onSubmit={(e) => {
+          e.preventDefault();
+          if (valid && selected) put.mutate({ appellationId: selected.id, color: color || null, min, max });
+        }}>
+          <label htmlFor="guard-color" className="field__label">Couleur</label>
+          <select id="guard-color" value={color} onChange={(e) => setColor(e.target.value as WineColor | '')}>
+            <option value="">Toutes couleurs</option>
+            {(Object.keys(COLOR_LABEL) as WineColor[]).map((c) => <option key={c} value={c}>{COLOR_LABEL[c]}</option>)}
+          </select>
+          <label htmlFor="guard-min" className="field__label">Garde minimale</label>
+          <input id="guard-min" inputMode="numeric" value={minText} onChange={(e) => setMinText(e.target.value.trim())} />
+          <label htmlFor="guard-max" className="field__label">Garde maximale</label>
+          <input id="guard-max" inputMode="numeric" value={maxText} onChange={(e) => setMaxText(e.target.value.trim())} />
+          <button type="submit" className="btn btn--dark" disabled={!valid || put.isPending}>Enregistrer la garde</button>
+          <Button variant="link" onClick={() => setSelected(null)}>Annuler</Button>
+        </form>
+        {putError && <p role="alert" className="text-error" style={{ margin: 0 }}>{putError.message}</p>}
+      </BottomSheet>
     </section>
   );
 }

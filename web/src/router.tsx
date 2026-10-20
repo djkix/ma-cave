@@ -59,7 +59,8 @@ export const routes: RouteObject[] = [
               { path: '/membres', element: <Navigate to="/ma-cave" replace /> },
             ],
           },
-          { path: '/admin', element: <AdminPage /> },
+          { path: '/admin', element: <Navigate to="/admin/comptes" replace /> },
+          { path: '/admin/:tab', element: <AdminPage /> },
           // Derrière RequireAuth : une URL inconnue commence par demander la session,
           // comme n'importe quelle page de l'application.
           { path: '*', element: <NotFoundPage /> },
