@@ -575,13 +575,16 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
 
   describe('plans : celui de A est introuvable pour B', () => {
     it('repère d\'une zone de B sur le plan de A : 404 « Plan introuvable », A inchangée', async () => {
+      // Plan dédié : celui de la matrice a déjà été supprimé par son chemin heureux.
+      const planA2 = await prisma.cavePlan.create({ data: { caveId: ids.caveA, name: 'Plan A bis', path: `plans/${ids.caveA}-bis.jpg`, width: 120, height: 160, updatedAt: new Date() } });
       const zoneB = await prisma.caveZone.create({ data: { caveId: ids.caveB, name: `Iso B ${run}` } });
       try {
-        const req: Request = { url: `/api/caves/current/zones/${zoneB.id}/marker`, body: { planId: ids.planA, x: 0.1, y: 0.2 } };
+        const req: Request = { url: `/api/caves/current/zones/${zoneB.id}/marker`, body: { planId: planA2.id, x: 0.1, y: 0.2 } };
         expectNothingOfA(await refused(agents.ownerB, { method: 'PUT', path: req.url, kind: 'cave-owner', req: () => req }, NOT_FOUND_PLAN));
         expect((await prisma.caveZone.findUnique({ where: { id: zoneB.id } }))?.planId).toBeNull();
       } finally {
         await prisma.caveZone.delete({ where: { id: zoneB.id } });
+        await prisma.cavePlan.delete({ where: { id: planA2.id } });
       }
     });
   });
