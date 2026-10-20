@@ -74,7 +74,7 @@ export function CaveSwitcher() {
           onChange={(e) => change.mutate(e.target.value)}
         >
           {caves.map((c) => (
-            <option key={c.id} value={c.id}>{c.role === 'VIEWER' ? `${c.name} (lecture)` : c.name}</option>
+            <option key={c.id} value={c.id}>{c.role === 'VIEWER' ? `${c.name} · Lecture seule` : c.name}</option>
           ))}
         </select>
       )}

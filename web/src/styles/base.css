@@ -250,3 +250,32 @@ button.plan-view__marker { cursor: pointer; }
 }
 .plan-tabs__tab[aria-selected="true"] { background: var(--color-primary-action); border-color: var(--color-primary-action); color: var(--color-on-primary); }
 .plan-tabs__tab:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
+
+/* Feuille du bas (BottomSheet) : <dialog> collé en bas, coins hauts arrondis. */
+.sheet {
+  width: 100%; max-width: 640px; margin: auto auto 0; max-height: 85vh; box-sizing: border-box; overflow-y: auto;
+  border: 0; border-radius: 16px 16px 0 0; padding: var(--space-md); background: var(--color-surface); color: inherit;
+  animation: sheet-up 0.2s ease-out;
+}
+.sheet::backdrop { background: rgb(0 0 0 / 0.5); }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+/* Menu « ⋯ » (ActionMenu). */
+.action-menu { position: relative; flex-shrink: 0; }
+.action-menu__button {
+  min-width: var(--size-touch-target); min-height: var(--size-touch-target); border: 0; border-radius: 999px; background: none;
+  color: var(--color-primary); font: 600 20px var(--font-sans); cursor: pointer;
+}
+.action-menu__list {
+  position: absolute; right: 0; top: 100%; z-index: 10; min-width: 200px; padding: var(--space-xs) 0; border-radius: 12px;
+  background: var(--color-surface); box-shadow: 0 2px 12px rgb(0 0 0 / 0.25);
+}
+.action-menu__item {
+  display: block; width: 100%; min-height: 48px; padding: 0 var(--space-md); border: 0; background: none; text-align: left;
+  color: inherit; font: 14px var(--font-sans); cursor: pointer;
+}
+.action-menu__item:disabled { opacity: 0.5; cursor: default; }
+.action-menu__button:focus-visible, .action-menu__item:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: -3px; }
+/* Ligne de personne (PersonRow) : texte à gauche qui rétrécit, action à droite. */
+.person-row__main { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.person-row__tags { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); margin-top: 4px; }

@@ -58,13 +58,13 @@ it('signale la lecture seule à un membre d’une seule cave', async () => {
 
 const twoCaves = meFixture({ caves: [OWNER_CAVE, VIEWER_CAVE], currentCaveId: OWNER_CAVE.id });
 
-it('propose les caves avec « (lecture) » pour un membre, la courante choisie', async () => {
+it('propose les caves avec « · Lecture seule » pour un membre, la courante choisie', async () => {
   vi.spyOn(api, 'getMe').mockResolvedValue(twoCaves);
   mount();
   const select = await screen.findByRole('combobox', { name: 'Cave' });
   expect(select).toHaveValue('c1');
   const options = within(select).getAllByRole('option').map((o) => o.textContent);
-  expect(options).toEqual(['Cave de djkix', 'Cave de Paul (lecture)']);
+  expect(options).toEqual(['Cave de djkix', 'Cave de Paul · Lecture seule']);
   expect(screen.queryByText('Lecture seule')).not.toBeInTheDocument();
 });
 
