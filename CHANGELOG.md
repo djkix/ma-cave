@@ -9,6 +9,14 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.14.0](https://github.com/djkix/ma-cave/compare/v2.13.0...v2.14.0) (2026-10-20)
+
+
+### Fonctionnalités
+
+* **api:** plusieurs plans par cave, repère rattaché à un plan ([96b45a9](https://github.com/djkix/ma-cave/commit/96b45a9a55efb9a2f3d2b482fbede5727d4f2c71))
+* **web:** plusieurs plans par cave, en onglets ([7ba6eab](https://github.com/djkix/ma-cave/commit/7ba6eab8635458f9e864edf8497b4048a4fe9c5e))
+
 ## [2.13.0](https://github.com/djkix/ma-cave/compare/v2.12.0...v2.13.0) (2026-10-18)
 
 ### Résumé
