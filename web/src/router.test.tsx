@@ -59,7 +59,7 @@ it('ouvre « Ma cave › Réglages » au propriétaire', async () => {
   vi.spyOn(api, 'getMembers').mockResolvedValue([]);
   vi.spyOn(api, 'getZones').mockResolvedValue([]);
   const router = mountAt('/ma-cave');
-  expect(await screen.findByRole('heading', { level: 1, name: 'Ma cave › Réglages' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { level: 1, name: 'Ma cave' })).toBeInTheDocument();
   expect(router.state.location.pathname).toBe('/ma-cave');
 });
 
@@ -69,6 +69,14 @@ it('redirige l’ancienne adresse /membres vers « Ma cave › Réglages »', as
   const router = mountAt('/membres');
   await waitFor(() => expect(router.state.location.pathname).toBe('/ma-cave'));
   expect(await screen.findByRole('region', { name: 'Membres' })).toBeInTheDocument();
+});
+
+it('redirige /admin vers l’onglet Comptes', async () => {
+  vi.spyOn(api, 'getAdminUsers').mockResolvedValue([]);
+  vi.spyOn(api, 'getRegistrations').mockResolvedValue([]);
+  const router = mountAt('/admin', meFixture({ isAdmin: true }));
+  await waitFor(() => expect(router.state.location.pathname).toBe('/admin/comptes'));
+  expect(await screen.findByRole('heading', { name: 'Comptes' })).toBeInTheDocument();
 });
 
 describe('changement de cave', () => {

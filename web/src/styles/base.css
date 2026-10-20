@@ -243,10 +243,71 @@ button.plan-view__marker { cursor: pointer; }
 .plan-chooser { display: grid; gap: var(--space-xs); }
 .plan-caption { margin: 0 0 var(--space-sm); font-size: 13px; color: var(--color-secondary); }
 /* Onglets des plans : une rangée qui défile seule, sans élargir la page. */
+.plan-tabs-row { display: flex; align-items: center; gap: var(--space-xs); min-width: 0; }
+.plan-tabs-row .plan-tabs { flex: 1; }
 .plan-tabs { display: flex; gap: var(--space-xs); overflow-x: auto; max-width: 100%; min-width: 0; padding-bottom: 2px; }
 .plan-tabs__tab {
   flex-shrink: 0; min-height: var(--size-touch-target); padding: 0 var(--space-sm); border-radius: 999px; white-space: nowrap; cursor: pointer;
   border: 1px solid var(--color-outline-subtle); background: none; color: var(--color-primary); font: 600 14px var(--font-sans);
 }
-.plan-tabs__tab[aria-selected="true"] { background: var(--color-primary-action); border-color: var(--color-primary-action); color: var(--color-on-primary); }
+/* Mêmes pastilles pour les onglets liens de l'Administration (aria-current). */
+a.plan-tabs__tab { display: inline-flex; align-items: center; gap: var(--space-xs); text-decoration: none; }
+.plan-tabs__tab[aria-selected="true"], .plan-tabs__tab[aria-current="page"] { background: var(--color-primary-action); border-color: var(--color-primary-action); color: var(--color-on-primary); }
 .plan-tabs__tab:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
+
+/* Feuille du bas (BottomSheet) : <dialog> collé en bas, coins hauts arrondis. */
+.sheet {
+  width: 100%; max-width: 640px; margin: auto auto 0; max-height: 85vh; max-height: 85dvh; box-sizing: border-box; overflow-y: auto;
+  border: 0; border-radius: 16px 16px 0 0; padding: 0; background: var(--color-surface); color: inherit;
+  animation: sheet-up 0.2s ease-out;
+}
+.sheet__body { padding: var(--space-md); padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom)); }
+.sheet__title { font-size: 18px; margin-top: 0; }
+/* Pas de défilement de la page derrière une feuille ouverte. */
+body:has(dialog.sheet[open]) { overflow: hidden; }
+.sheet::backdrop { background: rgb(0 0 0 / 0.5); }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+/* Menu « ⋯ » (ActionMenu). */
+.action-menu { position: relative; flex-shrink: 0; }
+.action-menu__button {
+  min-width: var(--size-touch-target); min-height: var(--size-touch-target); border: 0; border-radius: 999px; background: none;
+  color: var(--color-primary); font: 600 20px var(--font-sans); cursor: pointer;
+}
+.action-menu__list {
+  position: absolute; right: 0; top: 100%; z-index: 10; min-width: 200px; padding: var(--space-xs) 0; border-radius: 12px;
+  background: var(--color-surface); box-shadow: 0 2px 12px rgb(0 0 0 / 0.25);
+}
+.action-menu__item {
+  display: block; width: 100%; min-height: 48px; padding: 0 var(--space-md); border: 0; background: none; text-align: left;
+  color: inherit; font: 14px var(--font-sans); cursor: pointer;
+}
+.action-menu__item:disabled { opacity: 0.5; cursor: default; }
+.action-menu__button:focus-visible, .action-menu__item:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: -3px; }
+/* Ligne de personne (PersonRow) : texte à gauche qui rétrécit, action à droite. */
+.person-row__main { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.person-row__tags { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); margin-top: 4px; }
+/* Hub « Mon compte » : profil, puis cartes de navigation pleine largeur (icône, titre, résumé, chevron). */
+.profile { display: flex; align-items: center; gap: var(--space-md); }
+.profile__avatar {
+  flex: none; width: 56px; height: 56px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--color-primary-action); color: var(--color-on-primary); font: 500 22px var(--font-serif);
+}
+.nav-card { display: flex; align-items: center; gap: var(--space-md); min-height: var(--size-touch-target); text-decoration: none; color: inherit; }
+.nav-card__icon { color: var(--color-primary); }
+.nav-card__text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.nav-card__title { font: 500 18px var(--font-serif); color: var(--color-primary); }
+.nav-card:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
+
+/* Coûts de l'IA : barres verticales empilées par jour, une couleur par usage. */
+.usage-chart { display: flex; align-items: stretch; gap: 2px; height: 120px; margin-top: var(--space-md); }
+.usage-chart__col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.usage-chart__bar { flex: 1; width: 100%; max-width: 32px; display: flex; flex-direction: column-reverse; overflow: hidden; border-radius: 2px 2px 0 0; }
+.usage-chart__seg { display: block; flex-shrink: 0; }
+/* Filet clair entre deux usages voisins : deux couleurs sombres restent distinctes. */
+.usage-chart__seg + .usage-chart__seg { border-bottom: 1px solid var(--color-surface-lowest); }
+/* Hauteur fixe, étiquette vide comprise : toutes les barres partagent la même hauteur utile. */
+.usage-chart__label { height: 15px; line-height: 15px; white-space: nowrap; }
+.usage-details__summary { display: list-item; min-height: var(--size-touch-target); line-height: var(--size-touch-target); cursor: pointer; }
+.usage-legend { list-style: none; margin: var(--space-xs) 0 var(--space-sm); padding: 0; display: flex; flex-wrap: wrap; gap: 2px var(--space-sm); }
+.usage-legend .histo__key { margin-right: 4px; }

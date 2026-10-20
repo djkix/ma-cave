@@ -1,12 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChangeEvent, FormEvent, useId, useRef, useState } from 'react';
+import { ActionMenu } from '../components/ActionMenu';
 import { BottomNav } from '../components/BottomNav';
+import { BottomSheet } from '../components/BottomSheet';
 import { Button } from '../components/Button';
+import { Icon } from '../components/Icon';
 import { ZoneDetails } from '../components/LocationFields';
+import { PersonRow } from '../components/PersonRow';
 import { PlanView } from '../components/PlanView';
 import { TopBar } from '../components/TopBar';
 import {
-  createPlan, createZone, deletePlan, deleteZone, getMembers, inviteMember, MemberView, planImageUrl, removeMember, removeZoneMarker, removeZonePhoto,
+  createPlan, createZone, deletePlan, deleteZone, exportUrl, getMembers, inviteMember, MemberView, planImageUrl, removeMember, removeZoneMarker, removeZonePhoto,
   renameCave, renamePlan, reorderZones, replacePlanImage, setZoneMarker, updateZone, uploadZonePhoto, Zone,
 } from '../lib/api-client';
 import { usePlans, useZones } from '../lib/locations';
@@ -64,21 +68,19 @@ function RenameCard() {
 function MemberRow({ member, busy, onRemove }: { member: MemberView; busy: boolean; onRemove: (m: MemberView) => void }) {
   const owner = member.role === 'OWNER';
   return (
-    <div className="list__row">
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p className="list__title" style={{ margin: 0, overflowWrap: 'anywhere' }}>{member.email}</p>
-        {member.displayName && <span className="list__meta">{member.displayName}</span>}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)', marginTop: 'var(--space-xs)' }}>
-          <span className={`badge ${owner ? 'badge--ok' : 'badge--warn'}`}>{owner ? 'Propriétaire' : 'Lecture seule'}</span>
-          {member.pending && <span className="badge badge--warn">Invitation en attente</span>}
-        </div>
-      </div>
-      {!owner && (
+    <PersonRow
+      title={member.displayName ?? member.email}
+      subtitle={member.displayName ? member.email : null}
+      badges={[
+        owner ? { label: 'Propriétaire', tone: 'ok' } : { label: 'Lecture seule', tone: 'warn' },
+        ...(member.pending ? [{ label: 'Invitation en attente', tone: 'warn' as const }] : []),
+      ]}
+      action={!owner && (
         <Button variant="link" aria-label={`Retirer ${member.email}`} disabled={busy} onClick={() => onRemove(member)}>
           Retirer
         </Button>
       )}
-    </div>
+    />
   );
 }
 
@@ -109,9 +111,13 @@ function ZoneForm({ label, initial, submitLabel, busy, onSubmit, onCancel, idPre
   );
 }
 
-function ZoneRow({ zone, index, count, busy, photoVersion, onMove, onAction, onPhotoChanged }: {
+function ZoneRow({ zone, index, count, busy, error, photoVersion, onMove, onAction, onPhotoChanged, onEdit }: {
   zone: Zone; index: number; count: number; busy: boolean; photoVersion?: number;
+  /** Refus de l'api, repris dans la feuille « Modifier » qui masque la carte. */
+  error: string | null;
   onMove: (delta: -1 | 1) => void; onPhotoChanged: () => void;
+  /** Ouverture de « Modifier » : efface l'ancien refus, pour qu'il ne reparaisse pas dans la feuille. */
+  onEdit: () => void;
   /** `run` peut rendre un message d'état à annoncer (« Zone supprimée »). */
   onAction: (run: () => Promise<unknown>, after?: () => void) => void;
 }) {
@@ -135,15 +141,15 @@ function ZoneRow({ zone, index, count, busy, photoVersion, onMove, onAction, onP
         <button type="button" className="btn btn--outline zone-row__arrow" aria-label={`Descendre ${zone.name}`} disabled={busy || index === count - 1} onClick={() => onMove(1)}>↓</button>
       </div>
       <ZoneDetails key={photoVersion} zone={zone} version={photoVersion} />
-      {editing ? (
+      <div className="zone-row__actions">
+        <Button variant="link" disabled={busy} onClick={() => { onEdit(); setEditing(true); }}>Modifier</Button>
+        <Button variant="link" disabled={busy} onClick={confirmDelete}>Supprimer</Button>
+      </div>
+      <BottomSheet open={editing} title={`Modifier ${zone.name}`} onClose={() => setEditing(false)}>
         <ZoneForm label={`Modifier ${zone.name}`} idPrefix={id} initial={{ name: zone.name, indication: zone.indication ?? '' }} submitLabel="Enregistrer" busy={busy}
           onSubmit={(v) => onAction(() => updateZone(zone.id, v), () => setEditing(false))} onCancel={() => setEditing(false)} />
-      ) : (
-        <div className="zone-row__actions">
-          <Button variant="link" disabled={busy} onClick={() => setEditing(true)}>Modifier</Button>
-          <Button variant="link" disabled={busy} onClick={confirmDelete}>Supprimer</Button>
-        </div>
-      )}
+        {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
+      </BottomSheet>
       <div className="zone-row__actions">
         <label className="field__label" htmlFor={`${id}-photo`}>{`${zone.hasPhoto ? 'Changer la photo' : 'Ajouter une photo'} de ${zone.name}`}</label>
         <input id={`${id}-photo`} type="file" accept="image/*" disabled={busy} onChange={pickPhoto} />
@@ -205,8 +211,8 @@ function ZonesCard() {
       {list.length > 0 && (
         <ul className="zone-list">
           {list.map((z, i) => (
-            <ZoneRow key={z.id} zone={z} index={i} count={list.length} busy={busy} photoVersion={versions[z.id]}
-              onMove={(d) => move(i, d)} onAction={(run, after) => void act(run, after)}
+            <ZoneRow key={z.id} zone={z} index={i} count={list.length} busy={busy} error={error} photoVersion={versions[z.id]}
+              onEdit={() => setError(null)} onMove={(d) => move(i, d)} onAction={(run, after) => void act(run, after)}
               onPhotoChanged={() => setVersions((v) => ({ ...v, [z.id]: Date.now() }))} />
           ))}
         </ul>
@@ -227,8 +233,8 @@ function ZonesCard() {
 type PlanMode = { kind: 'idle' } | { kind: 'pending'; x: number; y: number } | { kind: 'selected'; zoneId: string } | { kind: 'moving'; zoneId: string; x: number; y: number };
 
 /**
- * Plans de la cave, en onglets : en ajouter un (nom puis photo), renommer,
- * remplacer la photo ou supprimer le plan affiché, puis y créer les zones.
+ * Plans de la cave, en onglets : en ajouter un (nom puis photo) ; le menu ⋯
+ * renomme (feuille du bas), remplace la photo ou supprime le plan affiché ; puis y créer les zones.
  * Toucher le plan pose un « + » et demande le nom de l'endroit : la zone est
  * créée avec son repère sur ce plan (ou on choisit une zone existante encore
  * sans repère). Toucher un repère montre sa zone, avec « Déplacer » et
@@ -241,6 +247,7 @@ function PlanCard() {
   const titleId = useId();
   const inputId = useId();
   const planRef = useRef<HTMLSpanElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
   // Onglet choisi : id d'un plan, ou « new » pour l'ajout.
   const [tab, setTab] = useState('');
   const [mode, setMode] = useState<PlanMode>({ kind: 'idle' });
@@ -338,11 +345,20 @@ function PlanCard() {
         <p className="list__meta" style={{ margin: 0 }}>Photographiez la pièce ou un schéma dessiné à la main, puis placez vos zones dessus.</p>
       )}
       {query.isSuccess && (
-        <div role="tablist" aria-label="Plans de la cave" className="plan-tabs">
-          {plans.map((p) => (
-            <button key={p.id} type="button" role="tab" className="plan-tabs__tab" aria-selected={p.id === plan?.id} onClick={() => choose(p.id)}>{p.name}</button>
-          ))}
-          <button type="button" role="tab" className="plan-tabs__tab" aria-selected={adding} onClick={() => choose('new')}>+ Ajouter un plan</button>
+        <div className="plan-tabs-row">
+          <div role="tablist" aria-label="Plans de la cave" className="plan-tabs">
+            {plans.map((p) => (
+              <button key={p.id} type="button" role="tab" className="plan-tabs__tab" aria-selected={p.id === plan?.id} onClick={() => choose(p.id)}>{p.name}</button>
+            ))}
+            <button type="button" role="tab" className="plan-tabs__tab" aria-selected={adding} onClick={() => choose('new')}>+ Ajouter un plan</button>
+          </div>
+          {plan && (
+            <ActionMenu label={`Actions du plan ${plan.name}`} items={[
+              { label: 'Renommer', disabled: busy, onSelect: () => { setMode({ kind: 'idle' }); setError(null); setRenaming(plan.name); } },
+              { label: 'Remplacer la photo', disabled: busy, onSelect: () => photoRef.current?.click() },
+              { label: 'Supprimer le plan', disabled: busy, onSelect: () => confirmDelete(plan.id, plan.name) },
+            ]} />
+          )}
         </div>
       )}
       {adding && (
@@ -398,28 +414,27 @@ function PlanCard() {
       )}
       {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
       {status && <p role="status" className="list__meta" style={{ margin: 0 }}>{status}</p>}
-      {plan && (renaming !== null ? (
-        <form className="zone-form" aria-label="Renommer le plan" onSubmit={(e) => rename(e, plan.id)}>
-          <label className="field__label" htmlFor={`${inputId}-name`}>Nom du plan</label>
-          <input id={`${inputId}-name`} value={renaming} maxLength={PLAN_NAME_MAX} autoComplete="off" onChange={(e) => setRenaming(e.target.value)} />
-          <div className="zone-row__actions">
-            <button type="submit" className="btn btn--primary" disabled={!renaming.trim() || busy}>Enregistrer</button>
-            <Button variant="link" onClick={() => setRenaming(null)}>Annuler</Button>
-          </div>
-        </form>
-      ) : (
-        <div className="zone-row__actions">
-          <Button variant="outline" disabled={busy} onClick={() => { setMode({ kind: 'idle' }); setRenaming(plan.name); }}>Renommer</Button>
-          <label className="field__label" htmlFor={`${inputId}-photo`}>Remplacer la photo</label>
-          <input id={`${inputId}-photo`} type="file" accept="image/*" disabled={busy} onChange={(e) => picked(e, (file) => replacePlanImage(plan.id, file))} />
-          <Button variant="link" disabled={busy} onClick={() => confirmDelete(plan.id, plan.name)}>Supprimer le plan</Button>
-        </div>
-      ))}
+      {plan && (
+        <>
+          {/* Ouvert par « Remplacer la photo » du menu ⋯ ; hors de l'ordre du clavier. */}
+          <input ref={photoRef} type="file" accept="image/*" className="visually-hidden" tabIndex={-1} aria-label={`Photo de remplacement du plan ${plan.name}`}
+            disabled={busy} onChange={(e) => picked(e, (file) => replacePlanImage(plan.id, file))} />
+          <BottomSheet open={renaming !== null} title="Renommer le plan" onClose={() => setRenaming(null)}>
+            <form className="zone-form" aria-label="Renommer le plan" onSubmit={(e) => rename(e, plan.id)}>
+              <label className="field__label" htmlFor={`${inputId}-name`}>Nom du plan</label>
+              <input id={`${inputId}-name`} value={renaming ?? ''} maxLength={PLAN_NAME_MAX} autoComplete="off" onChange={(e) => setRenaming(e.target.value)} />
+              <button type="submit" className="btn btn--dark" disabled={!renaming?.trim() || busy}>Enregistrer</button>
+              <Button variant="link" onClick={() => setRenaming(null)}>Annuler</Button>
+            </form>
+            {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
+          </BottomSheet>
+        </>
+      )}
     </section>
   );
 }
 
-/** Propriétaire : nom de la cave, plan, zones, puis membres en lecture seule (inviter, retirer). */
+/** Propriétaire : nom de la cave, plans, zones, membres en lecture seule (inviter, retirer), puis sauvegarde Excel. */
 export function MaCavePage() {
   const qc = useQueryClient();
   const members = useQuery({ queryKey: ['members'], queryFn: getMembers });
@@ -452,7 +467,7 @@ export function MaCavePage() {
 
   return (
     <>
-      <TopBar title="Ma cave › Réglages" back="/" />
+      <TopBar title="Ma cave" back="/compte" />
       <main className="page">
         <RenameCard />
 
@@ -473,6 +488,15 @@ export function MaCavePage() {
           <div className="list">
             {members.data?.map((m) => <MemberRow key={m.id} member={m} busy={remove.isPending} onRemove={confirmRemove} />)}
           </div>
+        </section>
+
+        <section className="card" aria-labelledby="backup-title">
+          <h2 id="backup-title" style={{ fontSize: 18 }}>Sauvegarde</h2>
+          <p className="list__meta">Toute la cave dans un classeur Excel : stock, journal, cotes.</p>
+          <a className="btn btn--primary" style={{ width: '100%' }} href={exportUrl()} download>
+            <Icon name="download" />
+            Télécharger la sauvegarde Excel
+          </a>
         </section>
       </main>
       <BottomNav />
