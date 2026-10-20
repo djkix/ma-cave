@@ -11,6 +11,23 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.15.0](https://github.com/djkix/ma-cave/compare/v2.14.0...v2.15.0) (2026-10-20)
 
+### Résumé
+
+**Mon compte, les réglages et l'administration réorganisés.** L'icône de
+compte ouvre un hub à quatre cartes avec un résumé : *Moi* (caves, installation
+sur le téléphone, déconnexion), *Ma cave* (nom, plans, zones, membres, et
+désormais la sauvegarde Excel), *Application* (administration en trois onglets :
+Comptes, Coûts de l'IA, Données du vin) et *À propos* (version, règles de
+confidentialité). Les modifications s'ouvrent dans une feuille du bas, les
+actions d'un plan ou d'un compte dans un menu « ⋯ » (Bloquer et Retirer les
+droits demandent une confirmation). Les coûts de l'IA montrent des chiffres
+clés, des barres par jour et une jauge du budget. L'écran d'inscription en
+attente gagne « Actualiser ». « Lecture seule » est le seul libellé d'une cave
+partagée. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 

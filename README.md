@@ -1303,6 +1303,15 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
 Le détail par version, avec le lien vers chaque commit, est dans
 [`CHANGELOG.md`](CHANGELOG.md) ; voici les versions publiées.
 
+### 2.15.0 — 20 octobre 2026
+
+Publiée ([v2.15.0](https://github.com/djkix/ma-cave/releases/tag/v2.15.0)),
+images `ghcr.io/djkix/ma-cave-api:2.15.0` et `-web:2.15.0`.
+
+**Réglages réorganisés** : hub Mon compte (Moi, Ma cave, Application, À
+propos), sauvegarde dans Ma cave, Administration en trois onglets, feuilles du
+bas et menus « ⋯ ».
+
 ### 2.14.0 — 20 octobre 2026
 
 Publiée ([v2.14.0](https://github.com/djkix/ma-cave/releases/tag/v2.14.0)),
