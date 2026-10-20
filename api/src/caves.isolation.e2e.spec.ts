@@ -361,10 +361,9 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
     ids.zoneA = (await prisma.caveZone.create({ data: { caveId: ids.caveA, name: 'Cave A' } })).id;
     ids.zoneDeleteA = (await prisma.caveZone.create({ data: { caveId: ids.caveA, name: 'Iso à supprimer', sortOrder: 1 } })).id;
     ids.locationA = (await prisma.location.create({ data: { caveId: ids.caveA, zoneId: ids.zoneA, casier: 'Iso' } })).id;
-    // Photo de la zone de A, sur disque.
-    await prisma.caveZone.update({ where: { id: ids.zoneA }, data: { photoPath: `zones/${ids.zoneA}.jpg`, planX: 0.5, planY: 0.5 } });
-    // Plan de A, sur disque (écrit plus bas avec les photos).
-    await prisma.cave.update({ where: { id: ids.caveA }, data: { planPath: `plans/${ids.caveA}.jpg`, planWidth: 120, planHeight: 160, planUpdatedAt: new Date() } });
+    // Plan de A et photo de sa zone, sur disque (écrits plus bas avec les photos) ; la zone porte son repère sur ce plan.
+    const planA = await prisma.cavePlan.create({ data: { caveId: ids.caveA, name: 'Plan A', path: `plans/${ids.caveA}.jpg`, width: 120, height: 160, updatedAt: new Date() } });
+    await prisma.caveZone.update({ where: { id: ids.zoneA }, data: { photoPath: `zones/${ids.zoneA}.jpg`, planId: planA.id, planX: 0.5, planY: 0.5 } });
 
     // Photo d'entrée lue, sans mouvement : « À confirmer » de A, avec son image sur disque.
     const photo = (name: string) =>

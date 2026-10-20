@@ -203,13 +203,6 @@ model Cave {
   ownerId          String?           @map("owner_id")
   owner            AppUser?          @relation("CaveOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   createdAt        DateTime          @default(now()) @map("created_at")
-  /// Plan de la cave (image) : chemin relatif à PHOTO_STORAGE_DIR
-  /// (`plans/<id>.jpg`), taille en pixels après normalisation, date du dernier
-  /// envoi ; tous nuls sans plan.
-  planPath         String?           @map("plan_path")
-  planWidth        Int?              @map("plan_width")
-  planHeight       Int?              @map("plan_height")
-  planUpdatedAt    DateTime?         @map("plan_updated_at")
   members          CaveMember[]
   wines            Wine[]
   photos           Photo[]
@@ -217,6 +210,7 @@ model Cave {
   imageSearchCosts ImageSearchCost[]
   locations        Location[]
   zones            CaveZone[]
+  plans            CavePlan[]
 
   @@index([ownerId])
   @@map("cave")
@@ -413,9 +407,12 @@ model CaveZone {
   indication String?
   photoPath  String?    @map("photo_path")
   sortOrder  Int        @default(0) @map("sort_order")
-  /// Repère sur le plan de la cave : fractions de la largeur et de la hauteur
-  /// de l'image. CHECK en migration (cave_zone_plan_position_check) : les deux
-  /// nuls, ou les deux dans [0, 1].
+  /// Repère sur un plan de la cave : le plan (de la même cave, FK composite),
+  /// puis fractions de la largeur et de la hauteur de l'image. CHECK en
+  /// migration (cave_zone_plan_position_check) : les trois nuls, ou les trois
+  /// renseignés avec x et y dans [0, 1].
+  planId     String?    @map("plan_id") @db.Uuid
+  plan       CavePlan?  @relation(fields: [planId, caveId], references: [id, caveId], onDelete: NoAction, onUpdate: NoAction)
   planX      Float?     @map("plan_x")
   planY      Float?     @map("plan_y")
   archivedAt DateTime?  @map("archived_at")
@@ -423,6 +420,27 @@ model CaveZone {
   locations  Location[]
 
   @@map("cave_zone")
+}
+
+/// Plan d'une cave (photo d'une pièce ou d'un schéma), au plus 20 par cave.
+/// Nom unique par cave sans tenir compte de la casse (index sur lower(name) en
+/// migration). `path` : image relative à PHOTO_STORAGE_DIR (`plans/<id>.jpg`) ;
+/// taille en pixels après normalisation ; `updatedAt` : dernier envoi de
+/// l'image ; `createdAt` : ordre des onglets.
+model CavePlan {
+  id        String     @id @default(uuid()) @db.Uuid
+  caveId    String     @map("cave_id")
+  cave      Cave       @relation(fields: [caveId], references: [id], onDelete: Restrict)
+  name      String
+  path      String
+  width     Int
+  height    Int
+  updatedAt DateTime   @map("updated_at")
+  createdAt DateTime   @default(now()) @map("created_at")
+  zones     CaveZone[]
+
+  @@unique([id, caveId])
+  @@map("cave_plan")
 }
 
 /// Cote iDealwine saisie à la main, en ajout seulement (historique). La cote

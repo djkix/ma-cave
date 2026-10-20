@@ -8,7 +8,7 @@ import { ImageNormalizationService } from '../photos/image-normalization.service
 import { PHOTO_STORAGE_DIR } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  CreateZoneInput, PLAN_MISSING, UpdateZoneInput, ZONE_NAME_TAKEN, ZONE_NOT_FOUND, ZONE_PHOTO_NOT_FOUND, ZONE_STOCKED, zonePhotoPath, ZoneView, zoneView,
+  CreateZoneInput, PLAN_NOT_FOUND, UpdateZoneInput, ZONE_NAME_TAKEN, ZONE_NOT_FOUND, ZONE_PHOTO_NOT_FOUND, ZONE_STOCKED, zonePhotoPath, ZoneView, zoneView,
 } from './zone';
 
 function isUniqueViolation(e: unknown): boolean {
@@ -189,21 +189,26 @@ export class ZonesService {
   }
 
   /**
-   * Pose ou déplace le repère de la zone sur le plan : 404 pour une zone d'une
-   * autre cave ou archivée, puis 409 si la cave n'a pas de plan.
+   * Pose ou déplace le repère de la zone sur un plan de la cave : 404 « Zone
+   * introuvable » pour une zone d'une autre cave ou archivée, puis 404 « Plan
+   * introuvable » pour un plan absent ou d'une autre cave (la clé étrangère
+   * composite (plan_id, cave_id) le refuse, même pour un plan supprimé entre-temps).
    */
-  async setMarker(caveId: string, id: string, marker: { x: number; y: number }): Promise<ZoneView> {
+  async setMarker(caveId: string, id: string, marker: { planId: string; x: number; y: number }): Promise<ZoneView> {
     await this.findOwn(caveId, id);
-    const cave = await this.prisma.cave.findUniqueOrThrow({ where: { id: caveId }, select: { planPath: true } });
-    if (!cave.planPath) throw new ConflictException(PLAN_MISSING);
-    const { count } = await this.prisma.caveZone.updateMany({ where: { id, caveId, archivedAt: null }, data: { planX: marker.x, planY: marker.y } });
+    const { count } = await this.prisma.caveZone
+      .updateMany({ where: { id, caveId, archivedAt: null }, data: { planId: marker.planId, planX: marker.x, planY: marker.y } })
+      .catch((e: unknown) => {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') throw new NotFoundException(PLAN_NOT_FOUND);
+        throw e;
+      });
     if (count === 0) throw new NotFoundException(ZONE_NOT_FOUND);
     return zoneView(await this.findOwn(caveId, id));
   }
 
-  /** Retire le repère de la zone (possible sans plan). */
+  /** Retire le repère de la zone (plan et position). */
   async removeMarker(caveId: string, id: string): Promise<ZoneView> {
-    const { count } = await this.prisma.caveZone.updateMany({ where: { id, caveId, archivedAt: null }, data: { planX: null, planY: null } });
+    const { count } = await this.prisma.caveZone.updateMany({ where: { id, caveId, archivedAt: null }, data: { planId: null, planX: null, planY: null } });
     if (count === 0) throw new NotFoundException(ZONE_NOT_FOUND);
     return zoneView(await this.findOwn(caveId, id));
   }
