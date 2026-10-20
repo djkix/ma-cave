@@ -243,6 +243,8 @@ button.plan-view__marker { cursor: pointer; }
 .plan-chooser { display: grid; gap: var(--space-xs); }
 .plan-caption { margin: 0 0 var(--space-sm); font-size: 13px; color: var(--color-secondary); }
 /* Onglets des plans : une rangée qui défile seule, sans élargir la page. */
+.plan-tabs-row { display: flex; align-items: center; gap: var(--space-xs); min-width: 0; }
+.plan-tabs-row .plan-tabs { flex: 1; }
 .plan-tabs { display: flex; gap: var(--space-xs); overflow-x: auto; max-width: 100%; min-width: 0; padding-bottom: 2px; }
 .plan-tabs__tab {
   flex-shrink: 0; min-height: var(--size-touch-target); padding: 0 var(--space-sm); border-radius: 999px; white-space: nowrap; cursor: pointer;
