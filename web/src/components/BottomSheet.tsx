@@ -8,6 +8,8 @@ import { ReactNode, useEffect, useId, useRef } from 'react';
 export function BottomSheet({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const openRef = useRef(open);
+  openRef.current = open;
 
   useEffect(() => {
     const el = dialog.current;
@@ -20,16 +22,21 @@ export function BottomSheet({ open, title, onClose, children }: { open: boolean;
     };
   }, [open]);
 
+  // Le corps porte le padding : un clic sur le <dialog> lui-même ne peut venir que du fond.
+  // `onClose` natif : filet si le navigateur ferme malgré `cancel` (ignoré quand c'est React qui ferme).
   return (
     <dialog
       ref={dialog}
       className="sheet"
       aria-labelledby={titleId}
       onCancel={(e) => { e.preventDefault(); onClose(); }}
+      onClose={() => { if (openRef.current) onClose(); }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <h2 id={titleId} style={{ fontSize: 18, marginTop: 0 }}>{title}</h2>
-      {open && children}
+      <div className="sheet__body">
+        <h2 id={titleId} className="sheet__title">{title}</h2>
+        {open && children}
+      </div>
     </dialog>
   );
 }

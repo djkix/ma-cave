@@ -23,8 +23,18 @@ it('Échap et clic sur le fond appellent onClose', async () => {
   expect(onClose).toHaveBeenCalledTimes(1);
   await userEvent.click(dialog);
   expect(onClose).toHaveBeenCalledTimes(2);
-  await userEvent.click(screen.getByText('x'));
+  await userEvent.click(screen.getByText('x').parentElement!);
   expect(onClose).toHaveBeenCalledTimes(2);
+});
+
+it('la fermeture native appelle onClose, pas la fermeture par React', () => {
+  const onClose = vi.fn();
+  const { rerender } = render(<BottomSheet open title="T" onClose={onClose}>x</BottomSheet>);
+  screen.getByRole('dialog').dispatchEvent(new Event('close'));
+  expect(onClose).toHaveBeenCalledTimes(1);
+  rerender(<BottomSheet open={false} title="T" onClose={onClose}>x</BottomSheet>);
+  document.querySelector('dialog')!.dispatchEvent(new Event('close'));
+  expect(onClose).toHaveBeenCalledTimes(1);
 });
 
 it('fermé, rend le focus au bouton qui l’a ouverte', async () => {
