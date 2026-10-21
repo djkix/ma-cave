@@ -52,10 +52,12 @@ export function nextPacificMidnight(now: Date): Date {
   return new Date(target - (pacificWallAsUtc(probe) - probe));
 }
 
-/** « à 14:03 », « aujourd'hui à 09:00 » (quota du jour) ou « demain à 09:00 », heure de Paris. */
+/** « à 14:04 » (12:03:31 UTC), « aujourd'hui à 09:00 » (quota du jour) ou « demain à 09:00 », heure de Paris. */
 function resumeAt(until: Date, now: Date, sameDayWord: boolean): string {
-  const hour = parisTime.format(until);
-  if (parisDay.format(until) !== parisDay.format(now)) return `demain à ${hour}`;
+  // Arrondie à la minute supérieure s'il y a des secondes : l'heure affichée n'est jamais plus tôt que la vraie.
+  const shown = new Date(Math.ceil(until.getTime() / 60_000) * 60_000);
+  const hour = parisTime.format(shown);
+  if (parisDay.format(shown) !== parisDay.format(now)) return `demain à ${hour}`;
   return sameDayWord ? `aujourd'hui à ${hour}` : `à ${hour}`;
 }
 
