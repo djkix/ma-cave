@@ -13,10 +13,10 @@ import { PlanView } from '../components/PlanView';
 import { TopBar } from '../components/TopBar';
 import {
   acceptSuggestion, CavePlan, createPlan, createZone, deletePlan, deleteZone, exportUrl, getMembers, inviteMember, MemberView, planImageUrl, PlanSuggestion, rejectSuggestion,
-  removeMember, removeZoneMarker, removeZonePhoto, renameCave, renamePlan, reorderZones, replacePlanImage, setZoneMarker, updateZone, uploadZonePhoto, Zone,
+  removeMember, removeZoneMarker, removeZonePhoto, renameCave, renamePlan, relaunchAnalysis, reorderZones, replacePlanImage, setZoneMarker, updateZone, uploadZonePhoto, Zone,
 } from '../lib/api-client';
 import { cellsPreview, GRID_MAX_COLS, GRID_MAX_ROWS, parseGrid } from '../lib/grid';
-import { usePlans, useZones } from '../lib/locations';
+import { replacePlanInCache, usePlans, useZones } from '../lib/locations';
 import { shrinkPhoto } from '../lib/shrink-photo';
 import { useCurrentCave } from '../lib/use-current-cave';
 
@@ -288,7 +288,7 @@ type PlanMode = { kind: 'idle' } | { kind: 'pending'; x: number; y: number } | {
 
 /**
  * Plans de la cave, en onglets : en ajouter un (nom puis photo) ; le menu ⋯
- * renomme (feuille du bas), remplace la photo ou supprime le plan affiché ; puis y créer les zones.
+ * renomme (feuille du bas), remplace la photo, relance l'analyse ou supprime le plan affiché ; puis y créer les zones.
  * Toucher le plan pose un « + » et demande le nom de l'endroit : la zone est
  * créée avec son repère sur ce plan (ou on choisit une zone existante encore
  * sans repère). Toucher un repère montre sa zone, avec « Déplacer » et
@@ -393,6 +393,12 @@ function PlanCard() {
     if (window.confirm(`Supprimer le plan « ${name} » ? Les zones et leurs bouteilles sont gardées.`)) void act(() => deletePlan(id), `Plan « ${name} » supprimé.`);
   }
 
+  /** Relance, même après une analyse réussie : les propositions en attente sont remplacées (confirmation), les zones acceptées ne bougent pas. */
+  function confirmRelaunch(p: CavePlan) {
+    if (p.suggestions.length > 0 && !window.confirm('Relancer l’analyse ? Les propositions en attente seront remplacées.')) return;
+    void act(async () => replacePlanInCache(qc, await relaunchAnalysis(p.id)));
+  }
+
   function tap(planId: string, x: number, y: number) {
     if (busy) return;
     setDoneId(null);
@@ -448,6 +454,7 @@ function PlanCard() {
             <ActionMenu label={`Actions du plan ${plan.name}`} items={[
               { label: 'Renommer', disabled: busy, onSelect: () => { setMode({ kind: 'idle' }); setError(null); setRenaming(plan.name); } },
               { label: 'Remplacer la photo', disabled: busy, onSelect: () => photoRef.current?.click() },
+              { label: 'Relancer l’analyse', disabled: busy || plan.analysis === 'PENDING', onSelect: () => confirmRelaunch(plan) },
               { label: 'Supprimer le plan', disabled: busy, onSelect: () => confirmDelete(plan.id, plan.name) },
             ]} />
           )}

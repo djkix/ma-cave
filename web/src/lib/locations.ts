@@ -1,6 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { QueryClient, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { getLocations, getPlans, getZones, Location, LocationInput, Zone } from './api-client';
+import { CavePlan, getLocations, getPlans, getZones, Location, LocationInput, Zone } from './api-client';
+
+/** Plan rendu par l'api (relance de l'analyse : en attente) mis en cache à la place de l'ancien ; le bandeau repasse en cours. */
+export function replacePlanInCache(qc: QueryClient, next: CavePlan): void {
+  qc.setQueryData<Awaited<ReturnType<typeof getPlans>>>(['plans'], (d) => d && { ...d, plans: d.plans.map((p) => (p.id === next.id ? next : p)) });
+}
 
 export const NO_LOCATION = 'Sans emplacement';
 export const NO_ZONE = 'Sans zone';
