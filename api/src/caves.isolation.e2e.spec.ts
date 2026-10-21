@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import supertest from 'supertest';
+import { PLAN_ANALYSIS_QUEUE_TOKEN } from './queue/plan-analysis';
 import { PRICE_KEYS } from './stats/stats';
 import { createTestCave, deleteTestCaves } from './test-utils/cave';
 
@@ -346,7 +347,12 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
     const { PrismaService } = await import('./prisma/prisma.service');
     const { producerKeyOf } = await import('./producers/producer-key');
 
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    // File d'analyse des plans remplacée : aucune tâche réelle dans Redis.
+    const analysisQueue = { add: jest.fn(async () => ({})), close: jest.fn(async () => undefined), opts: {} };
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(PLAN_ANALYSIS_QUEUE_TOKEN)
+      .useValue(analysisQueue)
+      .compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
     sessionRedis = setupSession(app);

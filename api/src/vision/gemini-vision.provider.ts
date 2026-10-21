@@ -207,29 +207,36 @@ function siteOf(text: string): string | null {
 const PLAN_PROMPT = `Tu regardes la photo d'une cave à vin (ou le schéma d'une cave). Repère uniquement les rangements à bouteilles : casiers, étagères, autres meubles où l'on range des bouteilles. Ignore tout le reste (murs, portes, cartons isolés, objets). Au plus 12 rangements.
 Pour chacun, donne :
 - "kind" : CASIER (casier à alvéoles, une case par bouteille ou par pile), ETAGERE (tablettes ou étagères), AUTRE (tout autre rangement à bouteilles) ;
-- "box" : le cadre serré autour du rangement, [x0, y0, x1, y1] en fractions de la largeur et de la hauteur de l'image, de 0 à 1 (0,0 = coin haut gauche), avec x0 < x1 et y0 < y1 ;
+- "box_2d" : le cadre serré autour du rangement, [ymin, xmin, ymax, xmax] en entiers normalisés de 0 à 1000 (0,0 = coin haut gauche) ;
 - "rows" : le nombre de rangées de cases de haut en bas (1 à 26) ; "cols" : le nombre de cases par rangée, de gauche à droite (1 à 30).
 Si la photo ne montre aucun rangement à bouteilles, réponds {"blocks": []}.`;
 
-const PLAN_SCHEMA: ResponseSchema = {
+/**
+ * `minItems` / `maxItems` sont acceptés par l'API Gemini mais absents des types
+ * de `@google/generative-ai` 0.21 (le SDK transmet le schéma tel quel) : d'où
+ * la conversion de type en fin d'objet.
+ */
+const PLAN_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
     blocks: {
       type: SchemaType.ARRAY,
+      maxItems: 12,
       items: {
         type: SchemaType.OBJECT,
         properties: {
           kind: { type: SchemaType.STRING, format: 'enum', enum: ['CASIER', 'ETAGERE', 'AUTRE'] },
-          box: { type: SchemaType.ARRAY, items: { type: SchemaType.NUMBER } },
+          // Convention native de Gemini, convertie en fractions [x0, y0, x1, y1] par le traitement.
+          box_2d: { type: SchemaType.ARRAY, minItems: 4, maxItems: 4, items: { type: SchemaType.INTEGER } },
           rows: { type: SchemaType.INTEGER },
           cols: { type: SchemaType.INTEGER },
         },
-        required: ['kind', 'box', 'rows', 'cols'],
+        required: ['kind', 'box_2d', 'rows', 'cols'],
       },
     },
   },
   required: ['blocks'],
-};
+} as ResponseSchema;
 
 /**
  * L'outil de recherche Google de Gemini 3 n'est pas encore typé par
