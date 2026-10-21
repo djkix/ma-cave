@@ -8,10 +8,11 @@ const emptyToUndefined = <T extends z.ZodTypeAny>(s: T) => z.preprocess((v) => (
 
 /**
  * Modèles Gemini légers seulement (Flash, Lite) : les coûts et le budget sont
- * calculés au tarif Flash, et djkix n'emploie pas les modèles Pro.
+ * calculés au tarif Flash, et djkix n'emploie pas les modèles Pro. Nom fait de
+ * lettres, chiffres, points et tirets seulement (il part dans une adresse de Google).
  */
-const LIGHT_MODEL = /flash|lite|light/i;
-const lightModel = z.string().refine((m) => LIGHT_MODEL.test(m) && !/pro/i.test(m), { message: 'seuls les modèles Gemini Flash ou Lite sont acceptés' });
+export const isLightModel = (model: string): boolean => /^[a-z0-9.-]+$/i.test(model) && /flash|lite|light/i.test(model) && !/pro/i.test(model);
+const lightModel = z.string().refine(isLightModel, { message: 'seuls les modèles Gemini Flash ou Lite sont acceptés' });
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -24,9 +25,9 @@ const schema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().default(''),
   GOOGLE_CALLBACK_URL: z.string().url().default('http://localhost:3000/api/auth/google/callback'),
   GEMINI_API_KEY: z.string().default(''),
+  // Valeur de départ : l'Administration choisit ensuite le modèle (réglage `gemini_model`).
+  // GEMINI_PLAN_MODEL, retirée en 2.19, est simplement ignorée (clés inconnues écartées).
   GEMINI_MODEL: lightModel.default('gemini-3.5-flash'),
-  // Modèle de l'analyse des plans seulement ; absent ou vide : GEMINI_MODEL (voir parseEnv).
-  GEMINI_PLAN_MODEL: emptyToUndefined(lightModel.optional()),
   GEMINI_MONTHLY_CAP_CENTS: z.coerce.number().int().default(500),
   PHOTO_STORAGE_DIR: z.string().default('./data/photos'),
   BREAK_GLASS_EMAIL: emptyToUndefined(z.string().email().optional()),
@@ -38,11 +39,10 @@ const schema = z.object({
   ADMIN_EMAILS: z.string().default(''),
 });
 
-export type Env = Omit<z.infer<typeof schema>, 'GEMINI_PLAN_MODEL'> & { GEMINI_PLAN_MODEL: string };
+export type Env = z.infer<typeof schema>;
 
 export function parseEnv(source: NodeJS.ProcessEnv): Env {
-  const env = schema.parse(source);
-  return { ...env, GEMINI_PLAN_MODEL: env.GEMINI_PLAN_MODEL ?? env.GEMINI_MODEL };
+  return schema.parse(source);
 }
 
 let cached: Env | undefined;

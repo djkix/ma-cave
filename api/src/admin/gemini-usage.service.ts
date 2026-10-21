@@ -21,7 +21,7 @@ export class GeminiUsageService {
     const [calls, pause] = await Promise.all([
       this.prisma.geminiCall.findMany({
         where: { createdAt: { gte: usageSince(now, days), lte: now } },
-        select: { createdAt: true, usage: true, outcome: true, httpStatus: true, costCents: true },
+        select: { createdAt: true, usage: true, outcome: true, httpStatus: true, costCents: true, model: true },
       }),
       this.journal.currentPause(now),
     ]);

@@ -95,7 +95,7 @@ function KeyFigures({ totals }: { totals: { ok: number; refused: number; errors:
 const cell = { padding: '2px var(--space-xs)', whiteSpace: 'nowrap' } as const;
 const numCell = { ...cell, textAlign: 'right' } as const;
 
-/** Consommation Gemini par jour et par usage, refus de Google compris, et pause commune en cours. */
+/** Consommation Gemini par jour, par usage et par modèle (détail seulement : graphique et chiffres clés tous modèles), refus de Google compris, et pause commune en cours. */
 export function GeminiUsageSection() {
   const [days, setDays] = useState<(typeof PERIODS)[number]>(7);
   const q = useQuery({ queryKey: ['admin', 'gemini-usage', days], queryFn: () => getGeminiUsage(days) });
@@ -125,13 +125,14 @@ export function GeminiUsageSection() {
           <DailyChart rows={d.rows} />
           <details>
             <summary className="usage-details__summary">Détail par jour</summary>
-            {/* Sept colonnes : défilement horizontal dans la carte à 375 px, jamais de la page. */}
+            {/* Huit colonnes : défilement horizontal dans la carte à 375 px, jamais de la page. */}
             <div style={{ overflowX: 'auto', marginTop: 'var(--space-sm)' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr className="list__meta">
                     <th style={{ ...cell, textAlign: 'left' }}>Jour</th>
                     <th style={{ ...cell, textAlign: 'left' }}>Usage</th>
+                    <th style={{ ...cell, textAlign: 'left' }}>Modèle</th>
                     <th style={numCell}>Réussis</th>
                     <th style={numCell}>Refusés (saturé)</th>
                     <th style={numCell}>Refusés (quota)</th>
@@ -141,9 +142,11 @@ export function GeminiUsageSection() {
                 </thead>
                 <tbody>
                   {d.rows.map((r) => (
-                    <tr key={`${r.day}|${r.usage}`}>
+                    <tr key={`${r.day}|${r.usage}|${r.model}`}>
                       <td style={cell} className="num">{shortDay(r.day)}</td>
                       <td style={cell}>{USAGE_LABEL[r.usage] ?? r.usage}</td>
+                      {/* Appels d'avant la 2.19 : modèle non noté. */}
+                      <td style={cell}>{r.model ?? '—'}</td>
                       <td style={numCell} className="num">{r.ok}</td>
                       <td style={numCell} className="num">{r.refused503}</td>
                       <td style={numCell} className="num">{r.refused429}</td>
