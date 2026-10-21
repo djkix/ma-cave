@@ -25,6 +25,7 @@ const budget: api.AdminBudget = { caveShare: 0.2, invitedShare: 0.6, capCents: 5
 beforeEach(() => {
   vi.spyOn(api, 'getRegistrations').mockResolvedValue([]);
   vi.spyOn(api, 'getAdminBudget').mockResolvedValue(budget);
+  vi.spyOn(api, 'getGeminiModel').mockResolvedValue({ model: 'gemini-3.5-flash', source: 'ENV', models: ['gemini-3.5-flash'], error: null });
   vi.spyOn(api, 'getReadingQuality').mockResolvedValue({ days: 30, entries: 0, rate: null, fields: [] });
   vi.spyOn(api, 'getGeminiUsage').mockResolvedValue({ rows: [], totals: { ok: 0, refused: 0, errors: 0, costCents: 0 }, pause: { until: null, reason: null } });
   vi.spyOn(api, 'getVintages').mockResolvedValue({ regions: [], qualities: [] });
@@ -72,11 +73,12 @@ describe('Onglets', () => {
     expect(tabs.getByRole('link', { name: 'Données du vin' })).toHaveAttribute('href', '/admin/donnees');
   });
 
-  it('Coûts de l’IA : budget et consommation, sans les comptes', async () => {
+  it('Coûts de l’IA : modèle en tête, budget et consommation, sans les comptes', async () => {
     vi.spyOn(api, 'getMe').mockResolvedValue(me);
     const list = vi.spyOn(api, 'getAdminUsers').mockResolvedValue(users);
     mount('/admin/couts');
     expect(await screen.findByRole('heading', { name: 'Budget' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 2 })[0]).toHaveTextContent('Modèle de l’IA');
     expect(screen.getByRole('heading', { name: 'Consommation Gemini' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Comptes' })).not.toBeInTheDocument();
     expect(list).not.toHaveBeenCalled();
@@ -176,7 +178,7 @@ describe('Comptes', () => {
 
 it('montre « Réservé à l’administrateur. » à un non-administrateur, sans aucune requête d’administration', async () => {
   vi.spyOn(api, 'getMe').mockResolvedValue({ ...me, isAdmin: false });
-  const calls = [vi.spyOn(api, 'getAdminUsers'), vi.spyOn(api, 'getRegistrations'), vi.spyOn(api, 'getAdminBudget'), vi.spyOn(api, 'getGeminiUsage')];
+  const calls = [vi.spyOn(api, 'getAdminUsers'), vi.spyOn(api, 'getRegistrations'), vi.spyOn(api, 'getAdminBudget'), vi.spyOn(api, 'getGeminiUsage'), vi.spyOn(api, 'getGeminiModel')];
   mount('/admin/couts');
   expect(await screen.findByText('Réservé à l’administrateur.')).toBeInTheDocument();
   for (const c of calls) expect(c).not.toHaveBeenCalled();
