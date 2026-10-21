@@ -42,20 +42,30 @@ export function pendingText(info: Pending, now: number): string {
       return `Nouvel essai ${info.nextAttemptAt ? `à ${hour(info.nextAttemptAt)}` : 'bientôt'} (tentative ${info.attempt} sur ${info.maxAttempts}).`;
     default: {
       const elapsed = now - Date.parse(info.since);
-      return `Envoyée à l’IA ${ago(elapsed)} · ${elapsed > 180_000 ? 'plus long que prévu, l’analyse continue' : 'résultat attendu d’ici une minute'}`;
+      return `Envoyée à l’IA ${ago(elapsed)} · ${elapsed >= 180_000 ? 'plus long que prévu, l’analyse continue' : 'résultat attendu d’ici une minute'}`;
     }
   }
 }
 
-/** Heure courante, relue chaque seconde pendant la première minute depuis `since`, puis chaque minute. */
+/**
+ * Heure courante, relue dès que `since` est donné (jamais figée d'un état précédent), puis
+ * chaque seconde pendant la première minute et chaque minute ensuite, calée sur `since`.
+ */
 function useNow(since: string | undefined): number {
   const [now, setNow] = useState(Date.now);
-  const fast = !!since && now - Date.parse(since) < 60_000;
   useEffect(() => {
     if (!since) return;
-    const timer = setInterval(() => setNow(Date.now()), fast ? 1000 : 60_000);
-    return () => clearInterval(timer);
-  }, [since, fast]);
+    const start = Date.parse(since);
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      const t = Date.now();
+      setNow(t);
+      const elapsed = t - start;
+      timer = setTimeout(tick, elapsed < 60_000 ? 1000 - (elapsed % 1000) : 60_000 - (elapsed % 60_000));
+    };
+    tick();
+    return () => clearTimeout(timer);
+  }, [since]);
   return now;
 }
 
@@ -71,6 +81,8 @@ export function AnalysisBanner({ plan, done }: { plan: CavePlan; done: boolean }
   const relaunch = useMutation({
     mutationFn: () => relaunchAnalysis(plan.id),
     // Le plan rendu (en attente) remplace l'ancien : le bandeau repasse en cours et la relecture des 10 s reprend.
+    // Refus (409 : déjà en cours) : l'état du serveur est relu, la relecture des 10 s reprend.
+    onError: () => qc.invalidateQueries({ queryKey: ['plans'] }),
     onSuccess: (next) => qc.setQueryData<Awaited<ReturnType<typeof getPlans>>>(['plans'], (d) => d && { ...d, plans: d.plans.map((p) => (p.id === next.id ? next : p)) }),
   });
   const error = relaunch.isError && <p role="alert" className="text-error" style={{ margin: 0 }}>{(relaunch.error as Error).message}</p>;
@@ -89,7 +101,10 @@ export function AnalysisBanner({ plan, done }: { plan: CavePlan; done: boolean }
         <Icon name="progress_activity" className="spin" />
         <div>
           <p className="analysis-banner__title">Analyse du plan en cours</p>
-          {info && 'waiting' in info && <p className="analysis-banner__text">{pendingText(info, now)}</p>}
+          {/* La durée change chaque seconde : masquée aux lecteurs d'écran, qui reliraient sinon le bandeau sans cesse. */}
+          {info && 'waiting' in info && (
+            <p className="analysis-banner__text" aria-hidden={info.waiting === 'QUEUED' || info.waiting === 'RUNNING' || undefined}>{pendingText(info, now)}</p>
+          )}
         </div>
       </div>
     );
