@@ -10,7 +10,7 @@ import { nameBlocks, validBlocks } from '../zones/plan-suggestions';
 import { PlanService } from '../zones/plan.service';
 import { PlanFailedReason } from '../zones/zone';
 import { PlanAnalysisDeferral, PlanAnalysisJobData } from './plan-analysis';
-import { isConfigurationError, isTransientVisionFailure, statusFromMessage } from './transient-failure';
+import { isConfigurationError, isTransientVisionFailure, statusFromMessage, TRANSIENT_NETWORK } from './transient-failure';
 import { VisionBudgetExceededError, VisionBudgetService } from './vision-budget.service';
 
 /**
@@ -36,14 +36,15 @@ export function deferralOf(error: unknown): PlanAnalysisDeferral {
 }
 
 /**
- * Raison d'un échec : budget, réponse inexploitable, refus de Gemini (pause
- * commune, statut HTTP, clé ou API mal configurées), sinon autre erreur.
+ * Raison d'un échec : budget, réponse inexploitable, Gemini (pause commune,
+ * statut HTTP, clé ou API mal configurées, service injoignable), sinon autre erreur.
  */
 export function failedReasonOf(error: unknown): PlanFailedReason {
   if (error instanceof VisionBudgetExceededError) return 'BUDGET';
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes('Sortie du modèle invalide')) return 'ILLISIBLE';
   if (error instanceof GeminiPausedError || statusFromMessage(message) !== null || isConfigurationError(error)) return 'GEMINI';
+  if (TRANSIENT_NETWORK.some((needle) => message.includes(needle))) return 'GEMINI';
   return 'ERREUR';
 }
 

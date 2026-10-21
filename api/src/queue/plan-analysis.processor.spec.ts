@@ -13,8 +13,8 @@ import { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import { Worker } from 'bullmq';
 import { EXTRACTION_ATTEMPTS } from './extraction.queue';
-import { planAnalysisJobId, planAnalysisJobState, requeuePendingPlans } from './plan-analysis';
-import { fromGeminiBlocks, PlanAnalysisProcessor } from './plan-analysis.processor';
+import { clearPlanAnalysisDeferral, planAnalysisJobId, planAnalysisJobState, requeuePendingPlans } from './plan-analysis';
+import { failedReasonOf, fromGeminiBlocks, PlanAnalysisProcessor } from './plan-analysis.processor';
 
 const describeIfDb = process.env.DATABASE_URL ? describe : describe.skip;
 
@@ -325,6 +325,39 @@ describeIfDb('planAnalysisJobState (file réelle)', () => {
     }
   });
 
+  it('au démarrage d’une tentative, la cause du report précédent est effacée de la tâche', async () => {
+    const d = data();
+    await queue.add('analyse', { ...d, waiting: 'BUDGET', pauseUntil: null }, { jobId: planAnalysisJobId(d) });
+    const job = (await queue.getJob(planAnalysisJobId(d)))!;
+    await clearPlanAnalysisDeferral(job);
+    expect((await queue.getJob(planAnalysisJobId(d)))!.data).toEqual(d);
+    // Sans cause : aucune écriture.
+    const update = jest.spyOn(job, 'updateData');
+    await clearPlanAnalysisDeferral(job);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('effacement de la cause impossible (Redis) : sans erreur, la tentative a lieu', async () => {
+    const job = { data: { ...data(), waiting: 'RETRY' as const }, updateData: jest.fn(async () => Promise.reject(new Error('Redis injoignable'))) };
+    await expect(clearPlanAnalysisDeferral(job)).resolves.toBeUndefined();
+  });
+
+  it('terminée ou en échec alors que le plan attend encore : valeur par défaut (jamais tentative > maximum)', async () => {
+    const d = data();
+    await queue.add('analyse', d, { jobId: planAnalysisJobId(d), attempts: 1 });
+    const workerConnection = connection();
+    const worker = new Worker(queue.name, null, { connection: workerConnection });
+    try {
+      const job = (await worker.getNextJob('jeton'))!;
+      await job.moveToFailed(new Error('boum'), 'jeton');
+      expect(await job.getState()).toBe('failed');
+      expect(await planAnalysisJobState(queue, d)).toEqual({ attempt: 1, maxAttempts: EXTRACTION_ATTEMPTS, nextAttemptAt: null, waiting: 'QUEUED', pauseUntil: null });
+    } finally {
+      await worker.close();
+      await workerConnection.quit();
+    }
+  });
+
   it('retardée sans cause enregistrée : RETRY, sans fin de pause', async () => {
     const d = data();
     const at = Date.now() + 60_000;
@@ -332,6 +365,15 @@ describeIfDb('planAnalysisJobState (file réelle)', () => {
     const state = await planAnalysisJobState(queue, d);
     expect(state).toMatchObject({ attempt: 1, waiting: 'RETRY', pauseUntil: null });
     expect(Math.abs(Date.parse(state.nextAttemptAt!) - at)).toBeLessThan(1000);
+  });
+});
+
+describe('failedReasonOf', () => {
+  it('coupure réseau vers Gemini : GEMINI ; erreur interne : ERREUR', () => {
+    for (const m of ['fetch failed', 'read ECONNRESET', 'connect ETIMEDOUT 1.2.3.4:443', 'getaddrinfo ENOTFOUND generativelanguage.googleapis.com', 'socket hang up']) {
+      expect(failedReasonOf(new Error(m))).toBe('GEMINI');
+    }
+    expect(failedReasonOf(new Error('base injoignable'))).toBe('ERREUR');
   });
 });
 

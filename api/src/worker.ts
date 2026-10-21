@@ -15,7 +15,7 @@ import { EntryBatchProcessor } from './queue/entry-batch.processor';
 import { ExtractionProcessor } from './queue/extraction.processor';
 import { EXTRACTION_QUEUE, ExtractionJobData, extractionBackoffDelay, redisConnection } from './queue/extraction.queue';
 import { requeueOrphanPhotos } from './queue/orphan-recovery';
-import { PLAN_ANALYSIS_QUEUE, PLAN_ANALYSIS_QUEUE_TOKEN, PlanAnalysisJobData, requeuePendingPlans } from './queue/plan-analysis';
+import { clearPlanAnalysisDeferral, PLAN_ANALYSIS_QUEUE, PLAN_ANALYSIS_QUEUE_TOKEN, PlanAnalysisJobData, requeuePendingPlans } from './queue/plan-analysis';
 import { PlanAnalysisProcessor } from './queue/plan-analysis.processor';
 
 async function main() {
@@ -41,8 +41,11 @@ async function main() {
   const planAnalysis = app.get(PlanAnalysisProcessor);
   const planWorker = new Worker<PlanAnalysisJobData>(
     PLAN_ANALYSIS_QUEUE,
-    // Cause d'un report enregistrée sur la tâche : GET plans l'affiche pendant l'attente.
-    (job) => planAnalysis.process(job.data, job.attemptsMade + 1 >= (job.opts.attempts ?? 1), (cause) => job.updateData({ ...job.data, ...cause })),
+    // Cause d'un report enregistrée sur la tâche (GET plans l'affiche pendant l'attente), effacée au début de chaque tentative.
+    async (job) => {
+      await clearPlanAnalysisDeferral(job, (m) => console.warn(m));
+      return planAnalysis.process(job.data, job.attemptsMade + 1 >= (job.opts.attempts ?? 1), (cause) => job.updateData({ ...job.data, ...cause }));
+    },
     { connection: redisConnection(), concurrency: 2, settings: { backoffStrategy: (attemptsMade: number) => extractionBackoffDelay(attemptsMade) } },
   );
   planWorker.on('failed', (job, err) => console.warn(`analyse de plan ${job?.id} : ${err.message}`));
