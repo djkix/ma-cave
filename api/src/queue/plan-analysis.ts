@@ -20,12 +20,21 @@ export function createPlanAnalysisQueue(): Queue<PlanAnalysisJobData> {
 
 const ENQUEUE_TIMEOUT_MS = 5000;
 
+/**
+ * Identifiant fixe par plan et par image : remettre en file la même analyse
+ * (reprise au démarrage) ne crée pas de doublon. Pas de « : » (refusé par
+ * BullMQ) : la date en millisecondes.
+ */
+export function planAnalysisJobId({ planId, updatedAt }: PlanAnalysisJobData): string {
+  return `${planId}_${Date.parse(updatedAt)}`;
+}
+
 /** Mise en file bornée dans le temps : Redis injoignable ferait sinon attendre la requête indéfiniment. */
 export async function enqueuePlanAnalysis(queue: Pick<Queue<PlanAnalysisJobData>, 'add'>, data: PlanAnalysisJobData): Promise<void> {
   let timer!: NodeJS.Timeout;
   try {
     await Promise.race([
-      queue.add('analyse', data),
+      queue.add('analyse', data, { jobId: planAnalysisJobId(data) }),
       new Promise((_, reject) => {
         timer = setTimeout(() => reject(new Error('timeout')), ENQUEUE_TIMEOUT_MS);
       }),
@@ -33,4 +42,20 @@ export async function enqueuePlanAnalysis(queue: Pick<Queue<PlanAnalysisJobData>
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Au démarrage du worker : chaque plan resté en attente (tâche perdue par Redis,
+ * arrêt brutal) est remis en file. Sans doublon grâce à l'identifiant fixe :
+ * une tâche encore présente pour la même image n'est pas recréée.
+ */
+export async function requeuePendingPlans(
+  prisma: { cavePlan: { findMany(args: unknown): Promise<Array<{ id: string; updatedAt: Date }>> } },
+  queue: Pick<Queue<PlanAnalysisJobData>, 'add'>,
+  log: (message: string) => void = () => undefined,
+): Promise<number> {
+  const plans = await prisma.cavePlan.findMany({ where: { analysisStatus: 'PENDING' }, select: { id: true, updatedAt: true }, orderBy: { createdAt: 'asc' } });
+  for (const p of plans) await enqueuePlanAnalysis(queue, { planId: p.id, updatedAt: p.updatedAt.toISOString() });
+  if (plans.length > 0) log(`Reprise au démarrage : ${plans.length} analyse(s) de plan remise(s) en file`);
+  return plans.length;
 }

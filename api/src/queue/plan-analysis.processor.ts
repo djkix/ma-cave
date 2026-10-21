@@ -11,6 +11,21 @@ import { PlanAnalysisJobData } from './plan-analysis';
 import { isTransientVisionFailure } from './transient-failure';
 import { VisionBudgetService } from './vision-budget.service';
 
+/**
+ * Cadres de Gemini (`box_2d` : [ymin, xmin, ymax, xmax], entiers de 0 à 1000,
+ * sa convention native) ramenés à `box` : [x0, y0, x1, y1] en fractions de
+ * l'image. Le reste du bloc est gardé tel quel ; tout est validé ensuite par
+ * `validBlocks` (un cadre absent ou mal formé y est écarté).
+ */
+export function fromGeminiBlocks(blocks: unknown[]): unknown[] {
+  return blocks.map((b) => {
+    const box2d = (b as { box_2d?: unknown } | null)?.box_2d;
+    if (!Array.isArray(box2d) || box2d.length !== 4) return b;
+    const [ymin, xmin, ymax, xmax] = box2d.map((v) => (typeof v === 'number' ? v / 1000 : NaN));
+    return { ...(b as object), box: [xmin, ymin, xmax, ymax] };
+  });
+}
+
 // Fichier séparé de la file (plan-analysis.ts) : PlanService importe la file, le traitement importe PlanService.
 /**
  * Analyse de la photo d'un plan par Gemini : propositions de zones. Jamais
@@ -34,33 +49,33 @@ export class PlanAnalysisProcessor {
     // Plan supprimé, ou photo remplacée : la tâche de la nouvelle photo s'en charge.
     if (!plan || plan.updatedAt.getTime() !== expected.getTime()) return;
 
-    let output: { blocks: unknown; costCents: number };
     try {
       await this.budget.assertUnderCap();
       await this.budget.assertCaveUnderShare(plan.caveId);
       const image = await readFile(join(this.dir, plan.path));
-      output = await this.vision.analyzePlan(image, 'image/jpeg');
+      const output = await this.vision.analyzePlan(image, 'image/jpeg');
+      await this.charge(plan.caveId, output.costCents);
+      if (!Array.isArray(output.blocks)) {
+        this.logger.warn(`Analyse du plan ${planId} échouée : réponse sans liste de blocs`);
+        await this.plans.setAnalysis(planId, expected, { status: 'FAILED' });
+        return;
+      }
+      const zones = await this.prisma.caveZone.findMany({ where: { caveId: plan.caveId, archivedAt: null }, select: { name: true } });
+      const suggestions = nameBlocks(validBlocks(fromGeminiBlocks(output.blocks)), zones.map((z) => z.name));
+      await this.plans.setAnalysis(planId, expected, { status: 'DONE', suggestions });
     } catch (e) {
       // Image effacée entre-temps : plan supprimé pendant la lecture.
       if ((e as NodeJS.ErrnoException).code === 'ENOENT') return;
+      // Sortie inexploitable mais facturée : son coût est porté par l'erreur.
       await this.charge(plan.caveId, (e as { costCents?: unknown }).costCents);
       const message = e instanceof Error ? e.message : String(e);
       const transient = isTransientVisionFailure(e);
       this.logger.warn(`Analyse du plan ${planId} ${transient && !isLastAttempt ? 'reportée' : 'échouée'} : ${message}`);
       if (transient && !isLastAttempt) throw e;
+      // Dernière tentative (ou erreur définitive), y compris après l'appel : jamais de plan laissé en attente.
       await this.plans.setAnalysis(planId, expected, { status: 'FAILED' });
       throw transient ? e : new UnrecoverableError(message);
     }
-
-    await this.charge(plan.caveId, output.costCents);
-    if (!Array.isArray(output.blocks)) {
-      this.logger.warn(`Analyse du plan ${planId} échouée : réponse sans liste de blocs`);
-      await this.plans.setAnalysis(planId, expected, { status: 'FAILED' });
-      return;
-    }
-    const zones = await this.prisma.caveZone.findMany({ where: { caveId: plan.caveId, archivedAt: null }, select: { name: true } });
-    const suggestions = nameBlocks(validBlocks(output.blocks), zones.map((z) => z.name));
-    await this.plans.setAnalysis(planId, expected, { status: 'DONE', suggestions });
   }
 
   /**

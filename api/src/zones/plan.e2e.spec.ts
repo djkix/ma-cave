@@ -158,7 +158,7 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       p1 = res.body;
       // Une tâche d'analyse en file, avec la date de l'image analysée.
       expect(analysisQueue.add).toHaveBeenCalledTimes(1);
-      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p1.id, updatedAt: p1.updatedAt });
+      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p1.id, updatedAt: p1.updatedAt }, { jobId: `${p1.id}_${Date.parse(p1.updatedAt)}` });
       expect(await sharp(planFile(p1.id)).metadata()).toMatchObject({ format: 'jpeg', width: 2400, height: 1200 });
       expect(await read(viewerA)).toEqual({ plans: [p1], markers: [] });
       // Aucun fichier temporaire ne reste à côté du plan.
@@ -291,7 +291,7 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ id: p1.id, name: 'Cellier', width: 500, height: 1000, updatedAt: expect.any(String), analysis: 'PENDING', suggestions: [] });
       expect(analysisQueue.add).toHaveBeenCalledTimes(1);
-      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p1.id, updatedAt: res.body.updatedAt });
+      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p1.id, updatedAt: res.body.updatedAt }, { jobId: `${p1.id}_${Date.parse(res.body.updatedAt)}` });
       expect(new Date(res.body.updatedAt).getTime()).toBeGreaterThan(new Date(p1.updatedAt).getTime());
       expect(await sharp(planFile(p1.id)).metadata()).toMatchObject({ width: 500, height: 1000 });
       expect((await read()).markers).toEqual(before.markers);

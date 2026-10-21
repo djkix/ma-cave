@@ -15,7 +15,7 @@ import { EntryBatchProcessor } from './queue/entry-batch.processor';
 import { ExtractionProcessor } from './queue/extraction.processor';
 import { EXTRACTION_QUEUE, ExtractionJobData, extractionBackoffDelay, redisConnection } from './queue/extraction.queue';
 import { requeueOrphanPhotos } from './queue/orphan-recovery';
-import { PLAN_ANALYSIS_QUEUE, PlanAnalysisJobData } from './queue/plan-analysis';
+import { PLAN_ANALYSIS_QUEUE, PLAN_ANALYSIS_QUEUE_TOKEN, PlanAnalysisJobData, requeuePendingPlans } from './queue/plan-analysis';
 import { PlanAnalysisProcessor } from './queue/plan-analysis.processor';
 
 async function main() {
@@ -68,6 +68,11 @@ async function main() {
     await requeueOrphanPhotos(prisma, (m) => console.log(m));
   } catch (e) {
     console.error(`reprise au démarrage impossible : ${(e as Error).message}`);
+  }
+  try {
+    await requeuePendingPlans(prisma, app.get(PLAN_ANALYSIS_QUEUE_TOKEN), (m) => console.log(m));
+  } catch (e) {
+    console.error(`reprise des analyses de plan impossible : ${(e as Error).message}`);
   }
   try {
     await requeueMissingPairings(prisma, (m) => console.log(m));

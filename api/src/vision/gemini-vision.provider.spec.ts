@@ -563,7 +563,7 @@ describe('GeminiVisionProvider — journal des appels et pause commune', () => {
 
 describe('GeminiVisionProvider.analyzePlan', () => {
   const NOW = new Date('2026-10-21T12:00:00.000Z');
-  const blocks = [{ kind: 'CASIER', box: [0.1, 0.2, 0.4, 0.9], rows: 6, cols: 4 }];
+  const blocks = [{ kind: 'CASIER', box_2d: [200, 100, 900, 400], rows: 6, cols: 4 }];
 
   it('envoie l’image avec le schéma de sortie structurée et rend les blocs bruts avec le coût', async () => {
     const model = fakeModel(JSON.stringify({ blocks }));
@@ -572,8 +572,11 @@ describe('GeminiVisionProvider.analyzePlan', () => {
     const call = model.generateContent.mock.calls[0][0];
     expect(call.contents[0].parts[1]).toEqual({ inlineData: { data: Buffer.from('img').toString('base64'), mimeType: 'image/jpeg' } });
     expect(call.generationConfig.responseMimeType).toBe('application/json');
-    const item = call.generationConfig.responseSchema.properties.blocks.items;
-    expect(Object.keys(item.properties).sort()).toEqual(['box', 'cols', 'kind', 'rows']);
+    const list = call.generationConfig.responseSchema.properties.blocks;
+    expect(list.maxItems).toBe(12);
+    const item = list.items;
+    expect(Object.keys(item.properties).sort()).toEqual(['box_2d', 'cols', 'kind', 'rows']);
+    expect(item.properties.box_2d).toMatchObject({ minItems: 4, maxItems: 4, items: { type: 'integer' } });
     expect(item.properties.kind.enum).toEqual(['CASIER', 'ETAGERE', 'AUTRE']);
     expect(call.contents[0].parts[0].text).toMatch(/12/);
   });
