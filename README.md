@@ -922,6 +922,17 @@ Les plans existants ne sont pas analysés : seule une photo envoyée ou
 remplacée déclenche l'analyse. Les colonnes ajoutées sont ignorées d'une image 2.15.x, mais celle-ci ne
 connaît pas l'usage `ANALYSE_PLAN` du journal des appels.
 
+Par précaution, sauvegarder comme d'habitude avant la mise à jour :
+
+```bash
+cd /opt/stacks/ma-cave && docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' | gzip > backups/cave-avant-2.16.0.sql.gz
+```
+
+**Retour arrière vers une image 2.15.x** (sans restaurer la sauvegarde) : le
+détail des coûts IA affiche le libellé brut `ANALYSE_PLAN` et omet cet usage des
+barres (aucun plantage) ; les tâches d'analyse de plan ne sont pas traitées, les
+plans restent « en cours » jusqu'à la mise à jour suivante, qui les remet en file.
+
 ### Passage à la 2.14.0 (plusieurs plans)
 
 La migration `20261020000000_plusieurs_plans` crée la table `cave_plan` (nom,
