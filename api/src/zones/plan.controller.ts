@@ -13,7 +13,7 @@ import { CaveRole, CurrentCave } from '../caves/cave-access.decorators';
 import { CaveAccessGuard } from '../caves/cave-access.guard';
 import type { CaveAccess } from '../caves/cave-context.service';
 import { PlanService } from './plan.service';
-import { INVALID_PLAN_NAME, PLAN_NOT_FOUND, planNameSchema } from './zone';
+import { acceptSuggestionSchema, INVALID_PLAN_NAME, PLAN_NOT_FOUND, planNameSchema } from './zone';
 import { checkImage, MAX_PHOTO_BYTES, parse, PhotoTooLargeFilter } from './zones.controller';
 
 /** Un plan se désigne par un UUID : tout autre identifiant est « introuvable », comme un plan d'une autre cave. */
@@ -58,6 +58,21 @@ export class CavePlansController {
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_PHOTO_BYTES } }))
   replaceImage(@CurrentCave() cave: CaveAccess, @Param('id', planId) id: string, @UploadedFile() file?: Express.Multer.File) {
     return this.plans.replaceImage(cave.caveId, id, checkImage(file));
+  }
+
+  /** Accepte une proposition : corps `{ name, rows, cols }` ; 201 avec la zone créée. */
+  @Post(':id/suggestions/:sid/accept')
+  @CaveRole('OWNER')
+  accept(@CurrentCave() cave: CaveAccess, @Param('id', planId) id: string, @Param('sid') sid: string, @Body() body: unknown) {
+    return this.plans.acceptSuggestion(cave.caveId, id, sid, parse(acceptSuggestionSchema, body));
+  }
+
+  /** Rejette une proposition : 204. */
+  @Delete(':id/suggestions/:sid')
+  @CaveRole('OWNER')
+  @HttpCode(204)
+  async reject(@CurrentCave() cave: CaveAccess, @Param('id', planId) id: string, @Param('sid') sid: string) {
+    await this.plans.rejectSuggestion(cave.caveId, id, sid);
   }
 
   /** 204 ; les zones du plan sont gardées, sans repère. */

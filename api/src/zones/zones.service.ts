@@ -95,14 +95,18 @@ export class ZonesService {
     }
   }
 
-  /** Renommer ou changer l'indication : le nouveau nom vaut partout, l'emplacement ne change pas. */
+  /** Renommer, changer l'indication ou la grille (`null` la retire) : le nouveau nom vaut partout, l'emplacement ne change pas. */
   async update(caveId: string, id: string, input: UpdateZoneInput): Promise<ZoneView> {
     await this.findOwn(caveId, id);
     try {
       // updateMany : la condition de cave et « non archivée » est vérifiée au moment de l'écriture.
       const { count } = await this.prisma.caveZone.updateMany({
         where: { id, caveId, archivedAt: null },
-        data: { ...(input.name !== undefined ? { name: input.name } : {}), ...(input.indication !== undefined ? { indication: input.indication } : {}) },
+        data: {
+          ...(input.name !== undefined ? { name: input.name } : {}),
+          ...(input.indication !== undefined ? { indication: input.indication } : {}),
+          ...(input.grid !== undefined ? { gridRows: input.grid?.rows ?? null, gridCols: input.grid?.cols ?? null } : {}),
+        },
       });
       if (count === 0) throw new NotFoundException(ZONE_NOT_FOUND);
     } catch (e) {
@@ -110,6 +114,22 @@ export class ZonesService {
       throw e;
     }
     return zoneView(await this.findOwn(caveId, id));
+  }
+
+  /**
+   * Cases occupées : stock > 0 par valeur de casier (non vide) dans la zone,
+   * toutes positions confondues. Les bouteilles d'une case disparue d'une grille
+   * réduite restent lues ici.
+   */
+  async cells(caveId: string, id: string): Promise<Array<{ casier: string; quantity: number }>> {
+    await this.findOwn(caveId, id);
+    return this.prisma.$queryRaw<Array<{ casier: string; quantity: number }>>`
+      SELECT l.casier, SUM(m.delta)::INTEGER AS quantity
+      FROM movement m JOIN location l ON l.id = m.location_id
+      WHERE l.zone_id = ${id} AND l.cave_id = ${caveId} AND l.casier IS NOT NULL AND l.casier <> ''
+      GROUP BY l.casier
+      HAVING SUM(m.delta) > 0
+      ORDER BY l.casier`;
   }
 
   /**

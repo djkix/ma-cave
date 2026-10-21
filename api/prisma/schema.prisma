@@ -415,6 +415,11 @@ model CaveZone {
   plan       CavePlan?  @relation(fields: [planId, caveId], references: [id, caveId], onDelete: NoAction, onUpdate: NoAction)
   planX      Float?     @map("plan_x")
   planY      Float?     @map("plan_y")
+  /// Grille de cases (cases calculées : ligne i → lettre A + i, colonne j → j + 1).
+  /// CHECK en migration (cave_zone_grid_check) : toutes deux nulles, ou 1 à 26
+  /// lignes et 1 à 30 colonnes.
+  gridRows   Int?       @map("grid_rows")
+  gridCols   Int?       @map("grid_cols")
   archivedAt DateTime?  @map("archived_at")
   createdAt  DateTime   @default(now()) @map("created_at")
   locations  Location[]
@@ -428,16 +433,20 @@ model CaveZone {
 /// taille en pixels après normalisation ; `updatedAt` : dernier envoi de
 /// l'image ; `createdAt` : ordre des onglets.
 model CavePlan {
-  id        String     @id @default(uuid()) @db.Uuid
-  caveId    String     @map("cave_id")
-  cave      Cave       @relation(fields: [caveId], references: [id], onDelete: Restrict)
-  name      String
-  path      String
-  width     Int
-  height    Int
-  updatedAt DateTime   @map("updated_at")
-  createdAt DateTime   @default(now()) @map("created_at")
-  zones     CaveZone[]
+  id             String     @id @default(uuid()) @db.Uuid
+  caveId         String     @map("cave_id")
+  cave           Cave       @relation(fields: [caveId], references: [id], onDelete: Restrict)
+  name           String
+  path           String
+  width          Int
+  height         Int
+  updatedAt      DateTime   @map("updated_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  zones          CaveZone[]
+  /// Analyse de la photo : NONE, PENDING, DONE ou FAILED (CHECK en migration).
+  analysisStatus String     @default("NONE") @map("analysis_status")
+  /// Propositions de zones en attente : [{ id, kind, name, box, rows, cols }].
+  suggestions    Json       @default("[]")
 
   @@unique([id, caveId])
   @@map("cave_plan")
