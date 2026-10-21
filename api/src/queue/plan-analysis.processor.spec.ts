@@ -113,6 +113,14 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
     expect((await prisma.imageSearchCost.findMany({ where: { caveId } })).map((c) => c.costCents)).toEqual([2]);
   });
 
+  it('image du plan absente : FAILED, sans erreur ni appel', async () => {
+    const job = await pendingPlan();
+    rmSync(join(dir, (await planOf(job.planId)).path));
+    await expect(processor.process(job)).resolves.toBeUndefined();
+    expect(vision.analyzePlan).not.toHaveBeenCalled();
+    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED' });
+  });
+
   it('plan supprimé : abandon sans erreur, aucun appel', async () => {
     const job = await pendingPlan();
     await prisma.cavePlan.delete({ where: { id: job.planId } });

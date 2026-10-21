@@ -64,8 +64,11 @@ export class PlanAnalysisProcessor {
       const suggestions = nameBlocks(validBlocks(fromGeminiBlocks(output.blocks)), zones.map((z) => z.name));
       await this.plans.setAnalysis(planId, expected, { status: 'DONE', suggestions });
     } catch (e) {
-      // Image effacée entre-temps : plan supprimé pendant la lecture.
-      if ((e as NodeJS.ErrnoException).code === 'ENOENT') return;
+      // Image absente : plan supprimé pendant la lecture (setAnalysis sans effet), ou fichier manquant sur un plan qui existe (FAILED, pas d'attente éternelle).
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        await this.plans.setAnalysis(planId, expected, { status: 'FAILED' });
+        return;
+      }
       // Sortie inexploitable mais facturée : son coût est porté par l'erreur.
       await this.charge(plan.caveId, (e as { costCents?: unknown }).costCents);
       const message = e instanceof Error ? e.message : String(e);
