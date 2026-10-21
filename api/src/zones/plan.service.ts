@@ -21,9 +21,12 @@ import { placeImage, unlinkIgnoringMissing } from './zones.service';
 /** Lecture de l'avancement dans Redis : au-delà, la valeur par défaut (GET plans ne tombe ni ne traîne jamais). */
 const JOB_STATE_TIMEOUT_MS = 1000;
 
-/** Détail de l'analyse ; `state` : avancement lu sur la tâche (défaut : QUEUED, première tentative). */
+/**
+ * Détail de l'analyse ; `since` : date de la demande (envoi, remplacement ou
+ * relance) ; `state` : avancement lu sur la tâche (défaut : QUEUED, première tentative).
+ */
 function analysisInfo(p: CavePlan, state: PlanAnalysisJobState = QUEUED_STATE): PlanAnalysisInfo {
-  const since = p.updatedAt.toISOString();
+  const since = p.analysisRequestedAt.toISOString();
   if (p.analysisStatus === 'PENDING') return { since, ...state };
   if (p.analysisStatus === 'FAILED') return { since, failedReason: (p.analysisError ?? 'ERREUR') as PlanFailedReason };
   return null;

@@ -303,10 +303,10 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       expect((await planIn(p2.id)).analysisInfo).toBeNull();
     });
 
-    it('PENDING : avancement lu sur la tâche de la demande (QUEUED sans tâche trouvée), `since` = date de l’image', async () => {
+    it('PENDING : avancement lu sur la tâche de la demande (QUEUED sans tâche trouvée), `since` = date de la demande', async () => {
       const { analysisRequestedAt } = await prisma.cavePlan.findUniqueOrThrow({ where: { id: p1.id } });
       analysisQueue.getJob.mockClear();
-      expect((await planIn(p1.id)).analysisInfo).toEqual(queued(p1.updatedAt));
+      expect((await planIn(p1.id)).analysisInfo).toEqual(queued(analysisRequestedAt.toISOString()));
       expect(analysisQueue.getJob).toHaveBeenCalledWith(`${p1.id}_${analysisRequestedAt.getTime()}`);
     });
 
@@ -319,11 +319,12 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       expect(Date.now() - started).toBeLessThan(3000);
     });
 
-    it('FAILED : raison de l’échec (ERREUR si inconnue)', async () => {
-      await setPlan(p2.id, { analysisStatus: 'FAILED', analysisError: 'BUDGET' });
-      expect((await planIn(p2.id)).analysisInfo).toEqual({ since: p2.updatedAt, failedReason: 'BUDGET' });
+    it('FAILED : raison de l’échec (ERREUR si inconnue), `since` = date de la demande', async () => {
+      const requestedAt = new Date(Date.parse(p2.updatedAt) + 1); // distincte de la date de l’image, toujours passée
+      await setPlan(p2.id, { analysisStatus: 'FAILED', analysisError: 'BUDGET', analysisRequestedAt: requestedAt });
+      expect((await planIn(p2.id)).analysisInfo).toEqual({ since: requestedAt.toISOString(), failedReason: 'BUDGET' });
       await setPlan(p2.id, { analysisError: null });
-      expect((await planIn(p2.id)).analysisInfo).toEqual({ since: p2.updatedAt, failedReason: 'ERREUR' });
+      expect((await planIn(p2.id)).analysisInfo).toEqual({ since: requestedAt.toISOString(), failedReason: 'ERREUR' });
     });
 
     it('relance après un échec : 202, PENDING, propositions et raison effacées, nouvelle tâche (nouvel identifiant), image et date inchangées', async () => {
@@ -333,8 +334,11 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       await new Promise((r) => setTimeout(r, 5));
       const res = await relaunch(p2.id);
       expect(res.status).toBe(202);
-      expect(res.body).toEqual({ ...p2, analysis: 'PENDING', suggestions: [], analysisInfo: queued(p2.updatedAt) });
       const after = await prisma.cavePlan.findUniqueOrThrow({ where: { id: p2.id } });
+      // `since` = la relance, pas l'envoi de la photo (qui ne bouge pas).
+      expect(res.body).toEqual({ ...p2, analysis: 'PENDING', suggestions: [], analysisInfo: queued(after.analysisRequestedAt.toISOString()) });
+      expect(res.body.analysisInfo.since).not.toBe(p2.updatedAt);
+      expect((await planIn(p2.id)).analysisInfo).toEqual(queued(after.analysisRequestedAt.toISOString()));
       expect(after).toMatchObject({ analysisStatus: 'PENDING', analysisError: null, suggestions: [], updatedAt: before.updatedAt, path: before.path });
       expect(after.analysisRequestedAt.getTime()).toBeGreaterThan(before.analysisRequestedAt.getTime());
       const jobId = `${p2.id}_${after.analysisRequestedAt.getTime()}`;
