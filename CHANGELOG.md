@@ -9,6 +9,19 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.19.0](https://github.com/djkix/ma-cave/compare/v2.18.1...v2.19.0) (2026-10-21)
+
+
+### Fonctionnalités
+
+* **api:** modèle Gemini choisi dans l'Administration ([661dfcd](https://github.com/djkix/ma-cave/commit/661dfcd89891cf188b0814d2505e88c261f1af20))
+* **web:** choix du modèle de l'IA dans Administration › Coûts de l'IA ([4696bfc](https://github.com/djkix/ma-cave/commit/4696bfc708088cfcfa953f05e299264c3552381b))
+
+
+### Corrections
+
+* **api:** liste Google en échec gardée 60 s, nom de modèle contrôlé ([cb7601f](https://github.com/djkix/ma-cave/commit/cb7601ff33e7bb5e9fa67d7538a42514fa5313c9))
+
 ## [2.18.1](https://github.com/djkix/ma-cave/compare/v2.18.0...v2.18.1) (2026-10-21)
 
 ### Résumé
