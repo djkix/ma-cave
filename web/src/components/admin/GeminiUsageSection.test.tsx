@@ -125,10 +125,10 @@ it('« Analyse du plan » : sa propre couleur dans la barre et dans la légende'
   }));
   mount();
   const bar = await screen.findByRole('img', { name: '18/10 : 2 appels, 0,04 €' });
-  expect(segments(bar).map((s) => s.style.background)).toEqual(['var(--color-primary)', 'var(--color-ferronnerie)']);
+  expect(segments(bar).map((s) => s.style.background)).toEqual(['var(--color-primary)', 'var(--color-warning)']);
   const legend = screen.getByRole('list', { name: 'Légende' });
   const keys = within(legend).getAllByRole('listitem').map((li) => li.querySelector<HTMLElement>('.histo__key')!.style.background);
-  expect(within(legend).getByText('Analyse du plan').querySelector<HTMLElement>('.histo__key')!.style.background).toBe('var(--color-ferronnerie)');
+  expect(within(legend).getByText('Analyse du plan').querySelector<HTMLElement>('.histo__key')!.style.background).toBe('var(--color-warning)');
   expect(new Set(keys).size).toBe(6);
   expect(within(screen.getByRole('table')).getByText('Analyse du plan')).toBeInTheDocument();
 });
