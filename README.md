@@ -1468,6 +1468,14 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
 Le détail par version, avec le lien vers chaque commit, est dans
 [`CHANGELOG.md`](CHANGELOG.md) ; voici les versions publiées.
 
+### 2.18.1 — 21 octobre 2026
+
+Publiée ([v2.18.1](https://github.com/djkix/ma-cave/releases/tag/v2.18.1)),
+images `ghcr.io/djkix/ma-cave-api:2.18.1` et `-web:2.18.1`.
+
+**Gemini Flash ou Lite seulement** : un modèle Pro est refusé au démarrage,
+tarif Pro retiré.
+
 ### 2.18.0 — 21 octobre 2026
 
 Publiée ([v2.18.0](https://github.com/djkix/ma-cave/releases/tag/v2.18.0)),

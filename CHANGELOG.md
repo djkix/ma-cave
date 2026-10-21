@@ -11,6 +11,17 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.18.1](https://github.com/djkix/ma-cave/compare/v2.18.0...v2.18.1) (2026-10-21)
 
+### Résumé
+
+**Modèles Gemini Flash ou Lite seulement.** `GEMINI_MODEL` et
+`GEMINI_PLAN_MODEL` n'acceptent plus qu'un modèle Flash ou Lite : l'api refuse
+de démarrer avec un modèle Pro, avec un message clair. Le tarif Pro ajouté en
+2.18.0 est retiré : l'analyse des plans est comptée au tarif Flash comme les
+autres appels. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Corrections
 
