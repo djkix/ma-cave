@@ -49,16 +49,28 @@ ${READING_RULES}`;
 // Ordre de grandeur pour le plafond mensuel ; ajuster si la grille tarifaire change.
 const PRICE_PER_1K_TOKENS_CENTS = { input: 0.01, output: 0.04 };
 
-function rawCostCentsOf(usage: { promptTokenCount?: number; candidatesTokenCount?: number } | undefined): number {
-  return (
-    ((usage?.promptTokenCount ?? 0) / 1000) * PRICE_PER_1K_TOKENS_CENTS.input +
-    ((usage?.candidatesTokenCount ?? 0) / 1000) * PRICE_PER_1K_TOKENS_CENTS.output
-  );
+/**
+ * Tarif d'un modèle « Pro » (GEMINI_PLAN_MODEL plus précis) : grille publique
+ * de Gemini 2.5 Pro (https://ai.google.dev/gemini-api/docs/pricing, connue au
+ * 2026-10-21) : 1,25 $ le million de jetons en entrée, 10 $ en sortie (invites
+ * de moins de 200 000 jetons), soit 12,5 et 25 fois le tarif Flash ci-dessus.
+ */
+const PRO_PRICE_MULTIPLIER = { input: 12.5, output: 25 };
+const PRO_PRICE_PER_1K_TOKENS_CENTS = {
+  input: PRICE_PER_1K_TOKENS_CENTS.input * PRO_PRICE_MULTIPLIER.input,
+  output: PRICE_PER_1K_TOKENS_CENTS.output * PRO_PRICE_MULTIPLIER.output,
+};
+
+/** Grille du modèle : Pro si son nom contient « pro » (casse ignorée), sinon Flash. */
+const priceOf = (modelName: string) => (/pro/i.test(modelName) ? PRO_PRICE_PER_1K_TOKENS_CENTS : PRICE_PER_1K_TOKENS_CENTS);
+
+function rawCostCentsOf(usage: { promptTokenCount?: number; candidatesTokenCount?: number } | undefined, price = PRICE_PER_1K_TOKENS_CENTS): number {
+  return ((usage?.promptTokenCount ?? 0) / 1000) * price.input + ((usage?.candidatesTokenCount ?? 0) / 1000) * price.output;
 }
 
 /** Une photo facturée par Gemini ne doit jamais être comptée à coût nul : on majore toujours. */
-function costCentsOf(usage: { promptTokenCount?: number; candidatesTokenCount?: number } | undefined): number {
-  return Math.ceil(rawCostCentsOf(usage));
+function costCentsOf(usage: { promptTokenCount?: number; candidatesTokenCount?: number } | undefined, price = PRICE_PER_1K_TOKENS_CENTS): number {
+  return Math.ceil(rawCostCentsOf(usage, price));
 }
 
 /** Un accord coûte un ordre de grandeur de moins qu'une photo (~0,004 ct) : arrondir plutôt que
@@ -204,12 +216,15 @@ function siteOf(text: string): string | null {
 }
 
 /** Consigne de l'analyse d'un plan ; la forme de la réponse est imposée par `PLAN_SCHEMA`. */
-const PLAN_PROMPT = `Tu regardes la photo d'une cave à vin (ou le schéma d'une cave). Repère uniquement les rangements à bouteilles : casiers, étagères, autres meubles où l'on range des bouteilles. Ignore tout le reste (murs, portes, cartons isolés, objets). Au plus 12 rangements.
-Pour chacun, donne :
-- "kind" : CASIER (casier à alvéoles, une case par bouteille ou par pile), ETAGERE (tablettes ou étagères), AUTRE (tout autre rangement à bouteilles) ;
-- "box_2d" : le cadre serré autour du rangement, [ymin, xmin, ymax, xmax] en entiers normalisés de 0 à 1000 (0,0 = coin haut gauche) ;
-- "rows" : le nombre de rangées de cases de haut en bas (1 à 26) ; "cols" : le nombre de cases par rangée, de gauche à droite (1 à 30).
-Si la photo ne montre aucun rangement à bouteilles, réponds {"blocks": []}.`;
+const PLAN_PROMPT = `Tu regardes la photo d'une cave à vin (ou le schéma d'une cave). Tu dois repérer les rangements à bouteilles case par case, puis regrouper les cases par meuble.
+
+1. Les cases. Commence par repérer les meubles, de gauche à droite. Pour chaque meuble, parcours ses cases rangée par rangée, de haut en bas puis de gauche à droite, et donne-les toutes : une case est un espace délimité par des montants (verticaux) et des tablettes (horizontales). Compte chaque case, même vide, et même partiellement cachée par un objet posé devant (estime alors son cadre). Une case plus haute ou plus large que ses voisines reste une seule case. Ne fusionne jamais plusieurs cases en une. Pour chaque case, donne "box_2d" : le cadre serré sur l'intérieur de la case, [ymin, xmin, ymax, xmax] en entiers normalisés de 0 à 1000 (0,0 = coin haut gauche).
+
+2. Les meubles. Regroupe les cases par meuble physique ("units"). Un meuble est une unité de construction. Les meubles se touchent souvent : la limite entre deux meubles se voit à un montant doublé ou plus épais, à un petit espace, à des tablettes qui ne sont pas à la même hauteur, à des cases de taille différente ou à un changement de bois ou de couleur. Une même tablette continue d'un bout à l'autre signale un seul meuble. Dans le doute, sépare. Ne fusionne jamais deux meubles accolés. Pour chaque meuble, donne "kind" : CASIER (casier à cases ou alvéoles), ETAGERE (tablettes ou étagères), AUTRE (tout autre rangement à bouteilles), et "cells" : la liste de ses cases.
+
+3. À ignorer : un meuble coupé par le bord de l'image (moins d'environ 70 % visible), les objets posés devant ou dans les cases (sacs, seaux, cartons, bouteilles) : ce ne sont pas des cases, mais les cases qu'ils cachent en partie comptent. Ignore aussi les murs, le plafond, le sol, les portes.
+
+Au plus 12 meubles, au plus 200 cases par meuble. Si la photo ne montre aucun rangement à bouteilles, réponds {"units": []}.`;
 
 /**
  * `minItems` / `maxItems` sont acceptés par l'API Gemini mais absents des types
@@ -219,23 +234,32 @@ Si la photo ne montre aucun rangement à bouteilles, réponds {"blocks": []}.`;
 const PLAN_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
-    blocks: {
+    units: {
       type: SchemaType.ARRAY,
       maxItems: 12,
       items: {
         type: SchemaType.OBJECT,
         properties: {
           kind: { type: SchemaType.STRING, format: 'enum', enum: ['CASIER', 'ETAGERE', 'AUTRE'] },
-          // Convention native de Gemini, convertie en fractions [x0, y0, x1, y1] par le traitement.
-          box_2d: { type: SchemaType.ARRAY, minItems: 4, maxItems: 4, items: { type: SchemaType.INTEGER } },
-          rows: { type: SchemaType.INTEGER },
-          cols: { type: SchemaType.INTEGER },
+          cells: {
+            type: SchemaType.ARRAY,
+            maxItems: 200,
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                // Convention native de Gemini, convertie en fractions [x0, y0, x1, y1] par `unitsToBlocks`.
+                box_2d: { type: SchemaType.ARRAY, minItems: 4, maxItems: 4, items: { type: SchemaType.INTEGER } },
+              },
+              required: ['box_2d'],
+            },
+          },
         },
-        required: ['kind', 'box_2d', 'rows', 'cols'],
+        required: ['kind', 'cells'],
+        propertyOrdering: ['kind', 'cells'],
       },
     },
   },
-  required: ['blocks'],
+  required: ['units'],
 } as ResponseSchema;
 
 /**
@@ -254,11 +278,15 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
     private readonly model: Pick<GenerativeModel, 'generateContent'>,
     private readonly modelName: string,
     private readonly journal?: GeminiJournal,
+    /** Modèle de `analyzePlan` seulement (`GEMINI_PLAN_MODEL`), par défaut le modèle commun. */
+    private readonly planModel: Pick<GenerativeModel, 'generateContent'> = model,
+    /** Nom du modèle des plans : fixe le tarif de `analyzePlan` (voir `priceOf`). */
+    private readonly planModelName: string = modelName,
   ) {}
 
-  static fromApiKey(apiKey: string, modelName: string, journal?: GeminiJournal): GeminiVisionProvider {
-    const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: modelName });
-    return new GeminiVisionProvider(model, modelName, journal);
+  static fromApiKey(apiKey: string, modelName: string, journal?: GeminiJournal, planModelName = modelName): GeminiVisionProvider {
+    const ai = new GoogleGenerativeAI(apiKey);
+    return new GeminiVisionProvider(ai.getGenerativeModel({ model: modelName }), modelName, journal, ai.getGenerativeModel({ model: planModelName }), planModelName);
   }
 
   /**
@@ -350,23 +378,23 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
   }
 
   /** Photo d'un plan : une ligne `ANALYSE_PLAN` au journal. JSON illisible : `VisionInvalidOutputError` (avec son coût). */
-  analyzePlan(image: Buffer, mimeType: string): Promise<{ blocks: unknown; costCents: number }> {
+  analyzePlan(image: Buffer, mimeType: string): Promise<{ units: unknown; costCents: number }> {
     return this.call('ANALYSE_PLAN', () => this.readPlan(image, mimeType));
   }
 
-  private async readPlan(image: Buffer, mimeType: string): Promise<{ blocks: unknown; costCents: number }> {
-    const result = await this.model.generateContent({
+  private async readPlan(image: Buffer, mimeType: string): Promise<{ units: unknown; costCents: number }> {
+    const result = await this.planModel.generateContent({
       contents: [{ role: 'user', parts: [{ text: PLAN_PROMPT }, { inlineData: { data: image.toString('base64'), mimeType } }] }],
       generationConfig: { responseMimeType: 'application/json', responseSchema: PLAN_SCHEMA },
     });
-    const costCents = costCentsOf(result.response.usageMetadata);
+    const costCents = costCentsOf(result.response.usageMetadata, priceOf(this.planModelName));
     let raw: unknown;
     try {
       raw = JSON.parse(stripFences(result.response.text()));
     } catch {
       throw new VisionInvalidOutputError('Sortie du modèle invalide (JSON illisible)', costCents);
     }
-    return { blocks: (raw as { blocks?: unknown } | null)?.blocks, costCents };
+    return { units: (raw as { units?: unknown } | null)?.units, costCents };
   }
 
   /** Accords de tout un lot de vins (dix au plus) en un seul appel : une ligne `ACCORDS` au journal. */

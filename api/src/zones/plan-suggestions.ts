@@ -31,6 +31,60 @@ export function validBlocks(raw: unknown): RawBlock[] {
   return blocks.slice(0, MAX_BLOCKS);
 }
 
+type Box = [number, number, number, number];
+
+/** Case de Gemini (`box_2d` : [ymin, xmin, ymax, xmax], entiers de 0 à 1000) en fractions [x0, y0, x1, y1] ; invalide : null. */
+function cellBox(cell: unknown): Box | null {
+  const b = (cell as { box_2d?: unknown } | null)?.box_2d;
+  if (!Array.isArray(b) || b.length !== 4 || !b.every((v) => typeof v === 'number' && v >= 0 && v <= 1000)) return null;
+  const [ymin, xmin, ymax, xmax] = (b as number[]).map((v) => v / 1000);
+  return xmin < xmax && ymin < ymax ? [xmin, ymin, xmax, ymax] : null;
+}
+
+/**
+ * Nombre de rangées (ou de colonnes), compté sur les tablettes (ou les
+ * montants) et non sur les centres : tous les bords des cases, triés, sont
+ * regroupés en lignes (nouvelle ligne dès qu'un bord est à plus d'un tiers de
+ * la petite taille de case — 10e centile, pour résister à une case aberrante —
+ * de la moyenne de la ligne courante) ; rangées = lignes − 1. Une case haute
+ * de deux rangées ne masque pas la tablette de ses voisines, et une légère
+ * inclinaison ou perspective reste dans la tolérance.
+ */
+function countBetweenEdges(edges: number[], sizes: number[]): number {
+  const sorted = [...sizes].sort((a, b) => a - b);
+  const tolerance = sorted[Math.floor(0.1 * (sorted.length - 1))] / 3;
+  let lines = 0, sum = 0, n = 0;
+  for (const e of [...edges].sort((a, b) => a - b)) {
+    if (n === 0 || e - sum / n > tolerance) { lines++; sum = 0; n = 0; }
+    sum += e; n++;
+  }
+  return lines - 1;
+}
+
+/**
+ * Meubles détectés case par case (`units`, sortie de Gemini) ramenés à des
+ * blocs : cadre = union des cases valides, rangées et colonnes comptées sur
+ * les bords des cases (`countBetweenEdges`). Unité de moins de 2 cases valides ou de type
+ * inconnu ignorée. Le reste est validé ensuite par `validBlocks`.
+ */
+export function unitsToBlocks(units: unknown): RawBlock[] {
+  if (!Array.isArray(units)) return [];
+  const blocks: RawBlock[] = [];
+  for (const u of units) {
+    const { kind, cells } = (u ?? {}) as Record<string, unknown>;
+    if (typeof kind !== 'string' || !(kind in LABELS) || !Array.isArray(cells)) continue;
+    const boxes = cells.map(cellBox).filter((b): b is Box => b !== null);
+    if (boxes.length < 2) continue;
+    blocks.push({
+      kind: kind as SuggestionKind,
+      box: [Math.min(...boxes.map((b) => b[0])), Math.min(...boxes.map((b) => b[1])), Math.max(...boxes.map((b) => b[2])), Math.max(...boxes.map((b) => b[3]))],
+      rows: Math.min(GRID_MAX_ROWS, countBetweenEdges(boxes.flatMap((b) => [b[1], b[3]]), boxes.map((b) => b[3] - b[1]))),
+      cols: Math.min(GRID_MAX_COLS, countBetweenEdges(boxes.flatMap((b) => [b[0], b[2]]), boxes.map((b) => b[2] - b[0]))),
+    });
+  }
+  return blocks;
+}
+
 /** A…Z, puis AA, AB… */
 const letter = (n: number): string => (n >= 26 ? letter(Math.floor(n / 26) - 1) : '') + String.fromCharCode(65 + (n % 26));
 

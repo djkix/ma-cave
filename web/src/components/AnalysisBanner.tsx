@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { CavePlan, getPlans, PlanAnalysisInfo, relaunchAnalysis } from '../lib/api-client';
+import { CavePlan, PlanAnalysisInfo, relaunchAnalysis } from '../lib/api-client';
+import { replacePlanInCache } from '../lib/locations';
 import { Button } from './Button';
 import { Icon } from './Icon';
 
@@ -83,7 +84,7 @@ export function AnalysisBanner({ plan, done }: { plan: CavePlan; done: boolean }
     // Le plan rendu (en attente) remplace l'ancien : le bandeau repasse en cours et la relecture des 10 s reprend.
     // Refus (409 : déjà en cours) : l'état du serveur est relu, la relecture des 10 s reprend.
     onError: () => qc.invalidateQueries({ queryKey: ['plans'] }),
-    onSuccess: (next) => qc.setQueryData<Awaited<ReturnType<typeof getPlans>>>(['plans'], (d) => d && { ...d, plans: d.plans.map((p) => (p.id === next.id ? next : p)) }),
+    onSuccess: (next) => replacePlanInCache(qc, next),
   });
   const error = relaunch.isError && <p role="alert" className="text-error" style={{ margin: 0 }}>{(relaunch.error as Error).message}</p>;
 
