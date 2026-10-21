@@ -4,11 +4,13 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { CaveContextService } from '../caves/cave-context.service';
+import { LocationsService } from '../locations/locations.service';
+import { lockWine, writeMove } from '../movements/movements.service';
 import { ImageNormalizationService } from '../photos/image-normalization.service';
 import { PHOTO_STORAGE_DIR } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  CreateZoneInput, PLAN_NOT_FOUND, UpdateZoneInput, ZONE_NAME_TAKEN, ZONE_NOT_FOUND, ZONE_PHOTO_NOT_FOUND, ZONE_STOCKED, zonePhotoPath, ZoneView, zoneView,
+  CreateZoneInput, PLAN_NOT_FOUND, UpdateZoneInput, ZONE_NAME_TAKEN, ZONE_NOT_FOUND, ZONE_PHOTO_NOT_FOUND, zonePhotoPath, ZoneView, zoneView,
 } from './zone';
 
 function isUniqueViolation(e: unknown): boolean {
@@ -63,6 +65,7 @@ export class ZonesService {
     private readonly prisma: PrismaService,
     private readonly normalization: ImageNormalizationService,
     private readonly caves: CaveContextService,
+    private readonly locations: LocationsService,
     @Inject(PHOTO_STORAGE_DIR) private readonly dir: string,
   ) {}
 
@@ -129,36 +132,62 @@ export class ZonesService {
   }
 
   /**
-   * Supprimer : refusé (409) tant qu'un emplacement de la zone a des
-   * bouteilles ; archivée si un mouvement l'a désignée (l'historique garde son
-   * libellé) ; sinon supprimée, avec ses emplacements jamais utilisés et sa
-   * photo. Sous verrou de la zone : une entrée simultanée dans cette zone
-   * (LocationsService.resolve la lit FOR SHARE) passe avant ou après, jamais entre.
-   * `archived` dit ce qui s'est passé.
+   * Supprimer : les bouteilles encore rangées dans la zone en sortent par un
+   * déplacement (paire MOVE, annulable) vers l'emplacement sans zone de même
+   * casier et même position (« Sans emplacement » s'il n'y en a pas) ; la zone
+   * est alors archivée. Archivée aussi si un mouvement l'a désignée
+   * (l'historique garde son libellé) ; sinon supprimée, avec ses emplacements
+   * jamais utilisés et sa photo. Sous verrou de la zone : une entrée simultanée
+   * dans cette zone (LocationsService.resolve la lit FOR SHARE) passe avant ou
+   * après, jamais entre. `archived` dit ce qui s'est passé, `unplaced` combien
+   * de bouteilles sont sorties de la zone.
    */
-  async remove(caveId: string, id: string): Promise<{ archived: boolean }> {
+  async remove(caveId: string, id: string): Promise<{ archived: boolean; unplaced: number }> {
+    // Zone d'une autre cave ou archivée : 404, avant toute lecture de ses vins.
+    await this.findOwn(caveId, id);
     const deleted = await this.prisma.$transaction(async (tx) => {
+      // Ordre des verrous : les vins d'abord (par id), la zone ensuite — le même ordre
+      // qu'un déplacement, une annulation ou un inventaire vers la zone (verrou du vin,
+      // puis LocationsService lit la zone) : jamais d'interblocage avec eux. Le verrou du
+      // vin fige son stock : une sortie simultanée ne peut plus le changer.
+      const wines = await tx.$queryRaw<{ wineId: string }[]>`
+        SELECT DISTINCT m.wine_id AS "wineId" FROM movement m JOIN location l ON l.id = m.location_id
+        WHERE l.zone_id = ${id} ORDER BY m.wine_id`;
+      for (const { wineId } of wines) await lockWine(tx, caveId, wineId);
+      const locked = new Set(wines.map((w) => w.wineId));
       const zone = await this.lockOwn(tx, caveId, id);
-      const [{ stocked, used }] = await tx.$queryRaw<{ stocked: boolean; used: boolean }[]>`
-        SELECT
-          EXISTS (
-            SELECT 1 FROM movement m JOIN location l ON l.id = m.location_id
-            WHERE l.zone_id = ${id}
-            GROUP BY m.wine_id, m.location_id
-            HAVING SUM(m.delta) > 0
-          ) AS stocked,
-          EXISTS (SELECT 1 FROM movement m JOIN location l ON l.id = m.location_id WHERE l.zone_id = ${id}) AS used`;
-      if (stocked) throw new ConflictException(ZONE_STOCKED);
+      const [{ used }] = await tx.$queryRaw<{ used: boolean }[]>`
+        SELECT EXISTS (SELECT 1 FROM movement m JOIN location l ON l.id = m.location_id WHERE l.zone_id = ${id}) AS used`;
+      const stockedNow = () => tx.$queryRaw<{ wineId: string; locationId: string; casier: string | null; position: string | null; quantity: number }[]>`
+        SELECT m.wine_id AS "wineId", l.id AS "locationId", l.casier, l.position, SUM(m.delta)::INTEGER AS quantity
+        FROM movement m JOIN location l ON l.id = m.location_id
+        WHERE l.zone_id = ${id}
+        GROUP BY m.wine_id, l.id, l.casier, l.position
+        HAVING SUM(m.delta) > 0
+        ORDER BY m.wine_id`;
+      let stocked = await stockedNow();
+      // Un vin entré dans la zone entre la première lecture et le verrou de la zone (cas rare) :
+      // verrouillé à son tour, puis le stock est relu sous ce verrou. La zone verrouillée
+      // n'admet plus d'autre entrée.
+      const late = [...new Set(stocked.map((s) => s.wineId))].filter((w) => !locked.has(w));
+      for (const wineId of late) await lockWine(tx, caveId, wineId);
+      if (late.length > 0) stocked = await stockedNow();
+      let unplaced = 0;
+      for (const s of stocked) {
+        const to = s.casier || s.position ? (await this.locations.resolve(caveId, { casier: s.casier, position: s.position }, tx)).id : null;
+        await writeMove(tx, s.wineId, s.quantity, randomUUID(), s.locationId, to);
+        unplaced += s.quantity;
+      }
       if (used) {
         await tx.caveZone.update({ where: { id }, data: { archivedAt: new Date() } });
-        return { archived: true, photoPath: null };
+        return { archived: true, unplaced, photoPath: null };
       }
       await tx.location.deleteMany({ where: { zoneId: id } });
       await tx.caveZone.delete({ where: { id } });
-      return { archived: false, photoPath: zone.photoPath };
+      return { archived: false, unplaced: 0, photoPath: zone.photoPath };
     });
     if (deleted.photoPath) await unlinkIgnoringMissing(join(this.dir, deleted.photoPath));
-    return { archived: deleted.archived };
+    return { archived: deleted.archived, unplaced: deleted.unplaced };
   }
 
   /** Zone non archivée de la cave, verrouillée (FOR UPDATE) jusqu'à la fin de la transaction ; sinon 404. */

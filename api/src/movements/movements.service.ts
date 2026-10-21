@@ -59,8 +59,20 @@ export function movePartnerKey(key: string): string | null {
   return null;
 }
 
+/**
+ * Écrit la paire MOVE d'un déplacement (+N à `to`, −N à `from`, même date,
+ * clés `key:to` et `key:from`), dans la transaction de l'appelant qui tient le
+ * verrou du vin. Le contrôle du stock de l'origine reste à l'appelant.
+ */
+export async function writeMove(tx: Db, wineId: string, quantity: number, key: string, from: string | null, to: string | null): Promise<void> {
+  const occurredAt = new Date();
+  // L'arrivée d'abord : le total du vin ne baisse jamais en cours de route.
+  await tx.movement.create({ data: { wineId, delta: quantity, type: 'MOVE', occurredAt, idempotencyKey: key + MOVE_TO, locationId: to } });
+  await tx.movement.create({ data: { wineId, delta: -quantity, type: 'MOVE', occurredAt, idempotencyKey: key + MOVE_FROM, locationId: from } });
+}
+
 /** Verrou sur la ligne du vin (même verrou que l'inventaire et le déclencheur de stock) ; vin d'une autre cave : 404. */
-async function lockWine(tx: Db, caveId: string, wineId: string): Promise<void> {
+export async function lockWine(tx: Db, caveId: string, wineId: string): Promise<void> {
   const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM wine WHERE id = ${wineId} AND cave_id = ${caveId} FOR UPDATE`;
   if (locked.length === 0) throw new NotFoundException('Vin introuvable');
 }
@@ -457,10 +469,7 @@ export class MovementsService {
         await lockWine(tx, caveId, wineId);
         const to = await this.locations.resolve(caveId, input.to, tx);
         if (to.id === input.from) throw new BadRequestException(SAME_LOCATION);
-        const occurredAt = new Date();
-        // L'arrivée d'abord : le total du vin ne baisse jamais en cours de route.
-        await tx.movement.create({ data: { wineId, delta: input.quantity, type: 'MOVE', occurredAt, idempotencyKey: key + MOVE_TO, locationId: to.id } });
-        await tx.movement.create({ data: { wineId, delta: -input.quantity, type: 'MOVE', occurredAt, idempotencyKey: key + MOVE_FROM, locationId: input.from } });
+        await writeMove(tx, wineId, input.quantity, key, input.from, to.id);
         await this.locations.assertEnoughAt(caveId, wineId, [input.from], tx);
       });
     } catch (e) {

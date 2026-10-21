@@ -186,7 +186,7 @@ const ROUTES: Route[] = [
     happy: { status: 200, check: (res) => expect(res.body.indication).toBe('Au fond') },
   },
   { method: 'DELETE', path: '/api/caves/current/zones/:id', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/zones/${i.zoneDeleteA}` }), foreign: NOT_FOUND_ZONE,
-    happy: { status: 200, check: (res) => expect(res.body).toEqual({ archived: false }) } },
+    happy: { status: 200, check: (res) => expect(res.body).toEqual({ archived: false, unplaced: 0 }) } },
   // Photo de zone : lue (membre compris) avant d'être remplacée puis retirée plus bas.
   { method: 'GET', path: '/api/caves/zones/:id/photo', kind: 'photo-image', req: (i) => ({ url: `/api/caves/zones/${i.zoneA}/photo` }), foreign: NOT_FOUND_ZONE, happy: { status: 200 } },
   {
