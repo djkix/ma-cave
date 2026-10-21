@@ -6,6 +6,13 @@ import { z } from 'zod';
 // crash-loop on boot.
 const emptyToUndefined = <T extends z.ZodTypeAny>(s: T) => z.preprocess((v) => (v === '' ? undefined : v), s);
 
+/**
+ * Modèles Gemini légers seulement (Flash, Lite) : les coûts et le budget sont
+ * calculés au tarif Flash, et Franck n'emploie pas les modèles Pro.
+ */
+const LIGHT_MODEL = /flash|lite|light/i;
+const lightModel = z.string().refine((m) => LIGHT_MODEL.test(m) && !/pro/i.test(m), { message: 'seuls les modèles Gemini Flash ou Lite sont acceptés' });
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().default(3000),
@@ -17,9 +24,9 @@ const schema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().default(''),
   GOOGLE_CALLBACK_URL: z.string().url().default('http://localhost:3000/api/auth/google/callback'),
   GEMINI_API_KEY: z.string().default(''),
-  GEMINI_MODEL: z.string().default('gemini-3.5-flash'),
+  GEMINI_MODEL: lightModel.default('gemini-3.5-flash'),
   // Modèle de l'analyse des plans seulement ; absent ou vide : GEMINI_MODEL (voir parseEnv).
-  GEMINI_PLAN_MODEL: emptyToUndefined(z.string().optional()),
+  GEMINI_PLAN_MODEL: emptyToUndefined(lightModel.optional()),
   GEMINI_MONTHLY_CAP_CENTS: z.coerce.number().int().default(500),
   PHOTO_STORAGE_DIR: z.string().default('./data/photos'),
   BREAK_GLASS_EMAIL: emptyToUndefined(z.string().email().optional()),
