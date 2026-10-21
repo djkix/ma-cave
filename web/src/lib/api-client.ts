@@ -174,7 +174,7 @@ export interface PlanSuggestion { id: string; kind: 'CASIER' | 'ETAGERE' | 'AUTR
  */
 export type PlanAnalysisInfo =
   | { since: string; attempt: number; maxAttempts: number; nextAttemptAt: string | null; waiting: 'QUEUED' | 'RUNNING' | 'GEMINI_PAUSE' | 'BUDGET' | 'RETRY'; pauseUntil: string | null }
-  | { since: string; failedReason: 'GEMINI' | 'BUDGET' | 'IMAGE' | 'ILLISIBLE' | 'ERREUR' }
+  | { since: string; failedReason: 'GEMINI' | 'REFUS' | 'BUDGET' | 'IMAGE' | 'ILLISIBLE' | 'ERREUR' }
   | null;
 /**
  * Plan de la cave : nom, taille en pixels (mise en page avant chargement), date du dernier envoi (ISO),

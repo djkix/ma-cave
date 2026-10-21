@@ -115,10 +115,11 @@ export const markerSchema = z.object(
 );
 
 /**
- * Raison d'un échec d'analyse (`analysis_error`) : refus de Gemini, budget
- * dépassé, image absente, réponse inexploitable, autre erreur.
+ * Raison d'un échec d'analyse (`analysis_error`) : Gemini indisponible (quota,
+ * saturation, réseau, configuration), demande refusée par Gemini (4xx hors 429),
+ * budget dépassé, image absente, réponse inexploitable, autre erreur.
  */
-export type PlanFailedReason = 'GEMINI' | 'BUDGET' | 'IMAGE' | 'ILLISIBLE' | 'ERREUR';
+export type PlanFailedReason = 'GEMINI' | 'REFUS' | 'BUDGET' | 'IMAGE' | 'ILLISIBLE' | 'ERREUR';
 
 /**
  * Détail de l'analyse (`since` = date de la demande : envoi, remplacement ou relance) : en attente, son avancement ;

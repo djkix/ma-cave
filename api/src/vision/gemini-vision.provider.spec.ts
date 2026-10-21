@@ -568,24 +568,16 @@ describe('GeminiVisionProvider.analyzePlan', () => {
   const NOW = new Date('2026-10-21T12:00:00.000Z');
   const units = [{ kind: 'CASIER', cells: [{ box_2d: [200, 100, 500, 400] }, { box_2d: [500, 100, 900, 400] }] }];
 
-  it('envoie l’image avec le schéma de sortie structurée (meubles, puis cases) et rend les unités brutes avec le coût', async () => {
+  it('envoie l’image en demandant du JSON sans schéma imposé (refusé par Google) et rend les unités brutes avec le coût', async () => {
     const model = fakeModel(JSON.stringify({ units }));
     const res = await gemini(model as any, 'm').analyzePlan(Buffer.from('img'), 'image/jpeg');
     expect(res).toEqual({ units, costCents: 1 });
     const call = model.generateContent.mock.calls[0][0];
     expect(call.contents[0].parts[1]).toEqual({ inlineData: { data: Buffer.from('img').toString('base64'), mimeType: 'image/jpeg' } });
-    expect(call.generationConfig.responseMimeType).toBe('application/json');
-    expect(call.generationConfig.responseSchema.required).toEqual(['units']);
-    const list = call.generationConfig.responseSchema.properties.units;
-    expect(list.maxItems).toBe(12);
-    expect(Object.keys(list.items.properties).sort()).toEqual(['cells', 'kind']);
-    expect(list.items.properties.kind.enum).toEqual(['CASIER', 'ETAGERE', 'AUTRE']);
-    const cells = list.items.properties.cells;
-    expect(cells.maxItems).toBe(200);
-    expect(cells.items.required).toEqual(['box_2d']);
-    expect(cells.items.properties.box_2d).toMatchObject({ minItems: 4, maxItems: 4, items: { type: 'integer' } });
+    expect(call.generationConfig).toEqual({ responseMimeType: 'application/json' });
     const prompt = call.contents[0].parts[0].text;
-    expect(list.items.propertyOrdering).toEqual(['kind', 'cells']);
+    expect(prompt).toContain('Réponds uniquement avec ce JSON : {"units": [{"kind": "CASIER", "cells": [{"box_2d": [ymin, xmin, ymax, xmax]}, …]}, …]}');
+    expect(prompt).toMatch(/entiers de 0 à 1000/);
     expect(prompt).toMatch(/12/);
     expect(prompt).toMatch(/70 %/);
     expect(prompt).toContain('1. Les cases. Commence par repérer les meubles, de gauche à droite. Pour chaque meuble, parcours ses cases rangée par rangée, de haut en bas puis de gauche à droite, et donne-les toutes : une case est un espace délimité par des montants (verticaux) et des tablettes (horizontales). Compte chaque case, même vide, et même partiellement cachée par un objet posé devant (estime alors son cadre). Une case plus haute ou plus large que ses voisines reste une seule case. Ne fusionne jamais plusieurs cases en une.');
@@ -599,6 +591,12 @@ describe('GeminiVisionProvider.analyzePlan', () => {
     // 10 × 0,01 + 10 × 0,04 = 0,5 ct → 1 ct.
     expect((await run('gemini-3.5-flash')).costCents).toBe(1);
     expect((await run('gemini-3.5-flash-lite')).costCents).toBe(1);
+  });
+
+  it('JSON entouré de balises ```json ou de texte : lu quand même', async () => {
+    for (const text of ['```json\n' + JSON.stringify({ units }) + '\n```', 'Voici le résultat : ' + JSON.stringify({ units }) + ' Fin.']) {
+      expect((await gemini(fakeModel(text) as any, 'm').analyzePlan(Buffer.from('x'), 'image/jpeg')).units).toEqual(units);
+    }
   });
 
   it('JSON illisible : sortie du modèle invalide, avec son coût', async () => {

@@ -1,4 +1,4 @@
-import { GenerativeModel, GoogleGenerativeAI, ResponseSchema, SchemaType } from '@google/generative-ai';
+import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { EXTRACTION_JSON_SCHEMA_DESCRIPTION, parseExtraction } from './extraction-schema';
 import { GeminiJournal, GeminiUsage, classifyFailure } from './gemini-journal';
 import { parsePairingOutput } from './pairing-output';
@@ -200,7 +200,11 @@ function siteOf(text: string): string | null {
   }
 }
 
-/** Consigne de l'analyse d'un plan ; la forme de la réponse est imposée par `PLAN_SCHEMA`. */
+/**
+ * Consigne de l'analyse d'un plan. La forme de la réponse est décrite dans le
+ * texte, sans `responseSchema` : Google refusait le schéma imbriqué (400). Les
+ * entrées mal formées sont écartées par `unitsToBlocks` / `validBlocks`.
+ */
 const PLAN_PROMPT = `Tu regardes la photo d'une cave à vin (ou le schéma d'une cave). Tu dois repérer les rangements à bouteilles case par case, puis regrouper les cases par meuble.
 
 1. Les cases. Commence par repérer les meubles, de gauche à droite. Pour chaque meuble, parcours ses cases rangée par rangée, de haut en bas puis de gauche à droite, et donne-les toutes : une case est un espace délimité par des montants (verticaux) et des tablettes (horizontales). Compte chaque case, même vide, et même partiellement cachée par un objet posé devant (estime alors son cadre). Une case plus haute ou plus large que ses voisines reste une seule case. Ne fusionne jamais plusieurs cases en une. Pour chaque case, donne "box_2d" : le cadre serré sur l'intérieur de la case, [ymin, xmin, ymax, xmax] en entiers normalisés de 0 à 1000 (0,0 = coin haut gauche).
@@ -209,43 +213,9 @@ const PLAN_PROMPT = `Tu regardes la photo d'une cave à vin (ou le schéma d'une
 
 3. À ignorer : un meuble coupé par le bord de l'image (moins d'environ 70 % visible), les objets posés devant ou dans les cases (sacs, seaux, cartons, bouteilles) : ce ne sont pas des cases, mais les cases qu'ils cachent en partie comptent. Ignore aussi les murs, le plafond, le sol, les portes.
 
-Au plus 12 meubles, au plus 200 cases par meuble. Si la photo ne montre aucun rangement à bouteilles, réponds {"units": []}.`;
+Au plus 12 meubles, au plus 200 cases par meuble. Si la photo ne montre aucun rangement à bouteilles, réponds {"units": []}.
 
-/**
- * `minItems` / `maxItems` sont acceptés par l'API Gemini mais absents des types
- * de `@google/generative-ai` 0.21 (le SDK transmet le schéma tel quel) : d'où
- * la conversion de type en fin d'objet.
- */
-const PLAN_SCHEMA = {
-  type: SchemaType.OBJECT,
-  properties: {
-    units: {
-      type: SchemaType.ARRAY,
-      maxItems: 12,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          kind: { type: SchemaType.STRING, format: 'enum', enum: ['CASIER', 'ETAGERE', 'AUTRE'] },
-          cells: {
-            type: SchemaType.ARRAY,
-            maxItems: 200,
-            items: {
-              type: SchemaType.OBJECT,
-              properties: {
-                // Convention native de Gemini, convertie en fractions [x0, y0, x1, y1] par `unitsToBlocks`.
-                box_2d: { type: SchemaType.ARRAY, minItems: 4, maxItems: 4, items: { type: SchemaType.INTEGER } },
-              },
-              required: ['box_2d'],
-            },
-          },
-        },
-        required: ['kind', 'cells'],
-        propertyOrdering: ['kind', 'cells'],
-      },
-    },
-  },
-  required: ['units'],
-} as ResponseSchema;
+Réponds uniquement avec ce JSON : {"units": [{"kind": "CASIER", "cells": [{"box_2d": [ymin, xmin, ymax, xmax]}, …]}, …]} (entiers de 0 à 1000). Exemple : {"units": [{"kind": "ETAGERE", "cells": [{"box_2d": [100, 50, 300, 450]}, {"box_2d": [300, 50, 500, 450]}]}]}`;
 
 /**
  * L'outil de recherche Google de Gemini 3 n'est pas encore typé par
@@ -372,12 +342,14 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
   private async readPlan(model: Model, image: Buffer, mimeType: string): Promise<{ units: unknown; costCents: number }> {
     const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: PLAN_PROMPT }, { inlineData: { data: image.toString('base64'), mimeType } }] }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: PLAN_SCHEMA },
+      generationConfig: { responseMimeType: 'application/json' },
     });
     const costCents = costCentsOf(result.response.usageMetadata);
+    // Sans schéma imposé, le modèle peut entourer l'objet de texte : on garde du premier « { » au dernier « } ».
+    const text = stripFences(result.response.text());
     let raw: unknown;
     try {
-      raw = JSON.parse(stripFences(result.response.text()));
+      raw = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
     } catch {
       throw new VisionInvalidOutputError('Sortie du modèle invalide (JSON illisible)', costCents);
     }

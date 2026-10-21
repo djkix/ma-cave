@@ -388,4 +388,12 @@ describe('failedReasonOf', () => {
     }
     expect(failedReasonOf(new Error('base injoignable'))).toBe('ERREUR');
   });
+
+  it('refus 4xx de Gemini (hors 429) : REFUS ; 429 et 503 : GEMINI', () => {
+    for (const status of ['400 Bad Request', '403 Forbidden', '404 Not Found']) {
+      expect(failedReasonOf(new Error(`[GoogleGenerativeAI Error]: Error fetching from https://x:generateContent: [${status}] Request contains an invalid argument.`))).toBe('REFUS');
+    }
+    expect(failedReasonOf(GEMINI_429)).toBe('GEMINI');
+    expect(failedReasonOf(GEMINI_503)).toBe('GEMINI');
+  });
 });
