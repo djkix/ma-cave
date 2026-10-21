@@ -11,6 +11,29 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.16.0](https://github.com/djkix/ma-cave/compare/v2.15.0...v2.16.0) (2026-10-21)
 
+### Résumé
+
+**Propositions de zones à partir de la photo du plan.** À chaque plan créé ou
+photo remplacée, Gemini analyse l'image en arrière-plan et propose les blocs de
+rangement : « Casier A · 12 cases », « Étagère B »… en pointillés sur le plan.
+Un toucher ouvre la proposition (nom et grille modifiables) ; *Accepter* crée la
+zone, son repère et sa grille. Une zone peut aussi recevoir une grille à la main
+(*Modifier la zone*). Pour ranger une bouteille dans une zone à grille, les cases
+s'affichent sous « Casier », avec le nombre de bouteilles déjà rangées. Nouvel
+usage « Analyse du plan » dans les coûts de l'IA, compté dans le budget de la
+cave ; une analyse impossible n'empêche jamais de placer les zones à la main.
+
+**Supprimer une zone qui contient des bouteilles.** La suppression n'est plus
+refusée : les bouteilles restent en stock « sans emplacement » (casier et
+position gardés, déplacements visibles dans le journal), puis la zone est
+archivée.
+
+**Migration** automatique, ajout seulement : lire « Passage à la 2.16.0 » dans
+le README (sauvegarde, retour arrière).
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
