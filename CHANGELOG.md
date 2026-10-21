@@ -9,6 +9,21 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.17.0](https://github.com/djkix/ma-cave/compare/v2.16.0...v2.17.0) (2026-10-21)
+
+
+### Fonctionnalités
+
+* **api:** état détaillé et relance de l'analyse du plan ([1a4dfc9](https://github.com/djkix/ma-cave/commit/1a4dfc93265dca2eadfdbbfcad0efd5940a31722))
+* **web:** bandeau d'analyse du plan, relance et « Proposer des zones » ([a1d66b9](https://github.com/djkix/ma-cave/commit/a1d66b9fa0952b8e441a2878e380e3512d1c4536))
+
+
+### Corrections
+
+* **api:** cause de report effacée à chaque tentative, état borné, coupure réseau classée GEMINI ([d5c7e5f](https://github.com/djkix/ma-cave/commit/d5c7e5f41901c513137d7fb646f67054620ceeaa))
+* **api:** date de la demande d'analyse comme `since` de analysisInfo ([3ab4145](https://github.com/djkix/ma-cave/commit/3ab4145df025353d1161634bf944c580c8befa10))
+* **web:** durée de l'analyse jamais figée, calée sur la demande, muette pour les lecteurs d'écran ([ba30f31](https://github.com/djkix/ma-cave/commit/ba30f316048e74ff9e52ffe46f63c404ee07595c))
+
 ## [2.16.0](https://github.com/djkix/ma-cave/compare/v2.15.0...v2.16.0) (2026-10-21)
 
 ### Résumé
