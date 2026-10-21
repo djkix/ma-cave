@@ -9,6 +9,22 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.21.0](https://github.com/djkix/ma-cave/compare/v2.20.0...v2.21.0) (2026-10-21)
+
+### Résumé
+
+**gemini-3.8-flash par défaut.** Valeur de départ de `GEMINI_MODEL` quand ni
+le `.env` ni l'Administration ne choisissent de modèle. Un modèle choisi dans
+Administration › Coûts de l'IA reste prioritaire. Aucune migration.
+
+### Détail par commit
+
+
+
+### Fonctionnalités
+
+* **api:** gemini-3.8-flash comme modèle par défaut ([7470da0](https://github.com/djkix/ma-cave/commit/7470da0f2af88bc4b5dd4e5d530369225ed36a91))
+
 ## [2.20.0](https://github.com/djkix/ma-cave/compare/v2.19.0...v2.20.0) (2026-10-21)
 
 ### Résumé
