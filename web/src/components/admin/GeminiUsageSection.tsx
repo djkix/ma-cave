@@ -22,7 +22,7 @@ const USAGE_COLOR: Record<GeminiUsageKind, string> = {
   ACCORDS: 'var(--color-success)',
   DESCRIPTIF: 'var(--color-wine-blanc)',
   RECHERCHE_IMAGE: 'var(--color-wine-rose)',
-  ANALYSE_PLAN: 'var(--color-ferronnerie)',
+  ANALYSE_PLAN: 'var(--color-warning)',
 };
 const USAGES = Object.keys(USAGE_LABEL) as GeminiUsageKind[];
 

@@ -117,7 +117,7 @@ describe('zone avec une grille', () => {
     const { container } = render(<Harness initial={{ zoneId: 'z3', casier: null, position: null }} zoneList={gridZones} block={false} />);
     const cells = within(screen.getByRole('group', { name: 'Cases de Casier A' })).getAllByRole('button');
     expect(cells.map((c) => c.textContent)).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3']);
-    expect(await screen.findByRole('button', { name: 'Case B3, 2 bouteilles' })).toHaveTextContent('B3 · 2');
+    expect(await screen.findByRole('button', { name: 'Case B3, 2 bouteilles' })).toHaveTextContent('B32');
     expect(api.getZoneCells).toHaveBeenCalledWith('z3');
     await userEvent.click(screen.getByRole('button', { name: 'Case A2' }));
     expect(screen.getByLabelText('Casier')).toHaveValue('A2');
