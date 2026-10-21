@@ -284,16 +284,51 @@ describeIfInfra('zones de la cave (HTTP)', () => {
   });
 
   describe('supprimer', () => {
-    it('409 tant que des bouteilles y sont rangées ; archivée si elle a servi : hors des listes, l’historique garde son libellé, le nom se libère', async () => {
+    it('avec des bouteilles : chacune passe sans zone (même casier, même position) par un déplacement, la zone est archivée', async () => {
+      const z = await newZone(`Garage ${run}`);
+      const first = (await entry({ zoneId: z.id, casier: '3', position: '2' }, 4)).body.wine.id;
+      const second = (await entry({ zoneId: z.id }, 2)).body.wine.id;
+      // Une partie de second ailleurs : seule celle de la zone bouge.
+      expect((await ownerA.post(`/api/wines/${second}/move`).send({ from: (await wine(second)).body.locations[0].id, to: { casier: `Ailleurs ${run}` }, quantity: 1 })).status).toBe(201);
+      const before = await prisma.movement.count({ where: { wineId: { in: [first, second] } } });
+      const deletedAt = new Date();
+
+      const res = await ownerA.delete(`/api/caves/current/zones/${z.id}`);
+      expect({ status: res.status, body: res.body }).toEqual({ status: 200, body: { archived: true, unplaced: 5 } });
+
+      expect((await wine(first)).body.wine.quantity).toBe(4);
+      expect((await wine(second)).body.wine.quantity).toBe(2);
+      const firstPlaces = (await wine(first)).body.locations;
+      expect(firstPlaces).toEqual([expect.objectContaining({ zoneId: null, label: '3 / 2', quantity: 4 })]);
+      // Ni casier ni position : « Sans emplacement ».
+      expect((await wine(second)).body.locations).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: null, quantity: 1 }), expect.objectContaining({ label: `Ailleurs ${run}`, quantity: 1 }),
+      ]));
+      const moves = await prisma.movement.findMany({ where: { wineId: { in: [first, second] }, type: 'MOVE' }, orderBy: { idempotencyKey: 'asc' } });
+      expect(await prisma.movement.count({ where: { wineId: { in: [first, second] } } })).toBe(before + 4);
+      // Les deux paires de la suppression : la moitié « depuis » part d'un emplacement de la zone.
+      const fromZone = moves.filter((m) => m.delta < 0 && m.idempotencyKey.endsWith(':from') && m.occurredAt >= deletedAt);
+      const zonePlaces = (await prisma.location.findMany({ where: { zoneId: z.id }, select: { id: true } })).map((l) => l.id);
+      expect(fromZone.map((m) => zonePlaces.includes(m.locationId!))).toEqual([true, true]);
+      for (const m of fromZone) expect(moves.some((o) => o.idempotencyKey === m.idempotencyKey.replace(/:from$/, ':to') && o.delta === -m.delta)).toBe(true);
+      expect((await zones()).some((x) => x.id === z.id)).toBe(false);
+
+      // Annuler le déplacement de first : les bouteilles reviennent dans la zone, rétablie.
+      const half = (await wine(first)).body.movements.find((m: { type: string; delta: number }) => m.type === 'MOVE' && m.delta > 0);
+      expect((await ownerA.post(`/api/movements/${half.id}/cancel`).send({ idempotencyKey: randomUUID() })).status).toBe(201);
+      expect((await zones()).some((x) => x.id === z.id)).toBe(true);
+      expect((await wine(first)).body.locations).toEqual([expect.objectContaining({ zoneId: z.id, label: `Garage ${run} / 3 / 2`, quantity: 4 })]);
+    });
+
+    it('archivée si elle a servi : hors des listes, l’historique garde son libellé, le nom se libère', async () => {
       const z = await newZone(`Historique ${run}`);
       const res = await entry({ zoneId: z.id }, 1);
       const wineId = res.body.wine.id;
       const [place] = (await wine(wineId)).body.locations;
-      expectStatus(await ownerA.delete(`/api/caves/current/zones/${z.id}`), 409, 'Des bouteilles sont encore rangées dans cette zone');
       expectStatus(await viewerA.delete(`/api/caves/current/zones/${z.id}`), 403, 'Lecture seule');
 
       expect((await ownerA.post('/api/movements/out').send({ idempotencyKey: randomUUID(), wineId, quantity: 1, locationId: place.id })).status).toBe(201);
-      expect((await ownerA.delete(`/api/caves/current/zones/${z.id}`)).body).toEqual({ archived: true });
+      expect((await ownerA.delete(`/api/caves/current/zones/${z.id}`)).body).toEqual({ archived: true, unplaced: 0 });
 
       expect(await prisma.caveZone.findUnique({ where: { id: z.id } })).toMatchObject({ archivedAt: expect.any(Date) });
       expect((await zones()).some((x) => x.id === z.id)).toBe(false);
@@ -316,7 +351,7 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       const [place] = (await wine(wineId)).body.locations;
       const exit = await ownerA.post('/api/movements/out').send({ idempotencyKey: randomUUID(), wineId, quantity: 1, locationId: place.id });
       expect(exit.status).toBe(201);
-      expect((await ownerA.delete(`/api/caves/current/zones/${z.id}`)).body).toEqual({ archived: true });
+      expect((await ownerA.delete(`/api/caves/current/zones/${z.id}`)).body).toEqual({ archived: true, unplaced: 0 });
       return { z, wineId, place, exitId: exit.body.movement.id as string };
     }
 
@@ -360,10 +395,12 @@ describeIfInfra('zones de la cave (HTTP)', () => {
           ownerA.delete(`/api/caves/current/zones/${z.id}`),
         ]);
         expect(cancel.status).toBe(201);
-        expect([200, 409]).toContain(del.status);
+        expect(del.status).toBe(200);
         const zone = await prisma.caveZone.findUniqueOrThrow({ where: { id: z.id } });
         const stock = (await wine(wineId)).body.locations.find((p: { id: string }) => p.id === place.id)?.quantity ?? 0;
-        expect({ archived: zone.archivedAt != null, stock }).toEqual({ archived: false, stock: 1 });
+        // Annulation d'abord : la suppression déplace la bouteille hors de la zone ; sinon l'annulation rétablit la zone.
+        expect([{ archived: false, stock: 1 }, { archived: true, stock: 0 }]).toContainEqual({ archived: zone.archivedAt != null, stock });
+        expect((await wine(wineId)).body.wine.quantity).toBe(1);
       }
     });
 
@@ -372,7 +409,7 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       const png = await sharp({ create: { width: 40, height: 40, channels: 3, background: '#123456' } }).png().toBuffer();
       expect((await ownerA.put(`/api/caves/current/zones/${z.id}/photo`).attach('file', png, { filename: 'z.png', contentType: 'image/png' })).status).toBe(200);
       expect(existsSync(join(storage, 'zones', `${z.id}.jpg`))).toBe(true);
-      expect((await ownerA.delete(`/api/caves/current/zones/${z.id}`)).body).toEqual({ archived: false });
+      expect((await ownerA.delete(`/api/caves/current/zones/${z.id}`)).body).toEqual({ archived: false, unplaced: 0 });
       expect(await prisma.caveZone.findUnique({ where: { id: z.id } })).toBeNull();
       expect(existsSync(join(storage, 'zones', `${z.id}.jpg`))).toBe(false);
     });

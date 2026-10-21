@@ -77,20 +77,25 @@ Chaque zone a :
   1600 px, en JPEG ; *Retirer la photo* l'enlève).
 
 Renommer une zone change son nom partout : fiche, journal, filtre de la cave,
-« À boire prochainement » et export. Supprimer une zone est
-refusé tant que des bouteilles y sont rangées (« Des bouteilles sont encore
-rangées dans cette zone ») ; une zone qui a servi dans l'historique est
-**archivée** : elle disparaît de la liste et du choix de la zone, et
-l'historique garde son libellé ; une zone jamais utilisée est supprimée
-(*Ma cave* affiche « Zone supprimée » ou « Zone archivée (elle reste dans
-l'historique) »). Si des bouteilles reviennent ensuite dans une zone archivée
-(annulation d'une sortie, inventaire en hausse à cet emplacement), la zone est
-rétablie en fin de liste ; si son nom a été repris par une autre zone, c'est
-refusé : « Cette zone a été supprimée ; rangez ces bouteilles ailleurs ». Un
-membre en lecture seule voit les zones, leurs indications et leurs photos,
-sans pouvoir les changer. API : `GET`, `POST /api/caves/current/zones`,
-`PATCH`, `DELETE /api/caves/current/zones/:id` (réponse `{ archived }`), `POST
-/api/caves/current/zones/order` (`{ ids }` : nouvel ordre), `PUT`, `DELETE
+« À boire prochainement » et export. Supprimer une zone (« Supprimer la zone
+Garage ? Les bouteilles qui y sont rangées restent en stock, sans
+emplacement. ») est possible même si des bouteilles y sont rangées : elles
+restent en stock et passent sans zone, au même casier et à la même position
+(« Sans emplacement » si elles n'en avaient pas), par un déplacement visible
+dans le journal et annulable comme les autres. Une zone qui a servi dans
+l'historique est **archivée** : elle disparaît de la liste et du choix de la
+zone, et l'historique garde son libellé ; une zone jamais utilisée est
+supprimée (*Ma cave* affiche « Zone supprimée », « Zone archivée (elle reste
+dans l'historique) » ou « Zone archivée : 12 bouteilles sans emplacement »).
+Si des bouteilles reviennent ensuite dans une zone archivée (annulation d'une
+sortie ou d'un de ces déplacements, inventaire en hausse à cet emplacement),
+la zone est rétablie en fin de liste ; si son nom a été repris par une autre
+zone, c'est refusé : « Cette zone a été supprimée ; rangez ces bouteilles
+ailleurs ». Un membre en lecture seule voit les zones, leurs indications et
+leurs photos, sans pouvoir les changer. API : `GET`, `POST
+/api/caves/current/zones`, `PATCH`, `DELETE /api/caves/current/zones/:id`
+(réponse `{ archived, unplaced }`, `unplaced` : bouteilles sorties de la
+zone), `POST /api/caves/current/zones/order` (`{ ids }` : nouvel ordre), `PUT`, `DELETE
 /api/caves/current/zones/:id/photo` et `GET /api/caves/zones/:id/photo`
 (toute cave du compte).
 
