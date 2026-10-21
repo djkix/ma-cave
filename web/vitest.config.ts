@@ -11,5 +11,7 @@ export default defineConfig({
     // package.json's "test" script); it uses node:test, not Vitest, so it
     // must not also be picked up by Vitest's default glob.
     exclude: [...configDefaults.exclude, 'scripts/**'],
+    // base.css lue en texte (`?raw`) par les tests qui vérifient une règle (prefers-reduced-motion).
+    css: { include: [/base\.css/] },
   },
 });
