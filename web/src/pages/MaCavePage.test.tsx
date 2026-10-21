@@ -725,6 +725,41 @@ describe('plan de la cave', () => {
       expect(banner()).toHaveTextContent('Envoyée à l’IA il y a 3 min · plus long que prévu, l’analyse continue');
     });
 
+    it('durée relative alignée sur la demande : « 2 min » dès 120 s, « plus long que prévu » dès 3 min', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.setSystemTime(new Date('2026-10-21T10:00:20.500Z'));
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [pending({ waiting: 'QUEUED' })], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      await findBanner();
+      await act(() => vi.advanceTimersByTimeAsync(99_800));
+      expect(banner()).toHaveTextContent('Envoyée à l’IA il y a 2 min · résultat attendu d’ici une minute');
+      await act(() => vi.advanceTimersByTimeAsync(60_000));
+      expect(banner()).toHaveTextContent('Envoyée à l’IA il y a 3 min · plus long que prévu, l’analyse continue');
+    });
+
+    it('nouvel essai puis reprise : la durée part de la nouvelle demande, sans heure figée', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.setSystemTime(new Date('2026-10-21T10:00:20.000Z'));
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [pending({ waiting: 'RETRY', attempt: 2 })], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      const qc = mount();
+      await findBanner();
+      await act(() => vi.advanceTimersByTimeAsync(120_000));
+      const since = new Date(Date.now() - 30_000).toISOString();
+      qc.setQueryData(['plans'], { plans: [pending({ waiting: 'RUNNING', since })], markers: [] });
+      // Notification de la requête (différée d'un tour), sans laisser passer de seconde.
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(banner()).toHaveTextContent('Envoyée à l’IA il y a 30 s · résultat attendu d’ici une minute');
+    });
+
+    it('la durée qui change chaque seconde n’est pas relue par les lecteurs d’écran', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [pending({ waiting: 'RUNNING' })], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      expect(within(await findBanner()).getByText(/^Envoyée à l’IA/)).toHaveAttribute('aria-hidden', 'true');
+    });
+
     it('en cours (RUNNING) : même phrase que QUEUED', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       vi.setSystemTime(new Date('2026-10-21T10:00:20.000Z'));
@@ -797,13 +832,16 @@ describe('plan de la cave', () => {
       expect(banner()).not.toHaveClass('analysis-banner--error');
     });
 
-    it('relance refusée (409) : le refus s’affiche dans le bandeau', async () => {
+    it('relance refusée (409) : le refus s’affiche dans le bandeau et les plans sont relus', async () => {
       vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [failed('GEMINI')], markers: [] });
       vi.spyOn(api, 'getZones').mockResolvedValue([]);
       vi.spyOn(api, 'relaunchAnalysis').mockRejectedValue(new api.ApiError(409, 'Une analyse est déjà en cours'));
+      const getPlans = vi.mocked(api.getPlans);
       mount();
       await userEvent.click(within(await findBanner()).getByRole('button', { name: 'Relancer l’analyse' }));
       expect(await within(banner()).findByRole('alert')).toHaveTextContent('Une analyse est déjà en cours');
+      // L'état du serveur (déjà en cours) est relu : la relecture des 10 s reprend.
+      await waitFor(() => expect(getPlans).toHaveBeenCalledTimes(2));
     });
 
     it('plan jamais analysé : lien « Proposer des zones » qui lance l’analyse', async () => {
