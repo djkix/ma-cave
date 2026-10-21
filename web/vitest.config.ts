@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  // `virtual:pwa-register/react` est fourni par vite-plugin-pwa, absent de la
+  // configuration de test : sans cet alias, tout rendu de la coque échoue.
+  resolve: { alias: { 'virtual:pwa-register/react': new URL('./src/test-stubs/pwa-register-react.ts', import.meta.url).pathname } },
   test: {
     environment: 'jsdom',
     globals: true,

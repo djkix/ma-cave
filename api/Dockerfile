@@ -22,5 +22,9 @@ RUN npm ci --omit=dev && npx prisma generate
 RUN npx prisma --version
 COPY --from=build /app/dist ./dist
 COPY data ./data
+# Même valeur que celle injectée dans la coque au même `docker build` :
+# c'est ce qui rend significatif l'écart de version vu par le navigateur.
+ARG VITE_APP_VERSION=dev
+ENV APP_VERSION=$VITE_APP_VERSION
 EXPOSE 3000
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
