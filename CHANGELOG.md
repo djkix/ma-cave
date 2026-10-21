@@ -11,6 +11,15 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.21.0](https://github.com/djkix/ma-cave/compare/v2.20.0...v2.21.0) (2026-10-21)
 
+### Résumé
+
+**gemini-3.8-flash par défaut.** Valeur de départ de `GEMINI_MODEL` quand ni
+le `.env` ni l'Administration ne choisissent de modèle. Un modèle choisi dans
+Administration › Coûts de l'IA reste prioritaire. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
