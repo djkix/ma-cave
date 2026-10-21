@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import supertest from 'supertest';
+import { EXTRACTION_ATTEMPTS } from '../queue/extraction.queue';
 import { PLAN_ANALYSIS_QUEUE_TOKEN } from '../queue/plan-analysis';
 import { createTestCave, deleteTestCaves } from '../test-utils/cave';
 import { CavePlansController } from './plan.controller';
@@ -19,7 +20,9 @@ const describeIfInfra = process.env.DATABASE_URL && process.env.REDIS_URL ? desc
 
 interface Zone { id: string; name: string; marker: { planId: string; x: number; y: number } | null }
 interface Suggestion { id: string; kind: string; name: string; box: number[]; rows: number; cols: number }
-interface Plan { id: string; name: string; width: number; height: number; updatedAt: string; analysis: string; suggestions: Suggestion[] }
+interface Plan {
+  id: string; name: string; width: number; height: number; updatedAt: string; analysis: string; suggestions: Suggestion[]; analysisInfo: Record<string, unknown> | null;
+}
 interface PlansRead { plans: Plan[]; markers: Array<{ zoneId: string; planId: string; name: string; number: number; x: number; y: number }> }
 
 describeIfInfra('plans de la cave (HTTP)', () => {
@@ -63,7 +66,13 @@ describeIfInfra('plans de la cave (HTTP)', () => {
   };
   const mark = (id: string, body: unknown, agent: supertest.Agent = ownerA) => agent.put(`/api/caves/current/zones/${id}/marker`).send(body as object);
   const planFile = (id: string) => join(storage, 'plans', `${id}.jpg`);
-  const analysisQueue = { add: jest.fn<Promise<object>, unknown[]>(async () => ({})), close: jest.fn(async () => undefined), opts: {} };
+  // `getJob` : aucune tâche trouvée par défaut (avancement « QUEUED », première tentative).
+  const analysisQueue = {
+    add: jest.fn<Promise<object>, unknown[]>(async () => ({})), getJob: jest.fn<Promise<unknown>, unknown[]>(async () => undefined),
+    close: jest.fn(async () => undefined), opts: {},
+  };
+  /** Détail d'une analyse en attente sans avancement connu. */
+  const queued = (since: string) => ({ since, attempt: 1, maxAttempts: EXTRACTION_ATTEMPTS, nextAttemptAt: null, waiting: 'QUEUED', pauseUntil: null });
 
   beforeAll(async () => {
     process.env.SESSION_SECRET ??= 'e2e-secret-e2e-secret-e2e-secret-e2e-secret';
@@ -154,11 +163,14 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       expectStatus(await create('Cellier', big, viewerA), 403, 'Lecture seule');
       const res = await create('  Cellier  ', big);
       expect(res.status).toBe(201);
-      expect(res.body).toEqual({ id: expect.any(String), name: 'Cellier', width: 2400, height: 1200, updatedAt: expect.any(String), analysis: 'PENDING', suggestions: [] });
+      expect(res.body).toEqual({
+        id: expect.any(String), name: 'Cellier', width: 2400, height: 1200, updatedAt: expect.any(String), analysis: 'PENDING', suggestions: [],
+        analysisInfo: queued(res.body.updatedAt),
+      });
       p1 = res.body;
-      // Une tâche d'analyse en file, avec la date de l'image analysée.
+      // Une tâche d'analyse en file, avec la date de la demande (celle de l'image à la création).
       expect(analysisQueue.add).toHaveBeenCalledTimes(1);
-      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p1.id, updatedAt: p1.updatedAt }, { jobId: `${p1.id}_${Date.parse(p1.updatedAt)}` });
+      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p1.id, requestedAt: p1.updatedAt }, { jobId: `${p1.id}_${Date.parse(p1.updatedAt)}` });
       expect(await sharp(planFile(p1.id)).metadata()).toMatchObject({ format: 'jpeg', width: 2400, height: 1200 });
       expect(await read(viewerA)).toEqual({ plans: [p1], markers: [] });
       // Aucun fichier temporaire ne reste à côté du plan.
@@ -188,8 +200,8 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       analysisQueue.add.mockRejectedValueOnce(new Error('Redis injoignable'));
       const res = await create('Cave à part', await png(100, 100));
       expect(res.status).toBe(201);
-      expect(res.body.analysis).toBe('FAILED');
-      expect((await read()).plans.find((p) => p.id === res.body.id)?.analysis).toBe('FAILED');
+      expect(res.body).toMatchObject({ analysis: 'FAILED', analysisInfo: { since: res.body.updatedAt, failedReason: 'ERREUR' } });
+      expect((await read()).plans.find((p) => p.id === res.body.id)).toMatchObject({ analysis: 'FAILED', analysisInfo: { failedReason: 'ERREUR' } });
       expect((await ownerA.delete(`/api/caves/current/plans/${res.body.id}`)).status).toBe(204);
     });
 
@@ -278,6 +290,91 @@ describeIfInfra('plans de la cave (HTTP)', () => {
     });
   });
 
+  describe('état détaillé et relance de l’analyse', () => {
+    const relaunch = (id: string, agent: supertest.Agent = ownerA) => agent.post(`/api/caves/current/plans/${id}/analysis`);
+    const planIn = async (id: string) => (await read()).plans.find((p) => p.id === id)!;
+    const setPlan = (id: string, data: object) => prisma.cavePlan.update({ where: { id }, data });
+    const suggestion = () => ({ id: randomUUID(), kind: 'CASIER', name: 'Casier A', box: [0, 0, 1, 1], rows: 1, cols: 1 });
+
+    it('NONE ou DONE : analysisInfo null', async () => {
+      await setPlan(p2.id, { analysisStatus: 'NONE' });
+      expect((await planIn(p2.id)).analysisInfo).toBeNull();
+      await setPlan(p2.id, { analysisStatus: 'DONE' });
+      expect((await planIn(p2.id)).analysisInfo).toBeNull();
+    });
+
+    it('PENDING : avancement lu sur la tâche de la demande (QUEUED sans tâche trouvée), `since` = date de l’image', async () => {
+      const { analysisRequestedAt } = await prisma.cavePlan.findUniqueOrThrow({ where: { id: p1.id } });
+      analysisQueue.getJob.mockClear();
+      expect((await planIn(p1.id)).analysisInfo).toEqual(queued(p1.updatedAt));
+      expect(analysisQueue.getJob).toHaveBeenCalledWith(`${p1.id}_${analysisRequestedAt.getTime()}`);
+    });
+
+    it('Redis en erreur ou trop lent (> 1 s) : valeur de repli, jamais d’erreur', async () => {
+      analysisQueue.getJob.mockRejectedValueOnce(new Error('Redis injoignable'));
+      expect((await planIn(p1.id)).analysisInfo).toEqual(queued(p1.updatedAt));
+      analysisQueue.getJob.mockImplementationOnce(() => new Promise(() => undefined));
+      const started = Date.now();
+      expect((await planIn(p1.id)).analysisInfo).toEqual(queued(p1.updatedAt));
+      expect(Date.now() - started).toBeLessThan(3000);
+    });
+
+    it('FAILED : raison de l’échec (ERREUR si inconnue)', async () => {
+      await setPlan(p2.id, { analysisStatus: 'FAILED', analysisError: 'BUDGET' });
+      expect((await planIn(p2.id)).analysisInfo).toEqual({ since: p2.updatedAt, failedReason: 'BUDGET' });
+      await setPlan(p2.id, { analysisError: null });
+      expect((await planIn(p2.id)).analysisInfo).toEqual({ since: p2.updatedAt, failedReason: 'ERREUR' });
+    });
+
+    it('relance après un échec : 202, PENDING, propositions et raison effacées, nouvelle tâche (nouvel identifiant), image et date inchangées', async () => {
+      await setPlan(p2.id, { analysisStatus: 'FAILED', analysisError: 'GEMINI', suggestions: [suggestion()] });
+      const before = await prisma.cavePlan.findUniqueOrThrow({ where: { id: p2.id } });
+      analysisQueue.add.mockClear();
+      await new Promise((r) => setTimeout(r, 5));
+      const res = await relaunch(p2.id);
+      expect(res.status).toBe(202);
+      expect(res.body).toEqual({ ...p2, analysis: 'PENDING', suggestions: [], analysisInfo: queued(p2.updatedAt) });
+      const after = await prisma.cavePlan.findUniqueOrThrow({ where: { id: p2.id } });
+      expect(after).toMatchObject({ analysisStatus: 'PENDING', analysisError: null, suggestions: [], updatedAt: before.updatedAt, path: before.path });
+      expect(after.analysisRequestedAt.getTime()).toBeGreaterThan(before.analysisRequestedAt.getTime());
+      const jobId = `${p2.id}_${after.analysisRequestedAt.getTime()}`;
+      expect(jobId).not.toBe(`${p2.id}_${before.analysisRequestedAt.getTime()}`);
+      expect(analysisQueue.add).toHaveBeenCalledTimes(1);
+      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p2.id, requestedAt: after.analysisRequestedAt.toISOString() }, { jobId });
+    });
+
+    it('relance pendant une analyse en cours : 409, rien ne change', async () => {
+      const before = await prisma.cavePlan.findUniqueOrThrow({ where: { id: p2.id } });
+      analysisQueue.add.mockClear();
+      expectStatus(await relaunch(p2.id), 409, 'Une analyse est déjà en cours');
+      expect(await prisma.cavePlan.findUniqueOrThrow({ where: { id: p2.id } })).toEqual(before);
+      expect(analysisQueue.add).not.toHaveBeenCalled();
+    });
+
+    it('relance d’une analyse terminée : ses propositions sont effacées', async () => {
+      await setPlan(p2.id, { analysisStatus: 'DONE', suggestions: [suggestion()] });
+      const res = await relaunch(p2.id);
+      expect(res.status).toBe(202);
+      expect(res.body).toMatchObject({ analysis: 'PENDING', suggestions: [] });
+    });
+
+    it('mise en file impossible à la relance : FAILED, raison ERREUR', async () => {
+      await setPlan(p2.id, { analysisStatus: 'FAILED', analysisError: 'GEMINI' });
+      analysisQueue.add.mockRejectedValueOnce(new Error('Redis injoignable'));
+      const res = await relaunch(p2.id);
+      expect(res.status).toBe(202);
+      expect(res.body).toMatchObject({ analysis: 'FAILED', analysisInfo: { failedReason: 'ERREUR' } });
+    });
+
+    it('plan d’une autre cave ou identifiant invalide : 404 « Plan introuvable » ; membre : 403', async () => {
+      await setPlan(p2.id, { analysisStatus: 'FAILED', analysisError: 'GEMINI' });
+      expectStatus(await relaunch(p2.id, ownerB), 404, 'Plan introuvable');
+      expectStatus(await relaunch('pas-un-uuid'), 404, 'Plan introuvable');
+      expectStatus(await relaunch(p2.id, viewerA), 403, 'Lecture seule');
+      expect(await prisma.cavePlan.findUniqueOrThrow({ where: { id: p2.id } })).toMatchObject({ analysisStatus: 'FAILED', analysisError: 'GEMINI' });
+    });
+  });
+
   describe('remplacer l’image', () => {
     it('nouvelle taille et nouvelle date, même fichier ; repères inchangés ; anciennes propositions effacées, nouvelle analyse en file', async () => {
       await prisma.cavePlan.update({
@@ -289,9 +386,12 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       analysisQueue.add.mockClear();
       const res = await replace(p1.id, await png(500, 1000));
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ id: p1.id, name: 'Cellier', width: 500, height: 1000, updatedAt: expect.any(String), analysis: 'PENDING', suggestions: [] });
+      expect(res.body).toEqual({
+        id: p1.id, name: 'Cellier', width: 500, height: 1000, updatedAt: expect.any(String), analysis: 'PENDING', suggestions: [], analysisInfo: queued(res.body.updatedAt),
+      });
       expect(analysisQueue.add).toHaveBeenCalledTimes(1);
-      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p1.id, updatedAt: res.body.updatedAt }, { jobId: `${p1.id}_${Date.parse(res.body.updatedAt)}` });
+      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p1.id, requestedAt: res.body.updatedAt }, { jobId: `${p1.id}_${Date.parse(res.body.updatedAt)}` });
+      expect(await prisma.cavePlan.findUniqueOrThrow({ where: { id: p1.id } })).toMatchObject({ analysisError: null });
       expect(new Date(res.body.updatedAt).getTime()).toBeGreaterThan(new Date(p1.updatedAt).getTime());
       expect(await sharp(planFile(p1.id)).metadata()).toMatchObject({ width: 500, height: 1000 });
       expect((await read()).markers).toEqual(before.markers);

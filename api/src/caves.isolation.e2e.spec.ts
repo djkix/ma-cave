@@ -210,7 +210,7 @@ const ROUTES: Route[] = [
   {
     method: 'GET', path: '/api/caves/current/plans', kind: 'cave-viewer-read', req: () => ({ url: '/api/caves/current/plans' }), foreign: 'own',
     readable: (res, i) => expect(res.body).toEqual({
-      plans: [{ id: i.planA, name: 'Plan A', width: 120, height: 160, updatedAt: expect.any(String), analysis: 'DONE', suggestions: SUGGESTIONS_A }],
+      plans: [{ id: i.planA, name: 'Plan A', width: 120, height: 160, updatedAt: expect.any(String), analysis: 'DONE', suggestions: SUGGESTIONS_A, analysisInfo: null }],
       markers: [{ zoneId: i.zoneA, planId: i.planA, name: 'Cave A', number: 1, x: 0.5, y: 0.5 }],
     }),
   },
@@ -227,7 +227,10 @@ const ROUTES: Route[] = [
     method: 'POST', path: '/api/caves/current/plans', kind: 'cave-owner', req: () => ({ url: '/api/caves/current/plans', upload: true, fields: { name: 'Plan iso' } }), foreign: 'own',
     happy: {
       status: 201,
-      check: (res) => expect(res.body).toEqual({ id: expect.any(String), name: 'Plan iso', width: 120, height: 160, updatedAt: expect.any(String), analysis: 'PENDING', suggestions: [] }),
+      check: (res) => expect(res.body).toEqual({
+        id: expect.any(String), name: 'Plan iso', width: 120, height: 160, updatedAt: expect.any(String), analysis: 'PENDING', suggestions: [],
+        analysisInfo: expect.objectContaining({ waiting: 'QUEUED', attempt: 1 }),
+      }),
     },
   },
   {
@@ -244,6 +247,11 @@ const ROUTES: Route[] = [
   {
     method: 'DELETE', path: '/api/caves/current/plans/:id/suggestions/:sid', kind: 'cave-owner',
     req: (i) => ({ url: `/api/caves/current/plans/${i.planA}/suggestions/${SUGGESTIONS_A[1].id}` }), foreign: NOT_FOUND_PLAN, happy: { status: 204 },
+  },
+  // Analyse relancée (plan DONE) : 202, en attente ; une seconde relance serait refusée (409, voir plan.e2e).
+  {
+    method: 'POST', path: '/api/caves/current/plans/:id/analysis', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/plans/${i.planA}/analysis` }),
+    foreign: NOT_FOUND_PLAN, happy: { status: 202, check: (res) => expect(res.body).toMatchObject({ analysis: 'PENDING', suggestions: [], analysisInfo: { waiting: 'QUEUED' } }) },
   },
   // Après les propositions : une nouvelle image les efface et relance l'analyse.
   {
@@ -348,7 +356,7 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
     const { producerKeyOf } = await import('./producers/producer-key');
 
     // File d'analyse des plans remplacée : aucune tâche réelle dans Redis.
-    const analysisQueue = { add: jest.fn(async () => ({})), close: jest.fn(async () => undefined), opts: {} };
+    const analysisQueue = { add: jest.fn(async () => ({})), getJob: jest.fn(async () => undefined), close: jest.fn(async () => undefined), opts: {} };
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PLAN_ANALYSIS_QUEUE_TOKEN)
       .useValue(analysisQueue)

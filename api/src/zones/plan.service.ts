@@ -8,17 +8,30 @@ import { CaveContextService } from '../caves/cave-context.service';
 import { ImageNormalizationService } from '../photos/image-normalization.service';
 import { PHOTO_STORAGE_DIR } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { enqueuePlanAnalysis, PLAN_ANALYSIS_QUEUE_TOKEN, PlanAnalysisJobData } from '../queue/plan-analysis';
+import {
+  enqueuePlanAnalysis, PLAN_ANALYSIS_QUEUE_TOKEN, PlanAnalysisJobData, PlanAnalysisJobState, planAnalysisJobState, QUEUED_STATE, withTimeout,
+} from '../queue/plan-analysis';
 import { PlanSuggestion } from './plan-suggestions';
 import {
-  PLAN_LIMIT, PLAN_MAX_COUNT, PLAN_MAX_SIDE, PLAN_NAME_TAKEN, PLAN_NOT_FOUND, PlanMarker, PlanMeta, planPath, SUGGESTION_NOT_FOUND, ZONE_NAME_TAKEN, ZoneView,
-  zoneView,
+  ANALYSIS_IN_PROGRESS, PLAN_LIMIT, PLAN_MAX_COUNT, PLAN_MAX_SIDE, PLAN_NAME_TAKEN, PLAN_NOT_FOUND, PlanAnalysisInfo, PlanFailedReason, PlanMarker, PlanMeta,
+  planPath, SUGGESTION_NOT_FOUND, ZONE_NAME_TAKEN, ZoneView, zoneView,
 } from './zone';
 import { placeImage, unlinkIgnoringMissing } from './zones.service';
 
-const meta = (p: CavePlan): PlanMeta => ({
+/** Lecture de l'avancement dans Redis : au-delà, la valeur par défaut (GET plans ne tombe ni ne traîne jamais). */
+const JOB_STATE_TIMEOUT_MS = 1000;
+
+/** Détail de l'analyse ; `state` : avancement lu sur la tâche (défaut : QUEUED, première tentative). */
+function analysisInfo(p: CavePlan, state: PlanAnalysisJobState = QUEUED_STATE): PlanAnalysisInfo {
+  const since = p.updatedAt.toISOString();
+  if (p.analysisStatus === 'PENDING') return { since, ...state };
+  if (p.analysisStatus === 'FAILED') return { since, failedReason: (p.analysisError ?? 'ERREUR') as PlanFailedReason };
+  return null;
+}
+
+const meta = (p: CavePlan, state?: PlanAnalysisJobState): PlanMeta => ({
   id: p.id, name: p.name, width: p.width, height: p.height, updatedAt: p.updatedAt.toISOString(),
-  analysis: p.analysisStatus as PlanMeta['analysis'], suggestions: p.suggestions as unknown as PlanSuggestion[],
+  analysis: p.analysisStatus as PlanMeta['analysis'], suggestions: p.suggestions as unknown as PlanSuggestion[], analysisInfo: analysisInfo(p, state),
 });
 
 /** Nom déjà pris dans la cave (index unique sur lower(name)) : 409. */
@@ -41,12 +54,13 @@ export class PlanService {
     private readonly normalization: ImageNormalizationService,
     private readonly caves: CaveContextService,
     @Inject(PHOTO_STORAGE_DIR) private readonly dir: string,
-    @Inject(PLAN_ANALYSIS_QUEUE_TOKEN) private readonly analysisQueue: Pick<Queue<PlanAnalysisJobData>, 'add'>,
+    @Inject(PLAN_ANALYSIS_QUEUE_TOKEN) private readonly analysisQueue: Pick<Queue<PlanAnalysisJobData>, 'add' | 'getJob' | 'client' | 'toKey'>,
   ) {}
 
   /**
    * Plans dans l'ordre de création, et repères des zones non archivées, dans
    * l'ordre d'affichage des zones, numérotés à partir de 1 sur chaque plan.
+   * Analyse en attente : avancement lu sur sa tâche (voir `jobState`).
    */
   async list(caveId: string): Promise<{ plans: PlanMeta[]; markers: PlanMarker[] }> {
     const plans = await this.prisma.cavePlan.findMany({ where: { caveId }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
@@ -60,7 +74,17 @@ export class PlanService {
       counts.set(z.planId!, number);
       return { zoneId: z.id, planId: z.planId!, name: z.name, number, x: z.planX!, y: z.planY! };
     });
-    return { plans: plans.map(meta), markers };
+    return { plans: await Promise.all(plans.map(async (p) => meta(p, p.analysisStatus === 'PENDING' ? await this.jobState(p) : undefined))), markers };
+  }
+
+  /** Avancement lu dans Redis ; injoignable, en erreur ou lent (> 1 s) : valeur par défaut, jamais d'erreur. */
+  private async jobState(p: CavePlan): Promise<PlanAnalysisJobState> {
+    try {
+      return await withTimeout(planAnalysisJobState(this.analysisQueue, { planId: p.id, requestedAt: p.analysisRequestedAt.toISOString() }), JOB_STATE_TIMEOUT_MS);
+    } catch (e) {
+      this.logger.warn(`Avancement de l'analyse du plan ${p.id} illisible : ${(e as Error).message}`);
+      return QUEUED_STATE;
+    }
   }
 
   /**
@@ -79,7 +103,10 @@ export class PlanService {
         if ((await tx.cavePlan.count({ where: { caveId } })) >= PLAN_MAX_COUNT) throw new ConflictException(PLAN_LIMIT);
         const now = new Date();
         saved = await tx.cavePlan.create({
-          data: { id, caveId, name, path, width: size.width, height: size.height, updatedAt: now, createdAt: now, analysisStatus: 'PENDING', suggestions: [] },
+          data: {
+            id, caveId, name, path, width: size.width, height: size.height, updatedAt: now, createdAt: now, analysisRequestedAt: now, analysisStatus: 'PENDING',
+            suggestions: [],
+          },
         });
         await place();
       }).catch(nameTaken));
@@ -106,9 +133,10 @@ export class PlanService {
         await this.lockOwn(tx, caveId, id);
         await place();
         // Anciennes propositions effacées avec la date : elles ne survivent jamais à la photo.
+        const now = new Date();
         saved = await tx.cavePlan.update({
           where: { id },
-          data: { width: size.width, height: size.height, updatedAt: new Date(), analysisStatus: 'PENDING', suggestions: [] },
+          data: { width: size.width, height: size.height, updatedAt: now, analysisRequestedAt: now, analysisStatus: 'PENDING', suggestions: [], analysisError: null },
         });
       }));
     return this.analyze(saved!);
@@ -167,17 +195,37 @@ export class PlanService {
   }
 
   /**
-   * Résultat de l'analyse de la photo : écrit seulement si l'image n'a pas
-   * changé depuis la mise en file (`updated_at` vaut encore `expectedUpdatedAt`),
-   * en une seule instruction. Plan supprimé ou photo remplacée : rien n'est
-   * écrit, false.
+   * Relance l'analyse de la photo actuelle (après un échec, ou pour en refaire
+   * une) : nouvelle demande, propositions et raison d'échec effacées, nouvelle
+   * tâche. L'image et sa date ne changent pas. En une seule instruction : deux
+   * relances simultanées, la seconde trouve l'analyse en cours (409).
+   */
+  async retryAnalysis(caveId: string, id: string): Promise<PlanMeta> {
+    const { count } = await this.prisma.cavePlan.updateMany({
+      where: { id, caveId, analysisStatus: { not: 'PENDING' } },
+      data: { analysisStatus: 'PENDING', suggestions: [], analysisError: null, analysisRequestedAt: new Date() },
+    });
+    const plan = await this.findOwn(caveId, id);
+    if (count === 0) throw new ConflictException(ANALYSIS_IN_PROGRESS);
+    return this.analyze(plan);
+  }
+
+  /**
+   * Résultat de l'analyse : écrit seulement s'il n'y a pas eu de nouvelle
+   * demande depuis la mise en file (`analysis_requested_at` vaut encore
+   * `expectedRequestedAt`), en une seule instruction. Plan supprimé, photo
+   * remplacée ou analyse relancée : rien n'est écrit, false.
    */
   async setAnalysis(
-    planId: string, expectedUpdatedAt: Date, result: { status: 'DONE'; suggestions: PlanSuggestion[] } | { status: 'FAILED' },
+    planId: string, expectedRequestedAt: Date,
+    result: { status: 'DONE'; suggestions: PlanSuggestion[] } | { status: 'FAILED'; reason: PlanFailedReason },
   ): Promise<boolean> {
     const { count } = await this.prisma.cavePlan.updateMany({
-      where: { id: planId, updatedAt: expectedUpdatedAt },
-      data: { analysisStatus: result.status, suggestions: result.status === 'DONE' ? (result.suggestions as object[]) : [] },
+      where: { id: planId, analysisRequestedAt: expectedRequestedAt },
+      data: {
+        analysisStatus: result.status, suggestions: result.status === 'DONE' ? (result.suggestions as object[]) : [],
+        analysisError: result.status === 'FAILED' ? result.reason : null,
+      },
     });
     return count > 0;
   }
@@ -189,12 +237,12 @@ export class PlanService {
    */
   private async analyze(plan: CavePlan): Promise<PlanMeta> {
     try {
-      await enqueuePlanAnalysis(this.analysisQueue, { planId: plan.id, updatedAt: plan.updatedAt.toISOString() });
+      await enqueuePlanAnalysis(this.analysisQueue, { planId: plan.id, requestedAt: plan.analysisRequestedAt.toISOString() });
       return meta(plan);
     } catch (e) {
       this.logger.warn(`Analyse du plan ${plan.id} impossible à mettre en file : ${(e as Error).message}`);
-      await this.setAnalysis(plan.id, plan.updatedAt, { status: 'FAILED' });
-      return meta({ ...plan, analysisStatus: 'FAILED' });
+      await this.setAnalysis(plan.id, plan.analysisRequestedAt, { status: 'FAILED', reason: 'ERREUR' });
+      return meta({ ...plan, analysisStatus: 'FAILED', analysisError: 'ERREUR' });
     }
   }
 

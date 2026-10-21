@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { PlanAnalysisJobState } from '../queue/plan-analysis';
 import { GRID_MAX_COLS, GRID_MAX_ROWS, PlanSuggestion } from './plan-suggestions';
 
 export const ZONE_NOT_FOUND = 'Zone introuvable';
@@ -16,6 +17,7 @@ export const INVALID_INDICATION = 'L\'indication fait 300 caractères au plus';
 export const INVALID_ORDER = 'Ordre des zones invalide';
 export const INVALID_GRID = 'La grille fait de 1 à 26 lignes et de 1 à 30 colonnes';
 export const SUGGESTION_NOT_FOUND = 'Proposition introuvable';
+export const ANALYSIS_IN_PROGRESS = 'Une analyse est déjà en cours';
 export const ZONE_NAME_MAX = 40;
 export const PLAN_NAME_MAX = 40;
 export const PLAN_MAX_COUNT = 20;
@@ -113,12 +115,24 @@ export const markerSchema = z.object(
 );
 
 /**
+ * Raison d'un échec d'analyse (`analysis_error`) : refus de Gemini, budget
+ * dépassé, image absente, réponse inexploitable, autre erreur.
+ */
+export type PlanFailedReason = 'GEMINI' | 'BUDGET' | 'IMAGE' | 'ILLISIBLE' | 'ERREUR';
+
+/**
+ * Détail de l'analyse : en attente, son avancement (`since` = date de l'image) ;
+ * en échec, sa raison ; null sinon (NONE, DONE).
+ */
+export type PlanAnalysisInfo = ({ since: string } & PlanAnalysisJobState) | { since: string; failedReason: PlanFailedReason } | null;
+
+/**
  * Plan tel que l'api le rend : nom, taille en pixels, date du dernier envoi de
- * l'image (ISO), état de l'analyse de la photo et propositions de zones en attente.
+ * l'image (ISO), état de l'analyse de la photo, son détail et propositions de zones en attente.
  */
 export interface PlanMeta {
   id: string; name: string; width: number; height: number; updatedAt: string;
-  analysis: 'NONE' | 'PENDING' | 'DONE' | 'FAILED'; suggestions: PlanSuggestion[];
+  analysis: 'NONE' | 'PENDING' | 'DONE' | 'FAILED'; suggestions: PlanSuggestion[]; analysisInfo: PlanAnalysisInfo;
 }
 /** Repère affiché : `number` = rang (à partir de 1) sur son plan, parmi les zones non archivées, dans l'ordre d'affichage. */
 export interface PlanMarker { zoneId: string; planId: string; name: string; number: number; x: number; y: number }
