@@ -94,8 +94,11 @@ export interface GeminiUsageRow {
 export interface GeminiUsage {
   rows: GeminiUsageRow[];
   totals: { ok: number; refused: number; errors: number; costCents: number };
-  /** Pause commune après un refus de Google : `until` en ISO, null sans pause en cours. */
-  pause: { until: string | null; reason: string | null };
+  /**
+   * Attente en cours : pause commune après un refus de Google, ou limite de débit atteinte (`reason` QUOTA_*) ;
+   * `until` en ISO, null sans attente ; `message` : texte d'une attente de quota, null sinon.
+   */
+  pause: { until: string | null; reason: string | null; message: string | null };
 }
 export const getGeminiUsage = (days: number) => apiFetch<GeminiUsage>(`/admin/gemini-usage?days=${days}`);
 
@@ -106,6 +109,14 @@ export interface GeminiModelView extends GeminiModelChoice { models: string[]; e
 export const getGeminiModel = () => apiFetch<GeminiModelView>('/admin/gemini-model');
 export const putGeminiModel = (model: string) =>
   apiFetch<GeminiModelChoice>('/admin/gemini-model', { method: 'PUT', body: JSON.stringify({ model }) });
+
+/** Limites de débit Gemini : requêtes par minute, jetons par minute, requêtes par jour. */
+export interface GeminiLimits { rpm: number; tpm: number; rpd: number }
+/** Utilisation en cours ; `dayResetsAt` : prochain minuit du Pacifique (ISO). */
+export interface GeminiQuotaUsage { minute: { requests: number; tokens: number }; day: { requests: number }; limits: GeminiLimits; dayResetsAt: string }
+export const getGeminiQuota = () => apiFetch<GeminiQuotaUsage>('/admin/gemini-quota');
+export const putGeminiQuota = (limits: GeminiLimits) =>
+  apiFetch<GeminiQuotaUsage>('/admin/gemini-quota', { method: 'PUT', body: JSON.stringify(limits) });
 
 /** Membre de la cave courante ; `pending` = invitation pas encore rattachée à un compte. */
 export interface MemberView { id: string; email: string; displayName: string | null; role: CaveRole; pending: boolean }
@@ -173,7 +184,11 @@ export interface PlanSuggestion { id: string; kind: 'CASIER' | 'ETAGERE' | 'AUTR
  * en attente, son avancement ; en échec, sa raison ; null sinon (NONE, DONE).
  */
 export type PlanAnalysisInfo =
-  | { since: string; attempt: number; maxAttempts: number; nextAttemptAt: string | null; waiting: 'QUEUED' | 'RUNNING' | 'GEMINI_PAUSE' | 'BUDGET' | 'RETRY'; pauseUntil: string | null }
+  | {
+    since: string; attempt: number; maxAttempts: number; nextAttemptAt: string | null; waiting: 'QUEUED' | 'RUNNING' | 'GEMINI_PAUSE' | 'QUOTA' | 'BUDGET' | 'RETRY'; pauseUntil: string | null;
+    /** QUOTA seulement : limite atteinte et texte à afficher (heure de reprise comprise). */
+    quotaKind?: 'MINUTE' | 'TOKENS' | 'JOUR' | 'GOOGLE'; message?: string;
+  }
   | { since: string; failedReason: 'GEMINI' | 'REFUS' | 'BUDGET' | 'IMAGE' | 'ILLISIBLE' | 'ERREUR' }
   | null;
 /**

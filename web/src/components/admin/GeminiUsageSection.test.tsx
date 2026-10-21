@@ -18,7 +18,7 @@ const usage = (over: Partial<api.GeminiUsage> = {}): api.GeminiUsage => ({
     { day: '2026-10-07', usage: 'ACCORDS', ok: 5, refused503: 0, refused429: 0, errors: 0, costCents: 1, model: 'gemini-3.5-flash' },
   ],
   totals: { ok: 8, refused: 3, errors: 1, costCents: 13 },
-  pause: { until: null, reason: null },
+  pause: { until: null, reason: null, message: null },
   ...over,
 });
 
@@ -41,13 +41,21 @@ it('affiche une ligne par jour, par usage et par modèle, et les totaux', async 
 
 it('annonce une pause en cours, heure de Paris', async () => {
   vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-10-08T12:00:00.000Z').getTime());
-  vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage({ pause: { until: '2026-10-08T12:05:00.000Z', reason: 'modèle saturé' } }));
+  vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage({ pause: { until: '2026-10-08T12:05:00.000Z', reason: 'modèle saturé', message: null } }));
   mount();
   expect(await screen.findByText(`Gemini en pause jusqu'à 14:05 (modèle saturé) : aucun appel n'est envoyé d'ici là.`)).toBeInTheDocument();
 });
 
+it('limite de débit ou quota de Google : le texte de l’api, tel quel', async () => {
+  const until = new Date(Date.now() + 3_600_000).toISOString();
+  vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage({ pause: { until, reason: 'QUOTA_JOUR', message: 'Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.' } }));
+  mount();
+  expect(await screen.findByText('Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.')).toBeInTheDocument();
+  expect(screen.queryByText(/Gemini en pause jusqu'à/)).not.toBeInTheDocument();
+});
+
 it('n’affiche plus une pause échue', async () => {
-  vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage({ pause: { until: new Date(Date.now() - 1000).toISOString(), reason: 'modèle saturé' } }));
+  vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage({ pause: { until: new Date(Date.now() - 1000).toISOString(), reason: 'modèle saturé', message: null } }));
   mount();
   await screen.findByRole('table');
   expect(screen.queryByText(/aucun appel n'est envoyé/)).not.toBeInTheDocument();
