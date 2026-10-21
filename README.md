@@ -969,9 +969,12 @@ cd /opt/stacks/ma-cave && docker compose exec -T postgres sh -c 'pg_dump -U "$PO
 ```
 
 **Retour arrière vers une image 2.16.x** (sans restaurer la sauvegarde) : les
-colonnes ajoutées sont ignorées. Une analyse mise en file par la 2.17.0 et pas
-encore terminée n'est pas faite par la 2.16.x (sa tâche ne porte pas la date
-attendue) : le plan reste « en cours » ; remplacer sa photo relance l'analyse.
+colonnes ajoutées sont ignorées. Un plan **créé ou dont la photo a été
+remplacée** sous la 2.17.0 et encore en attente n'est pas analysé par la 2.16.x
+(sa tâche ne porte pas la date attendue, et la reprise au démarrage retombe sur
+le même identifiant) : il reste « en cours » ; remplacer sa photo relance
+l'analyse. Un plan **relancé** sous la 2.17.0 est, lui, remis en file par la
+reprise au démarrage de la 2.16.x et analysé normalement.
 
 ### Passage à la 2.16.0 (propositions de zones)
 

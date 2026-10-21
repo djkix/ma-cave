@@ -71,13 +71,31 @@ export async function enqueuePlanAnalysis(queue: Pick<Queue<PlanAnalysisJobData>
   await withTimeout(queue.add('analyse', data, { jobId: planAnalysisJobId(data) }), ENQUEUE_TIMEOUT_MS);
 }
 
+/**
+ * Début d'une tentative : la cause du report précédent est effacée de la tâche,
+ * pour qu'un report suivant sans cause enregistrée (erreur hors du traitement)
+ * s'affiche RETRY et non une ancienne pause ou un ancien budget. Redis en
+ * erreur : journalisé, la tentative a lieu quand même.
+ */
+export async function clearPlanAnalysisDeferral(
+  job: { data: PlanAnalysisJobData; updateData(data: PlanAnalysisJobData): Promise<unknown> }, log: (message: string) => void = () => undefined,
+): Promise<void> {
+  const { waiting, pauseUntil, ...data } = job.data;
+  if (waiting === undefined && pauseUntil === undefined) return;
+  try {
+    await job.updateData(data);
+  } catch (e) {
+    log(`Cause du report du plan ${data.planId} non effacée : ${(e as Error).message}`);
+  }
+}
+
 /** Avancement par défaut : tâche pas encore prise (ou illisible), première tentative. */
 export const QUEUED_STATE: PlanAnalysisJobState = { attempt: 1, maxAttempts: EXTRACTION_ATTEMPTS, nextAttemptAt: null, waiting: 'QUEUED', pauseUntil: null };
 
 /**
  * Avancement d'une analyse en attente, lu sur sa tâche : active → RUNNING ;
  * retardée → cause du dernier report (RETRY si aucune) et heure de la reprise ;
- * en attente ou introuvable → QUEUED. L'heure de reprise est le score de la
+ * en attente, introuvable, terminée ou en échec → QUEUED. L'heure de reprise est le score de la
  * tâche dans l'ensemble `delayed` de BullMQ (date × 0x1000 + rang) : après un
  * échec, `timestamp + delay` partirait de la création de la tâche, pas de l'échec.
  */
@@ -86,8 +104,10 @@ export async function planAnalysisJobState(
 ): Promise<PlanAnalysisJobState> {
   const job = await queue.getJob(planAnalysisJobId(data));
   if (!job) return QUEUED_STATE;
-  const base = { ...QUEUED_STATE, attempt: job.attemptsMade + 1, maxAttempts: job.opts.attempts ?? EXTRACTION_ATTEMPTS };
   const state = await job.getState();
+  // Terminée ou en échec, le plan pas encore écrit : rien de plus à dire (et jamais tentative > maximum).
+  if (state === 'completed' || state === 'failed') return QUEUED_STATE;
+  const base = { ...QUEUED_STATE, attempt: job.attemptsMade + 1, maxAttempts: job.opts.attempts ?? EXTRACTION_ATTEMPTS };
   if (state === 'active') return { ...base, waiting: 'RUNNING' };
   if (state !== 'delayed') return base;
   const score = await (await queue.client).zscore(queue.toKey('delayed'), job.id!);

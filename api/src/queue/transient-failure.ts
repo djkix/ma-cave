@@ -13,7 +13,7 @@ const TRANSIENT_STATUS = [429, 500, 502, 503, 504];
  * Erreurs réseau de Node et d'undici. Une coupure de la liaison du serveur ne dit
  * rien sur la photo : elle doit être réanalysée telle quelle quand le lien revient.
  */
-const TRANSIENT_NETWORK = [
+export const TRANSIENT_NETWORK = [
   'fetch failed',
   'ECONNRESET',
   'ECONNREFUSED',
