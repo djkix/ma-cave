@@ -37,6 +37,10 @@ describe('parseEnv', () => {
     expect(env.ADMIN_EMAILS).toBe('');
   });
 
+  it('modèle par défaut : gemini-3.8-flash', () => {
+    expect(parseEnv(minimal).GEMINI_MODEL).toBe('gemini-3.8-flash');
+  });
+
   it('GEMINI_PLAN_MODEL (retirée) est ignorée, même avec une valeur', () => {
     const env = parseEnv({ ...minimal, GEMINI_MODEL: 'gemini-3.5-flash', GEMINI_PLAN_MODEL: 'gemini-3.5-pro' });
     expect(env.GEMINI_MODEL).toBe('gemini-3.5-flash');
