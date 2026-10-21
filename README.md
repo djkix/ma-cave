@@ -1468,6 +1468,14 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
 Le détail par version, avec le lien vers chaque commit, est dans
 [`CHANGELOG.md`](CHANGELOG.md) ; voici les versions publiées.
 
+### 2.18.0 — 21 octobre 2026
+
+Publiée ([v2.18.0](https://github.com/djkix/ma-cave/releases/tag/v2.18.0)),
+images `ghcr.io/djkix/ma-cave-api:2.18.0` et `-web:2.18.0`.
+
+**Détection case par case**, regroupée par meuble ; *Relancer l'analyse* dans
+le menu ⋯ du plan ; variable `GEMINI_PLAN_MODEL`. Aucune migration.
+
 ### 2.17.1 — 21 octobre 2026
 
 Publiée ([v2.17.1](https://github.com/djkix/ma-cave/releases/tag/v2.17.1)),
