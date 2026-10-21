@@ -291,6 +291,7 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       // Une partie de second ailleurs : seule celle de la zone bouge.
       expect((await ownerA.post(`/api/wines/${second}/move`).send({ from: (await wine(second)).body.locations[0].id, to: { casier: `Ailleurs ${run}` }, quantity: 1 })).status).toBe(201);
       const before = await prisma.movement.count({ where: { wineId: { in: [first, second] } } });
+      const deletedAt = new Date();
 
       const res = await ownerA.delete(`/api/caves/current/zones/${z.id}`);
       expect({ status: res.status, body: res.body }).toEqual({ status: 200, body: { archived: true, unplaced: 5 } });
@@ -305,7 +306,10 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       ]));
       const moves = await prisma.movement.findMany({ where: { wineId: { in: [first, second] }, type: 'MOVE' }, orderBy: { idempotencyKey: 'asc' } });
       expect(await prisma.movement.count({ where: { wineId: { in: [first, second] } } })).toBe(before + 4);
-      const fromZone = moves.filter((m) => m.delta < 0 && m.idempotencyKey.endsWith(':from'));
+      // Les deux paires de la suppression : la moitié « depuis » part d'un emplacement de la zone.
+      const fromZone = moves.filter((m) => m.delta < 0 && m.idempotencyKey.endsWith(':from') && m.occurredAt >= deletedAt);
+      const zonePlaces = (await prisma.location.findMany({ where: { zoneId: z.id }, select: { id: true } })).map((l) => l.id);
+      expect(fromZone.map((m) => zonePlaces.includes(m.locationId!))).toEqual([true, true]);
       for (const m of fromZone) expect(moves.some((o) => o.idempotencyKey === m.idempotencyKey.replace(/:from$/, ':to') && o.delta === -m.delta)).toBe(true);
       expect((await zones()).some((x) => x.id === z.id)).toBe(false);
 

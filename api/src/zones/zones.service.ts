@@ -143,27 +143,42 @@ export class ZonesService {
    * de bouteilles sont sorties de la zone.
    */
   async remove(caveId: string, id: string): Promise<{ archived: boolean; unplaced: number }> {
+    // Zone d'une autre cave ou archivée : 404, avant toute lecture de ses vins.
+    await this.findOwn(caveId, id);
     const deleted = await this.prisma.$transaction(async (tx) => {
-      const zone = await this.lockOwn(tx, caveId, id);
-      // Vins rangés dans la zone, verrouillés (par id : deux suppressions ne s'interbloquent pas)
-      // avant de lire leur stock, qu'une sortie simultanée ne peut alors plus changer.
+      // Ordre des verrous : les vins d'abord (par id), la zone ensuite — le même ordre
+      // qu'un déplacement, une annulation ou un inventaire vers la zone (verrou du vin,
+      // puis LocationsService lit la zone) : jamais d'interblocage avec eux. Le verrou du
+      // vin fige son stock : une sortie simultanée ne peut plus le changer.
       const wines = await tx.$queryRaw<{ wineId: string }[]>`
         SELECT DISTINCT m.wine_id AS "wineId" FROM movement m JOIN location l ON l.id = m.location_id
         WHERE l.zone_id = ${id} ORDER BY m.wine_id`;
       for (const { wineId } of wines) await lockWine(tx, caveId, wineId);
-      const stocked = await tx.$queryRaw<{ wineId: string; locationId: string; casier: string | null; position: string | null; quantity: number }[]>`
+      const locked = new Set(wines.map((w) => w.wineId));
+      const zone = await this.lockOwn(tx, caveId, id);
+      const [{ used }] = await tx.$queryRaw<{ used: boolean }[]>`
+        SELECT EXISTS (SELECT 1 FROM movement m JOIN location l ON l.id = m.location_id WHERE l.zone_id = ${id}) AS used`;
+      const stockedNow = () => tx.$queryRaw<{ wineId: string; locationId: string; casier: string | null; position: string | null; quantity: number }[]>`
         SELECT m.wine_id AS "wineId", l.id AS "locationId", l.casier, l.position, SUM(m.delta)::INTEGER AS quantity
         FROM movement m JOIN location l ON l.id = m.location_id
         WHERE l.zone_id = ${id}
         GROUP BY m.wine_id, l.id, l.casier, l.position
-        HAVING SUM(m.delta) > 0`;
+        HAVING SUM(m.delta) > 0
+        ORDER BY m.wine_id`;
+      let stocked = await stockedNow();
+      // Un vin entré dans la zone entre la première lecture et le verrou de la zone (cas rare) :
+      // verrouillé à son tour, puis le stock est relu sous ce verrou. La zone verrouillée
+      // n'admet plus d'autre entrée.
+      const late = [...new Set(stocked.map((s) => s.wineId))].filter((w) => !locked.has(w));
+      for (const wineId of late) await lockWine(tx, caveId, wineId);
+      if (late.length > 0) stocked = await stockedNow();
       let unplaced = 0;
       for (const s of stocked) {
         const to = s.casier || s.position ? (await this.locations.resolve(caveId, { casier: s.casier, position: s.position }, tx)).id : null;
         await writeMove(tx, s.wineId, s.quantity, randomUUID(), s.locationId, to);
         unplaced += s.quantity;
       }
-      if (wines.length > 0) {
+      if (used) {
         await tx.caveZone.update({ where: { id }, data: { archivedAt: new Date() } });
         return { archived: true, unplaced, photoPath: null };
       }
