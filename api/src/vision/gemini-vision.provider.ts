@@ -254,44 +254,46 @@ const PLAN_SCHEMA = {
  */
 type GroundedRequest = Parameters<GenerativeModel['generateContent']>[0] & { tools: Array<{ googleSearch: Record<string, never> }> };
 
+type Model = Pick<GenerativeModel, 'generateContent'>;
+
 export class GeminiVisionProvider implements VisionProvider, PairingProvider, ProducerProvider, OfficialSiteProvider {
   /**
+   * `modelFor` : le modèle Gemini d'un nom ; `currentModel` : le nom en vigueur,
+   * lu à chaque appel (choisi dans l'Administration, voir GeminiModelService) :
+   * un changement sert dès l'appel suivant, pour tous les usages.
    * `journal` : point de passage unique de tous les appels (voir `call`). Sans
    * journal (tests unitaires des consignes), les appels partent tels quels.
    */
   constructor(
-    private readonly model: Pick<GenerativeModel, 'generateContent'>,
-    private readonly modelName: string,
+    private readonly modelFor: (name: string) => Model,
+    private readonly currentModel: () => Promise<string>,
     private readonly journal?: GeminiJournal,
-    /** Modèle de `analyzePlan` seulement (`GEMINI_PLAN_MODEL`), par défaut le modèle commun. */
-    private readonly planModel: Pick<GenerativeModel, 'generateContent'> = model,
-    /** Nom du modèle des plans (Flash ou Lite, comme le modèle commun : même tarif). */
-    private readonly planModelName: string = modelName,
   ) {}
 
-  static fromApiKey(apiKey: string, modelName: string, journal?: GeminiJournal, planModelName = modelName): GeminiVisionProvider {
+  static fromApiKey(apiKey: string, currentModel: () => Promise<string>, journal?: GeminiJournal): GeminiVisionProvider {
     const ai = new GoogleGenerativeAI(apiKey);
-    return new GeminiVisionProvider(ai.getGenerativeModel({ model: modelName }), modelName, journal, ai.getGenerativeModel({ model: planModelName }), planModelName);
+    return new GeminiVisionProvider((model) => ai.getGenerativeModel({ model }), currentModel, journal);
   }
 
   /**
    * Chaque méthode publique passe par ici : pendant une pause commune, aucun
    * appel ne part (`GeminiPausedError`) et rien n'est noté ; sinon une ligne
    * `gemini_call` par requête envoyée, réussie, refusée (429, 503 : la pause
-   * est posée) ou en erreur. Le journal ne lève jamais.
+   * est posée) ou en erreur, avec le modèle employé. Le journal ne lève jamais.
    */
-  private async call<T extends { costCents: number }>(usage: GeminiUsage, run: () => Promise<T>): Promise<T> {
-    if (!this.journal) return run();
-    await this.journal.assertNotPaused();
+  private async call<T extends { costCents: number }>(usage: GeminiUsage, run: (model: Model, modelName: string) => Promise<T>): Promise<T> {
+    await this.journal?.assertNotPaused();
+    const model = await this.currentModel();
+    if (!this.journal) return run(this.modelFor(model), model);
     const started = Date.now();
     let result: T;
     try {
-      result = await run();
+      result = await run(this.modelFor(model), model);
     } catch (e) {
-      await this.journal.record({ usage, ...classifyFailure(e), durationMs: Date.now() - started });
+      await this.journal.record({ usage, ...classifyFailure(e), model, durationMs: Date.now() - started });
       throw e;
     }
-    await this.journal.record({ usage, outcome: 'OK', httpStatus: null, reason: null, costCents: result.costCents, durationMs: Date.now() - started });
+    await this.journal.record({ usage, outcome: 'OK', httpStatus: null, reason: null, costCents: result.costCents, model, durationMs: Date.now() - started });
     return result;
   }
 
@@ -301,12 +303,12 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
    * distinguer lecture d'entrée et de sortie dans le journal des appels.
    */
   extractWineLabel(image: Buffer, mimeType: string, purpose: LabelPurpose = 'EXIT'): Promise<VisionResult> {
-    return this.call(purpose === 'ENTRY' ? 'LECTURE_ENTREE' : 'LECTURE_SORTIE', () => this.readLabel(image, mimeType));
+    return this.call(purpose === 'ENTRY' ? 'LECTURE_ENTREE' : 'LECTURE_SORTIE', (model, name) => this.readLabel(model, name, image, mimeType));
   }
 
-  private async readLabel(image: Buffer, mimeType: string): Promise<VisionResult> {
+  private async readLabel(model: Model, modelName: string, image: Buffer, mimeType: string): Promise<VisionResult> {
     const started = Date.now();
-    const result = await this.model.generateContent({
+    const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: PROMPT }, { inlineData: { data: image.toString('base64'), mimeType } }] }],
       generationConfig: { responseMimeType: 'application/json' },
     });
@@ -327,14 +329,14 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
       throw new VisionInvalidOutputError(`Sortie du modèle invalide : ${(e as Error).message}`, costCents);
     }
 
-    return { extraction, raw, model: this.modelName, latencyMs, costCents };
+    return { extraction, raw, model: modelName, latencyMs, costCents };
   }
 
   extractWineLabels(images: Array<{ data: Buffer; mimeType: string }>): Promise<BatchVisionResult> {
-    return this.call('LECTURE_ENTREE', () => this.readLabels(images));
+    return this.call('LECTURE_ENTREE', (model, name) => this.readLabels(model, name, images));
   }
 
-  private async readLabels(images: Array<{ data: Buffer; mimeType: string }>): Promise<BatchVisionResult> {
+  private async readLabels(model: Model, modelName: string, images: Array<{ data: Buffer; mimeType: string }>): Promise<BatchVisionResult> {
     const n = images.length;
     const parts: Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = [
       { text: batchPrompt(n) },
@@ -345,7 +347,7 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
     });
 
     const started = Date.now();
-    const result = await this.model.generateContent({
+    const result = await model.generateContent({
       contents: [{ role: 'user', parts }],
       generationConfig: { responseMimeType: 'application/json' },
     });
@@ -359,16 +361,16 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
       }
     });
 
-    return { items, model: this.modelName, latencyMs, costCents };
+    return { items, model: modelName, latencyMs, costCents };
   }
 
   /** Photo d'un plan : une ligne `ANALYSE_PLAN` au journal. JSON illisible : `VisionInvalidOutputError` (avec son coût). */
   analyzePlan(image: Buffer, mimeType: string): Promise<{ units: unknown; costCents: number }> {
-    return this.call('ANALYSE_PLAN', () => this.readPlan(image, mimeType));
+    return this.call('ANALYSE_PLAN', (model) => this.readPlan(model, image, mimeType));
   }
 
-  private async readPlan(image: Buffer, mimeType: string): Promise<{ units: unknown; costCents: number }> {
-    const result = await this.planModel.generateContent({
+  private async readPlan(model: Model, image: Buffer, mimeType: string): Promise<{ units: unknown; costCents: number }> {
+    const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: PLAN_PROMPT }, { inlineData: { data: image.toString('base64'), mimeType } }] }],
       generationConfig: { responseMimeType: 'application/json', responseSchema: PLAN_SCHEMA },
     });
@@ -384,11 +386,11 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
 
   /** Accords de tout un lot de vins (dix au plus) en un seul appel : une ligne `ACCORDS` au journal. */
   suggestPairingsBatch(wines: PairingWine[]): Promise<PairingBatchResult> {
-    return this.call('ACCORDS', () => this.pairingsBatch(wines));
+    return this.call('ACCORDS', (model, name) => this.pairingsBatch(model, name, wines));
   }
 
-  private async pairingsBatch(wines: PairingWine[]): Promise<PairingBatchResult> {
-    const result = await this.model.generateContent({
+  private async pairingsBatch(model: Model, modelName: string, wines: PairingWine[]): Promise<PairingBatchResult> {
+    const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: pairingsBatchPrompt(wines) }] }],
       generationConfig: { responseMimeType: 'application/json' },
     });
@@ -401,16 +403,16 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
         // Vin inexploitable : absent du résultat, redemandé par le lot suivant.
       }
     });
-    return { items, model: this.modelName, costCents };
+    return { items, model: modelName, costCents };
   }
 
   /** Descriptifs de tout un lot de domaines (dix au plus) en un seul appel : une ligne `DESCRIPTIF` au journal. */
   describeProducersBatch(queries: ProducerQuery[]): Promise<ProducerBatchResult> {
-    return this.call('DESCRIPTIF', () => this.producersBatch(queries));
+    return this.call('DESCRIPTIF', (model, name) => this.producersBatch(model, name, queries));
   }
 
-  private async producersBatch(queries: ProducerQuery[]): Promise<ProducerBatchResult> {
-    const result = await this.model.generateContent({
+  private async producersBatch(model: Model, modelName: string, queries: ProducerQuery[]): Promise<ProducerBatchResult> {
+    const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: producersBatchPrompt(queries) }] }],
       generationConfig: { responseMimeType: 'application/json' },
     });
@@ -424,7 +426,7 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
         // Domaine inexploitable : absent du résultat, redemandé par le lot suivant.
       }
     });
-    return { items, model: this.modelName, costCents };
+    return { items, model: modelName, costCents };
   }
 
   /**
@@ -436,21 +438,21 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
    * global de la recherche d'image, l'appel est abandonné quand il est levé.
    */
   findOfficialSite(query: OfficialSiteQuery, signal?: AbortSignal): Promise<OfficialSiteResult> {
-    return this.call('RECHERCHE_IMAGE', () => this.officialSite(query, signal));
+    return this.call('RECHERCHE_IMAGE', (model, name) => this.officialSite(model, name, query, signal));
   }
 
-  private async officialSite(query: OfficialSiteQuery, signal?: AbortSignal): Promise<OfficialSiteResult> {
+  private async officialSite(model: Model, modelName: string, query: OfficialSiteQuery, signal?: AbortSignal): Promise<OfficialSiteResult> {
     const request: GroundedRequest = {
       contents: [{ role: 'user', parts: [{ text: officialSitePrompt(query) }] }],
       tools: [{ googleSearch: {} }],
     };
-    const result = await this.model.generateContent(request as Parameters<GenerativeModel['generateContent']>[0], { signal });
+    const result = await model.generateContent(request as Parameters<GenerativeModel['generateContent']>[0], { signal });
     let text = '';
     try {
       text = result.response.text();
     } catch {
       // Réponse bloquée ou vide : pas de site.
     }
-    return { site: siteOf(text), model: this.modelName, costCents: groundedCostCentsOf(result.response.usageMetadata, searchQueriesOf(result.response)) };
+    return { site: siteOf(text), model: modelName, costCents: groundedCostCentsOf(result.response.usageMetadata, searchQueriesOf(result.response)) };
   }
 }

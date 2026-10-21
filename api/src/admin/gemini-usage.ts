@@ -10,12 +10,15 @@ export interface GeminiCallRow {
   outcome: string;
   httpStatus: number | null;
   costCents: number;
+  model: string | null;
 }
 
 export interface GeminiUsageRow {
   /** Jour à Paris, AAAA-MM-JJ. */
   day: string;
   usage: string;
+  /** Modèle employé ; null pour les appels d'avant la 2.19. */
+  model: string | null;
   ok: number;
   refused503: number;
   refused429: number;
@@ -55,9 +58,10 @@ const usageRank = (usage: string) => {
 };
 
 /**
- * Consommation par jour de Paris (les `days` derniers, aujourd'hui compris) et
- * par usage, du jour le plus récent au plus ancien, puis dans l'ordre des usages
- * (lecture à l'entrée, à la sortie, accords, descriptifs, recherche d'image, analyse du plan).
+ * Consommation par jour de Paris (les `days` derniers, aujourd'hui compris), par
+ * usage et par modèle, du jour le plus récent au plus ancien, puis dans l'ordre des usages
+ * (lecture à l'entrée, à la sortie, accords, descriptifs, recherche d'image, analyse du plan),
+ * puis par nom de modèle (modèle inconnu, d'avant la 2.19, en premier).
  */
 export function aggregateGeminiUsage(calls: GeminiCallRow[], now: Date, days: number): { rows: GeminiUsageRow[]; totals: GeminiUsageTotals } {
   const today = parisDay(now);
@@ -67,10 +71,10 @@ export function aggregateGeminiUsage(calls: GeminiCallRow[], now: Date, days: nu
   for (const c of calls) {
     const day = parisDay(c.createdAt);
     if (day < first || day > today) continue;
-    const key = `${day}|${c.usage}`;
+    const key = `${day}|${c.usage}|${c.model ?? ''}`;
     let row = byKey.get(key);
     if (!row) {
-      row = { day, usage: c.usage, ok: 0, refused503: 0, refused429: 0, errors: 0, costCents: 0 };
+      row = { day, usage: c.usage, model: c.model, ok: 0, refused503: 0, refused429: 0, errors: 0, costCents: 0 };
       byKey.set(key, row);
     }
     if (c.outcome === 'OK') {
@@ -87,6 +91,8 @@ export function aggregateGeminiUsage(calls: GeminiCallRow[], now: Date, days: nu
     row.costCents += c.costCents;
     totals.costCents += c.costCents;
   }
-  const rows = [...byKey.values()].sort((a, b) => (a.day === b.day ? usageRank(a.usage) - usageRank(b.usage) : a.day < b.day ? 1 : -1));
+  const rows = [...byKey.values()].sort(
+    (a, b) => (a.day === b.day ? usageRank(a.usage) - usageRank(b.usage) || (a.model ?? '').localeCompare(b.model ?? '') : a.day < b.day ? 1 : -1),
+  );
   return { rows, totals };
 }

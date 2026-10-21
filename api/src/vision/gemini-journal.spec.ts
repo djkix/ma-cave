@@ -106,14 +106,14 @@ describe('GeminiJournal', () => {
     expect(prisma.settings.get(GEMINI_PAUSE_REASON_KEY)).toBe('quota épuisé');
   });
 
-  it('enregistre un appel, et ne lève jamais si l’écriture échoue', async () => {
+  it('enregistre un appel avec son modèle, et ne lève jamais si l’écriture échoue', async () => {
     const prisma = fakePrisma();
     const log = { warn: jest.fn(), error: jest.fn() };
     const journal = new GeminiJournal(prisma, log);
-    await journal.record({ usage: 'ACCORDS', outcome: 'OK', httpStatus: null, reason: null, costCents: 0, durationMs: 12 });
-    expect(prisma.calls).toEqual([{ usage: 'ACCORDS', outcome: 'OK', httpStatus: null, reason: null, costCents: 0, durationMs: 12 }]);
+    await journal.record({ usage: 'ACCORDS', outcome: 'OK', httpStatus: null, reason: null, costCents: 0, model: 'gemini-3.5-flash', durationMs: 12 });
+    expect(prisma.calls).toEqual([{ usage: 'ACCORDS', outcome: 'OK', httpStatus: null, reason: null, costCents: 0, model: 'gemini-3.5-flash', durationMs: 12 }]);
     prisma.geminiCall.create.mockRejectedValueOnce(new Error('disque plein'));
-    await expect(journal.record({ usage: 'ACCORDS', outcome: 'OK', httpStatus: null, reason: null, costCents: 0, durationMs: 1 })).resolves.toBeUndefined();
+    await expect(journal.record({ usage: 'ACCORDS', outcome: 'OK', httpStatus: null, reason: null, costCents: 0, model: 'gemini-3.5-flash', durationMs: 1 })).resolves.toBeUndefined();
     expect(log.error).toHaveBeenCalledWith(expect.stringContaining('disque plein'));
   });
 

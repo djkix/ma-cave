@@ -293,6 +293,8 @@ const ROUTES: Route[] = [
   { method: 'GET', path: '/api/admin/budget', kind: 'admin', req: () => ({ url: '/api/admin/budget' }), happy: { status: 200 } },
   { method: 'PUT', path: '/api/admin/budget', kind: 'admin', req: () => ({ url: '/api/admin/budget', body: { caveShare: 1 } }) },
   { method: 'GET', path: '/api/admin/gemini-usage', kind: 'admin', req: () => ({ url: '/api/admin/gemini-usage?days=7' }), happy: { status: 200, check: (res) => expect(res.body).toMatchObject({ rows: expect.any(Array), totals: expect.any(Object), pause: expect.any(Object) }) } },
+  { method: 'GET', path: '/api/admin/gemini-model', kind: 'admin', req: () => ({ url: '/api/admin/gemini-model' }), happy: { skip: 'liste de Google : couvert par gemini-model.service.spec et gemini-model.controller.spec (Google simulé)' } },
+  { method: 'PUT', path: '/api/admin/gemini-model', kind: 'admin', req: () => ({ url: '/api/admin/gemini-model', body: { model: 'gemini-3.5-flash' } }) },
   { method: 'GET', path: '/api/admin/vintages', kind: 'admin', req: () => ({ url: '/api/admin/vintages' }), happy: { status: 200 } },
   { method: 'PUT', path: '/api/admin/vintages', kind: 'admin', req: () => ({ url: '/api/admin/vintages', body: { region: 'Bordeaux', year: 1900, quality: 'EXCEPTIONNEL' } }) },
   { method: 'DELETE', path: '/api/admin/vintages/:region/:year', kind: 'admin', req: () => ({ url: '/api/admin/vintages/Bordeaux/1900' }) },

@@ -1,4 +1,4 @@
-import { parseEnv } from './env';
+import { isLightModel, parseEnv } from './env';
 
 const minimal: NodeJS.ProcessEnv = {
   DATABASE_URL: 'postgresql://postgres:dev@localhost:5432/cave',
@@ -37,15 +37,21 @@ describe('parseEnv', () => {
     expect(env.ADMIN_EMAILS).toBe('');
   });
 
-  it('GEMINI_PLAN_MODEL defaults to GEMINI_MODEL (absent or empty) and can be set apart', () => {
-    expect(parseEnv({ ...minimal, GEMINI_MODEL: 'flash' }).GEMINI_PLAN_MODEL).toBe('flash');
-    expect(parseEnv({ ...minimal, GEMINI_MODEL: 'flash', GEMINI_PLAN_MODEL: '' }).GEMINI_PLAN_MODEL).toBe('flash');
-    expect(parseEnv({ ...minimal, GEMINI_MODEL: 'flash', GEMINI_PLAN_MODEL: 'gemini-3.5-flash-lite' }).GEMINI_PLAN_MODEL).toBe('gemini-3.5-flash-lite');
+  it('GEMINI_PLAN_MODEL (retirée) est ignorée, même avec une valeur', () => {
+    const env = parseEnv({ ...minimal, GEMINI_MODEL: 'gemini-3.5-flash', GEMINI_PLAN_MODEL: 'gemini-3.5-pro' });
+    expect(env.GEMINI_MODEL).toBe('gemini-3.5-flash');
+    expect(env).not.toHaveProperty('GEMINI_PLAN_MODEL');
   });
 
   it('refuse un modèle Gemini qui n’est ni Flash ni Lite (Pro compris)', () => {
     expect(() => parseEnv({ ...minimal, GEMINI_MODEL: 'gemini-2.5-pro' })).toThrow(/Flash ou Lite/);
-    expect(() => parseEnv({ ...minimal, GEMINI_PLAN_MODEL: 'gemini-3.5-pro' })).toThrow(/Flash ou Lite/);
-    expect(() => parseEnv({ ...minimal, GEMINI_PLAN_MODEL: 'gemini-3.5-flash-pro' })).toThrow(/Flash ou Lite/);
+    expect(() => parseEnv({ ...minimal, GEMINI_MODEL: 'gemini-3.5-flash-pro' })).toThrow(/Flash ou Lite/);
+  });
+});
+
+describe('isLightModel', () => {
+  it('Flash, Lite ou Light, jamais Pro', () => {
+    expect(['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-2.0-flash-light', 'Gemini-Flash'].every(isLightModel)).toBe(true);
+    expect(['gemini-3.5-pro', 'gemini-3.5-flash-pro', 'gemini-embedding', ''].some(isLightModel)).toBe(false);
   });
 });
