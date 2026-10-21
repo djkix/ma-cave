@@ -41,31 +41,30 @@ function cellBox(cell: unknown): Box | null {
   return xmin < xmax && ymin < ymax ? [xmin, ymin, xmax, ymax] : null;
 }
 
-const median = (values: number[]): number => {
-  const s = [...values].sort((a, b) => a - b);
-  const m = Math.floor(s.length / 2);
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-};
-
 /**
- * Nombre de lignes (ou de colonnes) : centres triés, nouveau groupe dès que
- * l'écart avec la moyenne du groupe courant dépasse la moitié de la taille
- * médiane des cases. Tolère une légère inclinaison ou perspective.
+ * Nombre de rangées (ou de colonnes), compté sur les tablettes (ou les
+ * montants) et non sur les centres : tous les bords des cases, triés, sont
+ * regroupés en lignes (nouvelle ligne dès qu'un bord est à plus d'un tiers de
+ * la petite taille de case — 10e centile, pour résister à une case aberrante —
+ * de la moyenne de la ligne courante) ; rangées = lignes − 1. Une case haute
+ * de deux rangées ne masque pas la tablette de ses voisines, et une légère
+ * inclinaison ou perspective reste dans la tolérance.
  */
-function countGroups(centers: number[], sizes: number[]): number {
-  const gap = median(sizes) / 2;
-  let groups = 0, sum = 0, n = 0;
-  for (const c of [...centers].sort((a, b) => a - b)) {
-    if (n === 0 || c - sum / n > gap) { groups++; sum = 0; n = 0; }
-    sum += c; n++;
+function countBetweenEdges(edges: number[], sizes: number[]): number {
+  const sorted = [...sizes].sort((a, b) => a - b);
+  const tolerance = sorted[Math.floor(0.1 * (sorted.length - 1))] / 3;
+  let lines = 0, sum = 0, n = 0;
+  for (const e of [...edges].sort((a, b) => a - b)) {
+    if (n === 0 || e - sum / n > tolerance) { lines++; sum = 0; n = 0; }
+    sum += e; n++;
   }
-  return groups;
+  return lines - 1;
 }
 
 /**
  * Meubles détectés case par case (`units`, sortie de Gemini) ramenés à des
- * blocs : cadre = union des cases valides, rangées et colonnes comptées par
- * regroupement des centres. Unité de moins de 2 cases valides ou de type
+ * blocs : cadre = union des cases valides, rangées et colonnes comptées sur
+ * les bords des cases (`countBetweenEdges`). Unité de moins de 2 cases valides ou de type
  * inconnu ignorée. Le reste est validé ensuite par `validBlocks`.
  */
 export function unitsToBlocks(units: unknown): RawBlock[] {
@@ -79,8 +78,8 @@ export function unitsToBlocks(units: unknown): RawBlock[] {
     blocks.push({
       kind: kind as SuggestionKind,
       box: [Math.min(...boxes.map((b) => b[0])), Math.min(...boxes.map((b) => b[1])), Math.max(...boxes.map((b) => b[2])), Math.max(...boxes.map((b) => b[3]))],
-      rows: Math.min(GRID_MAX_ROWS, countGroups(boxes.map((b) => (b[1] + b[3]) / 2), boxes.map((b) => b[3] - b[1]))),
-      cols: Math.min(GRID_MAX_COLS, countGroups(boxes.map((b) => (b[0] + b[2]) / 2), boxes.map((b) => b[2] - b[0]))),
+      rows: Math.min(GRID_MAX_ROWS, countBetweenEdges(boxes.flatMap((b) => [b[1], b[3]]), boxes.map((b) => b[3] - b[1]))),
+      cols: Math.min(GRID_MAX_COLS, countBetweenEdges(boxes.flatMap((b) => [b[0], b[2]]), boxes.map((b) => b[2] - b[0]))),
     });
   }
   return blocks;

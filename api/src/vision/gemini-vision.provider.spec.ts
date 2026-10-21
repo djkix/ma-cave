@@ -582,9 +582,22 @@ describe('GeminiVisionProvider.analyzePlan', () => {
     expect(cells.items.required).toEqual(['box_2d']);
     expect(cells.items.properties.box_2d).toMatchObject({ minItems: 4, maxItems: 4, items: { type: 'integer' } });
     const prompt = call.contents[0].parts[0].text;
+    expect(list.items.propertyOrdering).toEqual(['kind', 'cells']);
     expect(prompt).toMatch(/12/);
-    expect(prompt).toMatch(/double montant/);
     expect(prompt).toMatch(/70 %/);
+    expect(prompt).toContain('1. Les cases. Commence par repérer les meubles, de gauche à droite. Pour chaque meuble, parcours ses cases rangée par rangée, de haut en bas puis de gauche à droite, et donne-les toutes : une case est un espace délimité par des montants (verticaux) et des tablettes (horizontales). Compte chaque case, même vide, et même partiellement cachée par un objet posé devant (estime alors son cadre). Une case plus haute ou plus large que ses voisines reste une seule case. Ne fusionne jamais plusieurs cases en une.');
+    expect(prompt).toContain('Les meubles se touchent souvent : la limite entre deux meubles se voit à un montant doublé ou plus épais, à un petit espace, à des tablettes qui ne sont pas à la même hauteur, à des cases de taille différente ou à un changement de bois ou de couleur. Une même tablette continue d\'un bout à l\'autre signale un seul meuble. Dans le doute, sépare.');
+    expect(prompt).toContain('les objets posés devant ou dans les cases (sacs, seaux, cartons, bouteilles) : ce ne sont pas des cases, mais les cases qu\'ils cachent en partie comptent.');
+  });
+
+  it('coût selon le modèle des plans : un modèle « pro » est compté au tarif Pro, sinon au tarif Flash', async () => {
+    const usage = { promptTokenCount: 10_000, candidatesTokenCount: 10_000 };
+    const run = (name: string) => new GeminiVisionProvider(fakeModel('{}') as any, 'm', undefined, fakeModel(JSON.stringify({ units: [] }), usage) as any, name)
+      .analyzePlan(Buffer.from('x'), 'image/jpeg');
+    // Flash : 10 × 0,01 + 10 × 0,04 = 0,5 ct → 1 ct. Pro : 10 × 0,125 + 10 × 1 = 11,25 ct → 12 ct.
+    expect((await run('gemini-3.5-flash')).costCents).toBe(1);
+    expect((await run('gemini-3.5-pro')).costCents).toBe(12);
+    expect((await run('Gemini-Pro-Latest')).costCents).toBe(12);
   });
 
   it('modèle dédié aux plans : seul `analyzePlan` l’emploie', async () => {

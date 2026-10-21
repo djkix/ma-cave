@@ -96,6 +96,23 @@ describe('unitsToBlocks', () => {
     expect(unitsToBlocks([{ kind: 'CASIER', cells }])).toMatchObject([{ rows: 4, cols: 4 }]);
   });
 
+  it('perspective modérée : chaque colonne rétrécit autour du milieu (100 %, 95 %, 90 %), mêmes rangées et colonnes', () => {
+    const cells = grid(0, 0, 3, 4).map((c, i) => {
+      const scale = 1 - (i % 3) * 0.05;
+      const [y0, x0, y1, x1] = c.box_2d;
+      return cell(200 + (y0 - 200) * scale, x0, 200 + (y1 - 200) * scale, x1);
+    });
+    expect(unitsToBlocks([{ kind: 'CASIER', cells }])).toMatchObject([{ rows: 4, cols: 3 }]);
+  });
+
+  it('colonnes de cases hautes de 2 rangées à côté d’une colonne de 4 rangées normales : 4 rangées', () => {
+    expect(unitsToBlocks([{ kind: 'CASIER', cells: [...grid(0, 0, 2, 2, 100, 200), ...grid(200, 0, 1, 4)] }])).toMatchObject([{ rows: 4, cols: 3 }]);
+  });
+
+  it('2 rangées basses puis 2 rangées hautes : 4 rangées', () => {
+    expect(unitsToBlocks([{ kind: 'CASIER', cells: [...grid(0, 0, 2, 2, 100, 40), ...grid(0, 80, 2, 2, 100, 160)] }])).toMatchObject([{ rows: 4, cols: 2 }]);
+  });
+
   it('cases invalides ignorées (hors bornes, inversées, aire nulle, mal formées) ; unité de moins de 2 cases valides ignorée', () => {
     const cells = [
       ...grid(0, 0, 2, 1),
