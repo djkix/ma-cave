@@ -49,21 +49,6 @@ ${READING_RULES}`;
 // Ordre de grandeur pour le plafond mensuel ; ajuster si la grille tarifaire change.
 const PRICE_PER_1K_TOKENS_CENTS = { input: 0.01, output: 0.04 };
 
-/**
- * Tarif d'un modèle « Pro » (GEMINI_PLAN_MODEL plus précis) : grille publique
- * de Gemini 2.5 Pro (https://ai.google.dev/gemini-api/docs/pricing, connue au
- * 2026-10-21) : 1,25 $ le million de jetons en entrée, 10 $ en sortie (invites
- * de moins de 200 000 jetons), soit 12,5 et 25 fois le tarif Flash ci-dessus.
- */
-const PRO_PRICE_MULTIPLIER = { input: 12.5, output: 25 };
-const PRO_PRICE_PER_1K_TOKENS_CENTS = {
-  input: PRICE_PER_1K_TOKENS_CENTS.input * PRO_PRICE_MULTIPLIER.input,
-  output: PRICE_PER_1K_TOKENS_CENTS.output * PRO_PRICE_MULTIPLIER.output,
-};
-
-/** Grille du modèle : Pro si son nom contient « pro » (casse ignorée), sinon Flash. */
-const priceOf = (modelName: string) => (/pro/i.test(modelName) ? PRO_PRICE_PER_1K_TOKENS_CENTS : PRICE_PER_1K_TOKENS_CENTS);
-
 function rawCostCentsOf(usage: { promptTokenCount?: number; candidatesTokenCount?: number } | undefined, price = PRICE_PER_1K_TOKENS_CENTS): number {
   return ((usage?.promptTokenCount ?? 0) / 1000) * price.input + ((usage?.candidatesTokenCount ?? 0) / 1000) * price.output;
 }
@@ -280,7 +265,7 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
     private readonly journal?: GeminiJournal,
     /** Modèle de `analyzePlan` seulement (`GEMINI_PLAN_MODEL`), par défaut le modèle commun. */
     private readonly planModel: Pick<GenerativeModel, 'generateContent'> = model,
-    /** Nom du modèle des plans : fixe le tarif de `analyzePlan` (voir `priceOf`). */
+    /** Nom du modèle des plans (Flash ou Lite, comme le modèle commun : même tarif). */
     private readonly planModelName: string = modelName,
   ) {}
 
@@ -387,7 +372,7 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
       contents: [{ role: 'user', parts: [{ text: PLAN_PROMPT }, { inlineData: { data: image.toString('base64'), mimeType } }] }],
       generationConfig: { responseMimeType: 'application/json', responseSchema: PLAN_SCHEMA },
     });
-    const costCents = costCentsOf(result.response.usageMetadata, priceOf(this.planModelName));
+    const costCents = costCentsOf(result.response.usageMetadata);
     let raw: unknown;
     try {
       raw = JSON.parse(stripFences(result.response.text()));
