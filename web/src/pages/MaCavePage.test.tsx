@@ -411,7 +411,7 @@ describe('plan de la cave', () => {
     expect(await planCard().findByText('Photographiez la pièce ou un schéma dessiné à la main, puis placez vos zones dessus.')).toBeInTheDocument();
     expect(tabs().getAllByRole('tab').map((t) => t.textContent)).toEqual(['+ Ajouter un plan']);
     expect(planCard().getByLabelText('Nom du plan')).toBeInTheDocument();
-    const input = planCard().getByLabelText('Photo du plan');
+    const input = planCard().getByLabelText('Choisir une photo');
     expect(input).toHaveAttribute('type', 'file');
     expect(input).toHaveAttribute('accept', 'image/*');
     // Sans « capture » : le téléphone propose l'appareil photo ou la galerie.
@@ -442,9 +442,17 @@ describe('plan de la cave', () => {
     mount();
     await userEvent.click(await findTab('+ Ajouter un plan'));
     expect(tabs().getByRole('tab', { name: '+ Ajouter un plan' })).toHaveAttribute('aria-selected', 'true');
-    await userEvent.type(planCard().getByLabelText('Nom du plan'), ' Garage ');
+    const createButton = planCard().getByRole('button', { name: 'Créer le plan' });
+    expect(createButton).toBeDisabled();
+    // La photo se choisit avant le nom : le champ n'est jamais désactivé faute de nom.
     const file = new File(['x'], 'garage.jpg', { type: 'image/jpeg' });
-    await userEvent.upload(planCard().getByLabelText('Photo du plan'), file);
+    expect(planCard().getByLabelText('Choisir une photo')).toBeEnabled();
+    await userEvent.upload(planCard().getByLabelText('Choisir une photo'), file);
+    expect(planCard().getByText('garage.jpg')).toBeInTheDocument();
+    expect(createButton).toBeDisabled();
+    expect(create).not.toHaveBeenCalled();
+    await userEvent.type(planCard().getByLabelText('Nom du plan'), ' Garage ');
+    await userEvent.click(createButton);
     await waitFor(() => expect(create).toHaveBeenCalledWith('Garage', file));
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
     expect(await tabs().findByRole('tab', { name: 'Garage' })).toHaveAttribute('aria-selected', 'true');

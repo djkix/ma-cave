@@ -8,6 +8,7 @@ import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { ZoneDetails } from '../components/LocationFields';
 import { PersonRow } from '../components/PersonRow';
+import { PhotoPicker } from '../components/PhotoPicker';
 import { PlanView } from '../components/PlanView';
 import { TopBar } from '../components/TopBar';
 import {
@@ -181,8 +182,7 @@ function ZoneRow({ zone, index, count, busy, error, photoVersion, onMove, onActi
         {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
       </BottomSheet>
       <div className="zone-row__actions">
-        <label className="field__label" htmlFor={`${id}-photo`}>{`${zone.hasPhoto ? 'Changer la photo' : 'Ajouter une photo'} de ${zone.name}`}</label>
-        <input id={`${id}-photo`} type="file" accept="image/*" disabled={busy} onChange={pickPhoto} />
+        <PhotoPicker id={`${id}-photo`} label={`${zone.hasPhoto ? 'Changer la photo' : 'Ajouter une photo'} de ${zone.name}`} disabled={busy} onChange={pickPhoto} />
         {zone.hasPhoto && <Button variant="link" disabled={busy} onClick={() => onAction(() => removeZonePhoto(zone.id))}>Retirer la photo</Button>}
       </div>
     </li>
@@ -307,6 +307,8 @@ function PlanCard() {
   const [mode, setMode] = useState<PlanMode>({ kind: 'idle' });
   const [newName, setNewName] = useState('');
   const [planName, setPlanName] = useState('');
+  // Photo du nouveau plan, gardée jusqu'à « Créer le plan » : nom et photo dans l'ordre qu'on veut.
+  const [planFile, setPlanFile] = useState<File | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   // Proposition ouverte (feuille « Proposition ») ; fermée d'elle-même si elle disparaît des plans relus.
   const [proposalId, setProposalId] = useState<string | null>(null);
@@ -364,11 +366,20 @@ function PlanCard() {
     if (file) void act(async () => send(await shrinkPhoto(file, PLAN_MAX_SIDE)));
   }
 
-  function add(e: ChangeEvent<HTMLInputElement>) {
+  function choosePlanFile(e: ChangeEvent<HTMLInputElement>) {
+    setPlanFile(e.target.files?.[0] ?? null);
+    e.target.value = '';
+  }
+
+  function add(e: FormEvent) {
+    e.preventDefault();
     const name = planName.trim();
-    picked(e, async (file) => {
-      setTab((await createPlan(name, file)).id);
+    const file = planFile;
+    if (!name || !file) return;
+    void act(async () => {
+      setTab((await createPlan(name, await shrinkPhoto(file, PLAN_MAX_SIDE))).id);
       setPlanName('');
+      setPlanFile(null);
     });
   }
 
@@ -443,13 +454,14 @@ function PlanCard() {
         </div>
       )}
       {adding && (
-        <div className="zone-form">
+        <form className="zone-form" aria-label="Nouveau plan" onSubmit={add}>
           <label className="field__label" htmlFor={`${inputId}-new-name`}>Nom du plan</label>
           <input id={`${inputId}-new-name`} value={planName} maxLength={PLAN_NAME_MAX} autoComplete="off" placeholder="Plan principal, cellier, garage…"
             onChange={(e) => setPlanName(e.target.value)} />
-          <label className="field__label" htmlFor={`${inputId}-new-photo`}>Photo du plan</label>
-          <input id={`${inputId}-new-photo`} type="file" accept="image/*" disabled={busy || !planName.trim()} onChange={add} />
-        </div>
+          <span className="field__label">Photo du plan</span>
+          <PhotoPicker id={`${inputId}-new-photo`} label={planFile ? 'Changer la photo' : 'Choisir une photo'} disabled={busy} fileName={planFile?.name} onChange={choosePlanFile} />
+          <button type="submit" className="btn btn--primary" disabled={busy || !planName.trim() || !planFile}>Créer le plan</button>
+        </form>
       )}
       {plan && (
         <>
