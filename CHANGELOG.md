@@ -9,6 +9,21 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.22.0](https://github.com/djkix/ma-cave/compare/v2.21.0...v2.22.0) (2026-10-21)
+
+
+### Fonctionnalités
+
+* **api:** limites de débit appliquées à tous les appels Gemini ([a549250](https://github.com/djkix/ma-cave/commit/a549250bb3d0395438ea3845f5cc855bc16d27cd))
+* **api:** limiteur de débit Gemini partagé (Redis), minuit du Pacifique ([02dfcd9](https://github.com/djkix/ma-cave/commit/02dfcd98fd7fdb40f0e17c66a4b7393c97b94592))
+* **web:** réglage des limites de débit Gemini et textes d'attente ([81f85b9](https://github.com/djkix/ma-cave/commit/81f85b91442d2bb4b0f195d08888fffb54eb0325))
+
+
+### Corrections
+
+* **api:** heure de reprise des quotas arrondie à la minute supérieure ([313c4eb](https://github.com/djkix/ma-cave/commit/313c4ebf981057aadfe663c2be3ca388b4b4e148))
+* **api:** limites sur 60 s glissantes, réservation juste avant l'envoi, Redis en panne toléré ([6637207](https://github.com/djkix/ma-cave/commit/663720744c28a56c26b050cca58cf71f5a519300))
+
 ## [2.21.0](https://github.com/djkix/ma-cave/compare/v2.20.0...v2.21.0) (2026-10-21)
 
 ### Résumé
