@@ -5,8 +5,9 @@ import { AuthenticatedGuard } from '../auth/authenticated.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { VisionBudgetService } from '../queue/vision-budget.service';
 import { GeminiModelService } from '../vision/gemini-model.service';
+import { GeminiQuotaService } from '../vision/gemini-quota';
 import { AdminService } from './admin.service';
-import { geminiUsageDaysSchema, updateAdminUserSchema, updateBudgetSchema, updateGeminiModelSchema } from './dto';
+import { geminiUsageDaysSchema, updateAdminUserSchema, updateBudgetSchema, updateGeminiModelSchema, updateGeminiQuotaSchema } from './dto';
 import { GeminiUsageService } from './gemini-usage.service';
 
 @Controller('admin/users')
@@ -118,5 +119,25 @@ export class AdminGeminiModelController {
     // Liste indisponible : le nom (Flash ou Lite) est accepté tel quel.
     if (error === null && !models.includes(model)) throw new BadRequestException('Modèle inconnu de Google');
     return this.models.set(model);
+  }
+}
+
+/** Limites de débit Gemini (niveau sans frais de Google) et leur utilisation en cours. */
+@Controller('admin/gemini-quota')
+@UseGuards(AuthenticatedGuard, AdminGuard)
+export class AdminGeminiQuotaController {
+  constructor(private readonly quota: GeminiQuotaService) {}
+
+  @Get()
+  get() {
+    return this.quota.usage();
+  }
+
+  @Put()
+  async update(@Body() body: unknown) {
+    const parsed = updateGeminiQuotaSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues[0].message);
+    await this.quota.setLimits(parsed.data);
+    return this.quota.usage();
   }
 }

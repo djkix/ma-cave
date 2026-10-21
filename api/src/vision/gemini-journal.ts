@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { statusFromMessage } from '../queue/transient-failure';
-import { GEMINI_PAUSE_REASON_KEY, GEMINI_PAUSE_UNTIL_KEY, GeminiPause, GeminiPausedError, PAUSE_AFTER_REFUSAL } from './gemini-pause';
+import { GEMINI_PAUSE_REASON_KEY, GEMINI_PAUSE_UNTIL_KEY, GeminiPause, GeminiPausedError, PAUSE_AFTER_REFUSAL, pauseAfter429, pauseMessage } from './gemini-pause';
 
 export * from './gemini-pause';
 
@@ -70,30 +70,34 @@ export class GeminiJournal {
       this.log.error(`Pause Gemini illisible, appel envoyé : ${messageOf(e)}`);
       return;
     }
-    if (pause) throw new GeminiPausedError(pause.until, pause.reason);
+    if (pause) throw new GeminiPausedError(pause.until, pause.reason, pauseMessage(pause.until, pause.reason, now));
   }
 
-  /** Une ligne par requête envoyée ; un refus pose aussi la pause commune. */
-  async record(call: GeminiCallRecord, now = this.clock()): Promise<void> {
+  /**
+   * Une ligne par requête envoyée ; un refus pose aussi la pause commune.
+   * `detail` : message complet de l'erreur (le motif noté est tronqué), où un 429 dit quand revenir.
+   */
+  async record(call: GeminiCallRecord, now = this.clock(), detail = call.reason ?? ''): Promise<void> {
     try {
       await this.prisma.geminiCall.create({ data: call });
     } catch (e) {
       this.log.error(`Journal des appels Gemini : écriture impossible : ${messageOf(e)}`);
     }
-    if (call.outcome === 'REFUSE' && call.httpStatus !== null) await this.extendPause(call.httpStatus, now);
+    if (call.outcome === 'REFUSE' && call.httpStatus !== null) await this.extendPause(call.httpStatus, now, detail);
   }
 
   /**
-   * 503 : 5 min ; 429 : 1 h. Jamais de raccourcissement : la plus lointaine
+   * 503 : 5 min ; 429 : délai demandé par Google, minuit du Pacifique pour
+   * un quota du jour, sinon 1 h (voir `pauseAfter429`). Jamais de raccourcissement : la plus lointaine
    * échéance l'emporte. La ligne est créée si besoin (ON CONFLICT DO NOTHING :
    * sans conflit possible), puis verrouillée (FOR UPDATE) le temps de comparer et d'écrire
    * l'échéance et son motif : deux refus simultanés s'exécutent l'un après
    * l'autre et le motif correspond toujours à l'échéance gardée.
    */
-  async extendPause(httpStatus: number, now = this.clock()): Promise<void> {
+  async extendPause(httpStatus: number, now = this.clock(), detail = ''): Promise<void> {
     const pause = PAUSE_AFTER_REFUSAL[httpStatus];
     if (!pause) return;
-    const until = new Date(now.getTime() + pause.ms);
+    const until = httpStatus === 429 ? pauseAfter429(detail, now) : new Date(now.getTime() + pause.ms);
     try {
       await this.prisma.$transaction(async (tx) => {
         await tx.$executeRaw`INSERT INTO app_setting (key, value) VALUES (${GEMINI_PAUSE_UNTIL_KEY}, '') ON CONFLICT (key) DO NOTHING`;

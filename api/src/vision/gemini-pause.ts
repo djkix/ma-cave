@@ -16,7 +16,7 @@ export const QUOTA_REASONS: readonly string[] = ['QUOTA_MINUTE', 'QUOTA_TOKENS',
 /** Durée et motif de la pause posée après un refus de Google, par statut HTTP (429 : voir `pauseAfter429`). */
 export const PAUSE_AFTER_REFUSAL: Record<number, { ms: number; reason: string }> = {
   503: { ms: SATURATION_PAUSE_MS, reason: 'modèle saturé' },
-  429: { ms: QUOTA_PAUSE_MS, reason: 'quota épuisé' },
+  429: { ms: QUOTA_PAUSE_MS, reason: 'QUOTA_GOOGLE' },
 };
 
 /** Google remet ses compteurs journaliers à zéro à minuit, heure du Pacifique. */

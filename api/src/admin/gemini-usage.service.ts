@@ -1,33 +1,40 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GeminiJournal } from '../vision/gemini-journal';
+import { QUOTA_REASONS, QuotaReason, quotaMessage } from '../vision/gemini-pause';
+import { GeminiQuotaService } from '../vision/gemini-quota';
 import { GeminiUsageRow, GeminiUsageTotals, aggregateGeminiUsage, usageSince } from './gemini-usage';
 
 export interface GeminiUsageReport {
   rows: GeminiUsageRow[];
   totals: GeminiUsageTotals;
-  pause: { until: string | null; reason: string | null };
+  /** `message` : texte affiché pour une attente de quota (limite locale ou 429 de Google), null sinon. */
+  pause: { until: string | null; reason: string | null; message: string | null };
 }
 
-/** Consommation Gemini (journal `gemini_call`, toutes caves) et pause commune en cours. */
+/** Consommation Gemini (journal `gemini_call`, toutes caves) et attente en cours : pause commune ou limite de débit atteinte (la plus lointaine). */
 @Injectable()
 export class GeminiUsageService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly journal: GeminiJournal,
+    private readonly quota: GeminiQuotaService,
   ) {}
 
   async report(days: number, now = new Date()): Promise<GeminiUsageReport> {
-    const [calls, pause] = await Promise.all([
+    const [calls, common, blocked] = await Promise.all([
       this.prisma.geminiCall.findMany({
         where: { createdAt: { gte: usageSince(now, days), lte: now } },
         select: { createdAt: true, usage: true, outcome: true, httpStatus: true, costCents: true, model: true },
       }),
       this.journal.currentPause(now),
+      this.quota.blocked(now),
     ]);
+    const pause = blocked && (!common || blocked.until > common.until) ? blocked : common;
+    const message = pause && QUOTA_REASONS.includes(pause.reason) ? (blocked === pause ? blocked.message : quotaMessage(pause.reason as QuotaReason, pause.until, null, now)) : null;
     return {
       ...aggregateGeminiUsage(calls, now, days),
-      pause: { until: pause?.until.toISOString() ?? null, reason: pause?.reason ?? null },
+      pause: { until: pause?.until.toISOString() ?? null, reason: pause?.reason ?? null, message },
     };
   }
 }
