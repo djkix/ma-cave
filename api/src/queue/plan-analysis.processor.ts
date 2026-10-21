@@ -21,14 +21,18 @@ export function deferralOf(error: unknown): PlanAnalysisDeferral {
 }
 
 /**
- * Raison d'un échec : budget, réponse inexploitable, Gemini (pause commune,
- * statut HTTP, clé ou API mal configurées, service injoignable), sinon autre erreur.
+ * Raison d'un échec : budget, réponse inexploitable, demande refusée par Gemini
+ * (400, 403, 404… : tout 4xx hors 429), Gemini (pause commune, quota,
+ * saturation, clé ou API mal configurées, service injoignable), sinon autre erreur.
  */
 export function failedReasonOf(error: unknown): PlanFailedReason {
   if (error instanceof VisionBudgetExceededError) return 'BUDGET';
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes('Sortie du modèle invalide')) return 'ILLISIBLE';
-  if (error instanceof GeminiPausedError || statusFromMessage(message) !== null || isConfigurationError(error)) return 'GEMINI';
+  if (error instanceof GeminiPausedError) return 'GEMINI';
+  const status = statusFromMessage(message);
+  if (status !== null && status >= 400 && status < 500 && status !== 429) return 'REFUS';
+  if (status !== null || isConfigurationError(error)) return 'GEMINI';
   if (TRANSIENT_NETWORK.some((needle) => message.includes(needle))) return 'GEMINI';
   return 'ERREUR';
 }

@@ -694,7 +694,7 @@ describe('plan de la cave', () => {
       ...main, analysis: 'PENDING',
       analysisInfo: { since: SINCE, attempt: 1, maxAttempts: 10, nextAttemptAt: null, waiting: 'RUNNING', pauseUntil: null, ...info },
     });
-    const failed = (failedReason: 'GEMINI' | 'BUDGET' | 'IMAGE' | 'ILLISIBLE' | 'ERREUR'): api.CavePlan => ({ ...main, analysis: 'FAILED', analysisInfo: { since: SINCE, failedReason } });
+    const failed = (failedReason: Extract<api.PlanAnalysisInfo, { failedReason: unknown }>['failedReason']): api.CavePlan => ({ ...main, analysis: 'FAILED', analysisInfo: { since: SINCE, failedReason } });
     /** Date ISO d'une heure locale du 21 octobre 2026 (ou du 1er novembre). */
     const local = (h: number, m: number, day = 21, month = 9) => new Date(2026, month, day, h, m).toISOString();
 
@@ -804,6 +804,7 @@ describe('plan de la cave', () => {
 
     it.each([
       ['GEMINI', 'L’IA n’a pas répondu après plusieurs essais.'],
+      ['REFUS', 'L’IA a refusé la demande. Réessayez, ou choisissez un autre modèle dans l’Administration.'],
       ['BUDGET', 'Le budget de l’IA est épuisé.'],
       ['ILLISIBLE', 'L’IA n’a pas su lire cette photo : essayez une photo plus nette, prise de face.'],
       ['ERREUR', 'Une erreur est survenue.'],
