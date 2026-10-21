@@ -183,6 +183,27 @@ rows, cols }`, `box` en fractions de l'image) ; `POST
 /api/caves/current/zones/:id/cells` renvoie `[{ casier, quantity }]` (stock
 supérieur à 0 par case) ; chaque zone porte `grid: { rows, cols } | null`.
 
+**État détaillé et relance de l'analyse (2.17.0).** Chaque plan de `GET
+/api/caves/current/plans` porte aussi `analysisInfo` : `null` pour `NONE` et
+`DONE` ; pour `PENDING`, `{ since, attempt, maxAttempts, nextAttemptAt,
+waiting, pauseUntil }`, lu sur la tâche BullMQ (`since` = date de l'image ;
+`attempt` = tentatives déjà faites + 1 ; `waiting` : `QUEUED` en file ou tâche
+introuvable, `RUNNING` en cours, et pour une tâche en attente de reprise la
+cause du dernier report, enregistrée sur la tâche par le worker :
+`GEMINI_PAUSE` avec la fin de la pause dans `pauseUntil`, `BUDGET` ou `RETRY`
+avec l'heure de reprise dans `nextAttemptAt`). Redis injoignable ou lent (plus
+d'une seconde) : valeur de repli `QUEUED`, première tentative, jamais d'erreur.
+Pour `FAILED` : `{ since, failedReason }`, raison enregistrée à l'échec
+(`GEMINI` refus ou pause de Gemini, `BUDGET` budget dépassé, `IMAGE` image
+absente, `ILLISIBLE` réponse inexploitable, `ERREUR` autre). `POST
+/api/caves/current/plans/:id/analysis` (propriétaire) relance l'analyse de la
+photo actuelle : 202 avec le plan (en attente, propositions effacées, nouvelle
+tâche), 409 « Une analyse est déjà en cours » si elle l'est, 404 « Plan
+introuvable » pour un plan d'une autre cave. L'image et sa date ne changent
+pas : c'est la date de la demande d'analyse (`analysis_requested_at`, posée à
+l'envoi, au remplacement et à la relance) qui identifie la tâche et garantit
+qu'une ancienne analyse n'écrase jamais une nouvelle.
+
 **Membres en lecture seule.** Dans *Ma cave* (propriétaire seulement), la
 section *Membres* liste les membres, invite une adresse Google (« Cette
 adresse est déjà membre » si elle l'est déjà), retire un membre (jamais le
@@ -908,6 +929,27 @@ Si les images sont construites localement, remplacer `docker compose pull` par
 `docker compose build`. Pour figer une version plutôt que suivre `latest`,
 fusionner la demande de version proposée par release-please puis renseigner
 `IMAGE_TAG=<version>` dans le `.env`.
+
+### Passage à la 2.17.0 (analyse du plan plus visible)
+
+Une migration, **additive** et appliquée toute seule au démarrage de l'api,
+sans rien modifier ni supprimer : `20261022000000_analyse_visible` ajoute sur
+chaque plan la raison d'un échec d'analyse `analysis_error` (nulle pour les
+plans existants) et la date de la demande d'analyse `analysis_requested_at`,
+recopiée de `updated_at` pour les plans existants : une analyse encore en file
+au moment de la mise à jour garde son identifiant et aboutit normalement.
+Aucune sauvegarde particulière n'est nécessaire.
+
+Par précaution, sauvegarder comme d'habitude avant la mise à jour :
+
+```bash
+cd /opt/stacks/ma-cave && docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' | gzip > backups/cave-avant-2.17.0.sql.gz
+```
+
+**Retour arrière vers une image 2.16.x** (sans restaurer la sauvegarde) : les
+colonnes ajoutées sont ignorées. Une analyse mise en file par la 2.17.0 et pas
+encore terminée n'est pas faite par la 2.16.x (sa tâche ne porte pas la date
+attendue) : le plan reste « en cours » ; remplacer sa photo relance l'analyse.
 
 ### Passage à la 2.16.0 (propositions de zones)
 

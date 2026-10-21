@@ -433,20 +433,24 @@ model CaveZone {
 /// taille en pixels après normalisation ; `updatedAt` : dernier envoi de
 /// l'image ; `createdAt` : ordre des onglets.
 model CavePlan {
-  id             String     @id @default(uuid()) @db.Uuid
-  caveId         String     @map("cave_id")
-  cave           Cave       @relation(fields: [caveId], references: [id], onDelete: Restrict)
-  name           String
-  path           String
-  width          Int
-  height         Int
-  updatedAt      DateTime   @map("updated_at")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  zones          CaveZone[]
+  id                  String     @id @default(uuid()) @db.Uuid
+  caveId              String     @map("cave_id")
+  cave                Cave       @relation(fields: [caveId], references: [id], onDelete: Restrict)
+  name                String
+  path                String
+  width               Int
+  height              Int
+  updatedAt           DateTime   @map("updated_at")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  zones               CaveZone[]
   /// Analyse de la photo : NONE, PENDING, DONE ou FAILED (CHECK en migration).
-  analysisStatus String     @default("NONE") @map("analysis_status")
+  analysisStatus      String     @default("NONE") @map("analysis_status")
   /// Propositions de zones en attente : [{ id, kind, name, box, rows, cols }].
-  suggestions    Json       @default("[]")
+  suggestions         Json       @default("[]")
+  /// Raison d'un échec d'analyse (GEMINI, BUDGET, IMAGE, ILLISIBLE, ERREUR) ; NULL sinon.
+  analysisError       String?    @map("analysis_error")
+  /// Dernière demande d'analyse (envoi, remplacement, relance) : garde de l'écriture du résultat et identifiant de la tâche.
+  analysisRequestedAt DateTime   @default(now()) @map("analysis_requested_at")
 
   @@unique([id, caveId])
   @@map("cave_plan")

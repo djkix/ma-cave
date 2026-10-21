@@ -4,12 +4,14 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PHOTO_STORAGE_DIR } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { GeminiPausedError } from '../vision/gemini-pause';
 import { VISION_PROVIDER, VisionProvider } from '../vision/vision-provider.interface';
 import { nameBlocks, validBlocks } from '../zones/plan-suggestions';
 import { PlanService } from '../zones/plan.service';
-import { PlanAnalysisJobData } from './plan-analysis';
-import { isTransientVisionFailure } from './transient-failure';
-import { VisionBudgetService } from './vision-budget.service';
+import { PlanFailedReason } from '../zones/zone';
+import { PlanAnalysisDeferral, PlanAnalysisJobData } from './plan-analysis';
+import { isConfigurationError, isTransientVisionFailure, statusFromMessage } from './transient-failure';
+import { VisionBudgetExceededError, VisionBudgetService } from './vision-budget.service';
 
 /**
  * Cadres de Gemini (`box_2d` : [ymin, xmin, ymax, xmax], entiers de 0 à 1000,
@@ -24,6 +26,25 @@ export function fromGeminiBlocks(blocks: unknown[]): unknown[] {
     const [ymin, xmin, ymax, xmax] = box2d.map((v) => (typeof v === 'number' ? v / 1000 : NaN));
     return { ...(b as object), box: [xmin, ymin, xmax, ymax] };
   });
+}
+
+/** Cause d'un report, affichée tant que la tâche attend sa reprise. */
+export function deferralOf(error: unknown): PlanAnalysisDeferral {
+  if (error instanceof GeminiPausedError) return { waiting: 'GEMINI_PAUSE', pauseUntil: error.until.toISOString() };
+  if (error instanceof VisionBudgetExceededError) return { waiting: 'BUDGET', pauseUntil: null };
+  return { waiting: 'RETRY', pauseUntil: null };
+}
+
+/**
+ * Raison d'un échec : budget, réponse inexploitable, refus de Gemini (pause
+ * commune, statut HTTP, clé ou API mal configurées), sinon autre erreur.
+ */
+export function failedReasonOf(error: unknown): PlanFailedReason {
+  if (error instanceof VisionBudgetExceededError) return 'BUDGET';
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes('Sortie du modèle invalide')) return 'ILLISIBLE';
+  if (error instanceof GeminiPausedError || statusFromMessage(message) !== null || isConfigurationError(error)) return 'GEMINI';
+  return 'ERREUR';
 }
 
 // Fichier séparé de la file (plan-analysis.ts) : PlanService importe la file, le traitement importe PlanService.
@@ -43,11 +64,18 @@ export class PlanAnalysisProcessor {
     @Inject(PHOTO_STORAGE_DIR) private readonly dir: string,
   ) {}
 
-  async process({ planId, updatedAt }: PlanAnalysisJobData, isLastAttempt = true): Promise<void> {
-    const expected = new Date(updatedAt);
+  /**
+   * `defer` : enregistre sur la tâche la cause d'un report (voir worker.ts) ;
+   * son échec n'empêche jamais le report.
+   */
+  async process(
+    { planId, requestedAt, updatedAt }: PlanAnalysisJobData, isLastAttempt = true, defer: (cause: PlanAnalysisDeferral) => Promise<unknown> = async () => undefined,
+  ): Promise<void> {
+    // Tâche d'avant la 2.17.0 : `updatedAt`, recopiée par la migration dans `analysis_requested_at`.
+    const expected = new Date(requestedAt ?? updatedAt ?? NaN);
     const plan = await this.prisma.cavePlan.findUnique({ where: { id: planId } });
-    // Plan supprimé, ou photo remplacée : la tâche de la nouvelle photo s'en charge.
-    if (!plan || plan.updatedAt.getTime() !== expected.getTime()) return;
+    // Plan supprimé, photo remplacée ou analyse relancée : la tâche de la nouvelle demande s'en charge.
+    if (!plan || plan.analysisRequestedAt.getTime() !== expected.getTime()) return;
 
     try {
       await this.budget.assertUnderCap();
@@ -57,7 +85,7 @@ export class PlanAnalysisProcessor {
       await this.charge(plan.caveId, output.costCents);
       if (!Array.isArray(output.blocks)) {
         this.logger.warn(`Analyse du plan ${planId} échouée : réponse sans liste de blocs`);
-        await this.plans.setAnalysis(planId, expected, { status: 'FAILED' });
+        await this.plans.setAnalysis(planId, expected, { status: 'FAILED', reason: 'ILLISIBLE' });
         return;
       }
       const zones = await this.prisma.caveZone.findMany({ where: { caveId: plan.caveId, archivedAt: null }, select: { name: true } });
@@ -66,7 +94,7 @@ export class PlanAnalysisProcessor {
     } catch (e) {
       // Image absente : plan supprimé pendant la lecture (setAnalysis sans effet), ou fichier manquant sur un plan qui existe (FAILED, pas d'attente éternelle).
       if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
-        await this.plans.setAnalysis(planId, expected, { status: 'FAILED' });
+        await this.plans.setAnalysis(planId, expected, { status: 'FAILED', reason: 'IMAGE' });
         return;
       }
       // Sortie inexploitable mais facturée : son coût est porté par l'erreur.
@@ -74,9 +102,12 @@ export class PlanAnalysisProcessor {
       const message = e instanceof Error ? e.message : String(e);
       const transient = isTransientVisionFailure(e);
       this.logger.warn(`Analyse du plan ${planId} ${transient && !isLastAttempt ? 'reportée' : 'échouée'} : ${message}`);
-      if (transient && !isLastAttempt) throw e;
+      if (transient && !isLastAttempt) {
+        await defer(deferralOf(e)).catch((err: unknown) => this.logger.warn(`Cause du report du plan ${planId} non enregistrée : ${(err as Error).message}`));
+        throw e;
+      }
       // Dernière tentative (ou erreur définitive), y compris après l'appel : jamais de plan laissé en attente.
-      await this.plans.setAnalysis(planId, expected, { status: 'FAILED' });
+      await this.plans.setAnalysis(planId, expected, { status: 'FAILED', reason: failedReasonOf(e) });
       throw transient ? e : new UnrecoverableError(message);
     }
   }

@@ -6,11 +6,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createTestCave, deleteTestCaves } from '../test-utils/cave';
 import { GeminiPausedError } from '../vision/gemini-pause';
+import { CaveBudgetShareExceededError } from './vision-budget.service';
 import { VisionInvalidOutputError } from '../vision/gemini-vision.provider';
 import { PlanService } from '../zones/plan.service';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
-import { planAnalysisJobId, requeuePendingPlans } from './plan-analysis';
+import { Worker } from 'bullmq';
+import { EXTRACTION_ATTEMPTS } from './extraction.queue';
+import { planAnalysisJobId, planAnalysisJobState, requeuePendingPlans } from './plan-analysis';
 import { fromGeminiBlocks, PlanAnalysisProcessor } from './plan-analysis.processor';
 
 const describeIfDb = process.env.DATABASE_URL ? describe : describe.skip;
@@ -18,7 +21,7 @@ const describeIfDb = process.env.DATABASE_URL ? describe : describe.skip;
 const GEMINI_503 = new Error('[GoogleGenerativeAI Error]: Error fetching from https://…:generateContent: [503 Service Unavailable] busy');
 const GEMINI_429 = new Error('[GoogleGenerativeAI Error]: Error fetching from https://…:generateContent: [429 Too Many Requests] quota');
 
-/** Analyse d'un plan sur la vraie base : l'écriture conditionnelle (`updated_at`) ne se vérifie pas avec un faux Prisma. */
+/** Analyse d'un plan sur la vraie base : l'écriture conditionnelle (`analysis_requested_at`) ne se vérifie pas avec un faux Prisma. */
 describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
   const prisma = new PrismaClient();
   const dir = mkdtempSync(join(tmpdir(), 'cave-plan-analysis-'));
@@ -45,14 +48,20 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
   });
 
   let n = 0;
-  /** Plan en attente d'analyse, avec son image ; rend la donnée de la tâche. */
+  /** Plan en attente d'analyse, avec son image ; rend la donnée de la tâche. Image plus ancienne que la demande (relance). */
   const pendingPlan = async () => {
     const plan = await prisma.cavePlan.create({
-      data: { caveId, name: `Plan ${++n}`, path: `plans/p${n}.jpg`, width: 100, height: 100, updatedAt: new Date(), analysisStatus: 'PENDING' },
+      data: {
+        caveId, name: `Plan ${++n}`, path: `plans/p${n}.jpg`, width: 100, height: 100, updatedAt: new Date(Date.now() - 60_000), analysisRequestedAt: new Date(),
+        analysisStatus: 'PENDING',
+      },
     });
     writeFileSync(join(dir, plan.path), `image ${n}`);
-    return { planId: plan.id, updatedAt: plan.updatedAt.toISOString() };
+    return { planId: plan.id, requestedAt: plan.analysisRequestedAt.toISOString() };
   };
+  /** Nouvelle demande d'analyse (photo remplacée ou relance) : la date de la demande avance. */
+  const newRequest = (job: { planId: string; requestedAt: string }, data: object = {}) =>
+    prisma.cavePlan.update({ where: { id: job.planId }, data: { analysisRequestedAt: new Date(Date.parse(job.requestedAt) + 1000), ...data } });
   const planOf = (id: string) => prisma.cavePlan.findUniqueOrThrow({ where: { id } });
   /** Bloc tel que Gemini le rend : `box_2d` = [ymin, xmin, ymax, xmax] en millièmes. */
   const block = (kind: string, box2d: number[], rows = 2, cols = 3) => ({ kind, box_2d: box2d, rows, cols });
@@ -101,7 +110,7 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
     const job = await pendingPlan();
     vision.analyzePlan.mockResolvedValueOnce({ blocks: 'rien', costCents: 2 });
     await processor.process(job);
-    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED', suggestions: [] });
+    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED', analysisError: 'ILLISIBLE', suggestions: [] });
     expect((await prisma.imageSearchCost.findMany({ where: { caveId } })).map((c) => c.costCents)).toEqual([2]);
   });
 
@@ -109,7 +118,7 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
     const job = await pendingPlan();
     vision.analyzePlan.mockRejectedValueOnce(new VisionInvalidOutputError('Sortie du modèle invalide (JSON illisible)', 2));
     await expect(processor.process(job, false)).rejects.toBeInstanceOf(UnrecoverableError);
-    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED' });
+    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED', analysisError: 'ILLISIBLE' });
     expect((await prisma.imageSearchCost.findMany({ where: { caveId } })).map((c) => c.costCents)).toEqual([2]);
   });
 
@@ -118,7 +127,7 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
     rmSync(join(dir, (await planOf(job.planId)).path));
     await expect(processor.process(job)).resolves.toBeUndefined();
     expect(vision.analyzePlan).not.toHaveBeenCalled();
-    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED' });
+    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED', analysisError: 'IMAGE' });
   });
 
   it('plan supprimé : abandon sans erreur, aucun appel', async () => {
@@ -128,40 +137,87 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
     expect(vision.analyzePlan).not.toHaveBeenCalled();
   });
 
-  it('photo remplacée avant le traitement : abandon sans appel, rien écrit', async () => {
+  it('nouvelle demande (photo remplacée ou relance) avant le traitement : abandon sans appel, rien écrit', async () => {
     const job = await pendingPlan();
-    await prisma.cavePlan.update({ where: { id: job.planId }, data: { updatedAt: new Date(Date.parse(job.updatedAt) + 1000) } });
+    await newRequest(job);
     await processor.process(job);
     expect(vision.analyzePlan).not.toHaveBeenCalled();
     expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'PENDING', suggestions: [] });
   });
 
-  it('photo remplacée pendant l’analyse : l’ancienne analyse n’écrit rien', async () => {
+  it('nouvelle demande pendant l’analyse : l’ancienne analyse n’écrit rien', async () => {
     const job = await pendingPlan();
     vision.analyzePlan.mockImplementationOnce(async () => {
-      // Remplacement concurrent : nouvelle date, propositions vidées, nouvelle analyse en attente.
-      await prisma.cavePlan.update({ where: { id: job.planId }, data: { updatedAt: new Date(Date.parse(job.updatedAt) + 1000), analysisStatus: 'PENDING', suggestions: [] } });
+      // Remplacement ou relance concurrents : nouvelle demande, propositions vidées, nouvelle analyse en attente.
+      await newRequest(job, { analysisStatus: 'PENDING', suggestions: [] });
       return { blocks: [block('CASIER', [100, 100, 500, 500])], costCents: 1 };
     });
     await processor.process(job);
     expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'PENDING', suggestions: [] });
   });
 
-  it('pause Gemini : tâche reportée (relancée), plan toujours en attente', async () => {
+  it('l’ancienne garde (date de l’image) ne compte plus : image changée seule, la demande en cours aboutit', async () => {
     const job = await pendingPlan();
-    const paused = new GeminiPausedError(new Date(Date.now() + 60_000), 'refus');
+    await prisma.cavePlan.update({ where: { id: job.planId }, data: { updatedAt: new Date() } });
+    vision.analyzePlan.mockResolvedValueOnce({ blocks: [], costCents: 0 });
+    await processor.process(job);
+    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'DONE' });
+  });
+
+  it('tâche d’avant la 2.17.0 (`updatedAt` dans la donnée) : traitée avec cette date comme demande', async () => {
+    const job = await pendingPlan();
+    vision.analyzePlan.mockResolvedValueOnce({ blocks: [], costCents: 0 });
+    await processor.process({ planId: job.planId, updatedAt: job.requestedAt } as never);
+    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'DONE' });
+  });
+
+  it('pause Gemini : tâche reportée (relancée), plan toujours en attente, cause GEMINI_PAUSE et fin de pause enregistrées', async () => {
+    const job = await pendingPlan();
+    const until = new Date(Date.now() + 60_000);
+    const paused = new GeminiPausedError(until, 'refus');
+    const defer = jest.fn(async () => undefined);
     vision.analyzePlan.mockRejectedValueOnce(paused);
-    await expect(processor.process(job, false)).rejects.toBe(paused);
+    await expect(processor.process(job, false, defer)).rejects.toBe(paused);
+    expect(defer).toHaveBeenCalledWith({ waiting: 'GEMINI_PAUSE', pauseUntil: until.toISOString() });
+    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'PENDING', analysisError: null });
+  });
+
+  it('cause du report impossible à enregistrer (Redis) : le report a lieu quand même', async () => {
+    const job = await pendingPlan();
+    vision.analyzePlan.mockRejectedValueOnce(GEMINI_503);
+    await expect(processor.process(job, false, async () => Promise.reject(new Error('Redis injoignable')))).rejects.toBe(GEMINI_503);
     expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'PENDING' });
   });
 
-  it('refus 503 ou 429 : reprise patiente, puis FAILED à la dernière tentative', async () => {
+  it('refus 503 ou 429 : reprise patiente (cause RETRY), puis FAILED à la dernière tentative, raison GEMINI', async () => {
     const job = await pendingPlan();
+    const defer = jest.fn(async () => undefined);
     vision.analyzePlan.mockRejectedValueOnce(GEMINI_503).mockRejectedValueOnce(GEMINI_429);
-    await expect(processor.process(job, false)).rejects.toBe(GEMINI_503);
+    await expect(processor.process(job, false, defer)).rejects.toBe(GEMINI_503);
+    expect(defer).toHaveBeenCalledWith({ waiting: 'RETRY', pauseUntil: null });
     expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'PENDING' });
-    await expect(processor.process(job, true)).rejects.toBe(GEMINI_429);
-    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED' });
+    await expect(processor.process(job, true, defer)).rejects.toBe(GEMINI_429);
+    expect(defer).toHaveBeenCalledTimes(1);
+    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED', analysisError: 'GEMINI' });
+  });
+
+  it('pause Gemini à la dernière tentative : FAILED, raison GEMINI', async () => {
+    const job = await pendingPlan();
+    vision.analyzePlan.mockRejectedValueOnce(new GeminiPausedError(new Date(Date.now() + 60_000), 'refus'));
+    await expect(processor.process(job, true)).rejects.toBeInstanceOf(GeminiPausedError);
+    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED', analysisError: 'GEMINI' });
+  });
+
+  it('budget dépassé : reporté (cause BUDGET), puis FAILED à la dernière tentative, raison BUDGET', async () => {
+    const job = await pendingPlan();
+    const defer = jest.fn(async () => undefined);
+    budget.assertCaveUnderShare.mockRejectedValueOnce(new CaveBudgetShareExceededError()).mockRejectedValueOnce(new CaveBudgetShareExceededError());
+    await expect(processor.process(job, false, defer)).rejects.toBeInstanceOf(CaveBudgetShareExceededError);
+    expect(defer).toHaveBeenCalledWith({ waiting: 'BUDGET', pauseUntil: null });
+    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'PENDING' });
+    await expect(processor.process(job, true, defer)).rejects.toBeInstanceOf(CaveBudgetShareExceededError);
+    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED', analysisError: 'BUDGET' });
+    expect(vision.analyzePlan).not.toHaveBeenCalled();
   });
 
   it('erreur après l’appel (lecture des zones) : reprise si d’autres tentatives restent, FAILED à la dernière', async () => {
@@ -172,12 +228,12 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
     await expect(processor.process(job, false)).rejects.toBe(boom);
     expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'PENDING' });
     await expect(processor.process(job, true)).rejects.toBe(boom);
-    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED' });
+    expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED', analysisError: 'ERREUR' });
     zones.mockRestore();
     vision.analyzePlan.mockReset();
   });
 
-  it('reprise au démarrage : chaque plan en attente remis en file, sans doublon (identifiant fixe)', async () => {
+  it('reprise au démarrage : chaque plan en attente remis en file, sans doublon (identifiant fixe, date de la demande)', async () => {
     const pending = await pendingPlan();
     const done = await pendingPlan();
     await prisma.cavePlan.update({ where: { id: done.planId }, data: { analysisStatus: 'DONE' } });
@@ -206,6 +262,76 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
     await expect(processor.process(job, false)).rejects.toBe(over);
     expect(vision.analyzePlan).not.toHaveBeenCalled();
     expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'PENDING' });
+  });
+});
+
+/** État d'une tâche d'analyse lu dans une vraie file BullMQ de test. */
+describeIfDb('planAnalysisJobState (file réelle)', () => {
+  const connection = () => new Redis(process.env.REDIS_URL!, { maxRetriesPerRequest: null });
+  let queue: Queue;
+  const data = (planId = randomUUID()) => ({ planId, requestedAt: new Date(Date.now() - 5000).toISOString() });
+  beforeEach(() => {
+    queue = new Queue(`plan-analysis-test-${randomUUID()}`, { connection: connection(), defaultJobOptions: { attempts: 7 } });
+  });
+  afterEach(async () => {
+    await queue.obliterate({ force: true });
+    const { connection: c } = queue.opts;
+    await queue.close();
+    if (c instanceof Redis) await c.quit();
+  });
+
+  it('tâche introuvable : QUEUED, première tentative', async () => {
+    expect(await planAnalysisJobState(queue, data())).toEqual({ attempt: 1, maxAttempts: EXTRACTION_ATTEMPTS, nextAttemptAt: null, waiting: 'QUEUED', pauseUntil: null });
+  });
+
+  it('en attente : QUEUED, tentatives de la tâche', async () => {
+    const d = data();
+    await queue.add('analyse', d, { jobId: planAnalysisJobId(d) });
+    expect(await planAnalysisJobState(queue, d)).toEqual({ attempt: 1, maxAttempts: 7, nextAttemptAt: null, waiting: 'QUEUED', pauseUntil: null });
+  });
+
+  it('active : RUNNING', async () => {
+    const d = data();
+    await queue.add('analyse', d, { jobId: planAnalysisJobId(d) });
+    const workerConnection = connection();
+    const worker = new Worker(queue.name, null, { connection: workerConnection });
+    try {
+      expect((await worker.getNextJob('jeton'))?.id).toBe(planAnalysisJobId(d));
+      expect(await planAnalysisJobState(queue, d)).toMatchObject({ attempt: 1, waiting: 'RUNNING', nextAttemptAt: null });
+    } finally {
+      await worker.close();
+      await workerConnection.quit();
+    }
+  });
+
+  it('retardée après un échec : cause enregistrée, n° de tentative et heure de la prochaine', async () => {
+    const d = data();
+    // Création datée d'il y a longtemps : l'heure de reprise part de l'échec, pas de la création.
+    await queue.add('analyse', d, { jobId: planAnalysisJobId(d), backoff: { type: 'fixed', delay: 90_000 }, timestamp: Date.now() - 3_600_000 });
+    const workerConnection = connection();
+    const worker = new Worker(queue.name, null, { connection: workerConnection });
+    try {
+      const job = (await worker.getNextJob('jeton'))!;
+      const pauseUntil = new Date(Date.now() + 120_000).toISOString();
+      await job.updateData({ ...d, waiting: 'GEMINI_PAUSE', pauseUntil });
+      const failedAt = Date.now();
+      await job.moveToFailed(new Error('pause'), 'jeton');
+      const state = await planAnalysisJobState(queue, d);
+      expect(state).toMatchObject({ attempt: 2, maxAttempts: 7, waiting: 'GEMINI_PAUSE', pauseUntil });
+      expect(Math.abs(Date.parse(state.nextAttemptAt!) - (failedAt + 90_000))).toBeLessThan(1000);
+    } finally {
+      await worker.close();
+      await workerConnection.quit();
+    }
+  });
+
+  it('retardée sans cause enregistrée : RETRY, sans fin de pause', async () => {
+    const d = data();
+    const at = Date.now() + 60_000;
+    await queue.add('analyse', d, { jobId: planAnalysisJobId(d), delay: at - Date.now() });
+    const state = await planAnalysisJobState(queue, d);
+    expect(state).toMatchObject({ attempt: 1, waiting: 'RETRY', pauseUntil: null });
+    expect(Math.abs(Date.parse(state.nextAttemptAt!) - at)).toBeLessThan(1000);
   });
 });
 

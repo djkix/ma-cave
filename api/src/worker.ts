@@ -41,7 +41,8 @@ async function main() {
   const planAnalysis = app.get(PlanAnalysisProcessor);
   const planWorker = new Worker<PlanAnalysisJobData>(
     PLAN_ANALYSIS_QUEUE,
-    (job) => planAnalysis.process(job.data, job.attemptsMade + 1 >= (job.opts.attempts ?? 1)),
+    // Cause d'un report enregistrée sur la tâche : GET plans l'affiche pendant l'attente.
+    (job) => planAnalysis.process(job.data, job.attemptsMade + 1 >= (job.opts.attempts ?? 1), (cause) => job.updateData({ ...job.data, ...cause })),
     { connection: redisConnection(), concurrency: 2, settings: { backoffStrategy: (attemptsMade: number) => extractionBackoffDelay(attemptsMade) } },
   );
   planWorker.on('failed', (job, err) => console.warn(`analyse de plan ${job?.id} : ${err.message}`));
