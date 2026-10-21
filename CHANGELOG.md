@@ -11,6 +11,21 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.18.0](https://github.com/djkix/ma-cave/compare/v2.17.1...v2.18.0) (2026-10-21)
 
+### Résumé
+
+**Détection des cases plus précise.** Gemini repère maintenant chaque case
+une à une et indique à quel meuble elle appartient ; le serveur reconstruit
+chaque meuble (cadre, rangées et colonnes comptées sur les tablettes et les
+montants). La consigne demande de ne jamais fusionner deux meubles accolés,
+de compter les cases même cachées en partie par un objet, et d'ignorer les
+meubles coupés au bord de la photo. *Relancer l'analyse* est aussi dans le
+menu ⋯ du plan, même après une analyse réussie. Nouvelle variable
+`GEMINI_PLAN_MODEL` pour choisir un modèle plus précis pour cette seule
+analyse (un modèle Pro est compté à son tarif). Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
