@@ -9,6 +9,18 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.20.0](https://github.com/djkix/ma-cave/compare/v2.19.0...v2.20.0) (2026-10-21)
+
+
+### Fonctionnalités
+
+* **web:** bandeau « Nouvelle version disponible » au lieu du rechargement forcé ([#41](https://github.com/djkix/ma-cave/issues/41)) ([bd414c4](https://github.com/djkix/ma-cave/commit/bd414c4403d0a7b9451911ec0c37a4944dbeba39))
+
+
+### Corrections
+
+* **plans:** analyse du plan sans responseSchema, refus de Gemini affiché à part ([c6dabbd](https://github.com/djkix/ma-cave/commit/c6dabbdc637369eae59a354b0820853dbc631638))
+
 ## [2.19.0](https://github.com/djkix/ma-cave/compare/v2.18.1...v2.19.0) (2026-10-21)
 
 ### Résumé
