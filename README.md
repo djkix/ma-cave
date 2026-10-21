@@ -186,7 +186,8 @@ supérieur à 0 par case) ; chaque zone porte `grid: { rows, cols } | null`.
 **État détaillé et relance de l'analyse (2.17.0).** Chaque plan de `GET
 /api/caves/current/plans` porte aussi `analysisInfo` : `null` pour `NONE` et
 `DONE` ; pour `PENDING`, `{ since, attempt, maxAttempts, nextAttemptAt,
-waiting, pauseUntil }`, lu sur la tâche BullMQ (`since` = date de l'image ;
+waiting, pauseUntil }`, lu sur la tâche BullMQ (`since` = date de la demande
+d'analyse : envoi, remplacement ou relance ;
 `attempt` = tentatives déjà faites + 1 ; `waiting` : `QUEUED` en file ou tâche
 introuvable, `RUNNING` en cours, et pour une tâche en attente de reprise la
 cause du dernier report, enregistrée sur la tâche par le worker :

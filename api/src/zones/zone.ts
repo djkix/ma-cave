@@ -121,7 +121,7 @@ export const markerSchema = z.object(
 export type PlanFailedReason = 'GEMINI' | 'BUDGET' | 'IMAGE' | 'ILLISIBLE' | 'ERREUR';
 
 /**
- * Détail de l'analyse : en attente, son avancement (`since` = date de l'image) ;
+ * Détail de l'analyse (`since` = date de la demande : envoi, remplacement ou relance) : en attente, son avancement ;
  * en échec, sa raison ; null sinon (NONE, DONE).
  */
 export type PlanAnalysisInfo = ({ since: string } & PlanAnalysisJobState) | { since: string; failedReason: PlanFailedReason } | null;
