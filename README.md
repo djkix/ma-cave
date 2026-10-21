@@ -519,6 +519,24 @@ depuis `main` affiche ce numéro suivi de l'empreinte du commit
 (`1.0.0+ab12cd3`), pour ne jamais faire passer des changements non publiés pour
 la dernière version ; une construction locale affiche `dev`.
 
+**Nouvelle version disponible.** L'application ne se recharge plus d'elle-même
+au milieu d'une saisie : un bandeau *Nouvelle version disponible*, au-dessus de
+la barre d'onglets, propose un bouton *Recharger*. Il apparaît sur deux
+signaux, parce qu'aucun des deux ne suffit seul : le service worker a
+téléchargé une nouvelle coque et attend d'être activé (le cas normal), ou la
+version renvoyée par `/api/health` diffère de celle chargée dans le navigateur
+(le cas d'un cache périmé, que le service worker n'a même pas vu). Les deux
+moitiés de l'image portent la même étiquette au même `docker build`, ce qui
+rend l'écart significatif ; en développement, ou pour une image `latest` dont
+le libellé porte l'empreinte du commit, l'écart n'est pas signalé. Une
+application ouverte vérifie toutes les trente minutes et à chaque retour au
+premier plan, sinon une version publiée en journée n'arriverait sur le
+téléphone qu'au prochain démarrage complet. *Recharger* active la coque en
+attente, puis recharge en dur après 1,5 s — sans ce filet, le bouton ne ferait
+rien dans le cas de l'écart de version, où aucun service worker n'attend. Pas
+de service worker sans HTTPS (sauf `localhost`) : en HTTP, seul le second
+signal fonctionne.
+
 **Hors ligne.** La cave est souvent un sous-sol sans réseau : les photos sont
 mises en file dans le navigateur (200 photos ou 200 Mo maximum) et envoyées une
 par une dès que le réseau revient, ou que l'application revient au premier

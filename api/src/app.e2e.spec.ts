@@ -57,7 +57,7 @@ describeIfInfra('api HTTP', () => {
   it('answers the health check without a session', async () => {
     const res = await supertest(app.getHttpServer()).get('/api/health');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok' });
+    expect(res.body).toEqual({ status: 'ok', version: 'dev' });
   });
 
   it('refuses a protected route without a session', async () => {
