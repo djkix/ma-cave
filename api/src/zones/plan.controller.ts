@@ -60,6 +60,14 @@ export class CavePlansController {
     return this.plans.replaceImage(cave.caveId, id, checkImage(file));
   }
 
+  /** Relance l'analyse de la photo : 202 avec le plan ; analyse déjà en cours : 409. */
+  @Post(':id/analysis')
+  @CaveRole('OWNER')
+  @HttpCode(202)
+  retryAnalysis(@CurrentCave() cave: CaveAccess, @Param('id', planId) id: string) {
+    return this.plans.retryAnalysis(cave.caveId, id);
+  }
+
   /** Accepte une proposition : corps `{ name, rows, cols }` ; 201 avec la zone créée. */
   @Post(':id/suggestions/:sid/accept')
   @CaveRole('OWNER')

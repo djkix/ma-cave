@@ -158,12 +158,20 @@ export const removeZonePhoto = (id: string) => apiFetch<Zone>(`/caves/current/zo
 /** Zone proposée par l'analyse du plan : `box` = [x0, y0, x1, y1] en fractions de l'image. */
 export interface PlanSuggestion { id: string; kind: 'CASIER' | 'ETAGERE' | 'AUTRE'; name: string; box: [number, number, number, number]; rows: number; cols: number }
 /**
+ * Détail de l'analyse (`since` = date de la demande : envoi, remplacement ou relance ; dates ISO) :
+ * en attente, son avancement ; en échec, sa raison ; null sinon (NONE, DONE).
+ */
+export type PlanAnalysisInfo =
+  | { since: string; attempt: number; maxAttempts: number; nextAttemptAt: string | null; waiting: 'QUEUED' | 'RUNNING' | 'GEMINI_PAUSE' | 'BUDGET' | 'RETRY'; pauseUntil: string | null }
+  | { since: string; failedReason: 'GEMINI' | 'BUDGET' | 'IMAGE' | 'ILLISIBLE' | 'ERREUR' }
+  | null;
+/**
  * Plan de la cave : nom, taille en pixels (mise en page avant chargement), date du dernier envoi (ISO),
- * état de l'analyse de sa photo et zones proposées en attente.
+ * état de l'analyse de sa photo, son détail et zones proposées en attente.
  */
 export interface CavePlan {
   id: string; name: string; width: number; height: number; updatedAt: string;
-  analysis: 'NONE' | 'PENDING' | 'DONE' | 'FAILED'; suggestions: PlanSuggestion[];
+  analysis: 'NONE' | 'PENDING' | 'DONE' | 'FAILED'; suggestions: PlanSuggestion[]; analysisInfo: PlanAnalysisInfo;
 }
 /** Repère d'une zone sur un plan ; `number` : son rang sur ce plan. */
 export interface PlanMarker { zoneId: string; planId: string; name: string; number: number; x: number; y: number }
@@ -181,6 +189,8 @@ export const renamePlan = (id: string, name: string) =>
   apiFetch<CavePlan>(`/caves/current/plans/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
 export const replacePlanImage = (id: string, file: File | Blob) =>
   apiFetch<CavePlan>(`/caves/current/plans/${id}/image`, { method: 'PUT', body: planForm(file) });
+/** Relance l'analyse de la photo actuelle (propriétaire) : le plan, en attente ; 409 « Une analyse est déjà en cours ». */
+export const relaunchAnalysis = (id: string) => apiFetch<CavePlan>(`/caves/current/plans/${id}/analysis`, { method: 'POST' });
 /** Supprime le plan ; les zones et leurs bouteilles sont gardées. */
 export const deletePlan = (id: string) => apiFetch<void>(`/caves/current/plans/${id}`, { method: 'DELETE' });
 /** Crée la zone proposée (nom, grille), avec son repère au centre du cadre ; la proposition disparaît. */

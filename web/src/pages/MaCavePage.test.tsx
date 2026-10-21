@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import * as api from '../lib/api-client';
+import css from '../styles/base.css?raw';
 import { MaCavePage } from './MaCavePage';
 
 afterEach(() => vi.restoreAllMocks());
@@ -381,8 +382,8 @@ it('affiche le refus de l’api au renommage', async () => {
 });
 
 describe('plan de la cave', () => {
-  const main: api.CavePlan = { id: 'p1', name: 'Plan principal', width: 2000, height: 1000, updatedAt: '2026-10-13T10:00:00.000Z', analysis: 'NONE', suggestions: [] };
-  const cellier: api.CavePlan = { id: 'p2', name: 'Cellier', width: 800, height: 600, updatedAt: '2026-10-20T09:00:00.000Z', analysis: 'NONE', suggestions: [] };
+  const main: api.CavePlan = { id: 'p1', name: 'Plan principal', width: 2000, height: 1000, updatedAt: '2026-10-13T10:00:00.000Z', analysis: 'NONE', suggestions: [], analysisInfo: null };
+  const cellier: api.CavePlan = { id: 'p2', name: 'Cellier', width: 800, height: 600, updatedAt: '2026-10-20T09:00:00.000Z', analysis: 'NONE', suggestions: [], analysisInfo: null };
   const m1: api.PlanMarker = { zoneId: 'z1', planId: 'p1', name: 'Cave 1', number: 1, x: 0.1, y: 0.2 };
   const m3: api.PlanMarker = { zoneId: 'z3', planId: 'p2', name: 'Cellier', number: 1, x: 0.6, y: 0.4 };
   const placed: api.Zone[] = [{ ...zones[0], marker: { planId: 'p1', x: 0.1, y: 0.2 } }, zones[1], zones[2]];
@@ -435,7 +436,7 @@ describe('plan de la cave', () => {
   });
 
   it('« + Ajouter un plan » : nom puis photo, le plan est créé et son onglet choisi', async () => {
-    const garage: api.CavePlan = { id: 'p3', name: 'Garage', width: 1000, height: 1000, updatedAt: '2026-10-20T10:00:00.000Z', analysis: 'NONE', suggestions: [] };
+    const garage: api.CavePlan = { id: 'p3', name: 'Garage', width: 1000, height: 1000, updatedAt: '2026-10-20T10:00:00.000Z', analysis: 'NONE', suggestions: [], analysisInfo: null };
     const get = vi.spyOn(api, 'getPlans').mockResolvedValueOnce(twoPlans).mockResolvedValue({ plans: [main, cellier, garage], markers: [m1, m3] });
     const create = vi.spyOn(api, 'createPlan').mockResolvedValue(garage);
     mount();
@@ -677,29 +678,216 @@ describe('plan de la cave', () => {
 
     afterEach(() => vi.useRealTimers());
 
-    it('analyse en cours : le dit sous le plan et relit les plans toutes les 10 s, jusqu’à la fin', async () => {
+    /** Bandeau d'analyse du plan affiché. */
+    const banner = () => planCard().getByRole('status', { name: 'Analyse du plan' });
+    const findBanner = () => planCard().findByRole('status', { name: 'Analyse du plan' });
+    const SINCE = '2026-10-21T10:00:00.000Z';
+    const pending = (info: Partial<Extract<api.PlanAnalysisInfo, { waiting: unknown }>> = {}): api.CavePlan => ({
+      ...main, analysis: 'PENDING',
+      analysisInfo: { since: SINCE, attempt: 1, maxAttempts: 10, nextAttemptAt: null, waiting: 'RUNNING', pauseUntil: null, ...info },
+    });
+    const failed = (failedReason: 'GEMINI' | 'BUDGET' | 'IMAGE' | 'ILLISIBLE' | 'ERREUR'): api.CavePlan => ({ ...main, analysis: 'FAILED', analysisInfo: { since: SINCE, failedReason } });
+    /** Date ISO d'une heure locale du 21 octobre 2026 (ou du 1er novembre). */
+    const local = (h: number, m: number, day = 21, month = 9) => new Date(2026, month, day, h, m).toISOString();
+
+    it('analyse en cours : bandeau « Analyse du plan en cours » au-dessus du plan, relu toutes les 10 s jusqu’à la fin', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.setSystemTime(new Date('2026-10-21T10:00:20.000Z'));
       const getPlans = vi.spyOn(api, 'getPlans')
-        .mockResolvedValueOnce({ plans: [{ ...main, analysis: 'PENDING' }], markers: [] })
+        .mockResolvedValueOnce({ plans: [pending()], markers: [] })
         .mockResolvedValue(analysed([casierA]));
       vi.spyOn(api, 'getZones').mockResolvedValue([]);
       mount();
-      expect(await planCard().findByText('Analyse du plan en cours…')).toBeInTheDocument();
+      const b = await findBanner();
+      expect(b).toHaveTextContent('Analyse du plan en cours');
+      expect(b.compareDocumentPosition(await planImage()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(planCard().queryByText('Analyse du plan en cours…')).not.toBeInTheDocument();
       expect(getPlans).toHaveBeenCalledTimes(1);
       await act(() => vi.advanceTimersByTimeAsync(10_000));
       expect(await planCard().findByRole('button', { name: 'Proposition Casier A' })).toBeInTheDocument();
-      expect(planCard().queryByText('Analyse du plan en cours…')).not.toBeInTheDocument();
       expect(getPlans).toHaveBeenCalledTimes(2);
       await act(() => vi.advanceTimersByTimeAsync(30_000));
       expect(getPlans).toHaveBeenCalledTimes(2);
     });
 
-    it('analyse en échec : invite à placer les zones à la main', async () => {
-      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [{ ...main, analysis: 'FAILED' }], markers: [] });
+    it('envoyée à l’IA : durée relative chaque seconde, puis chaque minute, puis « plus long que prévu » au-delà de 3 min', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.setSystemTime(new Date('2026-10-21T10:00:20.000Z'));
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [pending({ waiting: 'QUEUED' })], markers: [] });
       vi.spyOn(api, 'getZones').mockResolvedValue([]);
       mount();
-      expect(await planCard().findByText('Les zones n’ont pas pu être proposées. Placez-les à la main.')).toBeInTheDocument();
+      expect(await findBanner()).toHaveTextContent('Envoyée à l’IA il y a 20 s · résultat attendu d’ici une minute');
+      await act(() => vi.advanceTimersByTimeAsync(1_000));
+      expect(banner()).toHaveTextContent('Envoyée à l’IA il y a 21 s · résultat attendu d’ici une minute');
+      await act(() => vi.advanceTimersByTimeAsync(40_000));
+      expect(banner()).toHaveTextContent('Envoyée à l’IA il y a 1 min · résultat attendu d’ici une minute');
+      await act(() => vi.advanceTimersByTimeAsync(140_000));
+      expect(banner()).toHaveTextContent('Envoyée à l’IA il y a 3 min · plus long que prévu, l’analyse continue');
+    });
+
+    it('durée relative alignée sur la demande : « 2 min » dès 120 s, « plus long que prévu » dès 3 min', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.setSystemTime(new Date('2026-10-21T10:00:20.500Z'));
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [pending({ waiting: 'QUEUED' })], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      await findBanner();
+      await act(() => vi.advanceTimersByTimeAsync(99_800));
+      expect(banner()).toHaveTextContent('Envoyée à l’IA il y a 2 min · résultat attendu d’ici une minute');
+      await act(() => vi.advanceTimersByTimeAsync(60_000));
+      expect(banner()).toHaveTextContent('Envoyée à l’IA il y a 3 min · plus long que prévu, l’analyse continue');
+    });
+
+    it('nouvel essai puis reprise : la durée part de la nouvelle demande, sans heure figée', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.setSystemTime(new Date('2026-10-21T10:00:20.000Z'));
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [pending({ waiting: 'RETRY', attempt: 2 })], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      const qc = mount();
+      await findBanner();
+      await act(() => vi.advanceTimersByTimeAsync(120_000));
+      const since = new Date(Date.now() - 30_000).toISOString();
+      qc.setQueryData(['plans'], { plans: [pending({ waiting: 'RUNNING', since })], markers: [] });
+      // Notification de la requête (différée d'un tour), sans laisser passer de seconde.
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(banner()).toHaveTextContent('Envoyée à l’IA il y a 30 s · résultat attendu d’ici une minute');
+    });
+
+    it('la durée qui change chaque seconde n’est pas relue par les lecteurs d’écran', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [pending({ waiting: 'RUNNING' })], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      expect(within(await findBanner()).getByText(/^Envoyée à l’IA/)).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    it('en cours (RUNNING) : même phrase que QUEUED', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.setSystemTime(new Date('2026-10-21T10:00:20.000Z'));
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [pending({ waiting: 'RUNNING' })], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      expect(await findBanner()).toHaveTextContent('Envoyée à l’IA il y a 20 s · résultat attendu d’ici une minute');
+    });
+
+    it.each([
+      ['GEMINI_PAUSE', { waiting: 'GEMINI_PAUSE' as const, pauseUntil: local(15, 40), nextAttemptAt: local(15, 41) }, 'En attente : Gemini est en pause jusqu’à 15:40. Nouvel essai à 15:41.'],
+      ['GEMINI_PAUSE sans reprise', { waiting: 'GEMINI_PAUSE' as const, pauseUntil: local(15, 40) }, 'En attente : Gemini est en pause jusqu’à 15:40.'],
+      ['BUDGET', { waiting: 'BUDGET' as const, nextAttemptAt: local(0, 5, 1, 10) }, 'En attente : budget de l’IA atteint ce mois-ci. Nouvel essai le 1 nov. à 00:05.'],
+      ['BUDGET sans reprise', { waiting: 'BUDGET' as const }, 'En attente : budget de l’IA atteint ce mois-ci. Nouvel essai plus tard.'],
+      ['RETRY', { waiting: 'RETRY' as const, attempt: 2, nextAttemptAt: local(10, 52) }, 'Nouvel essai à 10:52 (tentative 2 sur 10).'],
+    ])('en attente (%s) : le dit', async (_, info, text) => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [pending(info)], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      const b = await findBanner();
+      expect(b).toHaveTextContent('Analyse du plan en cours');
+      expect(within(b).getByText(text)).toBeInTheDocument();
+    });
+
+    it('icône animée, sans animation sous prefers-reduced-motion', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [pending()], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      const icon = (await findBanner()).querySelector('.material-symbols-outlined');
+      expect(icon).toHaveTextContent('progress_activity');
+      expect(icon).toHaveClass('spin');
+      expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[^}]*\.spin[^}]*animation: none/);
+    });
+
+    it.each([
+      ['GEMINI', 'L’IA n’a pas répondu après plusieurs essais.'],
+      ['BUDGET', 'Le budget de l’IA est épuisé.'],
+      ['ILLISIBLE', 'L’IA n’a pas su lire cette photo : essayez une photo plus nette, prise de face.'],
+      ['ERREUR', 'Une erreur est survenue.'],
+    ] as const)('analyse en échec (%s) : bandeau d’erreur, raison et « Relancer l’analyse »', async (reason, text) => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [failed(reason)], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      const b = await findBanner();
+      expect(b).toHaveClass('analysis-banner--error');
+      expect(b).toHaveTextContent('Les zones n’ont pas pu être proposées');
+      expect(within(b).getByText(text)).toBeInTheDocument();
+      expect(within(b).getByRole('button', { name: 'Relancer l’analyse' })).toBeInTheDocument();
+      expect(within(b).getByText('Vous pouvez aussi placer les zones à la main.')).toBeInTheDocument();
       expect(planCard().queryByRole('button', { name: /^Proposition/ })).not.toBeInTheDocument();
+    });
+
+    it('analyse en échec (IMAGE) : pas de relance, il faut remplacer la photo', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [failed('IMAGE')], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      const b = await findBanner();
+      expect(within(b).getByText('La photo du plan est introuvable : remplacez-la.')).toBeInTheDocument();
+      expect(within(b).queryByRole('button', { name: 'Relancer l’analyse' })).not.toBeInTheDocument();
+    });
+
+    it('« Relancer l’analyse » relance et repasse le bandeau en cours', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [failed('GEMINI')], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      const relaunch = vi.spyOn(api, 'relaunchAnalysis').mockResolvedValue(pending({ waiting: 'QUEUED' }));
+      mount();
+      await userEvent.click(within(await findBanner()).getByRole('button', { name: 'Relancer l’analyse' }));
+      await waitFor(() => expect(relaunch).toHaveBeenCalledWith('p1'));
+      await waitFor(() => expect(banner()).toHaveTextContent('Analyse du plan en cours'));
+      expect(banner()).not.toHaveClass('analysis-banner--error');
+    });
+
+    it('relance refusée (409) : le refus s’affiche dans le bandeau et les plans sont relus', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [failed('GEMINI')], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      vi.spyOn(api, 'relaunchAnalysis').mockRejectedValue(new api.ApiError(409, 'Une analyse est déjà en cours'));
+      const getPlans = vi.mocked(api.getPlans);
+      mount();
+      await userEvent.click(within(await findBanner()).getByRole('button', { name: 'Relancer l’analyse' }));
+      expect(await within(banner()).findByRole('alert')).toHaveTextContent('Une analyse est déjà en cours');
+      // L'état du serveur (déjà en cours) est relu : la relecture des 10 s reprend.
+      await waitFor(() => expect(getPlans).toHaveBeenCalledTimes(2));
+    });
+
+    it('plan jamais analysé : lien « Proposer des zones » qui lance l’analyse', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue(withPlan);
+      vi.spyOn(api, 'getZones').mockResolvedValue(placed);
+      const relaunch = vi.spyOn(api, 'relaunchAnalysis').mockResolvedValue(pending({ waiting: 'QUEUED' }));
+      mount();
+      await userEvent.click(await planCard().findByRole('button', { name: 'Proposer des zones' }));
+      await waitFor(() => expect(relaunch).toHaveBeenCalledWith('p1'));
+      expect(await findBanner()).toHaveTextContent('Analyse du plan en cours');
+      expect(planCard().queryByRole('button', { name: 'Proposer des zones' })).not.toBeInTheDocument();
+    });
+
+    it('fin de l’analyse écran ouvert : bandeau de succès sans la phrase en double, jusqu’à la prochaine action', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.spyOn(api, 'getPlans').mockResolvedValueOnce({ plans: [pending()], markers: [] }).mockResolvedValue(analysed([casierA, etagereA, rangementA]));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      await findBanner();
+      await act(() => vi.advanceTimersByTimeAsync(10_000));
+      await waitFor(() => expect(banner()).toHaveTextContent('3 zones proposées : touchez-les sur le plan pour les accepter.'));
+      expect(planCard().queryByText('3 zones proposées : touchez-les pour les accepter.')).not.toBeInTheDocument();
+      await tapPlan(0.9, 0.9);
+      expect(planCard().queryByRole('status', { name: 'Analyse du plan' })).not.toBeInTheDocument();
+      expect(planCard().getByText('3 zones proposées : touchez-les pour les accepter.')).toBeInTheDocument();
+    });
+
+    it('fin de l’analyse sans proposition : « Aucune zone détectée sur cette photo. Placez-les à la main. »', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.spyOn(api, 'getPlans').mockResolvedValueOnce({ plans: [pending()], markers: [] }).mockResolvedValue(analysed([]));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      await findBanner();
+      await act(() => vi.advanceTimersByTimeAsync(10_000));
+      await waitFor(() => expect(banner()).toHaveTextContent('Aucune zone détectée sur cette photo. Placez-les à la main.'));
+    });
+
+    it('onglet d’un plan en cours d’analyse : point animé et « Cellier, analyse en cours »', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [main, { ...cellier, analysis: 'PENDING', analysisInfo: pending().analysisInfo }], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      const tab = await findTab('Cellier, analyse en cours');
+      expect(tab).toHaveTextContent('Cellier');
+      expect(tab.querySelector('.plan-tabs__dot')).toBeInTheDocument();
+      expect(tabs().getByRole('tab', { name: 'Plan principal' }).querySelector('.plan-tabs__dot')).not.toBeInTheDocument();
+      expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[^}]*\.plan-tabs__dot[^}]*animation: none/);
     });
 
     it('analyse faite : un cadre par proposition, étiquette « Casier A · 24 cases », phrase au-dessus du plan', async () => {

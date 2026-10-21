@@ -183,6 +183,49 @@ rows, cols }`, `box` en fractions de l'image) ; `POST
 /api/caves/current/zones/:id/cells` renvoie `[{ casier, quantity }]` (stock
 supérieur à 0 par case) ; chaque zone porte `grid: { rows, cols } | null`.
 
+**État détaillé et relance de l'analyse (2.17.0).** Dans *Ma cave › Plans*, un
+**bandeau d'analyse** (au-dessus de l'image du plan affiché) remplace les lignes
+grises *Analyse du plan en cours…* et « Les zones n’ont pas pu être
+proposées. Placez-les à la main. ». En cours : titre « Analyse du plan en
+cours », icône qui tourne (immobile sous *réduire les animations*), puis
+l'avancement : « Envoyée à l’IA il y a 20 s · résultat attendu d’ici une
+minute » (mise à jour chaque seconde, puis chaque minute ; au-delà de 3 min,
+« plus long que prévu, l’analyse continue »), « En attente : Gemini est en
+pause jusqu’à 15:40. Nouvel essai à 15:41. », « En attente : budget de l’IA
+atteint ce mois-ci. Nouvel essai le 1 nov. à 00:05. » ou « Nouvel essai à
+10:52 (tentative 2 sur 10). ». En échec : bandeau rouge « Les zones n’ont pas
+pu être proposées », la raison (l’IA n’a pas répondu, budget épuisé, photo
+introuvable à remplacer, photo illisible, autre erreur), le bouton **Relancer
+l’analyse** (sauf photo introuvable ; un refus, comme « Une analyse est déjà en
+cours », s'affiche dans le bandeau) et « Vous pouvez aussi placer les zones à
+la main. ». Si l'analyse se termine écran ouvert, un bandeau de succès annonce
+« 3 zones proposées : touchez-les sur le plan pour les accepter. » (ou « Aucune
+zone détectée sur cette photo. Placez-les à la main. ») jusqu'à la prochaine
+action. Un plan jamais analysé (d'avant la 2.16.0) propose le lien **Proposer
+des zones**, qui lance l'analyse. L'onglet d'un plan en cours d'analyse porte un
+point animé (« Cellier, analyse en cours » pour un lecteur d'écran) et, dans
+*Mon compte*, la carte *Ma cave* résume « Analyse du plan en cours ». Chaque plan de `GET
+/api/caves/current/plans` porte aussi `analysisInfo` : `null` pour `NONE` et
+`DONE` ; pour `PENDING`, `{ since, attempt, maxAttempts, nextAttemptAt,
+waiting, pauseUntil }`, lu sur la tâche BullMQ (`since` = date de la demande
+d'analyse : envoi, remplacement ou relance ;
+`attempt` = tentatives déjà faites + 1 ; `waiting` : `QUEUED` en file ou tâche
+introuvable, `RUNNING` en cours, et pour une tâche en attente de reprise la
+cause du dernier report, enregistrée sur la tâche par le worker :
+`GEMINI_PAUSE` avec la fin de la pause dans `pauseUntil`, `BUDGET` ou `RETRY`
+avec l'heure de reprise dans `nextAttemptAt`). Redis injoignable ou lent (plus
+d'une seconde) : valeur de repli `QUEUED`, première tentative, jamais d'erreur.
+Pour `FAILED` : `{ since, failedReason }`, raison enregistrée à l'échec
+(`GEMINI` refus ou pause de Gemini, `BUDGET` budget dépassé, `IMAGE` image
+absente, `ILLISIBLE` réponse inexploitable, `ERREUR` autre). `POST
+/api/caves/current/plans/:id/analysis` (propriétaire) relance l'analyse de la
+photo actuelle : 202 avec le plan (en attente, propositions effacées, nouvelle
+tâche), 409 « Une analyse est déjà en cours » si elle l'est, 404 « Plan
+introuvable » pour un plan d'une autre cave. L'image et sa date ne changent
+pas : c'est la date de la demande d'analyse (`analysis_requested_at`, posée à
+l'envoi, au remplacement et à la relance) qui identifie la tâche et garantit
+qu'une ancienne analyse n'écrase jamais une nouvelle.
+
 **Membres en lecture seule.** Dans *Ma cave* (propriétaire seulement), la
 section *Membres* liste les membres, invite une adresse Google (« Cette
 adresse est déjà membre » si elle l'est déjà), retire un membre (jamais le
@@ -908,6 +951,30 @@ Si les images sont construites localement, remplacer `docker compose pull` par
 `docker compose build`. Pour figer une version plutôt que suivre `latest`,
 fusionner la demande de version proposée par release-please puis renseigner
 `IMAGE_TAG=<version>` dans le `.env`.
+
+### Passage à la 2.17.0 (analyse du plan plus visible)
+
+Une migration, **additive** et appliquée toute seule au démarrage de l'api,
+sans rien modifier ni supprimer : `20261022000000_analyse_visible` ajoute sur
+chaque plan la raison d'un échec d'analyse `analysis_error` (nulle pour les
+plans existants) et la date de la demande d'analyse `analysis_requested_at`,
+recopiée de `updated_at` pour les plans existants : une analyse encore en file
+au moment de la mise à jour garde son identifiant et aboutit normalement.
+Aucune sauvegarde particulière n'est nécessaire.
+
+Par précaution, sauvegarder comme d'habitude avant la mise à jour :
+
+```bash
+cd /opt/stacks/ma-cave && docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' | gzip > backups/cave-avant-2.17.0.sql.gz
+```
+
+**Retour arrière vers une image 2.16.x** (sans restaurer la sauvegarde) : les
+colonnes ajoutées sont ignorées. Un plan **créé ou dont la photo a été
+remplacée** sous la 2.17.0 et encore en attente n'est pas analysé par la 2.16.x
+(sa tâche ne porte pas la date attendue, et la reprise au démarrage retombe sur
+le même identifiant) : il reste « en cours » ; remplacer sa photo relance
+l'analyse. Un plan **relancé** sous la 2.17.0 est, lui, remis en file par la
+reprise au démarrage de la 2.16.x et analysé normalement.
 
 ### Passage à la 2.16.0 (propositions de zones)
 
