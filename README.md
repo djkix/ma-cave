@@ -1438,6 +1438,15 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
 Le détail par version, avec le lien vers chaque commit, est dans
 [`CHANGELOG.md`](CHANGELOG.md) ; voici les versions publiées.
 
+### 2.17.0 — 21 octobre 2026
+
+Publiée ([v2.17.0](https://github.com/djkix/ma-cave/releases/tag/v2.17.0)),
+images `ghcr.io/djkix/ma-cave-api:2.17.0` et `-web:2.17.0`.
+
+**Analyse du plan visible** : bandeau avec l'état réel (en cours, pause,
+budget, nouvel essai), raison d'un échec et *Relancer l'analyse*. Migration
+automatique : lire « Passage à la 2.17.0 ».
+
 ### 2.16.0 — 21 octobre 2026
 
 Publiée ([v2.16.0](https://github.com/djkix/ma-cave/releases/tag/v2.16.0)),
