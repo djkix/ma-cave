@@ -563,22 +563,38 @@ describe('GeminiVisionProvider — journal des appels et pause commune', () => {
 
 describe('GeminiVisionProvider.analyzePlan', () => {
   const NOW = new Date('2026-10-21T12:00:00.000Z');
-  const blocks = [{ kind: 'CASIER', box_2d: [200, 100, 900, 400], rows: 6, cols: 4 }];
+  const units = [{ kind: 'CASIER', cells: [{ box_2d: [200, 100, 500, 400] }, { box_2d: [500, 100, 900, 400] }] }];
 
-  it('envoie l’image avec le schéma de sortie structurée et rend les blocs bruts avec le coût', async () => {
-    const model = fakeModel(JSON.stringify({ blocks }));
+  it('envoie l’image avec le schéma de sortie structurée (meubles, puis cases) et rend les unités brutes avec le coût', async () => {
+    const model = fakeModel(JSON.stringify({ units }));
     const res = await new GeminiVisionProvider(model as any, 'm').analyzePlan(Buffer.from('img'), 'image/jpeg');
-    expect(res).toEqual({ blocks, costCents: 1 });
+    expect(res).toEqual({ units, costCents: 1 });
     const call = model.generateContent.mock.calls[0][0];
     expect(call.contents[0].parts[1]).toEqual({ inlineData: { data: Buffer.from('img').toString('base64'), mimeType: 'image/jpeg' } });
     expect(call.generationConfig.responseMimeType).toBe('application/json');
-    const list = call.generationConfig.responseSchema.properties.blocks;
+    expect(call.generationConfig.responseSchema.required).toEqual(['units']);
+    const list = call.generationConfig.responseSchema.properties.units;
     expect(list.maxItems).toBe(12);
-    const item = list.items;
-    expect(Object.keys(item.properties).sort()).toEqual(['box_2d', 'cols', 'kind', 'rows']);
-    expect(item.properties.box_2d).toMatchObject({ minItems: 4, maxItems: 4, items: { type: 'integer' } });
-    expect(item.properties.kind.enum).toEqual(['CASIER', 'ETAGERE', 'AUTRE']);
-    expect(call.contents[0].parts[0].text).toMatch(/12/);
+    expect(Object.keys(list.items.properties).sort()).toEqual(['cells', 'kind']);
+    expect(list.items.properties.kind.enum).toEqual(['CASIER', 'ETAGERE', 'AUTRE']);
+    const cells = list.items.properties.cells;
+    expect(cells.maxItems).toBe(200);
+    expect(cells.items.required).toEqual(['box_2d']);
+    expect(cells.items.properties.box_2d).toMatchObject({ minItems: 4, maxItems: 4, items: { type: 'integer' } });
+    const prompt = call.contents[0].parts[0].text;
+    expect(prompt).toMatch(/12/);
+    expect(prompt).toMatch(/double montant/);
+    expect(prompt).toMatch(/70 %/);
+  });
+
+  it('modèle dédié aux plans : seul `analyzePlan` l’emploie', async () => {
+    const main = fakeModel(validJson);
+    const plan = fakeModel(JSON.stringify({ units: [] }));
+    const provider = new GeminiVisionProvider(main as any, 'm', undefined, plan as any);
+    await provider.analyzePlan(Buffer.from('x'), 'image/jpeg');
+    await provider.extractWineLabel(Buffer.from('x'), 'image/jpeg');
+    expect(plan.generateContent).toHaveBeenCalledTimes(1);
+    expect(main.generateContent).toHaveBeenCalledTimes(1);
   });
 
   it('JSON illisible : sortie du modèle invalide, avec son coût', async () => {
@@ -590,7 +606,7 @@ describe('GeminiVisionProvider.analyzePlan', () => {
   it('journalise l’appel sous l’usage ANALYSE_PLAN', async () => {
     const prisma = fakePrisma();
     const journal = new GeminiJournal(prisma, { warn: jest.fn(), error: jest.fn() }, () => NOW);
-    await new GeminiVisionProvider(fakeModel(JSON.stringify({ blocks: [] })) as any, 'm', journal).analyzePlan(Buffer.from('x'), 'image/jpeg');
+    await new GeminiVisionProvider(fakeModel(JSON.stringify({ units: [] })) as any, 'm', journal).analyzePlan(Buffer.from('x'), 'image/jpeg');
     expect(prisma.calls).toEqual([{ usage: 'ANALYSE_PLAN', outcome: 'OK', httpStatus: null, reason: null, costCents: 1, durationMs: expect.any(Number) }]);
   });
 

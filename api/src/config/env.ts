@@ -18,6 +18,8 @@ const schema = z.object({
   GOOGLE_CALLBACK_URL: z.string().url().default('http://localhost:3000/api/auth/google/callback'),
   GEMINI_API_KEY: z.string().default(''),
   GEMINI_MODEL: z.string().default('gemini-3.5-flash'),
+  // Modèle de l'analyse des plans seulement ; absent ou vide : GEMINI_MODEL (voir parseEnv).
+  GEMINI_PLAN_MODEL: emptyToUndefined(z.string().optional()),
   GEMINI_MONTHLY_CAP_CENTS: z.coerce.number().int().default(500),
   PHOTO_STORAGE_DIR: z.string().default('./data/photos'),
   BREAK_GLASS_EMAIL: emptyToUndefined(z.string().email().optional()),
@@ -29,10 +31,11 @@ const schema = z.object({
   ADMIN_EMAILS: z.string().default(''),
 });
 
-export type Env = z.infer<typeof schema>;
+export type Env = Omit<z.infer<typeof schema>, 'GEMINI_PLAN_MODEL'> & { GEMINI_PLAN_MODEL: string };
 
 export function parseEnv(source: NodeJS.ProcessEnv): Env {
-  return schema.parse(source);
+  const env = schema.parse(source);
+  return { ...env, GEMINI_PLAN_MODEL: env.GEMINI_PLAN_MODEL ?? env.GEMINI_MODEL };
 }
 
 let cached: Env | undefined;
