@@ -1517,6 +1517,15 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
 Le détail par version, avec le lien vers chaque commit, est dans
 [`CHANGELOG.md`](CHANGELOG.md) ; voici les versions publiées.
 
+### 2.19.0 — 21 octobre 2026
+
+Publiée ([v2.19.0](https://github.com/djkix/ma-cave/releases/tag/v2.19.0)),
+images `ghcr.io/djkix/ma-cave-api:2.19.0` et `-web:2.19.0`.
+
+**Modèle de l'IA** choisi dans Administration › Coûts de l'IA (Flash ou Lite,
+liste de Google) ; `GEMINI_PLAN_MODEL` retirée. Migration automatique : lire
+« Passage à la 2.19.0 ».
+
 ### 2.18.1 — 21 octobre 2026
 
 Publiée ([v2.18.1](https://github.com/djkix/ma-cave/releases/tag/v2.18.1)),

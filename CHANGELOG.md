@@ -11,6 +11,21 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.19.0](https://github.com/djkix/ma-cave/compare/v2.18.1...v2.19.0) (2026-10-21)
 
+### Résumé
+
+**Modèle de l'IA choisi dans l'Administration.** Dans Administration ›
+Coûts de l'IA, la carte *Modèle de l'IA* propose les modèles Gemini Flash et
+Lite disponibles chez Google avec la clé du serveur ; le choix vaut pour tous
+les usages (lecture des étiquettes, accords, descriptifs, recherche d'image,
+analyse des plans) et s'applique dans les 30 s, sans redémarrage.
+`GEMINI_MODEL` du `.env` n'est plus que la valeur de départ ;
+`GEMINI_PLAN_MODEL` est retirée (ignorée si elle reste dans le `.env`). Le
+détail de la consommation Gemini montre le modèle de chaque appel. Migration
+automatique, ajout seulement : lire « Passage à la 2.19.0 » dans le README.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
