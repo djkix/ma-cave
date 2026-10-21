@@ -47,7 +47,7 @@ export function SortieConfirmation({ wine, photoId, onDone, places: givenPlaces,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const idempotencyKey = useMemo(() => crypto.randomUUID(), [wine.id]);
 
-  const refresh = () => qc.invalidateQueries({ predicate: (q) => ['cave', 'wine', 'movements'].includes(String(q.queryKey[0])) });
+  const refresh = () => qc.invalidateQueries({ predicate: (q) => ['cave', 'wine', 'movements', 'zone-cells'].includes(String(q.queryKey[0])) });
 
   // Le stock peut se réduire sous la quantité choisie après un rafraîchissement
   // (un autre mouvement concurrent, par exemple) : on ne retient jamais plus

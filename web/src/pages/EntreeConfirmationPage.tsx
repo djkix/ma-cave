@@ -130,8 +130,9 @@ export function EntreeConfirmationPage() {
         location: toLocationInput(effectiveLocation),
       });
       setResult(r);
-      // Emplacement créé à la volée et nouveau « dernier utilisé » : l'entrée suivante doit le voir.
+      // Emplacement créé à la volée et nouveau « dernier utilisé », bouteilles dans une case : l'entrée suivante doit le voir.
       void qc.invalidateQueries({ queryKey: ['locations'] });
+      void qc.invalidateQueries({ queryKey: ['zone-cells'] });
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Écriture impossible');
     } finally {

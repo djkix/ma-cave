@@ -123,7 +123,7 @@ function MoveForm({ wineId, places, onClose }: { wineId: string; places: Place[]
     try {
       // Destination entièrement vide : l'api répond par son message (« Indiquez au moins… »).
       await moveWine(wineId, { idempotencyKey, from, to: toLocationInput(to) ?? EMPTY_LOCATION, quantity: n });
-      void qc.invalidateQueries({ predicate: (q) => ['cave', 'wine', 'movements', 'locations'].includes(String(q.queryKey[0])) });
+      void qc.invalidateQueries({ predicate: (q) => ['cave', 'wine', 'movements', 'locations', 'zone-cells'].includes(String(q.queryKey[0])) });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Déplacement impossible');

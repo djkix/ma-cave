@@ -1,6 +1,8 @@
-import { useId, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Fragment, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { type Location, type LocationInput, type Place, type Zone, zonePhotoUrl } from '../lib/api-client';
+import { getZoneCells, type Location, type LocationInput, type Place, type Zone, zonePhotoUrl } from '../lib/api-client';
+import { cellNames } from '../lib/grid';
 import { distinctParts, inputLabel, NO_ZONE, zoneNameOf } from '../lib/locations';
 
 const TEXT_FIELDS: Array<{ key: 'casier' | 'position'; label: string }> = [{ key: 'casier', label: 'Casier' }, { key: 'position', label: 'Position' }];
@@ -30,6 +32,9 @@ export function ZoneDetails({ zone, version }: { zone: Zone | undefined; version
  * vignette. `zones` indéfini (liste en cours de lecture ou illisible) : le choix
  * est grisé et montre la zone pré-remplie. Liste lue et vide : un lien mène à
  * « Ma cave › Réglages » pour en créer une (formulaires réservés au propriétaire).
+ * Zone avec une grille : sous « Casier », un bouton par case (nombre de
+ * bouteilles s'il y en a) qui remplit le champ, et les cases en suggestion.
+ * La saisie libre reste possible ; la comparaison ignore la casse.
  */
 export function LocationFields({ value, onChange, locations, zones }: {
   value: LocationInput; onChange: (v: LocationInput) => void; locations: Location[]; zones: Zone[] | undefined;
@@ -37,6 +42,15 @@ export function LocationFields({ value, onChange, locations, zones }: {
   const id = useId();
   const suggestions = distinctParts(locations);
   const selected = zones?.find((z) => z.id === value.zoneId);
+  const grid = selected?.grid ?? null;
+  const cells = useQuery({ queryKey: ['zone-cells', selected?.id], queryFn: () => getZoneCells(selected!.id), enabled: !!grid });
+  const names = grid ? cellNames(grid.rows, grid.cols) : [];
+  const counts = new Map((grid ? cells.data ?? [] : []).map((c) => [c.casier, c.quantity]));
+  const chosen = value.casier?.trim().toUpperCase();
+  const lists = {
+    casier: [...names, ...suggestions.casier.filter((v) => !names.includes(v.toUpperCase()))],
+    position: suggestions.position,
+  };
   return (
     <div className="location-fields">
       <label className="field__label">
@@ -59,7 +73,8 @@ export function LocationFields({ value, onChange, locations, zones }: {
         </p>
       )}
       {TEXT_FIELDS.map(({ key, label }) => (
-        <label key={key} className="field__label">
+        <Fragment key={key}>
+        <label className="field__label">
           {label}
           <input
             value={value[key] ?? ''}
@@ -69,9 +84,25 @@ export function LocationFields({ value, onChange, locations, zones }: {
             onChange={(e) => onChange({ ...value, [key]: e.target.value })}
           />
           <datalist id={`${id}-${key}`}>
-            {suggestions[key].map((v) => <option key={v} value={v} />)}
+            {lists[key].map((v) => <option key={v} value={v} />)}
           </datalist>
         </label>
+          {key === 'casier' && grid && (
+            <div role="group" aria-label={`Cases de ${selected!.name}`} className="cell-grid"
+              style={{ gridTemplateColumns: `repeat(${grid.cols}, minmax(48px, 1fr))` }}>
+              {names.map((n) => {
+                const q = counts.get(n);
+                return (
+                  <button key={n} type="button" className="cell-grid__cell" aria-pressed={chosen === n}
+                    aria-label={q ? `Case ${n}, ${q} bouteille${q > 1 ? 's' : ''}` : `Case ${n}`}
+                    onClick={() => onChange({ ...value, casier: n })}>
+                    {q ? `${n} · ${q}` : n}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </Fragment>
       ))}
     </div>
   );
