@@ -919,9 +919,8 @@ existants, et les propositions `suggestions`, vides ; sur chaque zone, la grille
 `20261021010000_usage_analyse_plan` (le journal des appels Gemini accepte
 l'usage `ANALYSE_PLAN`). Aucune sauvegarde particulière n'est nécessaire.
 Les plans existants ne sont pas analysés : seule une photo envoyée ou
-remplacée déclenche l'analyse. Retour arrière : une image 2.15.x ignore les
-nouvelles colonnes, mais refuse l'usage `ANALYSE_PLAN` déjà écrit au journal
-de ses statistiques ; restaurer la sauvegarde si besoin.
+remplacée déclenche l'analyse. Les colonnes ajoutées sont ignorées d'une image 2.15.x, mais celle-ci ne
+connaît pas l'usage `ANALYSE_PLAN` du journal des appels.
 
 ### Passage à la 2.14.0 (plusieurs plans)
 
