@@ -15,6 +15,8 @@ import { EntryBatchProcessor } from './queue/entry-batch.processor';
 import { ExtractionProcessor } from './queue/extraction.processor';
 import { EXTRACTION_QUEUE, ExtractionJobData, extractionBackoffDelay, redisConnection } from './queue/extraction.queue';
 import { requeueOrphanPhotos } from './queue/orphan-recovery';
+import { PLAN_ANALYSIS_QUEUE, PlanAnalysisJobData } from './queue/plan-analysis';
+import { PlanAnalysisProcessor } from './queue/plan-analysis.processor';
 
 async function main() {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['log', 'warn', 'error'] });
@@ -34,6 +36,17 @@ async function main() {
   worker.on('failed', (job, err) => console.warn(`job ${job?.id} failed: ${err.message}`));
   worker.on('error', (err) => console.error(`worker : ${err.message}`));
   console.log('worker prêt (photo-extraction, concurrence 5)');
+
+  // Analyse des photos de plan (propositions de zones) : mêmes reprises patientes que les photos.
+  const planAnalysis = app.get(PlanAnalysisProcessor);
+  const planWorker = new Worker<PlanAnalysisJobData>(
+    PLAN_ANALYSIS_QUEUE,
+    (job) => planAnalysis.process(job.data, job.attemptsMade + 1 >= (job.opts.attempts ?? 1)),
+    { connection: redisConnection(), concurrency: 2, settings: { backoffStrategy: (attemptsMade: number) => extractionBackoffDelay(attemptsMade) } },
+  );
+  planWorker.on('failed', (job, err) => console.warn(`analyse de plan ${job?.id} : ${err.message}`));
+  planWorker.on('error', (err) => console.error(`file d'analyse des plans : ${err.message}`));
+  console.log('worker prêt (plan-analysis, concurrence 2)');
 
   // Ancienne file des accords et descriptifs, un élément par travail : plus
   // alimentée, mais vidée. Un travail resté dans Redis à la mise à jour ne fait
@@ -98,6 +111,7 @@ async function main() {
     stopping = true;
     await Promise.all([entryBatchLoop.stop(), pairingLoop.stop(), producerLoop.stop()]);
     await legacyPairingWorker.close();
+    await planWorker.close();
     await worker.close();
     await app.close();
     process.exit(0);

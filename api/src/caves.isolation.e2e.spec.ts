@@ -226,16 +226,12 @@ const ROUTES: Route[] = [
     method: 'POST', path: '/api/caves/current/plans', kind: 'cave-owner', req: () => ({ url: '/api/caves/current/plans', upload: true, fields: { name: 'Plan iso' } }), foreign: 'own',
     happy: {
       status: 201,
-      check: (res) => expect(res.body).toEqual({ id: expect.any(String), name: 'Plan iso', width: 120, height: 160, updatedAt: expect.any(String), analysis: 'NONE', suggestions: [] }),
+      check: (res) => expect(res.body).toEqual({ id: expect.any(String), name: 'Plan iso', width: 120, height: 160, updatedAt: expect.any(String), analysis: 'PENDING', suggestions: [] }),
     },
   },
   {
     method: 'PATCH', path: '/api/caves/current/plans/:id', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/plans/${i.planA}`, body: { name: 'Renommé' } }),
     foreign: NOT_FOUND_PLAN, happy: { status: 200, check: (res) => expect(res.body.name).toBe('Renommé') },
-  },
-  {
-    method: 'PUT', path: '/api/caves/current/plans/:id/image', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/plans/${i.planA}/image`, upload: true }),
-    foreign: NOT_FOUND_PLAN, happy: { status: 200, check: (res) => expect(res.body).toMatchObject({ width: 120, height: 160 }) },
   },
   // Propositions de zones du plan de A : l'une acceptée, l'autre rejetée.
   {
@@ -247,6 +243,11 @@ const ROUTES: Route[] = [
   {
     method: 'DELETE', path: '/api/caves/current/plans/:id/suggestions/:sid', kind: 'cave-owner',
     req: (i) => ({ url: `/api/caves/current/plans/${i.planA}/suggestions/${SUGGESTIONS_A[1].id}` }), foreign: NOT_FOUND_PLAN, happy: { status: 204 },
+  },
+  // Après les propositions : une nouvelle image les efface et relance l'analyse.
+  {
+    method: 'PUT', path: '/api/caves/current/plans/:id/image', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/plans/${i.planA}/image`, upload: true }),
+    foreign: NOT_FOUND_PLAN, happy: { status: 200, check: (res) => expect(res.body).toMatchObject({ width: 120, height: 160, analysis: 'PENDING', suggestions: [] }) },
   },
   // Cases occupées d'une zone : lues par le membre (pas de prix).
   {

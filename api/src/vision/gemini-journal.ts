@@ -5,8 +5,8 @@ import { GEMINI_PAUSE_REASON_KEY, GEMINI_PAUSE_UNTIL_KEY, GeminiPause, GeminiPau
 export * from './gemini-pause';
 
 /** Ce qui a demandé l'appel : une ligne de `gemini_call` par requête réellement envoyée à Google. */
-export type GeminiUsage = 'LECTURE_ENTREE' | 'LECTURE_SORTIE' | 'ACCORDS' | 'DESCRIPTIF' | 'RECHERCHE_IMAGE';
-export const GEMINI_USAGES: readonly GeminiUsage[] = ['LECTURE_ENTREE', 'LECTURE_SORTIE', 'ACCORDS', 'DESCRIPTIF', 'RECHERCHE_IMAGE'];
+export type GeminiUsage = 'LECTURE_ENTREE' | 'LECTURE_SORTIE' | 'ACCORDS' | 'DESCRIPTIF' | 'RECHERCHE_IMAGE' | 'ANALYSE_PLAN';
+export const GEMINI_USAGES: readonly GeminiUsage[] = ['LECTURE_ENTREE', 'LECTURE_SORTIE', 'ACCORDS', 'DESCRIPTIF', 'RECHERCHE_IMAGE', 'ANALYSE_PLAN'];
 
 /** OK ; REFUSE = Google a répondu 429 ou 503 (compté par Google, non facturé) ; ERREUR = toute autre panne. */
 export type GeminiOutcome = 'OK' | 'REFUSE' | 'ERREUR';

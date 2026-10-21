@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import supertest from 'supertest';
+import { PLAN_ANALYSIS_QUEUE_TOKEN } from '../queue/plan-analysis';
 import { createTestCave, deleteTestCaves } from '../test-utils/cave';
 import { CavePlansController } from './plan.controller';
 
@@ -62,6 +63,7 @@ describeIfInfra('plans de la cave (HTTP)', () => {
   };
   const mark = (id: string, body: unknown, agent: supertest.Agent = ownerA) => agent.put(`/api/caves/current/zones/${id}/marker`).send(body as object);
   const planFile = (id: string) => join(storage, 'plans', `${id}.jpg`);
+  const analysisQueue = { add: jest.fn<Promise<object>, unknown[]>(async () => ({})), close: jest.fn(async () => undefined), opts: {} };
 
   beforeAll(async () => {
     process.env.SESSION_SECRET ??= 'e2e-secret-e2e-secret-e2e-secret-e2e-secret';
@@ -75,7 +77,11 @@ describeIfInfra('plans de la cave (HTTP)', () => {
     const { setupSession } = await import('../auth/session.setup');
     const { PrismaService } = await import('../prisma/prisma.service');
 
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    // File d'analyse remplacée : chaque mise en file est notée, aucune tâche ne part dans Redis.
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(PLAN_ANALYSIS_QUEUE_TOKEN)
+      .useValue(analysisQueue)
+      .compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
     sessionRedis = setupSession(app);
@@ -148,8 +154,11 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       expectStatus(await create('Cellier', big, viewerA), 403, 'Lecture seule');
       const res = await create('  Cellier  ', big);
       expect(res.status).toBe(201);
-      expect(res.body).toEqual({ id: expect.any(String), name: 'Cellier', width: 2400, height: 1200, updatedAt: expect.any(String), analysis: 'NONE', suggestions: [] });
+      expect(res.body).toEqual({ id: expect.any(String), name: 'Cellier', width: 2400, height: 1200, updatedAt: expect.any(String), analysis: 'PENDING', suggestions: [] });
       p1 = res.body;
+      // Une tâche d'analyse en file, avec la date de l'image analysée.
+      expect(analysisQueue.add).toHaveBeenCalledTimes(1);
+      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p1.id, updatedAt: p1.updatedAt });
       expect(await sharp(planFile(p1.id)).metadata()).toMatchObject({ format: 'jpeg', width: 2400, height: 1200 });
       expect(await read(viewerA)).toEqual({ plans: [p1], markers: [] });
       // Aucun fichier temporaire ne reste à côté du plan.
@@ -173,6 +182,15 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       expectStatus(await create('Garage', Buffer.alloc(15 * 1024 * 1024 + 1), ownerA, 'image/jpeg'), 413, 'Photo trop lourde (15 Mo au plus)');
       expect((await read()).plans).toEqual([p1]);
       expect(readdirSync(join(storage, 'plans'))).toEqual([`${p1.id}.jpg`]);
+    });
+
+    it('mise en file impossible : le plan est créé quand même, analyse FAILED', async () => {
+      analysisQueue.add.mockRejectedValueOnce(new Error('Redis injoignable'));
+      const res = await create('Cave à part', await png(100, 100));
+      expect(res.status).toBe(201);
+      expect(res.body.analysis).toBe('FAILED');
+      expect((await read()).plans.find((p) => p.id === res.body.id)?.analysis).toBe('FAILED');
+      expect((await ownerA.delete(`/api/caves/current/plans/${res.body.id}`)).status).toBe(204);
     });
 
     it('un second plan suit le premier (ordre de création) ; B a ses propres plans', async () => {
@@ -261,12 +279,19 @@ describeIfInfra('plans de la cave (HTTP)', () => {
   });
 
   describe('remplacer l’image', () => {
-    it('nouvelle taille et nouvelle date, même fichier ; repères inchangés', async () => {
+    it('nouvelle taille et nouvelle date, même fichier ; repères inchangés ; anciennes propositions effacées, nouvelle analyse en file', async () => {
+      await prisma.cavePlan.update({
+        where: { id: p1.id },
+        data: { analysisStatus: 'DONE', suggestions: [{ id: randomUUID(), kind: 'CASIER', name: 'Casier A', box: [0, 0, 1, 1], rows: 1, cols: 1 }] },
+      });
       const before = await read();
       await new Promise((r) => setTimeout(r, 5));
+      analysisQueue.add.mockClear();
       const res = await replace(p1.id, await png(500, 1000));
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ id: p1.id, name: 'Cellier', width: 500, height: 1000, updatedAt: expect.any(String), analysis: 'NONE', suggestions: [] });
+      expect(res.body).toEqual({ id: p1.id, name: 'Cellier', width: 500, height: 1000, updatedAt: expect.any(String), analysis: 'PENDING', suggestions: [] });
+      expect(analysisQueue.add).toHaveBeenCalledTimes(1);
+      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p1.id, updatedAt: res.body.updatedAt });
       expect(new Date(res.body.updatedAt).getTime()).toBeGreaterThan(new Date(p1.updatedAt).getTime());
       expect(await sharp(planFile(p1.id)).metadata()).toMatchObject({ width: 500, height: 1000 });
       expect((await read()).markers).toEqual(before.markers);
@@ -330,7 +355,7 @@ describeIfInfra('plans de la cave (HTTP)', () => {
     it('GET plans expose l’état de l’analyse et les propositions, au membre aussi', async () => {
       await prisma.cavePlan.update({ where: { id: p2.id }, data: { analysisStatus: 'DONE', suggestions: [s1, s2, s3] as object[] } });
       expect(await plan2(viewerA)).toMatchObject({ analysis: 'DONE', suggestions: [s1, s2, s3] });
-      expect((await read()).plans.find((p) => p.id === p1.id)).toMatchObject({ analysis: 'NONE', suggestions: [] });
+      expect((await read()).plans.find((p) => p.id === p1.id)).toMatchObject({ analysis: 'PENDING', suggestions: [] });
     });
 
     it('le membre n’accepte ni ne rejette : 403, rien ne change', async () => {

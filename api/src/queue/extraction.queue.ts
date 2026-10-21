@@ -75,7 +75,7 @@ export function createExtractionQueue(): Queue<ExtractionJobData> {
  * ferme la copie — il doit donc quitter son instance d'origine lui-même
  * (voir PhotoEventsController).
  */
-export async function closeQueue(queue: Queue<ExtractionJobData>): Promise<void> {
+export async function closeQueue(queue: Pick<Queue, 'opts' | 'close'>): Promise<void> {
   const { connection } = queue.opts;
   await queue.close();
   if (connection instanceof Redis) await connection.quit();
