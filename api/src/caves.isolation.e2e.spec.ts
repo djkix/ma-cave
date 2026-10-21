@@ -251,7 +251,7 @@ const ROUTES: Route[] = [
   // Cases occupées d'une zone : lues par le membre (pas de prix).
   {
     method: 'GET', path: '/api/caves/current/zones/:id/cells', kind: 'cave-viewer-read', req: (i) => ({ url: `/api/caves/current/zones/${i.zoneA}/cells` }),
-    foreign: NOT_FOUND_ZONE, readable: (res) => expect(res.body).toEqual([]),
+    foreign: NOT_FOUND_ZONE, readable: (res) => expect(res.body).toEqual([{ casier: 'ISO', quantity: 2 }]),
   },
   { method: 'DELETE', path: '/api/caves/current/plans/:id', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/plans/${i.planA}` }), foreign: NOT_FOUND_PLAN, happy: { status: 204 } },
 
@@ -396,6 +396,8 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
     ids.zoneA = (await prisma.caveZone.create({ data: { caveId: ids.caveA, name: 'Cave A' } })).id;
     ids.zoneDeleteA = (await prisma.caveZone.create({ data: { caveId: ids.caveA, name: 'Iso à supprimer', sortOrder: 1 } })).id;
     ids.locationA = (await prisma.location.create({ data: { caveId: ids.caveA, zoneId: ids.zoneA, casier: 'Iso' } })).id;
+    // Deux bouteilles rangées dans la zone de A, casier « Iso » : ses cases occupées.
+    await prisma.movement.create({ data: { wineId: ids.wineA2, delta: 2, type: 'IN', locationId: ids.locationA, idempotencyKey: `iso-${run}-in-a2-zone` } });
     // Plan de A et photo de sa zone, sur disque (écrits plus bas avec les photos) ; la zone porte son repère sur ce plan.
     const planA = await prisma.cavePlan.create({ data: { caveId: ids.caveA, name: 'Plan A', path: `plans/${ids.caveA}.jpg`, width: 120, height: 160, updatedAt: new Date(), analysisStatus: 'DONE', suggestions: SUGGESTIONS_A } });
     await prisma.caveZone.update({ where: { id: ids.zoneA }, data: { photoPath: `zones/${ids.zoneA}.jpg`, planId: planA.id, planX: 0.5, planY: 0.5 } });

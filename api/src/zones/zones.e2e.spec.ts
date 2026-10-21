@@ -191,10 +191,10 @@ describeIfInfra('zones de la cave (HTTP)', () => {
   });
 
   describe('cases occupées', () => {
-    it('stock > 0 par casier (non vide) de la zone, lu par le membre ; autre cave ou inconnue : 404 « Zone introuvable »', async () => {
+    it('stock > 0 par casier (non vide, casse ignorée, en majuscules) de la zone, lu par le membre ; autre cave ou inconnue : 404 « Zone introuvable »', async () => {
       const z = await newZone(`Cases ${run}`);
       const other = await newZone(`Cases autre ${run}`);
-      expect((await entry({ zoneId: z.id, casier: 'B3' }, 1)).status).toBe(201);
+      expect((await entry({ zoneId: z.id, casier: 'b3' }, 1)).status).toBe(201);
       expect((await entry({ zoneId: z.id, casier: 'B3', position: 'fond' }, 1)).status).toBe(201);
       expect((await entry({ zoneId: z.id, position: 'haut' }, 4)).status).toBe(201);
       expect((await entry({ zoneId: other.id, casier: 'A1' }, 3)).status).toBe(201);

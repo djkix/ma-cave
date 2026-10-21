@@ -41,8 +41,9 @@ const letter = (n: number): string => (n >= 26 ? letter(Math.floor(n / 26) - 1) 
  * casse ignorée.
  */
 export function nameBlocks(blocks: RawBlock[], takenNames: string[]): PlanSuggestion[] {
-  const taken = new Set(takenNames.map((n) => n.trim().toLowerCase()));
-  const used = (l: string) => Object.values(LABELS).some((label) => taken.has(`${label} ${l}`.toLowerCase()));
+  const key = (n: string) => n.normalize('NFC').trim().toLowerCase();
+  const taken = new Set(takenNames.map(key));
+  const used = (l: string) => Object.values(LABELS).some((label) => taken.has(key(`${label} ${l}`)));
   let n = 0;
   return [...blocks]
     .sort((a, b) => a.box[0] - b.box[0] || a.box[1] - b.box[1])

@@ -118,18 +118,18 @@ export class ZonesService {
 
   /**
    * Cases occupées : stock > 0 par valeur de casier (non vide) dans la zone,
-   * toutes positions confondues. Les bouteilles d'une case disparue d'une grille
+   * toutes positions confondues, en majuscules (« b3 » et « B3 » : une seule case « B3 »). Les bouteilles d'une case disparue d'une grille
    * réduite restent lues ici.
    */
   async cells(caveId: string, id: string): Promise<Array<{ casier: string; quantity: number }>> {
     await this.findOwn(caveId, id);
     return this.prisma.$queryRaw<Array<{ casier: string; quantity: number }>>`
-      SELECT l.casier, SUM(m.delta)::INTEGER AS quantity
+      SELECT upper(l.casier) AS casier, SUM(m.delta)::INTEGER AS quantity
       FROM movement m JOIN location l ON l.id = m.location_id
       WHERE l.zone_id = ${id} AND l.cave_id = ${caveId} AND l.casier IS NOT NULL AND l.casier <> ''
-      GROUP BY l.casier
+      GROUP BY upper(l.casier)
       HAVING SUM(m.delta) > 0
-      ORDER BY l.casier`;
+      ORDER BY upper(l.casier)`;
   }
 
   /**
