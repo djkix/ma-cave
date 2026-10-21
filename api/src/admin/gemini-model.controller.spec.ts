@@ -34,7 +34,7 @@ describe('AdminGeminiModelController', () => {
     expect(models.set).toHaveBeenCalledWith('gemini-3.5-flash-lite');
   });
 
-  it.each([{ model: 'gemini-3.5-pro' }, { model: 'gemini-3.5-flash-pro' }, { model: 'gemini-embedding' }, { model: '' }, { model: 3 }, {}, null])(
+  it.each([{ model: 'gemini-3.5-pro' }, { model: 'gemini-3.5-flash-pro' }, { model: 'gemini-embedding' }, { model: 'gemini-3.5-flash lite' }, { model: 'gemini-3.5-flash/x' }, { model: '' }, { model: 3 }, {}, null])(
     'PUT %j : 400, seuls Flash ou Lite',
     async (body) => {
       const { controller, models } = setup({ models: ['gemini-3.5-pro'], error: null });

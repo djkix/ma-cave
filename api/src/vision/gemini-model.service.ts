@@ -7,6 +7,8 @@ export const GEMINI_MODEL_KEY = 'gemini_model';
 /** L'api et le worker relisent le réglage au plus tard 30 s après un changement fait par l'autre processus. */
 const CURRENT_TTL_MS = 30_000;
 const LIST_TTL_MS = 3_600_000;
+/** Google en panne : l'échec est gardé une minute, pour ne pas attendre son délai à chaque page de l'Administration. */
+const LIST_FAILURE_TTL_MS = 60_000;
 const LIST_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export interface GeminiModelChoice {
@@ -33,6 +35,7 @@ interface GoogleModelsPage {
 export class GeminiModelService {
   private cached: { value: GeminiModelChoice; at: number } | null = null;
   private list: { models: string[]; at: number } | null = null;
+  private listFailure: { error: string; at: number } | null = null;
   private readonly fetch: typeof fetch;
   private readonly clock: () => number;
   private readonly log: { error(message: string): void };
@@ -55,6 +58,7 @@ export class GeminiModelService {
     try {
       const [row] = await this.prisma.appSetting.findMany({ where: { key: { in: [GEMINI_MODEL_KEY] } } });
       // Une valeur Pro glissée à la main en base n'est jamais employée.
+      if (row && !isLightModel(row.value)) this.log.error(`Modèle Gemini « ${row.value} » en base ignoré (Flash ou Lite seulement) : ${this.envModel} (.env) employé`);
       value = row && isLightModel(row.value) ? { model: row.value, source: 'ADMIN' } : { model: this.envModel, source: 'ENV' };
     } catch (e) {
       this.log.error(`Modèle Gemini illisible, ${this.cached ? 'dernier modèle connu' : 'modèle du .env'} employé : ${messageOf(e)}`);
@@ -76,13 +80,17 @@ export class GeminiModelService {
   async available(): Promise<{ models: string[]; error: string | null }> {
     const now = this.clock();
     if (this.list && now - this.list.at < LIST_TTL_MS) return { models: this.list.models, error: null };
-    try {
-      const models = await this.fetchModels();
-      this.list = { models, at: now };
-      return { models, error: null };
-    } catch (e) {
-      return { models: [(await this.current()).model], error: `Liste des modèles indisponible : ${messageOf(e)}` };
+    if (!this.listFailure || now - this.listFailure.at >= LIST_FAILURE_TTL_MS) {
+      try {
+        const models = await this.fetchModels();
+        this.list = { models, at: now };
+        this.listFailure = null;
+        return { models, error: null };
+      } catch (e) {
+        this.listFailure = { error: `Liste des modèles indisponible : ${messageOf(e)}`, at: now };
+      }
     }
+    return { models: [(await this.current()).model], error: this.listFailure.error };
   }
 
   private async fetchModels(): Promise<string[]> {

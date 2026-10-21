@@ -43,7 +43,9 @@ describe('GeminiModelService.current', () => {
   it('réglage Pro glissé en base à la main : ignoré, le .env sert', async () => {
     const { prisma, service } = setup();
     prisma.settings.set(GEMINI_MODEL_KEY, 'gemini-3.5-pro');
+    quiet.error.mockClear();
     await expect(service.current()).resolves.toEqual({ model: 'gemini-3.5-flash', source: 'ENV' });
+    expect(quiet.error).toHaveBeenCalledWith(expect.stringContaining('gemini-3.5-pro'));
   });
 
   it('cache de 30 s : la base n’est relue qu’après', async () => {
@@ -89,6 +91,7 @@ describe('GeminiModelService.available', () => {
           { name: 'models/gemini-3.5-flash-pro' },
           { name: 'models/text-embedding-004', methods: ['embedContent'] },
           { name: 'models/gemini-embedding-lite', methods: ['embedContent'] },
+          { name: 'models/gemini flash<lite>' },
         ],
         next: 'p2',
       },
@@ -114,11 +117,16 @@ describe('GeminiModelService.available', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('Google en échec : le modèle en vigueur seul, avec l’erreur ; réessayé à la demande suivante', async () => {
+  it('Google en échec : le modèle en vigueur seul, avec l’erreur ; échec gardé 60 s puis réessayé', async () => {
     const fetch = jest.fn(async () => ({ ok: false, status: 503, json: async () => ({}) }));
-    const { prisma, service } = setup({ fetch });
+    const { prisma, service, advance } = setup({ fetch });
     prisma.settings.set(GEMINI_MODEL_KEY, 'gemini-3.5-flash-lite');
-    await expect(service.available()).resolves.toEqual({ models: ['gemini-3.5-flash-lite'], error: 'Liste des modèles indisponible : Google a répondu 503' });
+    const failed = { models: ['gemini-3.5-flash-lite'], error: 'Liste des modèles indisponible : Google a répondu 503' };
+    await expect(service.available()).resolves.toEqual(failed);
+    advance(59_999);
+    await expect(service.available()).resolves.toEqual(failed);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    advance(1);
     await service.available();
     expect(fetch).toHaveBeenCalledTimes(2);
   });

@@ -3,11 +3,10 @@ import { AppUser } from '@prisma/client';
 import { AdminGuard } from '../auth/admin.guard';
 import { AuthenticatedGuard } from '../auth/authenticated.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { isLightModel } from '../config/env';
 import { VisionBudgetService } from '../queue/vision-budget.service';
 import { GeminiModelService } from '../vision/gemini-model.service';
 import { AdminService } from './admin.service';
-import { geminiUsageDaysSchema, updateAdminUserSchema, updateBudgetSchema } from './dto';
+import { geminiUsageDaysSchema, updateAdminUserSchema, updateBudgetSchema, updateGeminiModelSchema } from './dto';
 import { GeminiUsageService } from './gemini-usage.service';
 
 @Controller('admin/users')
@@ -112,8 +111,9 @@ export class AdminGeminiModelController {
 
   @Put()
   async update(@Body() body: unknown) {
-    const model = (body as { model?: unknown } | null)?.model;
-    if (typeof model !== 'string' || !isLightModel(model)) throw new BadRequestException('Seuls les modèles Gemini Flash ou Lite sont acceptés');
+    const parsed = updateGeminiModelSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues[0].message);
+    const { model } = parsed.data;
     const { models, error } = await this.models.available();
     // Liste indisponible : le nom (Flash ou Lite) est accepté tel quel.
     if (error === null && !models.includes(model)) throw new BadRequestException('Modèle inconnu de Google');
