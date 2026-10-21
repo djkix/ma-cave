@@ -14,7 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { Worker } from 'bullmq';
 import { EXTRACTION_ATTEMPTS } from './extraction.queue';
 import { clearPlanAnalysisDeferral, planAnalysisJobId, planAnalysisJobState, requeuePendingPlans } from './plan-analysis';
-import { failedReasonOf, fromGeminiBlocks, PlanAnalysisProcessor } from './plan-analysis.processor';
+import { failedReasonOf, PlanAnalysisProcessor } from './plan-analysis.processor';
 
 const describeIfDb = process.env.DATABASE_URL ? describe : describe.skip;
 
@@ -26,7 +26,7 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
   const prisma = new PrismaClient();
   const dir = mkdtempSync(join(tmpdir(), 'cave-plan-analysis-'));
   let caveId: string;
-  const vision = { analyzePlan: jest.fn<Promise<{ blocks: unknown; costCents: number }>, [Buffer, string]>() };
+  const vision = { analyzePlan: jest.fn<Promise<{ units: unknown; costCents: number }>, [Buffer, string]>() };
   const budget = { assertUnderCap: jest.fn(async () => undefined), assertCaveUnderShare: jest.fn<Promise<void>, [string]>(async () => undefined) };
   const plans = new PlanService(prisma as never, null as never, null as never, dir, null as never);
   const processor = new PlanAnalysisProcessor(prisma as never, plans, vision, budget as never, dir);
@@ -63,8 +63,18 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
   const newRequest = (job: { planId: string; requestedAt: string }, data: object = {}) =>
     prisma.cavePlan.update({ where: { id: job.planId }, data: { analysisRequestedAt: new Date(Date.parse(job.requestedAt) + 1000), ...data } });
   const planOf = (id: string) => prisma.cavePlan.findUniqueOrThrow({ where: { id } });
-  /** Bloc tel que Gemini le rend : `box_2d` = [ymin, xmin, ymax, xmax] en millièmes. */
-  const block = (kind: string, box2d: number[], rows = 2, cols = 3) => ({ kind, box_2d: box2d, rows, cols });
+  /**
+   * Meuble tel que Gemini le rend : `rows` × `cols` cases remplissant le cadre
+   * `box2d` = [ymin, xmin, ymax, xmax] en millièmes (un cadre inversé donne des cases inversées).
+   */
+  const unit = (kind: string, [ymin, xmin, ymax, xmax]: number[], rows = 2, cols = 3) => ({
+    kind,
+    cells: Array.from({ length: rows * cols }, (_, i) => {
+      const r = Math.floor(i / cols), c = i % cols;
+      const y = (k: number) => Math.round(ymin + ((ymax - ymin) * k) / rows), x = (k: number) => Math.round(xmin + ((xmax - xmin) * k) / cols);
+      return { box_2d: [y(r), x(c), y(r + 1), x(c + 1)] };
+    }),
+  });
 
   it('succès : DONE, propositions triées et nommées en sautant les lettres des zones actives ; coût imputé à la cave', async () => {
     await prisma.caveZone.createMany({
@@ -74,7 +84,7 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
       ],
     });
     const job = await pendingPlan();
-    vision.analyzePlan.mockResolvedValueOnce({ blocks: [block('ETAGERE', [0, 500, 400, 900]), block('CASIER', [200, 100, 900, 400], 6, 4)], costCents: 3 });
+    vision.analyzePlan.mockResolvedValueOnce({ units: [unit('ETAGERE', [0, 500, 400, 900]), unit('CASIER', [200, 100, 900, 400], 6, 4)], costCents: 3 });
     await processor.process(job);
     expect(vision.analyzePlan).toHaveBeenCalledWith(Buffer.from(`image ${n}`), 'image/jpeg');
     expect(budget.assertCaveUnderShare).toHaveBeenCalledWith(caveId);
@@ -87,28 +97,31 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
     expect((await prisma.imageSearchCost.findMany({ where: { caveId } })).map((c) => c.costCents)).toEqual([3]);
   });
 
-  it('zéro bloc : DONE sans proposition', async () => {
+  it('zéro meuble : DONE sans proposition', async () => {
     const job = await pendingPlan();
-    vision.analyzePlan.mockResolvedValueOnce({ blocks: [], costCents: 1 });
+    vision.analyzePlan.mockResolvedValueOnce({ units: [], costCents: 1 });
     await processor.process(job);
     expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'DONE', suggestions: [] });
   });
 
-  it('un bloc hors bornes, inversé ou à 0 case est ignoré, les autres gardés', async () => {
+  it('un meuble hors bornes, inversé, sans case ou d’une seule case est ignoré, les autres gardés', async () => {
     const job = await pendingPlan();
     vision.analyzePlan.mockResolvedValueOnce({
-      blocks: [block('CASIER', [100, 100, 500, 1200]), block('CASIER', [100, 600, 500, 300]), block('CASIER', [100, 100, 500, 300], 0, 3), block('AUTRE', [200, 200, 300, 300], 1, 1)],
+      units: [
+        unit('CASIER', [100, 1100, 500, 1200]), unit('CASIER', [100, 600, 500, 300]), unit('CASIER', [100, 100, 500, 300], 0, 3),
+        unit('CASIER', [600, 600, 700, 700], 1, 1), unit('AUTRE', [200, 200, 300, 300], 1, 2),
+      ],
       costCents: 1,
     });
     await processor.process(job);
     const plan = await planOf(job.planId);
     expect(plan.analysisStatus).toBe('DONE');
-    expect(plan.suggestions).toEqual([{ id: expect.any(String), kind: 'AUTRE', name: 'Rangement A', box: [0.2, 0.2, 0.3, 0.3], rows: 1, cols: 1 }]);
+    expect(plan.suggestions).toEqual([{ id: expect.any(String), kind: 'AUTRE', name: 'Rangement A', box: [0.2, 0.2, 0.3, 0.3], rows: 1, cols: 2 }]);
   });
 
-  it('réponse inexploitable (pas de liste de blocs) : FAILED, coût imputé', async () => {
+  it('réponse inexploitable (pas de liste de meubles) : FAILED, coût imputé', async () => {
     const job = await pendingPlan();
-    vision.analyzePlan.mockResolvedValueOnce({ blocks: 'rien', costCents: 2 });
+    vision.analyzePlan.mockResolvedValueOnce({ units: 'rien', costCents: 2 });
     await processor.process(job);
     expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'FAILED', analysisError: 'ILLISIBLE', suggestions: [] });
     expect((await prisma.imageSearchCost.findMany({ where: { caveId } })).map((c) => c.costCents)).toEqual([2]);
@@ -150,7 +163,7 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
     vision.analyzePlan.mockImplementationOnce(async () => {
       // Remplacement ou relance concurrents : nouvelle demande, propositions vidées, nouvelle analyse en attente.
       await newRequest(job, { analysisStatus: 'PENDING', suggestions: [] });
-      return { blocks: [block('CASIER', [100, 100, 500, 500])], costCents: 1 };
+      return { units: [unit('CASIER', [100, 100, 500, 500])], costCents: 1 };
     });
     await processor.process(job);
     expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'PENDING', suggestions: [] });
@@ -159,14 +172,14 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
   it('l’ancienne garde (date de l’image) ne compte plus : image changée seule, la demande en cours aboutit', async () => {
     const job = await pendingPlan();
     await prisma.cavePlan.update({ where: { id: job.planId }, data: { updatedAt: new Date() } });
-    vision.analyzePlan.mockResolvedValueOnce({ blocks: [], costCents: 0 });
+    vision.analyzePlan.mockResolvedValueOnce({ units: [], costCents: 0 });
     await processor.process(job);
     expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'DONE' });
   });
 
   it('tâche d’avant la 2.17.0 (`updatedAt` dans la donnée) : traitée avec cette date comme demande', async () => {
     const job = await pendingPlan();
-    vision.analyzePlan.mockResolvedValueOnce({ blocks: [], costCents: 0 });
+    vision.analyzePlan.mockResolvedValueOnce({ units: [], costCents: 0 });
     await processor.process({ planId: job.planId, updatedAt: job.requestedAt } as never);
     expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'DONE' });
   });
@@ -224,7 +237,7 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
     const job = await pendingPlan();
     const boom = new Error('base injoignable');
     const zones = jest.spyOn(prisma.caveZone, 'findMany').mockRejectedValueOnce(boom).mockRejectedValueOnce(boom);
-    vision.analyzePlan.mockResolvedValue({ blocks: [], costCents: 0 });
+    vision.analyzePlan.mockResolvedValue({ units: [], costCents: 0 });
     await expect(processor.process(job, false)).rejects.toBe(boom);
     expect(await planOf(job.planId)).toMatchObject({ analysisStatus: 'PENDING' });
     await expect(processor.process(job, true)).rejects.toBe(boom);
@@ -374,20 +387,5 @@ describe('failedReasonOf', () => {
       expect(failedReasonOf(new Error(m))).toBe('GEMINI');
     }
     expect(failedReasonOf(new Error('base injoignable'))).toBe('ERREUR');
-  });
-});
-
-describe('fromGeminiBlocks', () => {
-  it('box_2d [ymin, xmin, ymax, xmax] en millièmes → box [x0, y0, x1, y1] en fractions, sans transposer', () => {
-    // Bloc large et bas : x de 200 à 600, y de 100 à 300.
-    expect(fromGeminiBlocks([{ kind: 'CASIER', box_2d: [100, 200, 300, 600], rows: 2, cols: 5 }])).toEqual([
-      { kind: 'CASIER', box_2d: [100, 200, 300, 600], box: [0.2, 0.1, 0.6, 0.3], rows: 2, cols: 5 },
-    ]);
-  });
-
-  it('cadre absent, mal formé ou non numérique : rien de valide n’est produit', () => {
-    const odd = [{ kind: 'CASIER', rows: 1, cols: 1 }, { kind: 'CASIER', box_2d: [1, 2, 3], rows: 1, cols: 1 }, null];
-    expect(fromGeminiBlocks(odd)).toEqual(odd);
-    expect(fromGeminiBlocks([{ box_2d: ['1', 2, 3, 4] }])).toEqual([{ box_2d: ['1', 2, 3, 4], box: [0.002, NaN, 0.004, 0.003] }]);
   });
 });

@@ -355,11 +355,15 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       expect(analysisQueue.add).not.toHaveBeenCalled();
     });
 
-    it('relance d’une analyse terminée : ses propositions sont effacées', async () => {
+    it('relance d’une analyse terminée : ses propositions sont effacées, les zones déjà acceptées (et leur repère) ne bougent pas', async () => {
+      const kept = await newZone('Casier déjà accepté');
+      expect((await mark(kept.id, { planId: p2.id, x: 0.3, y: 0.4 })).status).toBe(200);
       await setPlan(p2.id, { analysisStatus: 'DONE', suggestions: [suggestion()] });
       const res = await relaunch(p2.id);
       expect(res.status).toBe(202);
       expect(res.body).toMatchObject({ analysis: 'PENDING', suggestions: [] });
+      expect((await zones()).find((z) => z.id === kept.id)?.marker).toEqual({ planId: p2.id, x: 0.3, y: 0.4 });
+      await prisma.caveZone.delete({ where: { id: kept.id } }); // les tests suivants comptent les zones de la cave
     });
 
     it('mise en file impossible à la relance : FAILED, raison ERREUR', async () => {

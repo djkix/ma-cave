@@ -36,4 +36,10 @@ describe('parseEnv', () => {
     const env = parseEnv(minimal);
     expect(env.ADMIN_EMAILS).toBe('');
   });
+
+  it('GEMINI_PLAN_MODEL defaults to GEMINI_MODEL (absent or empty) and can be set apart', () => {
+    expect(parseEnv({ ...minimal, GEMINI_MODEL: 'flash' }).GEMINI_PLAN_MODEL).toBe('flash');
+    expect(parseEnv({ ...minimal, GEMINI_MODEL: 'flash', GEMINI_PLAN_MODEL: '' }).GEMINI_PLAN_MODEL).toBe('flash');
+    expect(parseEnv({ ...minimal, GEMINI_MODEL: 'flash', GEMINI_PLAN_MODEL: 'pro' }).GEMINI_PLAN_MODEL).toBe('pro');
+  });
 });

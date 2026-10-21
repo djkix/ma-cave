@@ -563,22 +563,51 @@ describe('GeminiVisionProvider — journal des appels et pause commune', () => {
 
 describe('GeminiVisionProvider.analyzePlan', () => {
   const NOW = new Date('2026-10-21T12:00:00.000Z');
-  const blocks = [{ kind: 'CASIER', box_2d: [200, 100, 900, 400], rows: 6, cols: 4 }];
+  const units = [{ kind: 'CASIER', cells: [{ box_2d: [200, 100, 500, 400] }, { box_2d: [500, 100, 900, 400] }] }];
 
-  it('envoie l’image avec le schéma de sortie structurée et rend les blocs bruts avec le coût', async () => {
-    const model = fakeModel(JSON.stringify({ blocks }));
+  it('envoie l’image avec le schéma de sortie structurée (meubles, puis cases) et rend les unités brutes avec le coût', async () => {
+    const model = fakeModel(JSON.stringify({ units }));
     const res = await new GeminiVisionProvider(model as any, 'm').analyzePlan(Buffer.from('img'), 'image/jpeg');
-    expect(res).toEqual({ blocks, costCents: 1 });
+    expect(res).toEqual({ units, costCents: 1 });
     const call = model.generateContent.mock.calls[0][0];
     expect(call.contents[0].parts[1]).toEqual({ inlineData: { data: Buffer.from('img').toString('base64'), mimeType: 'image/jpeg' } });
     expect(call.generationConfig.responseMimeType).toBe('application/json');
-    const list = call.generationConfig.responseSchema.properties.blocks;
+    expect(call.generationConfig.responseSchema.required).toEqual(['units']);
+    const list = call.generationConfig.responseSchema.properties.units;
     expect(list.maxItems).toBe(12);
-    const item = list.items;
-    expect(Object.keys(item.properties).sort()).toEqual(['box_2d', 'cols', 'kind', 'rows']);
-    expect(item.properties.box_2d).toMatchObject({ minItems: 4, maxItems: 4, items: { type: 'integer' } });
-    expect(item.properties.kind.enum).toEqual(['CASIER', 'ETAGERE', 'AUTRE']);
-    expect(call.contents[0].parts[0].text).toMatch(/12/);
+    expect(Object.keys(list.items.properties).sort()).toEqual(['cells', 'kind']);
+    expect(list.items.properties.kind.enum).toEqual(['CASIER', 'ETAGERE', 'AUTRE']);
+    const cells = list.items.properties.cells;
+    expect(cells.maxItems).toBe(200);
+    expect(cells.items.required).toEqual(['box_2d']);
+    expect(cells.items.properties.box_2d).toMatchObject({ minItems: 4, maxItems: 4, items: { type: 'integer' } });
+    const prompt = call.contents[0].parts[0].text;
+    expect(list.items.propertyOrdering).toEqual(['kind', 'cells']);
+    expect(prompt).toMatch(/12/);
+    expect(prompt).toMatch(/70 %/);
+    expect(prompt).toContain('1. Les cases. Commence par repérer les meubles, de gauche à droite. Pour chaque meuble, parcours ses cases rangée par rangée, de haut en bas puis de gauche à droite, et donne-les toutes : une case est un espace délimité par des montants (verticaux) et des tablettes (horizontales). Compte chaque case, même vide, et même partiellement cachée par un objet posé devant (estime alors son cadre). Une case plus haute ou plus large que ses voisines reste une seule case. Ne fusionne jamais plusieurs cases en une.');
+    expect(prompt).toContain('Les meubles se touchent souvent : la limite entre deux meubles se voit à un montant doublé ou plus épais, à un petit espace, à des tablettes qui ne sont pas à la même hauteur, à des cases de taille différente ou à un changement de bois ou de couleur. Une même tablette continue d\'un bout à l\'autre signale un seul meuble. Dans le doute, sépare.');
+    expect(prompt).toContain('les objets posés devant ou dans les cases (sacs, seaux, cartons, bouteilles) : ce ne sont pas des cases, mais les cases qu\'ils cachent en partie comptent.');
+  });
+
+  it('coût selon le modèle des plans : un modèle « pro » est compté au tarif Pro, sinon au tarif Flash', async () => {
+    const usage = { promptTokenCount: 10_000, candidatesTokenCount: 10_000 };
+    const run = (name: string) => new GeminiVisionProvider(fakeModel('{}') as any, 'm', undefined, fakeModel(JSON.stringify({ units: [] }), usage) as any, name)
+      .analyzePlan(Buffer.from('x'), 'image/jpeg');
+    // Flash : 10 × 0,01 + 10 × 0,04 = 0,5 ct → 1 ct. Pro : 10 × 0,125 + 10 × 1 = 11,25 ct → 12 ct.
+    expect((await run('gemini-3.5-flash')).costCents).toBe(1);
+    expect((await run('gemini-3.5-pro')).costCents).toBe(12);
+    expect((await run('Gemini-Pro-Latest')).costCents).toBe(12);
+  });
+
+  it('modèle dédié aux plans : seul `analyzePlan` l’emploie', async () => {
+    const main = fakeModel(validJson);
+    const plan = fakeModel(JSON.stringify({ units: [] }));
+    const provider = new GeminiVisionProvider(main as any, 'm', undefined, plan as any);
+    await provider.analyzePlan(Buffer.from('x'), 'image/jpeg');
+    await provider.extractWineLabel(Buffer.from('x'), 'image/jpeg');
+    expect(plan.generateContent).toHaveBeenCalledTimes(1);
+    expect(main.generateContent).toHaveBeenCalledTimes(1);
   });
 
   it('JSON illisible : sortie du modèle invalide, avec son coût', async () => {
@@ -590,7 +619,7 @@ describe('GeminiVisionProvider.analyzePlan', () => {
   it('journalise l’appel sous l’usage ANALYSE_PLAN', async () => {
     const prisma = fakePrisma();
     const journal = new GeminiJournal(prisma, { warn: jest.fn(), error: jest.fn() }, () => NOW);
-    await new GeminiVisionProvider(fakeModel(JSON.stringify({ blocks: [] })) as any, 'm', journal).analyzePlan(Buffer.from('x'), 'image/jpeg');
+    await new GeminiVisionProvider(fakeModel(JSON.stringify({ units: [] })) as any, 'm', journal).analyzePlan(Buffer.from('x'), 'image/jpeg');
     expect(prisma.calls).toEqual([{ usage: 'ANALYSE_PLAN', outcome: 'OK', httpStatus: null, reason: null, costCents: 1, durationMs: expect.any(Number) }]);
   });
 

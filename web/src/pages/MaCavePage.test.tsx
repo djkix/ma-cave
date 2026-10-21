@@ -465,7 +465,7 @@ describe('plan de la cave', () => {
     await userEvent.click(planCard().getByRole('button', { name: action }));
   }
 
-  it('menu « ⋯ » du plan affiché : Renommer, Remplacer la photo, Supprimer le plan', async () => {
+  it('menu « ⋯ » du plan affiché : Renommer, Remplacer la photo, Relancer l’analyse, Supprimer le plan', async () => {
     vi.spyOn(api, 'getPlans').mockResolvedValue(twoPlans);
     mount();
     await userEvent.click(await findTab('Cellier'));
@@ -474,7 +474,7 @@ describe('plan de la cave', () => {
     expect(menu).toHaveAttribute('aria-expanded', 'false');
     await userEvent.click(menu);
     expect(menu).toHaveAttribute('aria-expanded', 'true');
-    for (const name of ['Renommer', 'Remplacer la photo', 'Supprimer le plan']) expect(planCard().getByRole('button', { name })).toBeInTheDocument();
+    for (const name of ['Renommer', 'Remplacer la photo', 'Relancer l’analyse', 'Supprimer le plan']) expect(planCard().getByRole('button', { name })).toBeInTheDocument();
   });
 
   it('« Renommer » : feuille « Renommer le plan », champ prérempli, puis le nouveau nom est envoyé', async () => {
@@ -850,6 +850,45 @@ describe('plan de la cave', () => {
       expect(await within(banner()).findByRole('alert')).toHaveTextContent('Une analyse est déjà en cours');
       // L'état du serveur (déjà en cours) est relu : la relecture des 10 s reprend.
       await waitFor(() => expect(getPlans).toHaveBeenCalledTimes(2));
+    });
+
+    it('menu « ⋯ » : « Relancer l’analyse », désactivé pendant une analyse en cours', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [pending()], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      await findBanner();
+      await userEvent.click(planCard().getByRole('button', { name: 'Actions du plan Plan principal' }));
+      expect(planCard().getByRole('button', { name: 'Relancer l’analyse' })).toBeDisabled();
+    });
+
+    it('menu « ⋯ » « Relancer l’analyse » avec des propositions en attente : confirmation, puis relance et bandeau en cours', async () => {
+      // Relecture après la relance laissée en suspens : le bandeau vient du plan rendu par la relance, mis en cache.
+      vi.spyOn(api, 'getPlans').mockResolvedValueOnce(analysed([casierA, etagereA])).mockReturnValue(new Promise(() => undefined));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      const relaunch = vi.spyOn(api, 'relaunchAnalysis').mockResolvedValue(pending({ waiting: 'QUEUED' }));
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+      mount();
+      await planCard().findByRole('button', { name: 'Proposition Casier A' });
+      await planAction('Plan principal', 'Relancer l’analyse');
+      expect(confirm).toHaveBeenLastCalledWith('Relancer l’analyse ? Les propositions en attente seront remplacées.');
+      expect(relaunch).not.toHaveBeenCalled();
+      await planAction('Plan principal', 'Relancer l’analyse');
+      await waitFor(() => expect(relaunch).toHaveBeenCalledWith('p1'));
+      expect(await findBanner()).toHaveTextContent('Analyse du plan en cours');
+      expect(planCard().queryByRole('button', { name: 'Proposition Casier A' })).not.toBeInTheDocument();
+    });
+
+    it('menu « ⋯ » « Relancer l’analyse » sans proposition en attente : relance sans confirmation', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValueOnce(analysed([])).mockReturnValue(new Promise(() => undefined));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      const relaunch = vi.spyOn(api, 'relaunchAnalysis').mockResolvedValue(pending({ waiting: 'QUEUED' }));
+      const confirm = vi.spyOn(window, 'confirm');
+      mount();
+      await planCard().findByRole('button', { name: 'Actions du plan Plan principal' });
+      await planAction('Plan principal', 'Relancer l’analyse');
+      await waitFor(() => expect(relaunch).toHaveBeenCalledWith('p1'));
+      expect(confirm).not.toHaveBeenCalled();
+      expect(await findBanner()).toHaveTextContent('Analyse du plan en cours');
     });
 
     it('plan jamais analysé : lien « Proposer des zones » qui lance l’analyse', async () => {
