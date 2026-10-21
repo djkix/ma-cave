@@ -1371,6 +1371,15 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
 Le détail par version, avec le lien vers chaque commit, est dans
 [`CHANGELOG.md`](CHANGELOG.md) ; voici les versions publiées.
 
+### 2.16.0 — 21 octobre 2026
+
+Publiée ([v2.16.0](https://github.com/djkix/ma-cave/releases/tag/v2.16.0)),
+images `ghcr.io/djkix/ma-cave-api:2.16.0` et `-web:2.16.0`.
+
+**Propositions de zones** depuis la photo du plan (Gemini), grilles de cases
+pour ranger les bouteilles ; **suppression d'une zone garnie** (bouteilles sans
+emplacement). Migration automatique : lire « Passage à la 2.16.0 ».
+
 ### 2.15.0 — 20 octobre 2026
 
 Publiée ([v2.15.0](https://github.com/djkix/ma-cave/releases/tag/v2.15.0)),
