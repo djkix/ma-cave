@@ -36,6 +36,15 @@ describe('textes des quotas (heure de Paris)', () => {
     expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-21T12:40:00Z'), null, now)).toBe('Quota Gemini dépassé chez Google : reprise à 14:40.');
     expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-22T07:00:00Z'), null, now)).toBe('Quota Gemini dépassé chez Google : reprise demain à 09:00.');
   });
+
+  it('heure affichée jamais plus tôt que la vraie : arrondie à la minute supérieure s’il y a des secondes', () => {
+    expect(quotaMessage('QUOTA_MINUTE', new Date('2026-10-21T12:03:31Z'), 5, now)).toBe('Limite de 5 requêtes par minute atteinte : reprise à 14:04.');
+    expect(quotaMessage('QUOTA_TOKENS', new Date('2026-10-21T12:03:00.001Z'), 1000, now)).toBe('Limite de jetons par minute atteinte : reprise à 14:04.');
+    expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-21T12:40:37.200Z'), null, now)).toBe('Quota Gemini dépassé chez Google : reprise à 14:41.');
+    // Minute pile : inchangée ; passage de minuit à Paris : le jour suit l'heure arrondie.
+    expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-21T12:40:00Z'), null, now)).toBe('Quota Gemini dépassé chez Google : reprise à 14:40.');
+    expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-21T21:59:30Z'), null, new Date('2026-10-21T21:59:00Z'))).toBe('Quota Gemini dépassé chez Google : reprise demain à 00:00.');
+  });
 });
 
 describe('pause après un 429 de Google', () => {
@@ -101,7 +110,7 @@ describe('GeminiQuotaService (Redis réel)', () => {
     expect(e).toBeInstanceOf(GeminiQuotaError);
     expect(e.reason).toBe('QUOTA_MINUTE');
     expect(e.until.toISOString()).toBe('2026-10-21T12:03:31.000Z');
-    expect(e.message).toBe('Limite de 5 requêtes par minute atteinte : reprise à 14:03.');
+    expect(e.message).toBe('Limite de 5 requêtes par minute atteinte : reprise à 14:04.');
     // Changer de minute UTC ne remet rien à zéro : la plus ancienne compte encore.
     await expect(quota.reserve(at(59))).rejects.toBeInstanceOf(GeminiQuotaError);
     await expect(quota.reserve(at(61))).resolves.toBeUndefined();
@@ -128,7 +137,7 @@ describe('GeminiQuotaService (Redis réel)', () => {
     const e = await quota.reserve(at(30)).catch((x: any) => x);
     expect(e.reason).toBe('QUOTA_TOKENS');
     expect(e.until.toISOString()).toBe(at(61).toISOString());
-    expect(e.message).toBe('Limite de jetons par minute atteinte : reprise à 14:03.');
+    expect(e.message).toBe('Limite de jetons par minute atteinte : reprise à 14:04.');
     await expect(quota.reserve(at(61))).resolves.toBeUndefined();
   });
 

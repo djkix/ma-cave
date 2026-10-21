@@ -348,7 +348,8 @@ describeIfDb('planAnalysisJobState (file réelle)', () => {
       const until = new Date(Date.now() + 60_000);
       await job.updateData({ ...d, ...deferralOf(new GeminiQuotaError(until, 'QUOTA_MINUTE', 5)) });
       await job.moveToFailed(new Error('limite'), 'jeton');
-      const hhmm = until.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+      // Heure affichée arrondie à la minute supérieure (jamais plus tôt que la vraie).
+      const hhmm = new Date(Math.ceil(until.getTime() / 60_000) * 60_000).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
       expect(await planAnalysisJobState(queue, d)).toMatchObject({
         waiting: 'QUOTA', pauseUntil: until.toISOString(), quotaKind: 'MINUTE', message: expect.stringMatching(new RegExp(`^Limite de 5 requêtes par minute atteinte : reprise (demain )?à ${hhmm}\\.$`)),
       });
