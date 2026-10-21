@@ -11,6 +11,22 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.17.0](https://github.com/djkix/ma-cave/compare/v2.16.0...v2.17.0) (2026-10-21)
 
+### Résumé
+
+**L'analyse du plan se voit et s'explique.** Dans « Ma cave › Réglages », un
+bandeau au-dessus du plan remplace la ligne grise : icône animée et état réel
+(« Envoyée à l'IA il y a 20 s · résultat attendu d'ici une minute », pause de
+Gemini avec l'heure du nouvel essai, budget atteint avec la date du nouvel
+essai, tentative N sur M). En cas d'échec, la raison en clair et un bouton
+*Relancer l'analyse* ; à la fin, « 3 zones proposées » ou « Aucune zone
+détectée ». Les plans d'avant la 2.16 gagnent *Proposer des zones*. L'onglet
+d'un plan en cours d'analyse porte un point animé, et la carte *Ma cave* du hub
+l'indique. Nouvelle route de relance ; migration automatique, ajout seulement
+(lire « Passage à la 2.17.0 » dans le README).
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
