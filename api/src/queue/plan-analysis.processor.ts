@@ -6,27 +6,12 @@ import { PHOTO_STORAGE_DIR } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GeminiPausedError } from '../vision/gemini-pause';
 import { VISION_PROVIDER, VisionProvider } from '../vision/vision-provider.interface';
-import { nameBlocks, validBlocks } from '../zones/plan-suggestions';
+import { nameBlocks, unitsToBlocks, validBlocks } from '../zones/plan-suggestions';
 import { PlanService } from '../zones/plan.service';
 import { PlanFailedReason } from '../zones/zone';
 import { PlanAnalysisDeferral, PlanAnalysisJobData } from './plan-analysis';
 import { isConfigurationError, isTransientVisionFailure, statusFromMessage, TRANSIENT_NETWORK } from './transient-failure';
 import { VisionBudgetExceededError, VisionBudgetService } from './vision-budget.service';
-
-/**
- * Cadres de Gemini (`box_2d` : [ymin, xmin, ymax, xmax], entiers de 0 à 1000,
- * sa convention native) ramenés à `box` : [x0, y0, x1, y1] en fractions de
- * l'image. Le reste du bloc est gardé tel quel ; tout est validé ensuite par
- * `validBlocks` (un cadre absent ou mal formé y est écarté).
- */
-export function fromGeminiBlocks(blocks: unknown[]): unknown[] {
-  return blocks.map((b) => {
-    const box2d = (b as { box_2d?: unknown } | null)?.box_2d;
-    if (!Array.isArray(box2d) || box2d.length !== 4) return b;
-    const [ymin, xmin, ymax, xmax] = box2d.map((v) => (typeof v === 'number' ? v / 1000 : NaN));
-    return { ...(b as object), box: [xmin, ymin, xmax, ymax] };
-  });
-}
 
 /** Cause d'un report, affichée tant que la tâche attend sa reprise. */
 export function deferralOf(error: unknown): PlanAnalysisDeferral {
@@ -84,13 +69,13 @@ export class PlanAnalysisProcessor {
       const image = await readFile(join(this.dir, plan.path));
       const output = await this.vision.analyzePlan(image, 'image/jpeg');
       await this.charge(plan.caveId, output.costCents);
-      if (!Array.isArray(output.blocks)) {
-        this.logger.warn(`Analyse du plan ${planId} échouée : réponse sans liste de blocs`);
+      if (!Array.isArray(output.units)) {
+        this.logger.warn(`Analyse du plan ${planId} échouée : réponse sans liste de meubles`);
         await this.plans.setAnalysis(planId, expected, { status: 'FAILED', reason: 'ILLISIBLE' });
         return;
       }
       const zones = await this.prisma.caveZone.findMany({ where: { caveId: plan.caveId, archivedAt: null }, select: { name: true } });
-      const suggestions = nameBlocks(validBlocks(fromGeminiBlocks(output.blocks)), zones.map((z) => z.name));
+      const suggestions = nameBlocks(validBlocks(unitsToBlocks(output.units)), zones.map((z) => z.name));
       await this.plans.setAnalysis(planId, expected, { status: 'DONE', suggestions });
     } catch (e) {
       // Image absente : plan supprimé pendant la lecture (setAnalysis sans effet), ou fichier manquant sur un plan qui existe (FAILED, pas d'attente éternelle).

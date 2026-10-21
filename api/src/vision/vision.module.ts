@@ -16,7 +16,7 @@ import { VISION_PROVIDER } from './vision-provider.interface';
       provide: VISION_PROVIDER,
       useFactory: (journal: GeminiJournal) => {
         const env = loadEnv();
-        return GeminiVisionProvider.fromApiKey(env.GEMINI_API_KEY, env.GEMINI_MODEL, journal);
+        return GeminiVisionProvider.fromApiKey(env.GEMINI_API_KEY, env.GEMINI_MODEL, journal, env.GEMINI_PLAN_MODEL);
       },
       inject: [GeminiJournal],
     },
