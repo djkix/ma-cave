@@ -80,12 +80,23 @@ describe('GeminiJournal', () => {
     expect(SATURATION_PAUSE_MS).toBe(5 * 60_000);
   });
 
-  it('429 : pause d’une heure, « quota épuisé »', async () => {
+  it('429 sans délai : pause d’une heure, QUOTA_GOOGLE, message en français', async () => {
     const prisma = fakePrisma();
     await new GeminiJournal(prisma, quiet).extendPause(429, NOW);
     expect(prisma.settings.get(GEMINI_PAUSE_UNTIL_KEY)).toBe(new Date(NOW.getTime() + QUOTA_PAUSE_MS).toISOString());
-    expect(prisma.settings.get(GEMINI_PAUSE_REASON_KEY)).toBe('quota épuisé');
+    expect(prisma.settings.get(GEMINI_PAUSE_REASON_KEY)).toBe('QUOTA_GOOGLE');
     expect(QUOTA_PAUSE_MS).toBe(60 * 60_000);
+    const e = await new GeminiJournal(prisma, quiet).assertNotPaused(NOW).catch((x) => x);
+    expect(e.message).toBe('Quota Gemini dépassé chez Google : reprise à 15:00.');
+  });
+
+  it('429 avec retryDelay : pause jusqu’à maintenant + délai ; quota du jour : jusqu’à minuit du Pacifique', async () => {
+    const prisma = fakePrisma();
+    const journal = new GeminiJournal(prisma, quiet);
+    await journal.extendPause(429, NOW, '[429 Too Many Requests] … [{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"37s"}]');
+    expect(prisma.settings.get(GEMINI_PAUSE_UNTIL_KEY)).toBe('2026-10-08T12:00:37.000Z');
+    await journal.extendPause(429, NOW, '[429 Too Many Requests] … "quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier" …');
+    expect(prisma.settings.get(GEMINI_PAUSE_UNTIL_KEY)).toBe('2026-10-09T07:00:00.000Z');
   });
 
   it('ne raccourcit jamais une pause plus longue déjà posée', async () => {
@@ -94,7 +105,7 @@ describe('GeminiJournal', () => {
     await journal.extendPause(429, NOW);
     await journal.extendPause(503, new Date(NOW.getTime() + 60_000));
     expect(prisma.settings.get(GEMINI_PAUSE_UNTIL_KEY)).toBe(new Date(NOW.getTime() + QUOTA_PAUSE_MS).toISOString());
-    expect(prisma.settings.get(GEMINI_PAUSE_REASON_KEY)).toBe('quota épuisé');
+    expect(prisma.settings.get(GEMINI_PAUSE_REASON_KEY)).toBe('QUOTA_GOOGLE');
   });
 
   it('prolonge une pause plus courte', async () => {
@@ -103,7 +114,7 @@ describe('GeminiJournal', () => {
     await journal.extendPause(503, NOW);
     await journal.extendPause(429, NOW);
     expect(prisma.settings.get(GEMINI_PAUSE_UNTIL_KEY)).toBe(new Date(NOW.getTime() + QUOTA_PAUSE_MS).toISOString());
-    expect(prisma.settings.get(GEMINI_PAUSE_REASON_KEY)).toBe('quota épuisé');
+    expect(prisma.settings.get(GEMINI_PAUSE_REASON_KEY)).toBe('QUOTA_GOOGLE');
   });
 
   it('enregistre un appel avec son modèle, et ne lève jamais si l’écriture échoue', async () => {

@@ -38,6 +38,8 @@ export function pendingText(info: Pending, now: number): string {
         info.pauseUntil ? `En attente : Gemini est en pause jusqu’à ${hour(info.pauseUntil)}.` : 'En attente : Gemini est en pause.',
         info.nextAttemptAt && `Nouvel essai à ${hour(info.nextAttemptAt)}.`,
       ].filter(Boolean).join(' ');
+    case 'QUOTA':
+      return info.message ?? 'En attente : limite de l’IA atteinte.';
     case 'BUDGET':
       return `En attente : budget de l’IA atteint ce mois-ci. ${info.nextAttemptAt ? `Nouvel essai le ${day(info.nextAttemptAt)} à ${hour(info.nextAttemptAt)}.` : 'Nouvel essai plus tard.'}`;
     case 'RETRY':

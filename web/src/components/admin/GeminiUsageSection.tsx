@@ -115,7 +115,7 @@ export function GeminiUsageSection() {
       {q.isError && <p role="alert" className="text-error">Impossible de charger la consommation Gemini.</p>}
       {d && pauseUntil && (
         <p className="badge badge--warn" style={{ whiteSpace: 'normal' }}>
-          {`Gemini en pause jusqu'à ${parisTime.format(new Date(pauseUntil))} (${d.pause.reason ?? 'refus de Google'}) : aucun appel n'est envoyé d'ici là.`}
+          {d.pause.message ?? `Gemini en pause jusqu'à ${parisTime.format(new Date(pauseUntil))} (${d.pause.reason ?? 'refus de Google'}) : aucun appel n'est envoyé d'ici là.`}
         </p>
       )}
       {d && d.rows.length === 0 && <p className="list__meta">Aucun appel à Gemini sur {days} jours.</p>}
@@ -164,7 +164,7 @@ export function GeminiUsageSection() {
         </>
       )}
       <p className="list__meta">
-        Un refus de Google (saturé ou quota) compte dans ses statistiques de requêtes mais n'est pas facturé. Après un refus, l'application met Gemini en pause (5 min si saturé, 1 h si quota épuisé) au lieu de réessayer.
+        Un refus de Google (saturé ou quota) compte dans ses statistiques de requêtes mais n'est pas facturé. Après un refus, l'application met Gemini en pause (5 min si saturé ; si quota épuisé, le délai demandé par Google, minuit heure du Pacifique pour le quota du jour, sinon 1 h) au lieu de réessayer.
       </p>
     </section>
   );

@@ -1,6 +1,7 @@
 import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { EXTRACTION_JSON_SCHEMA_DESCRIPTION, parseExtraction } from './extraction-schema';
-import { GeminiJournal, GeminiUsage, classifyFailure } from './gemini-journal';
+import { GeminiJournal, GeminiPausedError, GeminiUsage, classifyFailure } from './gemini-journal';
+import { GeminiQuotaService } from './gemini-quota';
 import { parsePairingOutput } from './pairing-output';
 import { PairingBatchItem, PairingBatchResult, PairingProvider, PairingWine } from './pairing-provider.interface';
 import { parseProducerOutput } from './producer-output';
@@ -233,16 +234,18 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
    * un changement sert dès l'appel suivant, pour tous les usages.
    * `journal` : point de passage unique de tous les appels (voir `call`). Sans
    * journal (tests unitaires des consignes), les appels partent tels quels.
+   * `quota` : limiteur de débit commun à l'api et au worker (voir `call`).
    */
   constructor(
     private readonly modelFor: (name: string) => Model,
     private readonly currentModel: () => Promise<string>,
     private readonly journal?: GeminiJournal,
+    private readonly quota?: Pick<GeminiQuotaService, 'reserve' | 'addTokens'>,
   ) {}
 
-  static fromApiKey(apiKey: string, currentModel: () => Promise<string>, journal?: GeminiJournal): GeminiVisionProvider {
+  static fromApiKey(apiKey: string, currentModel: () => Promise<string>, journal?: GeminiJournal, quota?: GeminiQuotaService): GeminiVisionProvider {
     const ai = new GoogleGenerativeAI(apiKey);
-    return new GeminiVisionProvider((model) => ai.getGenerativeModel({ model }), currentModel, journal);
+    return new GeminiVisionProvider((model) => ai.getGenerativeModel({ model }), currentModel, journal, quota);
   }
 
   /**
@@ -250,21 +253,45 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
    * appel ne part (`GeminiPausedError`) et rien n'est noté ; sinon une ligne
    * `gemini_call` par requête envoyée, réussie, refusée (429, 503 : la pause
    * est posée) ou en erreur, avec le modèle employé. Le journal ne lève jamais.
+   * Le limiteur réserve la place juste avant l'envoi (voir `counted`) : refus
+   * (`GeminiQuotaError`), rien ne part et rien n'est noté.
    */
   private async call<T extends { costCents: number }>(usage: GeminiUsage, run: (model: Model, modelName: string) => Promise<T>): Promise<T> {
     await this.journal?.assertNotPaused();
     const model = await this.currentModel();
-    if (!this.journal) return run(this.modelFor(model), model);
+    const counted = this.counted(this.modelFor(model));
+    if (!this.journal) return run(counted, model);
     const started = Date.now();
     let result: T;
     try {
-      result = await run(this.modelFor(model), model);
+      result = await run(counted, model);
     } catch (e) {
-      await this.journal.record({ usage, ...classifyFailure(e), model, durationMs: Date.now() - started });
+      // Refus du limiteur : rien n'est parti, rien n'est noté.
+      if (e instanceof GeminiPausedError) throw e;
+      await this.journal.record({ usage, ...classifyFailure(e), model, durationMs: Date.now() - started }, undefined, e instanceof Error ? e.message : String(e));
       throw e;
     }
     await this.journal.record({ usage, outcome: 'OK', httpStatus: null, reason: null, costCents: result.costCents, model, durationMs: Date.now() - started });
     return result;
+  }
+
+  /**
+   * Le modèle, qui réserve sa place auprès du limiteur juste avant l'envoi (un
+   * échec local avant l'appel ne consomme rien) et ajoute les jetons de chaque
+   * réponse (entrée + sortie), même si sa sortie est ensuite refusée.
+   */
+  private counted(model: Model): Model {
+    const quota = this.quota;
+    if (!quota) return model;
+    return {
+      generateContent: async (...args: Parameters<Model['generateContent']>) => {
+        await quota.reserve();
+        const result = await model.generateContent(...args);
+        const u = result.response.usageMetadata;
+        await quota.addTokens((u?.promptTokenCount ?? 0) + (u?.candidatesTokenCount ?? 0));
+        return result;
+      },
+    };
   }
 
   /**

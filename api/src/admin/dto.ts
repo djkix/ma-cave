@@ -47,3 +47,9 @@ export const geminiUsageDaysSchema = z
   .pipe(z.number().int().min(1, { message: INVALID_DAYS }).max(90, { message: INVALID_DAYS }))
   .optional()
   .transform((days) => days ?? 7);
+
+const INVALID_LIMITS = 'Limites invalides : entiers positifs attendus';
+const limit = z.number({ invalid_type_error: INVALID_LIMITS, required_error: INVALID_LIMITS }).int({ message: INVALID_LIMITS }).min(1, { message: INVALID_LIMITS });
+
+/** Limites de débit Gemini : requêtes par minute, jetons par minute, requêtes par jour ; entiers ≥ 1. */
+export const updateGeminiQuotaSchema = z.object({ rpm: limit, tpm: limit, rpd: limit }, { invalid_type_error: INVALID_LIMITS, required_error: INVALID_LIMITS });

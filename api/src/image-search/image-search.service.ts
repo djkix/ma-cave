@@ -239,11 +239,13 @@ export class ImageSearchService {
     } catch (e) {
       const reason = e instanceof DeadlineError ? `pas de réponse en ${this.deadlineMs} ms` : (e as Error).message;
       this.logger.warn(`Recherche du site officiel impossible pour le vin ${wine.id} : ${reason}`);
-      // Pause commune de Gemini : aucun appel n'est parti, rien n'est compté ;
+      // Pause commune ou limite de débit atteinte : aucun appel n'est parti, rien n'est compté ;
       // le 503 dit jusqu'à quand (l'écran affiche ce message tel quel).
       if (e instanceof GeminiPausedError) throw new ServiceUnavailableException(e.message);
+      // 429 : le journal vient de poser la pause commune, son texte dit quand revenir.
       if (!(e instanceof DeadlineError) && statusFromMessage((e as Error).message) === 429) {
-        throw new ServiceUnavailableException(QUOTA_EXHAUSTED);
+        const pause = await this.pauseBeforeDeadline();
+        throw new ServiceUnavailableException(pause ? new GeminiPausedError(pause.until, pause.reason).message : QUOTA_EXHAUSTED);
       }
       // Abandonné au délai, l'appel a pu être facturé : on compte l'estimation
       // d'une recherche (le plafond ne doit jamais sous-estimer la dépense).
