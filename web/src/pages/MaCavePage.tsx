@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChangeEvent, FormEvent, useId, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { ActionMenu } from '../components/ActionMenu';
+import { AnalysisBanner } from '../components/AnalysisBanner';
 import { BottomNav } from '../components/BottomNav';
 import { BottomSheet } from '../components/BottomSheet';
 import { Button } from '../components/Button';
@@ -10,7 +11,7 @@ import { PersonRow } from '../components/PersonRow';
 import { PlanView } from '../components/PlanView';
 import { TopBar } from '../components/TopBar';
 import {
-  acceptSuggestion, createPlan, createZone, deletePlan, deleteZone, exportUrl, getMembers, inviteMember, MemberView, planImageUrl, PlanSuggestion, rejectSuggestion,
+  acceptSuggestion, CavePlan, createPlan, createZone, deletePlan, deleteZone, exportUrl, getMembers, inviteMember, MemberView, planImageUrl, PlanSuggestion, rejectSuggestion,
   removeMember, removeZoneMarker, removeZonePhoto, renameCave, renamePlan, reorderZones, replacePlanImage, setZoneMarker, updateZone, uploadZonePhoto, Zone,
 } from '../lib/api-client';
 import { cellsPreview, GRID_MAX_COLS, GRID_MAX_ROWS, parseGrid } from '../lib/grid';
@@ -312,7 +313,16 @@ function PlanCard() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Plan dont l'analyse vient de finir, écran ouvert : bandeau de succès jusqu'à la prochaine action.
+  const [doneId, setDoneId] = useState<string | null>(null);
+  const lastAnalysis = useRef<Record<string, CavePlan['analysis']>>({});
   const plans = query.data?.plans ?? [];
+  useEffect(() => {
+    for (const p of query.data?.plans ?? []) {
+      if (lastAnalysis.current[p.id] === 'PENDING' && p.analysis === 'DONE') setDoneId(p.id);
+      lastAnalysis.current[p.id] = p.analysis;
+    }
+  }, [query.data]);
   // Plan affiché : celui de l'onglet, sinon le premier (premier affichage, plan supprimé).
   const plan = tab === 'new' ? null : plans.find((p) => p.id === tab) ?? plans[0] ?? null;
   const adding = query.isSuccess && !plan;
@@ -325,6 +335,7 @@ function PlanCard() {
     setBusy(true);
     setError(null);
     setStatus(null);
+    setDoneId(null);
     try {
       await run();
       setMode({ kind: 'idle' });
@@ -339,6 +350,7 @@ function PlanCard() {
 
   function choose(id: string) {
     setTab(id);
+    setDoneId(null);
     setMode({ kind: 'idle' });
     setRenaming(null);
     setError(null);
@@ -372,6 +384,7 @@ function PlanCard() {
 
   function tap(planId: string, x: number, y: number) {
     if (busy) return;
+    setDoneId(null);
     if (mode.kind === 'moving') void act(() => setZoneMarker(mode.zoneId, planId, x, y));
     else {
       if (mode.kind !== 'pending') setNewName('');
@@ -395,6 +408,7 @@ function PlanCard() {
   function openProposal(id: string) {
     setError(null);
     setStatus(null);
+    setDoneId(null);
     setProposalId(id);
   }
 
@@ -411,7 +425,11 @@ function PlanCard() {
         <div className="plan-tabs-row">
           <div role="tablist" aria-label="Plans de la cave" className="plan-tabs">
             {plans.map((p) => (
-              <button key={p.id} type="button" role="tab" className="plan-tabs__tab" aria-selected={p.id === plan?.id} onClick={() => choose(p.id)}>{p.name}</button>
+              <button key={p.id} type="button" role="tab" className="plan-tabs__tab" aria-selected={p.id === plan?.id} onClick={() => choose(p.id)}
+                aria-label={p.analysis === 'PENDING' ? `${p.name}, analyse en cours` : undefined}>
+                {p.name}
+                {p.analysis === 'PENDING' && <span className="plan-tabs__dot" aria-hidden="true" />}
+              </button>
             ))}
             <button type="button" role="tab" className="plan-tabs__tab" aria-selected={adding} onClick={() => choose('new')}>+ Ajouter un plan</button>
           </div>
@@ -435,8 +453,9 @@ function PlanCard() {
       )}
       {plan && (
         <>
+          <AnalysisBanner key={plan.id} plan={plan} done={doneId === plan.id} />
           {mode.kind === 'idle' && <p className="list__meta" style={{ margin: 0 }}>Touchez le plan à l’endroit où vous rangez des bouteilles, puis nommez-le.</p>}
-          {suggestions.length > 0 && (
+          {suggestions.length > 0 && doneId !== plan.id && (
             <p className="list__meta" style={{ margin: 0 }}>
               {suggestions.length === 1 ? '1 zone proposée : touchez-la pour l’accepter.' : `${suggestions.length} zones proposées : touchez-les pour les accepter.`}
             </p>
@@ -448,8 +467,6 @@ function PlanCard() {
             onPlanClick={(x, y) => tap(plan.id, x, y)} planRef={planRef}
             onMarkerClick={mode.kind === 'moving' ? undefined : (zoneId) => setMode({ kind: 'selected', zoneId })}
             onPendingMove={(x, y) => setMode((m) => (m.kind === 'pending' || m.kind === 'moving' ? { ...m, x, y } : m))} onCancel={() => setMode({ kind: 'idle' })} />
-          {plan.analysis === 'PENDING' && <p className="list__meta" style={{ margin: 0 }}>Analyse du plan en cours…</p>}
-          {plan.analysis === 'FAILED' && <p className="list__meta" style={{ margin: 0 }}>Les zones n’ont pas pu être proposées. Placez-les à la main.</p>}
         </>
       )}
       {plan && mode.kind === 'pending' && (

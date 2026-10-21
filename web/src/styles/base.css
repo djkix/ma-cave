@@ -254,6 +254,18 @@ button.plan-view__marker { cursor: pointer; }
 a.plan-tabs__tab { display: inline-flex; align-items: center; gap: var(--space-xs); text-decoration: none; }
 .plan-tabs__tab[aria-selected="true"], .plan-tabs__tab[aria-current="page"] { background: var(--color-primary-action); border-color: var(--color-primary-action); color: var(--color-on-primary); }
 .plan-tabs__tab:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
+/* Point animé d'un plan en cours d'analyse, dans son onglet. */
+.plan-tabs__dot { display: inline-block; width: 8px; height: 8px; margin-left: 6px; border-radius: 50%; background: currentColor; vertical-align: middle; animation: plan-tabs-dot-pulse 1.2s ease-in-out infinite; }
+@keyframes plan-tabs-dot-pulse { 50% { opacity: 0.3; } }
+/* Bandeau d'analyse du plan : bord gauche accent ; rouge en échec. */
+.analysis-banner { display: flex; align-items: flex-start; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-lg); border-left: 4px solid var(--color-primary-action); background: var(--color-surface-container); color: var(--color-primary); }
+.analysis-banner--error { border-left-color: var(--color-error); background: var(--color-error-container); color: var(--color-error); }
+.analysis-banner__body { display: grid; gap: var(--space-xs); justify-items: start; }
+.analysis-banner__title { margin: 0; font-weight: 600; }
+.analysis-banner__text { margin: 0; font-size: 13px; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin, .plan-tabs__dot { animation: none; } }
 
 /* Feuille du bas (BottomSheet) : <dialog> collé en bas, coins hauts arrondis. */
 .sheet {

@@ -36,12 +36,13 @@ function NavCard({ to, icon, title, summary }: { to: string; icon: string; title
   );
 }
 
-/** Résumé « Ma cave » : seulement monté pour le propriétaire, ses requêtes ne partent jamais pour un invité. */
+/** Résumé « Ma cave » (« Analyse du plan en cours » tant qu'un plan l'est) : seulement monté pour le propriétaire, ses requêtes ne partent jamais pour un invité. */
 function useCaveSummary(enabled: boolean): string | undefined {
   const plans = usePlans(enabled);
   const zones = useZones(enabled);
   // Même clé que la carte Membres de « Ma cave » : le cache est partagé.
   const members = useQuery({ queryKey: ['members'], queryFn: getMembers, enabled, retry: false });
+  if (plans.data?.plans.some((p) => p.analysis === 'PENDING')) return 'Analyse du plan en cours';
   if (!plans.data || !zones.data || !members.data) return undefined;
   return caveSummary(plans.data.plans.length, zones.data.length, members.data.length);
 }
