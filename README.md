@@ -909,7 +909,7 @@ openssl rand -hex 32
 | `BREAK_GLASS_EMAIL` / `BREAK_GLASS_PASSWORD` | compte local de secours (mot de passe de 12 caractères minimum), connexion par `/login?secours` ; laisser vide pour n'en créer aucun |
 | `ADMIN_EMAILS` | adresses administratrices, séparées par des virgules, en minuscules ; seule façon de désigner un administrateur (voir étape 7) |
 | `GEMINI_API_KEY` | clé Google AI Studio |
-| `GEMINI_MODEL` | `gemini-3.5-flash` ; **valeur de départ** de tous les usages, tant qu'aucun modèle n'est choisi dans *Administration › Coûts de l’IA*. Un modèle Flash ou Lite seulement (l'api refuse de démarrer avec un modèle Pro ; les coûts sont comptés au tarif Flash) |
+| `GEMINI_MODEL` | `gemini-3.8-flash` ; **valeur de départ** de tous les usages, tant qu'aucun modèle n'est choisi dans *Administration › Coûts de l’IA*. Un modèle Flash ou Lite seulement (l'api refuse de démarrer avec un modèle Pro ; les coûts sont comptés au tarif Flash) |
 | `GEMINI_MONTHLY_CAP_CENTS` | plafond mensuel approximatif en centimes (`500` = ~5 €) |
 | `BACKUP_DIR` / `BACKUP_RETENTION_DAYS` / `BACKUP_INTERVAL_SECONDS` | sauvegardes : répertoire, rétention, intervalle |
 
