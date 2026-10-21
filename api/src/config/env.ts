@@ -27,7 +27,7 @@ const schema = z.object({
   GEMINI_API_KEY: z.string().default(''),
   // Valeur de départ : l'Administration choisit ensuite le modèle (réglage `gemini_model`).
   // GEMINI_PLAN_MODEL, retirée en 2.19, est simplement ignorée (clés inconnues écartées).
-  GEMINI_MODEL: lightModel.default('gemini-3.5-flash'),
+  GEMINI_MODEL: lightModel.default('gemini-3.8-flash'),
   GEMINI_MONTHLY_CAP_CENTS: z.coerce.number().int().default(500),
   PHOTO_STORAGE_DIR: z.string().default('./data/photos'),
   BREAK_GLASS_EMAIL: emptyToUndefined(z.string().email().optional()),
