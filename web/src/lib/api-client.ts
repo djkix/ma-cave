@@ -129,12 +129,18 @@ export const getLocations = () => apiFetch<Location[]>('/locations');
  * Zone de la cave (« Ma cave › Réglages »), dans l'ordre d'affichage ; la photo se lit à `zonePhotoUrl(id)`.
  * `marker` : son repère, sur un des plans (fractions de la largeur et de la hauteur de ce plan).
  */
-export interface Zone { id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; marker: { planId: string; x: number; y: number } | null }
+export interface Zone {
+  id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; marker: { planId: string; x: number; y: number } | null;
+  /** Grille de cases (lignes A…, colonnes 1…), null sans grille. */
+  grid: { rows: number; cols: number } | null;
+}
 export const getZones = () => apiFetch<Zone[]>('/caves/current/zones');
 export const createZone = (input: { name: string; indication?: string | null }) =>
   apiFetch<Zone>('/caves/current/zones', { method: 'POST', body: JSON.stringify(input) });
-export const updateZone = (id: string, patch: { name?: string; indication?: string | null }) =>
+export const updateZone = (id: string, patch: { name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null }) =>
   apiFetch<Zone>(`/caves/current/zones/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+/** Bouteilles en stock par case (valeur de « casier », en majuscules) dans la zone. */
+export const getZoneCells = (zoneId: string) => apiFetch<{ casier: string; quantity: number }[]>(`/caves/current/zones/${zoneId}/cells`);
 /**
  * Supprime la zone, ou l'archive si elle a servi (`archived: true`) ; les bouteilles qui y étaient
  * rangées passent sans zone (même casier, même position) : `unplaced` dit combien.
@@ -149,8 +155,16 @@ export function uploadZonePhoto(id: string, file: File | Blob) {
   return apiFetch<Zone>(`/caves/current/zones/${id}/photo`, { method: 'PUT', body: form });
 }
 export const removeZonePhoto = (id: string) => apiFetch<Zone>(`/caves/current/zones/${id}/photo`, { method: 'DELETE' });
-/** Plan de la cave : nom, taille en pixels (mise en page avant chargement), date du dernier envoi (ISO). */
-export interface CavePlan { id: string; name: string; width: number; height: number; updatedAt: string }
+/** Zone proposée par l'analyse du plan : `box` = [x0, y0, x1, y1] en fractions de l'image. */
+export interface PlanSuggestion { id: string; kind: 'CASIER' | 'ETAGERE' | 'AUTRE'; name: string; box: [number, number, number, number]; rows: number; cols: number }
+/**
+ * Plan de la cave : nom, taille en pixels (mise en page avant chargement), date du dernier envoi (ISO),
+ * état de l'analyse de sa photo et zones proposées en attente.
+ */
+export interface CavePlan {
+  id: string; name: string; width: number; height: number; updatedAt: string;
+  analysis: 'NONE' | 'PENDING' | 'DONE' | 'FAILED'; suggestions: PlanSuggestion[];
+}
 /** Repère d'une zone sur un plan ; `number` : son rang sur ce plan. */
 export interface PlanMarker { zoneId: string; planId: string; name: string; number: number; x: number; y: number }
 /** Plans de la cave courante (ordre de création) et repères des zones ; lisibles par un membre. */
@@ -169,6 +183,11 @@ export const replacePlanImage = (id: string, file: File | Blob) =>
   apiFetch<CavePlan>(`/caves/current/plans/${id}/image`, { method: 'PUT', body: planForm(file) });
 /** Supprime le plan ; les zones et leurs bouteilles sont gardées. */
 export const deletePlan = (id: string) => apiFetch<void>(`/caves/current/plans/${id}`, { method: 'DELETE' });
+/** Crée la zone proposée (nom, grille), avec son repère au centre du cadre ; la proposition disparaît. */
+export const acceptSuggestion = (planId: string, sid: string, input: { name: string; rows: number; cols: number }) =>
+  apiFetch<Zone>(`/caves/current/plans/${planId}/suggestions/${sid}/accept`, { method: 'POST', body: JSON.stringify(input) });
+export const rejectSuggestion = (planId: string, sid: string) =>
+  apiFetch<void>(`/caves/current/plans/${planId}/suggestions/${sid}`, { method: 'DELETE' });
 export const setZoneMarker = (id: string, planId: string, x: number, y: number) =>
   apiFetch<Zone>(`/caves/current/zones/${id}/marker`, { method: 'PUT', body: JSON.stringify({ planId, x, y }) });
 export const removeZoneMarker = (id: string) => apiFetch<Zone>(`/caves/current/zones/${id}/marker`, { method: 'DELETE' });

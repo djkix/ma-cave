@@ -10,9 +10,10 @@ import { PersonRow } from '../components/PersonRow';
 import { PlanView } from '../components/PlanView';
 import { TopBar } from '../components/TopBar';
 import {
-  createPlan, createZone, deletePlan, deleteZone, exportUrl, getMembers, inviteMember, MemberView, planImageUrl, removeMember, removeZoneMarker, removeZonePhoto,
-  renameCave, renamePlan, reorderZones, replacePlanImage, setZoneMarker, updateZone, uploadZonePhoto, Zone,
+  acceptSuggestion, createPlan, createZone, deletePlan, deleteZone, exportUrl, getMembers, inviteMember, MemberView, planImageUrl, PlanSuggestion, rejectSuggestion,
+  removeMember, removeZoneMarker, removeZonePhoto, renameCave, renamePlan, reorderZones, replacePlanImage, setZoneMarker, updateZone, uploadZonePhoto, Zone,
 } from '../lib/api-client';
+import { cellsPreview, GRID_MAX_COLS, GRID_MAX_ROWS, parseGrid } from '../lib/grid';
 import { usePlans, useZones } from '../lib/locations';
 import { shrinkPhoto } from '../lib/shrink-photo';
 import { useCurrentCave } from '../lib/use-current-cave';
@@ -87,16 +88,39 @@ function MemberRow({ member, busy, onRemove }: { member: MemberView; busy: boole
 const ZONE_NAME_MAX = 40;
 const INDICATION_MAX = 300;
 
-/** Nom et indication d'une zone : ceux de l'ajout et de « Modifier ». */
+/** Lignes et colonnes d'une grille de cases (saisies en texte), et l'aperçu des cases quand elles sont valides. */
+function GridFields({ idPrefix, rows, cols, setRows, setCols }: {
+  idPrefix: string; rows: string; cols: string; setRows: (v: string) => void; setCols: (v: string) => void;
+}) {
+  const grid = parseGrid(rows, cols);
+  return (
+    <>
+      <label className="field__label" htmlFor={`${idPrefix}-rows`}>Lignes</label>
+      <input id={`${idPrefix}-rows`} type="number" inputMode="numeric" min={1} max={GRID_MAX_ROWS} value={rows} onChange={(e) => setRows(e.target.value)} />
+      <label className="field__label" htmlFor={`${idPrefix}-cols`}>Colonnes</label>
+      <input id={`${idPrefix}-cols`} type="number" inputMode="numeric" min={1} max={GRID_MAX_COLS} value={cols} onChange={(e) => setCols(e.target.value)} />
+      {grid && <p className="list__meta" style={{ margin: 0 }}>{cellsPreview(grid.rows, grid.cols)}</p>}
+    </>
+  );
+}
+
+/**
+ * Nom et indication d'une zone : ceux de l'ajout et de « Modifier ». « Modifier »
+ * (`onCancel`) ajoute la grille : Lignes et Colonnes, vides = pas de grille.
+ */
 function ZoneForm({ label, initial, submitLabel, busy, onSubmit, onCancel, idPrefix }: {
-  label: string; initial: { name: string; indication: string }; submitLabel: string; busy: boolean;
-  onSubmit: (v: { name: string; indication: string | null }) => void; onCancel?: () => void; idPrefix: string;
+  label: string; initial: { name: string; indication: string; grid?: Zone['grid'] }; submitLabel: string; busy: boolean;
+  onSubmit: (v: { name: string; indication: string | null; grid?: Zone['grid'] }) => void; onCancel?: () => void; idPrefix: string;
 }) {
   const [name, setName] = useState(initial.name);
   const [indication, setIndication] = useState(initial.indication);
+  const [rows, setRows] = useState(initial.grid ? String(initial.grid.rows) : '');
+  const [cols, setCols] = useState(initial.grid ? String(initial.grid.cols) : '');
+  // undefined : une seule dimension, ou hors bornes ; on n'enregistre pas.
+  const grid = parseGrid(rows, cols);
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (name.trim()) onSubmit({ name: name.trim(), indication: indication.trim() || null });
+    if (name.trim() && grid !== undefined) onSubmit({ name: name.trim(), indication: indication.trim() || null, ...(onCancel && { grid }) });
   }
   return (
     <form aria-label={label} onSubmit={submit} className="zone-form">
@@ -105,7 +129,8 @@ function ZoneForm({ label, initial, submitLabel, busy, onSubmit, onCancel, idPre
       <label className="field__label" htmlFor={`${idPrefix}-indication`}>{onCancel ? 'Indication' : 'Indication de la nouvelle zone'}</label>
       <textarea id={`${idPrefix}-indication`} value={indication} maxLength={INDICATION_MAX} rows={2}
         placeholder="à gauche en entrant, au fond derrière l’escalier" onChange={(e) => setIndication(e.target.value)} />
-      <button type="submit" className={onCancel ? 'btn btn--dark' : 'btn btn--primary'} disabled={!name.trim() || busy}>{submitLabel}</button>
+      {onCancel && <GridFields idPrefix={idPrefix} rows={rows} cols={cols} setRows={setRows} setCols={setCols} />}
+      <button type="submit" className={onCancel ? 'btn btn--dark' : 'btn btn--primary'} disabled={!name.trim() || grid === undefined || busy}>{submitLabel}</button>
       {onCancel && <Button variant="link" onClick={onCancel}>Annuler</Button>}
     </form>
   );
@@ -150,7 +175,7 @@ function ZoneRow({ zone, index, count, busy, error, photoVersion, onMove, onActi
         <Button variant="link" disabled={busy} onClick={confirmDelete}>Supprimer</Button>
       </div>
       <BottomSheet open={editing} title={`Modifier ${zone.name}`} onClose={() => setEditing(false)}>
-        <ZoneForm label={`Modifier ${zone.name}`} idPrefix={id} initial={{ name: zone.name, indication: zone.indication ?? '' }} submitLabel="Enregistrer" busy={busy}
+        <ZoneForm label={`Modifier ${zone.name}`} idPrefix={id} initial={{ name: zone.name, indication: zone.indication ?? '', grid: zone.grid }} submitLabel="Enregistrer" busy={busy}
           onSubmit={(v) => onAction(() => updateZone(zone.id, v), () => setEditing(false))} onCancel={() => setEditing(false)} />
         {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
       </BottomSheet>
@@ -233,6 +258,30 @@ function ZonesCard() {
   );
 }
 
+/** Proposition de l'analyse du plan : nom, lignes et colonnes préremplis et modifiables ; Accepter crée la zone, Rejeter la retire. */
+function ProposalForm({ suggestion, idPrefix, busy, onAccept, onReject }: {
+  suggestion: PlanSuggestion; idPrefix: string; busy: boolean;
+  onAccept: (v: { name: string; rows: number; cols: number }) => void; onReject: () => void;
+}) {
+  const [name, setName] = useState(suggestion.name);
+  const [rows, setRows] = useState(String(suggestion.rows));
+  const [cols, setCols] = useState(String(suggestion.cols));
+  const grid = parseGrid(rows, cols);
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    if (name.trim() && grid) onAccept({ name: name.trim(), ...grid });
+  }
+  return (
+    <form className="zone-form" onSubmit={submit}>
+      <label className="field__label" htmlFor={`${idPrefix}-name`}>Nom</label>
+      <input id={`${idPrefix}-name`} value={name} maxLength={ZONE_NAME_MAX} autoComplete="off" onChange={(e) => setName(e.target.value)} />
+      <GridFields idPrefix={idPrefix} rows={rows} cols={cols} setRows={setRows} setCols={setCols} />
+      <button type="submit" className="btn btn--primary" disabled={!name.trim() || !grid || busy}>Accepter</button>
+      <Button variant="link" disabled={busy} onClick={onReject}>Rejeter</Button>
+    </form>
+  );
+}
+
 /** Ce que montre le plan en dehors de l'image : un repère à attribuer, une zone choisie, ou une zone à déplacer (« + » au clavier en x, y). */
 type PlanMode = { kind: 'idle' } | { kind: 'pending'; x: number; y: number } | { kind: 'selected'; zoneId: string } | { kind: 'moving'; zoneId: string; x: number; y: number };
 
@@ -258,6 +307,8 @@ function PlanCard() {
   const [newName, setNewName] = useState('');
   const [planName, setPlanName] = useState('');
   const [renaming, setRenaming] = useState<string | null>(null);
+  // Proposition ouverte (feuille « Proposition ») ; fermée d'elle-même si elle disparaît des plans relus.
+  const [proposalId, setProposalId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -267,6 +318,8 @@ function PlanCard() {
   const adding = query.isSuccess && !plan;
   const markers = (query.data?.markers ?? []).filter((m) => m.planId === plan?.id);
   const list = zones.data ?? [];
+  const suggestions = plan?.suggestions ?? [];
+  const proposal = suggestions.find((sg) => sg.id === proposalId);
 
   async function act(run: () => Promise<unknown>, done?: string) {
     setBusy(true);
@@ -339,6 +392,12 @@ function PlanCard() {
     planRef.current?.focus();
   }
 
+  function openProposal(id: string) {
+    setError(null);
+    setStatus(null);
+    setProposalId(id);
+  }
+
   const selected = mode.kind === 'selected' || mode.kind === 'moving' ? list.find((z) => z.id === mode.zoneId) : undefined;
 
   return (
@@ -377,11 +436,20 @@ function PlanCard() {
       {plan && (
         <>
           {mode.kind === 'idle' && <p className="list__meta" style={{ margin: 0 }}>Touchez le plan à l’endroit où vous rangez des bouteilles, puis nommez-le.</p>}
+          {suggestions.length > 0 && (
+            <p className="list__meta" style={{ margin: 0 }}>
+              {suggestions.length === 1 ? '1 zone proposée : touchez-la pour l’accepter.' : `${suggestions.length} zones proposées : touchez-les pour les accepter.`}
+            </p>
+          )}
           <PlanView src={planImageUrl(plan.id, plan.updatedAt)} plan={plan} markers={markers}
+            // Pendant « Déplacer », tout toucher pose le repère : pas de cadres.
+            suggestions={mode.kind === 'moving' ? [] : suggestions} onSuggestionClick={openProposal}
             pending={mode.kind === 'pending' || mode.kind === 'moving' ? { x: mode.x, y: mode.y } : null} highlightZoneId={selected?.id}
             onPlanClick={(x, y) => tap(plan.id, x, y)} planRef={planRef}
             onMarkerClick={mode.kind === 'moving' ? undefined : (zoneId) => setMode({ kind: 'selected', zoneId })}
             onPendingMove={(x, y) => setMode((m) => (m.kind === 'pending' || m.kind === 'moving' ? { ...m, x, y } : m))} onCancel={() => setMode({ kind: 'idle' })} />
+          {plan.analysis === 'PENDING' && <p className="list__meta" style={{ margin: 0 }}>Analyse du plan en cours…</p>}
+          {plan.analysis === 'FAILED' && <p className="list__meta" style={{ margin: 0 }}>Les zones n’ont pas pu être proposées. Placez-les à la main.</p>}
         </>
       )}
       {plan && mode.kind === 'pending' && (
@@ -430,6 +498,14 @@ function PlanCard() {
               <button type="submit" className="btn btn--dark" disabled={!renaming?.trim() || busy}>Enregistrer</button>
               <Button variant="link" onClick={() => setRenaming(null)}>Annuler</Button>
             </form>
+            {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
+          </BottomSheet>
+          <BottomSheet open={!!proposal} title="Proposition" onClose={() => setProposalId(null)}>
+            {proposal && (
+              <ProposalForm key={proposal.id} suggestion={proposal} idPrefix={`${inputId}-proposal`} busy={busy}
+                onAccept={(v) => void act(async () => { await acceptSuggestion(plan.id, proposal.id, v); setProposalId(null); }, `Zone « ${v.name} » ajoutée.`)}
+                onReject={() => void act(async () => { await rejectSuggestion(plan.id, proposal.id); setProposalId(null); })} />
+            )}
             {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
           </BottomSheet>
         </>

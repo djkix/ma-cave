@@ -11,8 +11,8 @@ const locations: Location[] = [
 ];
 // Ordre d'affichage choisi dans « Ma cave › Réglages », pas l'ordre alphabétique.
 const zones: Zone[] = [
-  { id: 'z1', name: 'Garage', indication: 'Au fond, derrière l’escalier', hasPhoto: true, sortOrder: 0, marker: null },
-  { id: 'z2', name: 'Cave 2', indication: null, hasPhoto: false, sortOrder: 1, marker: null },
+  { id: 'z1', name: 'Garage', indication: 'Au fond, derrière l’escalier', hasPhoto: true, sortOrder: 0, marker: null, grid: null },
+  { id: 'z2', name: 'Cave 2', indication: null, hasPhoto: false, sortOrder: 1, marker: null, grid: null },
 ];
 
 function Harness({ initial, zoneList = zones, block = true }: { initial: LocationInput; zoneList?: Zone[] | null; block?: boolean }) {

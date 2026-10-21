@@ -311,3 +311,16 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 .usage-details__summary { display: list-item; min-height: var(--size-touch-target); line-height: var(--size-touch-target); cursor: pointer; }
 .usage-legend { list-style: none; margin: var(--space-xs) 0 var(--space-sm); padding: 0; display: flex; flex-wrap: wrap; gap: 2px var(--space-sm); }
 .usage-legend .histo__key { margin-right: 4px; }
+
+/* Zones proposées par l'analyse du plan : cadres en pointillés, étiquette en haut à gauche (PlanView). */
+.plan-view__suggestion {
+  position: absolute; box-sizing: border-box; padding: 0; margin: 0; cursor: pointer;
+  border: 2px dashed var(--color-primary-container); border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-primary-container) 12%, transparent);
+  display: flex; align-items: flex-start; justify-content: flex-start; overflow: hidden;
+}
+.plan-view__suggestion:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
+.plan-view__suggestion-label {
+  background: var(--color-primary-container); color: var(--color-on-primary); font: 600 12px/1.3 var(--font-sans);
+  padding: 2px 6px; border-bottom-right-radius: var(--radius-sm); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}

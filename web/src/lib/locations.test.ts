@@ -6,8 +6,8 @@ const locations: Location[] = [
   { id: 'l2', zoneId: 'z1', zone: 'Cave 2', casier: 'A', position: null, label: 'Cave 2 / A', lastUsed: false },
 ];
 const zones: Zone[] = [
-  { id: 'z1', name: 'Cave 2', indication: null, hasPhoto: false, sortOrder: 0, marker: null },
-  { id: 'z2', name: 'Garage', indication: 'Au fond', hasPhoto: true, sortOrder: 1, marker: null },
+  { id: 'z1', name: 'Cave 2', indication: null, hasPhoto: false, sortOrder: 0, marker: null, grid: null },
+  { id: 'z2', name: 'Garage', indication: 'Au fond', hasPhoto: true, sortOrder: 1, marker: null, grid: null },
 ];
 
 describe('toLocationInput', () => {
