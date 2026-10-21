@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { CaveBudgetShareExceededError, VisionBudgetExceededError } from '../queue/vision-budget.service';
-import { GeminiPause, GeminiPausedError } from '../vision/gemini-pause';
+import { GeminiPause, GeminiPausedError, GeminiQuotaError } from '../vision/gemini-pause';
 import { CandidateStore } from './candidates';
 import { ABORTED_CALL_COST_CENTS, ImageSearchService } from './image-search.service';
 import { OFF_SOURCE } from './open-food-facts';
@@ -153,6 +153,25 @@ describe('ImageSearchService.search', () => {
     const e = await service.search('c1', 'w1').catch((x) => x);
     expect(e).toBeInstanceOf(ServiceUnavailableException);
     expect(e.message).toBe('Recherche d’image impossible : quota Gemini épuisé');
+    expect(prisma.imageSearchCost.create).not.toHaveBeenCalled();
+  });
+
+  it('429 de Google : 503 avec l’heure de reprise de la pause posée', async () => {
+    const quota = new Error('[GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent: [429 Too Many Requests] You exceeded your current quota');
+    const { service, pause } = setup({ providerError: quota });
+    const until = new Date(Date.now() + 37_000);
+    pause.currentPause.mockResolvedValueOnce(null).mockResolvedValueOnce({ until, reason: 'QUOTA_GOOGLE' });
+    const e = await service.search('c1', 'w1').catch((x) => x);
+    expect(e).toBeInstanceOf(ServiceUnavailableException);
+    expect(e.message).toMatch(/^Quota Gemini dépassé chez Google : reprise (demain )?à \d\d:\d\d\.$/);
+  });
+
+  it('limite de débit atteinte : 503 avec le texte de la limite, sans dépense comptée', async () => {
+    const refusal = new GeminiQuotaError(new Date('2026-10-22T07:00:00.000Z'), 'QUOTA_JOUR', 20, new Date('2026-10-21T12:00:00.000Z'));
+    const { service, prisma } = setup({ providerError: refusal });
+    const e = await service.search('c1', 'w1').catch((x) => x);
+    expect(e).toBeInstanceOf(ServiceUnavailableException);
+    expect(e.message).toBe('Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.');
     expect(prisma.imageSearchCost.create).not.toHaveBeenCalled();
   });
 

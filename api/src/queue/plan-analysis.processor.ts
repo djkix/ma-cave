@@ -4,17 +4,23 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PHOTO_STORAGE_DIR } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { GeminiPausedError } from '../vision/gemini-pause';
+import { GeminiPausedError, GeminiQuotaError } from '../vision/gemini-pause';
 import { VISION_PROVIDER, VisionProvider } from '../vision/vision-provider.interface';
 import { nameBlocks, unitsToBlocks, validBlocks } from '../zones/plan-suggestions';
 import { PlanService } from '../zones/plan.service';
 import { PlanFailedReason } from '../zones/zone';
-import { PlanAnalysisDeferral, PlanAnalysisJobData } from './plan-analysis';
+import { PlanAnalysisDeferral, PlanAnalysisJobData, QuotaKind } from './plan-analysis';
 import { isConfigurationError, isTransientVisionFailure, statusFromMessage, TRANSIENT_NETWORK } from './transient-failure';
 import { VisionBudgetExceededError, VisionBudgetService } from './vision-budget.service';
 
 /** Cause d'un report, affichée tant que la tâche attend sa reprise. */
 export function deferralOf(error: unknown): PlanAnalysisDeferral {
+  if (error instanceof GeminiQuotaError) {
+    return { waiting: 'QUOTA', pauseUntil: error.until.toISOString(), quotaKind: error.reason.replace('QUOTA_', '') as QuotaKind, quotaLimit: error.limit };
+  }
+  if (error instanceof GeminiPausedError && error.reason === 'QUOTA_GOOGLE') {
+    return { waiting: 'QUOTA', pauseUntil: error.until.toISOString(), quotaKind: 'GOOGLE', quotaLimit: null };
+  }
   if (error instanceof GeminiPausedError) return { waiting: 'GEMINI_PAUSE', pauseUntil: error.until.toISOString() };
   if (error instanceof VisionBudgetExceededError) return { waiting: 'BUDGET', pauseUntil: null };
   return { waiting: 'RETRY', pauseUntil: null };

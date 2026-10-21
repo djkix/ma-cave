@@ -2,6 +2,7 @@ import { PhotoPurpose } from '@prisma/client';
 import { JobsOptions, Queue } from 'bullmq';
 import Redis from 'ioredis';
 import { loadEnv } from '../config/env';
+import { GeminiPausedError } from '../vision/gemini-pause';
 
 export const EXTRACTION_QUEUE = 'photo-extraction';
 export const EXTRACTION_QUEUE_TOKEN = 'EXTRACTION_QUEUE';
@@ -40,6 +41,20 @@ export const MAX_DELAY_MS = 15 * 60_000;
  */
 export function extractionBackoffDelay(attemptsMade: number): number {
   return Math.min(FIRST_DELAY_MS * 2 ** Math.max(0, attemptsMade - 1), MAX_DELAY_MS);
+}
+
+/** Marge après la fin d'une pause : la reprise tombe juste après la remise à zéro, jamais juste avant. */
+const RESUME_MARGIN_MS = 1000;
+
+/**
+ * Stratégie de report des files BullMQ (voir worker.ts) : pendant une pause
+ * commune ou après un refus du limiteur, la tâche reprend juste après `until`
+ * (fin de la pause, minute suivante, minuit du Pacifique) ; sinon le report
+ * croissant habituel.
+ */
+export function deferredBackoffDelay(attemptsMade: number, error: unknown, now = new Date()): number {
+  if (error instanceof GeminiPausedError) return Math.max(0, error.until.getTime() - now.getTime()) + RESUME_MARGIN_MS;
+  return extractionBackoffDelay(attemptsMade);
 }
 
 /**

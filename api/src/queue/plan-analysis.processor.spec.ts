@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createTestCave, deleteTestCaves } from '../test-utils/cave';
-import { GeminiPausedError } from '../vision/gemini-pause';
+import { GeminiPausedError, GeminiQuotaError } from '../vision/gemini-pause';
 import { CaveBudgetShareExceededError } from './vision-budget.service';
 import { VisionInvalidOutputError } from '../vision/gemini-vision.provider';
 import { PlanService } from '../zones/plan.service';
@@ -14,7 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { Worker } from 'bullmq';
 import { EXTRACTION_ATTEMPTS } from './extraction.queue';
 import { clearPlanAnalysisDeferral, planAnalysisJobId, planAnalysisJobState, requeuePendingPlans } from './plan-analysis';
-import { failedReasonOf, PlanAnalysisProcessor } from './plan-analysis.processor';
+import { deferralOf, failedReasonOf, PlanAnalysisProcessor } from './plan-analysis.processor';
 
 const describeIfDb = process.env.DATABASE_URL ? describe : describe.skip;
 
@@ -338,9 +338,29 @@ describeIfDb('planAnalysisJobState (file réelle)', () => {
     }
   });
 
+  it('retardée par une limite de débit : QUOTA, sa nature, et le texte calculé à la lecture', async () => {
+    const d = data();
+    await queue.add('analyse', d, { jobId: planAnalysisJobId(d), backoff: { type: 'fixed', delay: 90_000 } });
+    const workerConnection = connection();
+    const worker = new Worker(queue.name, null, { connection: workerConnection });
+    try {
+      const job = (await worker.getNextJob('jeton'))!;
+      const until = new Date(Date.now() + 60_000);
+      await job.updateData({ ...d, ...deferralOf(new GeminiQuotaError(until, 'QUOTA_MINUTE', 5)) });
+      await job.moveToFailed(new Error('limite'), 'jeton');
+      const hhmm = until.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+      expect(await planAnalysisJobState(queue, d)).toMatchObject({
+        waiting: 'QUOTA', pauseUntil: until.toISOString(), quotaKind: 'MINUTE', message: expect.stringMatching(new RegExp(`^Limite de 5 requêtes par minute atteinte : reprise (demain )?à ${hhmm}\\.$`)),
+      });
+    } finally {
+      await worker.close();
+      await workerConnection.quit();
+    }
+  });
+
   it('au démarrage d’une tentative, la cause du report précédent est effacée de la tâche', async () => {
     const d = data();
-    await queue.add('analyse', { ...d, waiting: 'BUDGET', pauseUntil: null }, { jobId: planAnalysisJobId(d) });
+    await queue.add('analyse', { ...d, waiting: 'QUOTA', pauseUntil: null, quotaKind: 'JOUR', quotaLimit: 20 }, { jobId: planAnalysisJobId(d) });
     const job = (await queue.getJob(planAnalysisJobId(d)))!;
     await clearPlanAnalysisDeferral(job);
     expect((await queue.getJob(planAnalysisJobId(d)))!.data).toEqual(d);
@@ -378,6 +398,18 @@ describeIfDb('planAnalysisJobState (file réelle)', () => {
     const state = await planAnalysisJobState(queue, d);
     expect(state).toMatchObject({ attempt: 1, waiting: 'RETRY', pauseUntil: null });
     expect(Math.abs(Date.parse(state.nextAttemptAt!) - at)).toBeLessThan(1000);
+  });
+});
+
+describe('deferralOf', () => {
+  const until = new Date('2026-10-22T07:00:00.000Z');
+  it('limite de débit : QUOTA, sa nature et la limite réglée', () => {
+    expect(deferralOf(new GeminiQuotaError(until, 'QUOTA_JOUR', 20))).toEqual({ waiting: 'QUOTA', pauseUntil: until.toISOString(), quotaKind: 'JOUR', quotaLimit: 20 });
+    expect(deferralOf(new GeminiQuotaError(until, 'QUOTA_TOKENS', 250000))).toMatchObject({ waiting: 'QUOTA', quotaKind: 'TOKENS' });
+  });
+  it('pause après un 429 de Google : QUOTA GOOGLE ; autre pause : GEMINI_PAUSE', () => {
+    expect(deferralOf(new GeminiPausedError(until, 'QUOTA_GOOGLE'))).toEqual({ waiting: 'QUOTA', pauseUntil: until.toISOString(), quotaKind: 'GOOGLE', quotaLimit: null });
+    expect(deferralOf(new GeminiPausedError(until, 'modèle saturé'))).toEqual({ waiting: 'GEMINI_PAUSE', pauseUntil: until.toISOString() });
   });
 });
 

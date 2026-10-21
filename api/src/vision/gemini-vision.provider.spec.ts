@@ -1,6 +1,7 @@
 import { GEMINI_PAUSE_REASON_KEY, GEMINI_PAUSE_UNTIL_KEY, GeminiJournal, GeminiPausedError } from './gemini-journal';
 import { fakeGeminiPrisma as fakePrisma } from '../test-utils/fake-gemini-prisma';
 import { GeminiVisionProvider, VisionBatchMismatchError } from './gemini-vision.provider';
+import { GeminiQuotaError } from './gemini-pause';
 
 const validObj = (overrides: Record<string, unknown> = {}) => ({
   producteur: { value: 'Domaine Tempier', confidence: 0.98 }, cuvee: { value: null, confidence: 0 },
@@ -466,12 +467,19 @@ describe('GeminiVisionProvider — journal des appels et pause commune', () => {
     expect(prisma.settings.get(GEMINI_PAUSE_REASON_KEY)).toBe('modèle saturé');
   });
 
-  it('429 : noté REFUSE avec le statut, et met Gemini en pause 1 h (« quota épuisé »)', async () => {
+  it('429 sans délai : noté REFUSE avec le statut, et met Gemini en pause 1 h (QUOTA_GOOGLE)', async () => {
     const { prisma, journal } = journalOf();
     await expect(gemini(failing(GEMINI_429) as any, 'm', journal).describeProducersBatch([{ producer: 'X', appellations: [], region: null }])).rejects.toBe(GEMINI_429);
     expect(prisma.calls[0]).toMatchObject({ usage: 'DESCRIPTIF', outcome: 'REFUSE', httpStatus: 429 });
     expect(prisma.settings.get(GEMINI_PAUSE_UNTIL_KEY)).toBe('2026-10-08T13:00:00.000Z');
-    expect(prisma.settings.get(GEMINI_PAUSE_REASON_KEY)).toBe('quota épuisé');
+    expect(prisma.settings.get(GEMINI_PAUSE_REASON_KEY)).toBe('QUOTA_GOOGLE');
+  });
+
+  it('429 : le délai demandé par Google est lu dans le message complet, même au-delà des 300 caractères du journal', async () => {
+    const { prisma, journal } = journalOf();
+    const long = new Error(`${GEMINI_429.message} ${'x'.repeat(400)} [{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"37s"}]`);
+    await expect(gemini(failing(long) as any, 'm', journal).suggestPairingsBatch([wine])).rejects.toBe(long);
+    expect(prisma.settings.get(GEMINI_PAUSE_UNTIL_KEY)).toBe('2026-10-08T12:00:37.000Z');
   });
 
   it('un 503 après un 429 ne raccourcit pas la pause d’une heure', async () => {
@@ -650,5 +658,47 @@ describe('GeminiVisionProvider — modèle en vigueur', () => {
     current = 'gemini-3.5-flash-lite';
     await expect(provider.suggestPairingsBatch([wine])).rejects.toThrow('boom');
     expect(prisma.calls.map((c: any) => [c.outcome, c.model])).toEqual([['OK', 'gemini-3.5-flash'], ['ERREUR', 'gemini-3.5-flash-lite']]);
+  });
+});
+
+describe('GeminiVisionProvider — limiteur de débit', () => {
+  const wine = { producer: 'Domaine Tempier', cuvee: null, appellation: 'Bandol', region: null, color: 'ROUGE', vintage: 2019 };
+  const limiter = () => ({ reserve: jest.fn(async () => undefined), addTokens: jest.fn(async () => undefined) });
+  const withQuota = (model: any, quota: ReturnType<typeof limiter>, journal?: GeminiJournal) =>
+    new GeminiVisionProvider(() => model, async () => 'm', journal, quota);
+
+  it('refus du limiteur : aucun appel à Google, rien au journal, l’erreur de pause remonte', async () => {
+    const prisma = fakePrisma();
+    const journal = new GeminiJournal(prisma, { warn: jest.fn(), error: jest.fn() });
+    const quota = limiter();
+    const refusal = new GeminiQuotaError(new Date('2026-10-08T12:01:00.000Z'), 'QUOTA_MINUTE', 5);
+    quota.reserve.mockRejectedValue(refusal);
+    const model = fakeModel('[{"vin":1,"plats":["Agneau"]}]');
+    await expect(withQuota(model, quota, journal).suggestPairingsBatch([wine])).rejects.toBe(refusal);
+    expect(model.generateContent).not.toHaveBeenCalled();
+    expect(prisma.calls).toEqual([]);
+    expect(prisma.settings.has(GEMINI_PAUSE_UNTIL_KEY)).toBe(false);
+  });
+
+  it('chaque appel réserve sa place, puis compte ses jetons réels (entrée + sortie)', async () => {
+    const quota = limiter();
+    await withQuota(fakeModel(validJson, { promptTokenCount: 2500, candidatesTokenCount: 200 }), quota).extractWineLabel(Buffer.from('x'), 'image/jpeg');
+    expect(quota.reserve).toHaveBeenCalledTimes(1);
+    expect(quota.addTokens).toHaveBeenCalledWith(2700);
+  });
+
+  it('une sortie inexploitable a consommé ses jetons : ils sont comptés aussi', async () => {
+    const quota = limiter();
+    await expect(withQuota(fakeModel('pas du json', { promptTokenCount: 100, candidatesTokenCount: 20 }), quota).analyzePlan(Buffer.from('x'), 'image/jpeg')).rejects.toThrow();
+    expect(quota.addTokens).toHaveBeenCalledWith(120);
+  });
+
+  it('pendant une pause commune, aucune place n’est réservée', async () => {
+    const prisma = fakePrisma();
+    prisma.settings.set(GEMINI_PAUSE_UNTIL_KEY, new Date(Date.now() + 60_000).toISOString());
+    const quota = limiter();
+    const journal = new GeminiJournal(prisma, { warn: jest.fn(), error: jest.fn() });
+    await expect(withQuota(fakeModel(validJson), quota, journal).extractWineLabel(Buffer.from('x'), 'image/jpeg')).rejects.toBeInstanceOf(GeminiPausedError);
+    expect(quota.reserve).not.toHaveBeenCalled();
   });
 });
