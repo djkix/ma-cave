@@ -80,7 +80,7 @@ describeIfDb('journal des appels Gemini (base réelle)', () => {
       const c = await prisma.geminiCall.create({ data: { ...r, durationMs: 10 } });
       created.push(c.id);
     }
-    const report = await new GeminiUsageService(prisma as never, new GeminiJournal(prisma, quiet)).report(2, now);
+    const report = await new GeminiUsageService(prisma as never, new GeminiJournal(prisma, quiet), { blocked: async () => null } as never).report(2, now);
     expect(report.rows).toEqual([
       { day: '2001-06-15', usage: 'LECTURE_SORTIE', model: null, ok: 1, refused503: 1, refused429: 0, errors: 0, costCents: 2 },
       { day: '2001-06-15', usage: 'LECTURE_SORTIE', model: 'gemini-3.5-flash-lite', ok: 1, refused503: 0, refused429: 0, errors: 0, costCents: 1 },
@@ -88,7 +88,7 @@ describeIfDb('journal des appels Gemini (base réelle)', () => {
       { day: '2001-06-14', usage: 'DESCRIPTIF', model: null, ok: 0, refused503: 0, refused429: 0, errors: 1, costCents: 0 },
     ]);
     expect(report.totals).toEqual({ ok: 2, refused: 2, errors: 1, costCents: 3 });
-    expect(report.pause).toEqual({ until: null, reason: null });
+    expect(report.pause).toEqual({ until: null, reason: null, message: null });
   });
 
   it('la pause ne raccourcit jamais une échéance plus lointaine, même sur deux refus simultanés', async () => {
@@ -98,7 +98,7 @@ describeIfDb('journal des appels Gemini (base réelle)', () => {
     await Promise.all([journal.extendPause(429, t0), journal.extendPause(503, t0), journal.extendPause(503, t0)]);
     const value = async (key: string) => (await prisma.appSetting.findUnique({ where: { key } }))?.value;
     expect(await value(GEMINI_PAUSE_UNTIL_KEY)).toBe('2001-01-01T01:00:00.000Z');
-    expect(await value(GEMINI_PAUSE_REASON_KEY)).toBe('quota épuisé');
+    expect(await value(GEMINI_PAUSE_REASON_KEY)).toBe('QUOTA_GOOGLE');
     await journal.extendPause(503, new Date('2001-01-01T00:30:00.000Z'));
     expect(await value(GEMINI_PAUSE_UNTIL_KEY)).toBe('2001-01-01T01:00:00.000Z');
     await journal.extendPause(503, new Date('2001-01-01T00:58:00.000Z'));

@@ -1,4 +1,4 @@
-import { GeminiPause, GeminiPausedError } from '../vision/gemini-pause';
+import { GeminiPause, GeminiPausedError, GeminiQuotaError } from '../vision/gemini-pause';
 import { VisionBatchMismatchError } from '../vision/gemini-vision.provider';
 import { ENTRY_BATCH_CALL_TIMEOUT_MS, RESERVATION_MS } from './entry-batch';
 import { EntryBatchProcessor } from './entry-batch.processor';
@@ -831,6 +831,17 @@ describe('EntryBatchProcessor.tick — pause commune de Gemini', () => {
     h.vision.extractWineLabel.mockRejectedValueOnce(paused());
     await h.processor.tick(NOW);
     expect(p).toMatchObject({ status: 'PENDING', attempts: 2, nextAttemptAt: UNTIL, errorMessage: PAUSE_MESSAGE });
+  });
+
+  it('limite de débit atteinte : le lot est reporté jusqu’à l’heure de reprise, sans tentative, avec le texte de la limite', async () => {
+    const h = harness();
+    const all = h.addMany(2, { createdAt: at(-600_000), attempts: 4 });
+    const until = at(30_000);
+    const refusal = new GeminiQuotaError(until, 'QUOTA_MINUTE', 5, NOW);
+    h.vision.extractWineLabels.mockRejectedValueOnce(refusal);
+    await h.processor.tick(NOW);
+    all.forEach((r) => expect(r).toMatchObject({ status: 'PENDING', attempts: 4, nextAttemptAt: until, errorMessage: refusal.message }));
+    expect(refusal.message).toMatch(/^Limite de 5 requêtes par minute atteinte : reprise à \d\d:\d\d\.$/);
   });
 
   it('une photo d’entrée relue seule est notée comme lecture d’entrée', async () => {

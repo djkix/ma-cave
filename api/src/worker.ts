@@ -13,7 +13,7 @@ import { requeueMissingProducers } from './producers/producer-recovery';
 import { ENTRY_BATCH_TICK_MS, createEntryBatchLoop } from './queue/entry-batch';
 import { EntryBatchProcessor } from './queue/entry-batch.processor';
 import { ExtractionProcessor } from './queue/extraction.processor';
-import { EXTRACTION_QUEUE, ExtractionJobData, extractionBackoffDelay, redisConnection } from './queue/extraction.queue';
+import { EXTRACTION_QUEUE, ExtractionJobData, deferredBackoffDelay, redisConnection } from './queue/extraction.queue';
 import { requeueOrphanPhotos } from './queue/orphan-recovery';
 import { clearPlanAnalysisDeferral, PLAN_ANALYSIS_QUEUE, PLAN_ANALYSIS_QUEUE_TOKEN, PlanAnalysisJobData, requeuePendingPlans } from './queue/plan-analysis';
 import { PlanAnalysisProcessor } from './queue/plan-analysis.processor';
@@ -29,8 +29,9 @@ async function main() {
       concurrency: 5,
       // Les délais de reprise sont calculés ici, pas dans les options du travail :
       // BullMQ résout une stratégie nommée côté worker, ce qui permet d'allonger
-      // la patience sans toucher aux travaux déjà en file.
-      settings: { backoffStrategy: (attemptsMade: number) => extractionBackoffDelay(attemptsMade) },
+      // la patience sans toucher aux travaux déjà en file. Pause ou limite de
+      // débit : reprise juste après l'heure annoncée (voir deferredBackoffDelay).
+      settings: { backoffStrategy: (attemptsMade: number, _type?: string, err?: Error) => deferredBackoffDelay(attemptsMade, err) },
     },
   );
   worker.on('failed', (job, err) => console.warn(`job ${job?.id} failed: ${err.message}`));
@@ -46,7 +47,7 @@ async function main() {
       await clearPlanAnalysisDeferral(job, (m) => console.warn(m));
       return planAnalysis.process(job.data, job.attemptsMade + 1 >= (job.opts.attempts ?? 1), (cause) => job.updateData({ ...job.data, ...cause }));
     },
-    { connection: redisConnection(), concurrency: 2, settings: { backoffStrategy: (attemptsMade: number) => extractionBackoffDelay(attemptsMade) } },
+    { connection: redisConnection(), concurrency: 2, settings: { backoffStrategy: (attemptsMade: number, _type?: string, err?: Error) => deferredBackoffDelay(attemptsMade, err) } },
   );
   planWorker.on('failed', (job, err) => console.warn(`analyse de plan ${job?.id} : ${err.message}`));
   planWorker.on('error', (err) => console.error(`file d'analyse des plans : ${err.message}`));
@@ -60,7 +61,7 @@ async function main() {
   const legacyPairingWorker = new Worker<WinePairingJobData>(PAIRING_QUEUE, (job) => handleLegacyPairingJob(prisma, job), {
     connection: redisConnection(),
     concurrency: 1,
-    settings: { backoffStrategy: (attemptsMade: number) => extractionBackoffDelay(attemptsMade) },
+    settings: { backoffStrategy: (attemptsMade: number, _type?: string, err?: Error) => deferredBackoffDelay(attemptsMade, err) },
   });
   legacyPairingWorker.on('failed', (job, err) => console.warn(`ancien travail ${job?.name === PRODUCER_JOB ? 'de descriptif' : "d'accords"} ${job?.id} : ${err.message}`));
   legacyPairingWorker.on('error', (err) => console.error(`ancienne file des accords : ${err.message}`));

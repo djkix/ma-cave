@@ -1,4 +1,5 @@
 import { Queue } from 'bullmq';
+import { quotaMessage } from '../vision/gemini-pause';
 import { EXTRACTION_ATTEMPTS, EXTRACTION_BACKOFF, redisConnection } from './extraction.queue';
 
 export const PLAN_ANALYSIS_QUEUE = 'plan-analysis';
@@ -6,10 +7,15 @@ export const PLAN_ANALYSIS_QUEUE_TOKEN = 'PLAN_ANALYSIS_QUEUE';
 
 /** Cause du dernier report d'une analyse, enregistrée sur la tâche pour l'afficher. */
 export interface PlanAnalysisDeferral {
-  waiting: 'GEMINI_PAUSE' | 'BUDGET' | 'RETRY';
-  /** Fin de la pause Gemini (ISO), seulement pour GEMINI_PAUSE. */
+  waiting: 'GEMINI_PAUSE' | 'QUOTA' | 'BUDGET' | 'RETRY';
+  /** Fin de la pause Gemini ou heure de reprise après une limite de débit (ISO), seulement pour GEMINI_PAUSE et QUOTA. */
   pauseUntil: string | null;
+  /** QUOTA : limite atteinte (limiteur local : minute, jetons, jour ; ou 429 de Google) et limite réglée citée dans le texte. */
+  quotaKind?: QuotaKind;
+  quotaLimit?: number | null;
 }
+
+export type QuotaKind = 'MINUTE' | 'TOKENS' | 'JOUR' | 'GOOGLE';
 
 /**
  * `requestedAt` : date ISO de la demande d'analyse (`analysis_requested_at`) ;
@@ -30,6 +36,9 @@ export interface PlanAnalysisJobState {
   nextAttemptAt: string | null;
   waiting: 'QUEUED' | 'RUNNING' | PlanAnalysisDeferral['waiting'];
   pauseUntil: string | null;
+  /** QUOTA seulement : nature de la limite et texte affiché, calculé à la lecture (« demain » reste juste). */
+  quotaKind?: QuotaKind;
+  message?: string;
 }
 
 /** Même patience que les photos d'entrée : reprises espacées jusqu'à 15 min, pendant une dizaine de jours. */
@@ -80,8 +89,8 @@ export async function enqueuePlanAnalysis(queue: Pick<Queue<PlanAnalysisJobData>
 export async function clearPlanAnalysisDeferral(
   job: { data: PlanAnalysisJobData; updateData(data: PlanAnalysisJobData): Promise<unknown> }, log: (message: string) => void = () => undefined,
 ): Promise<void> {
-  const { waiting, pauseUntil, ...data } = job.data;
-  if (waiting === undefined && pauseUntil === undefined) return;
+  const { waiting, pauseUntil, quotaKind, quotaLimit, ...data } = job.data;
+  if (waiting === undefined && pauseUntil === undefined && quotaKind === undefined && quotaLimit === undefined) return;
   try {
     await job.updateData(data);
   } catch (e) {
@@ -112,11 +121,14 @@ export async function planAnalysisJobState(
   if (state !== 'delayed') return base;
   const score = await (await queue.client).zscore(queue.toKey('delayed'), job.id!);
   const waiting = job.data.waiting ?? 'RETRY';
+  const pauseUntil = waiting === 'GEMINI_PAUSE' || waiting === 'QUOTA' ? (job.data.pauseUntil ?? null) : null;
+  const { quotaKind, quotaLimit } = job.data;
   return {
     ...base,
     waiting,
     nextAttemptAt: score === null ? null : new Date(Math.floor(Number(score) / 0x1000)).toISOString(),
-    pauseUntil: waiting === 'GEMINI_PAUSE' ? (job.data.pauseUntil ?? null) : null,
+    pauseUntil,
+    ...(waiting === 'QUOTA' && quotaKind && pauseUntil ? { quotaKind, message: quotaMessage(`QUOTA_${quotaKind}`, new Date(pauseUntil), quotaLimit ?? null) } : {}),
   };
 }
 

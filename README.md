@@ -194,7 +194,9 @@ cours », icône qui tourne (immobile sous *réduire les animations*), puis
 l'avancement : « Envoyée à l’IA il y a 20 s · résultat attendu d’ici une
 minute » (mise à jour chaque seconde, puis chaque minute ; au-delà de 3 min,
 « plus long que prévu, l’analyse continue »), « En attente : Gemini est en
-pause jusqu’à 15:40. Nouvel essai à 15:41. », « En attente : budget de l’IA
+pause jusqu’à 15:40. Nouvel essai à 15:41. », le texte d'une limite de débit
+atteinte (« Limite de 5 requêtes par minute atteinte : reprise à 14:03. », voir
+*Limites de débit Gemini*), « En attente : budget de l’IA
 atteint ce mois-ci. Nouvel essai le 1 nov. à 00:05. » ou « Nouvel essai à
 10:52 (tentative 2 sur 10). ». En échec : bandeau rouge « Les zones n’ont pas
 pu être proposées », la raison (l’IA n’a pas répondu, budget épuisé, photo
@@ -215,7 +217,10 @@ d'analyse : envoi, remplacement ou relance ;
 `attempt` = tentatives déjà faites + 1 ; `waiting` : `QUEUED` en file ou tâche
 introuvable, `RUNNING` en cours, et pour une tâche en attente de reprise la
 cause du dernier report, enregistrée sur la tâche par le worker :
-`GEMINI_PAUSE` avec la fin de la pause dans `pauseUntil`, `BUDGET` ou `RETRY`
+`GEMINI_PAUSE` avec la fin de la pause dans `pauseUntil`, `QUOTA` avec l'heure
+de reprise dans `pauseUntil`, la limite atteinte dans `quotaKind` (`MINUTE`,
+`TOKENS`, `JOUR`, ou `GOOGLE` pour un 429 de Google) et le texte à afficher dans
+`message`, calculé à la lecture, `BUDGET` ou `RETRY`
 avec l'heure de reprise dans `nextAttemptAt`). Redis injoignable ou lent (plus
 d'une seconde) : valeur de repli `QUEUED`, première tentative, jamais d'erreur.
 Pour `FAILED` : `{ since, failedReason }`, raison enregistrée à l'échec
@@ -430,8 +435,11 @@ réussie, refusée par Google ou en erreur, avec son coût et sa durée. Un refu
 de Google (503 « modèle saturé », 429 « quota épuisé ») compte dans ses
 statistiques de requêtes mais n'est pas facturé : au lieu de réessayer aussitôt,
 l'application met Gemini **en pause pour tous** (api et worker) — 5 minutes
-après un 503, une heure après un 429, sans jamais raccourcir une pause plus
-longue déjà en cours. Pendant la pause, aucun appel n'est envoyé : les photos
+après un 503 ; après un 429, le délai que Google demande dans sa réponse
+(`retryDelay` « 37s » ou « Please retry in 37.2s »), jusqu'à minuit heure du
+Pacifique si Google parle d'un quota journalier, une heure sinon (motif
+`QUOTA_GOOGLE`, texte « Quota Gemini dépassé chez Google : reprise à 14:40. ») —
+sans jamais raccourcir une pause plus longue déjà en cours. Pendant la pause, aucun appel n'est envoyé : les photos
 d'entrée attendent sans consommer de tentative, puis partent ensemble, huit par
 appel, quand la pause se termine ; une analyse de sortie échoue tout de suite
 avec le message « Gemini en pause jusqu'à HH:MM (motif) » et l'écran propose la
@@ -463,6 +471,46 @@ propose que le modèle en vigueur, qu'on peut toujours enregistrer. API :
 source: 'ADMIN' }`, 400 « Seuls les modèles Gemini Flash ou Lite sont acceptés »
 ou « Modèle inconnu de Google » (quand la liste est disponible) ; réservées à
 l'administrateur (403 sinon).
+
+**Limites de débit Gemini.** L'application reste toujours sous le quota de la
+clé Gemini (niveau sans frais) au lieu d'attendre le refus de Google : 5
+requêtes par minute, 250 000 jetons par minute et 20 requêtes par jour par
+défaut, partagées entre tous les usages, l'api et le worker, premier arrivé,
+premier servi. Elles se règlent dans *Administration › Coûts de l’IA*, carte
+**Modèle de l’IA** : champs « Requêtes par minute », « Jetons par minute »,
+« Requêtes par jour » (entiers positifs, sinon 400 « Limites invalides : entiers
+positifs attendus »), bouton **Enregistrer les limites** (« Limites
+enregistrées : elles s’appliquent dès le prochain appel. » ; au plus 30 s plus
+tard pour l'autre processus), et la ligne « Aujourd’hui : 7 / 20 requêtes ·
+Cette minute : 1 / 5 requêtes, 2 700 / 250 000 jetons », relue toutes les 30 s.
+Les réglages sont dans `app_setting` (`gemini_rpm`, `gemini_tpm`,
+`gemini_rpd`), les compteurs dans Redis : requêtes et jetons des **60 dernières
+secondes** (fenêtre glissante, comme Google : deux appels à 59 s d'écart
+comptent dans la même minute), requêtes du jour (gardées 26 h). Le jour est celui du Pacifique :
+comme Google, le compteur journalier repart de zéro à **minuit heure du
+Pacifique** (America/Los_Angeles, heure d'été comprise), soit 9 h à Paris la
+plupart de l'année. Avant chaque appel, une réservation atomique vérifie le jour,
+puis les requêtes et les jetons des 60 dernières secondes, juste avant l'envoi
+(un échec local avant l'appel ne consomme pas de place) ; après la réponse, ses
+jetons réels (entrée + sortie) s'ajoutent à la fenêtre. Une limite atteinte n'envoie rien à
+Google, ne laisse aucune ligne au journal et ne pose pas la pause commune : la
+tâche est simplement **reportée jusqu'à l'heure de reprise** (une seconde
+après que la plus ancienne requête, ou assez de jetons, sont sortis de la
+fenêtre de 60 s ; ou minuit du Pacifique) puis repart seule — photos d'entrée, accords et
+descriptifs sans consommer de tentative, analyses des plans à l'heure dite. Les
+textes : « Quota Gemini du jour atteint (20 requêtes) : reprise demain à
+09:00. » (« aujourd'hui à » si c'est le jour même), « Limite de 5 requêtes par
+minute atteinte : reprise à 14:03. », « Limite de jetons par minute atteinte :
+reprise à 14:03. » (heures de Paris). Ils s'affichent dans le bandeau des photos
+en attente d'analyse, dans le bandeau d'analyse du plan, dans le bandeau de la
+carte *Consommation Gemini* (`GET /api/admin/gemini-usage` : `pause` porte
+`reason` `QUOTA_*` et `message`) et pour la recherche d'image (503 avec le
+texte) ; une analyse de sortie échoue tout de suite avec ce texte, comme pendant
+une pause. Redis injoignable : l'appel part quand même, et l'Administration
+affiche des compteurs à zéro au lieu d'une erreur. API : `GET
+/api/admin/gemini-quota` → `{ minute: { requests, tokens }, day: { requests },
+limits: { rpm, tpm, rpd }, dayResetsAt }` ; `PUT /api/admin/gemini-quota` `{ rpm,
+tpm, rpd }` → la même réponse ; réservées à l'administrateur (403 sinon).
 
 **Photos plus nettes.** Une version d'affichage est fabriquée par le serveur,
 sans aucun coût supplémentaire : la lecture Gemini d'une photo renvoie déjà le
