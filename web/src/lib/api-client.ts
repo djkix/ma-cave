@@ -84,9 +84,9 @@ export const putAdminBudget = (shares: { caveShare: number; invitedShare: number
 
 /** Usage d'un appel Gemini, tel que noté dans le journal des appels (api `gemini_call`). */
 export type GeminiUsageKind = 'LECTURE_ENTREE' | 'LECTURE_SORTIE' | 'ACCORDS' | 'DESCRIPTIF' | 'RECHERCHE_IMAGE' | 'ANALYSE_PLAN';
-/** Une ligne par jour (Europe/Paris, AAAA-MM-JJ) et par usage. */
+/** Une ligne par jour (Europe/Paris, AAAA-MM-JJ), par usage et par modèle (null : appel d'avant la 2.19). */
 export interface GeminiUsageRow {
-  day: string; usage: GeminiUsageKind; ok: number; refused503: number; refused429: number; errors: number; costCents: number;
+  day: string; usage: GeminiUsageKind; model: string | null; ok: number; refused503: number; refused429: number; errors: number; costCents: number;
 }
 export interface GeminiUsage {
   rows: GeminiUsageRow[];
@@ -95,6 +95,14 @@ export interface GeminiUsage {
   pause: { until: string | null; reason: string | null };
 }
 export const getGeminiUsage = (days: number) => apiFetch<GeminiUsage>(`/admin/gemini-usage?days=${days}`);
+
+/** Modèle Gemini de tous les usages : choisi dans l'Administration (ADMIN) ou valeur du .env (ENV). */
+export interface GeminiModelChoice { model: string; source: 'ADMIN' | 'ENV' }
+/** `models` : modèles Flash ou Lite proposés par Google ; `error` : liste indisponible (le modèle en vigueur seul). */
+export interface GeminiModelView extends GeminiModelChoice { models: string[]; error: string | null }
+export const getGeminiModel = () => apiFetch<GeminiModelView>('/admin/gemini-model');
+export const putGeminiModel = (model: string) =>
+  apiFetch<GeminiModelChoice>('/admin/gemini-model', { method: 'PUT', body: JSON.stringify({ model }) });
 
 /** Membre de la cave courante ; `pending` = invitation pas encore rattachée à un compte. */
 export interface MemberView { id: string; email: string; displayName: string | null; role: CaveRole; pending: boolean }
