@@ -40,8 +40,8 @@ it('chaque en-tête d’emplacement montre l’indication et la vignette de sa z
     row('Tempier', 2026, [{ id: 'g', label: 'Garage', quantity: 1, zoneId: 'z1' }, { id: 'c', label: 'Cave 2 / B', quantity: 1, zoneId: 'z2' }]),
   ]);
   vi.spyOn(api, 'getZones').mockResolvedValue([
-    { id: 'z1', name: 'Garage', indication: 'Au fond, derrière l’escalier', hasPhoto: true, sortOrder: 0, marker: null },
-    { id: 'z2', name: 'Cave 2', indication: null, hasPhoto: false, sortOrder: 1, marker: null },
+    { id: 'z1', name: 'Garage', indication: 'Au fond, derrière l’escalier', hasPhoto: true, sortOrder: 0, marker: null, grid: null },
+    { id: 'z2', name: 'Cave 2', indication: null, hasPhoto: false, sortOrder: 1, marker: null, grid: null },
   ]);
   mount(<ABoirePage />);
   const garage = await screen.findByRole('region', { name: 'Garage' });
@@ -52,7 +52,7 @@ it('chaque en-tête d’emplacement montre l’indication et la vignette de sa z
 });
 
 describe('plan de la cave', () => {
-  const plan = { id: 'p1', name: 'Plan principal', width: 1200, height: 800, updatedAt: '2026-10-13T10:00:00.000Z' };
+  const plan = { id: 'p1', name: 'Plan principal', width: 1200, height: 800, updatedAt: '2026-10-13T10:00:00.000Z', analysis: 'NONE' as const, suggestions: [] };
   const markers = [{ zoneId: 'z1', planId: 'p1', name: 'Garage', number: 1, x: 0.2, y: 0.3 }, { zoneId: 'z3', planId: 'p1', name: 'Cellier', number: 2, x: 0.8, y: 0.8 }];
 
   beforeEach(() => {
@@ -60,8 +60,8 @@ describe('plan de la cave', () => {
       row('Tempier', 2026, [{ id: 'g', label: 'Garage', quantity: 1, zoneId: 'z1' }, { id: 'c', label: 'Cave 2 / B', quantity: 1, zoneId: 'z2' }]),
     ]);
     vi.spyOn(api, 'getZones').mockResolvedValue([
-      { id: 'z1', name: 'Garage', indication: null, hasPhoto: false, sortOrder: 0, marker: { planId: 'p1', x: 0.2, y: 0.3 } },
-      { id: 'z2', name: 'Cave 2', indication: null, hasPhoto: false, sortOrder: 1, marker: null },
+      { id: 'z1', name: 'Garage', indication: null, hasPhoto: false, sortOrder: 0, marker: { planId: 'p1', x: 0.2, y: 0.3 }, grid: null },
+      { id: 'z2', name: 'Cave 2', indication: null, hasPhoto: false, sortOrder: 1, marker: null, grid: null },
     ]);
     vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [plan], markers });
   });
