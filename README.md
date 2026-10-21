@@ -219,7 +219,8 @@ cause du dernier report, enregistrée sur la tâche par le worker :
 avec l'heure de reprise dans `nextAttemptAt`). Redis injoignable ou lent (plus
 d'une seconde) : valeur de repli `QUEUED`, première tentative, jamais d'erreur.
 Pour `FAILED` : `{ since, failedReason }`, raison enregistrée à l'échec
-(`GEMINI` refus ou pause de Gemini, `BUDGET` budget dépassé, `IMAGE` image
+(`GEMINI` Gemini indisponible : quota, saturation, pause, réseau ; `REFUS`
+demande refusée par Gemini, tout statut 4xx hors 429 ; `BUDGET` budget dépassé, `IMAGE` image
 absente, `ILLISIBLE` réponse inexploitable, `ERREUR` autre). `POST
 /api/caves/current/plans/:id/analysis` (propriétaire) relance l'analyse de la
 photo actuelle : 202 avec le plan (en attente, propositions effacées, nouvelle
@@ -238,7 +239,14 @@ par un double montant, un espace, une hauteur de tablettes ou une structure
 différente ; deux meubles accolés ne sont jamais fusionnés). Il ignore les
 meubles coupés par le bord de la photo (moins d'environ 70 % visible), les
 objets posés devant ou dans les cases (sac, seau…), les murs, le plafond et le
-sol. Au plus 12 meubles, 200 cases par meuble. Le serveur reconstruit ensuite
+sol. Au plus 12 meubles, 200 cases par meuble. La réponse est demandée en JSON
+**sans schéma imposé** : Google refusait le schéma imbriqué (meubles puis
+cases) avec un « 400 Bad Request » ; la forme attendue et un petit exemple sont
+donnés dans la consigne, une réponse entourée de balises ```` ```json ```` ou de
+texte est lue quand même, et une réponse sans objet JSON finit en « photo
+illisible ». Un refus de Gemini (400, 403, 404…, hors 429) s'affiche « L’IA a
+refusé la demande. Réessayez, ou choisissez un autre modèle dans
+l’Administration. », avec *Relancer l’analyse*. Le serveur reconstruit ensuite
 chaque proposition : cadre = union des cases, lignes et colonnes comptées sur
 les tablettes et les montants (les bords haut et bas de toutes les cases,
 regroupés quand ils sont à moins d'un tiers de la petite hauteur de case ;
