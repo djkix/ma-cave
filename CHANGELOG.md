@@ -9,6 +9,26 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.16.0](https://github.com/djkix/ma-cave/compare/v2.15.0...v2.16.0) (2026-10-21)
+
+
+### Fonctionnalités
+
+* **api:** analyse du plan par Gemini en arrière-plan ([ed9544e](https://github.com/djkix/ma-cave/commit/ed9544efbb02a3891d7f43d3b8a9c1556313053d))
+* **api:** propositions de zones sur un plan, grille des zones ([9039eba](https://github.com/djkix/ma-cave/commit/9039eba80b7eae2424d935fbcaf65bd561a51625))
+* supprimer une zone qui contient des bouteilles ([14583fe](https://github.com/djkix/ma-cave/commit/14583fe704e4f3129362e367645c959fe9015b09))
+* **web:** propositions de zones sur le plan et grille des zones ([b7dd0e1](https://github.com/djkix/ma-cave/commit/b7dd0e1ad43f3d185e7ea041c60deacd0cf283d2))
+* **web:** ranger une bouteille en touchant une case ([fa8f48a](https://github.com/djkix/ma-cave/commit/fa8f48ac716b12011706ee174e8fa0ce676bae94))
+
+
+### Corrections
+
+* analyse d'un plan sans image, retour arrière de la 2.16.0 ([d758a7f](https://github.com/djkix/ma-cave/commit/d758a7f36b4a26e6f358318f93ca3ff4347ab78e))
+* **api:** analyse du plan, reprise au démarrage et cadres box_2d de Gemini ([e412de6](https://github.com/djkix/ma-cave/commit/e412de6dc05d93f06f93ee3eb499093483799514))
+* **api:** cases occupées en majuscules, noms comparés en NFC ([b0085c2](https://github.com/djkix/ma-cave/commit/b0085c213b0f37bcfbd1b1a5aef9f369c3fdae1c))
+* suppression d'une zone, verrous des vins avant celui de la zone ([1df7841](https://github.com/djkix/ma-cave/commit/1df7841c9d69d84d82682595c5c7f06b9cf9ede2))
+* **web:** couleur de l’analyse du plan et libellé des cases ([aca7d27](https://github.com/djkix/ma-cave/commit/aca7d27b751ae9d9b27d5f8fc5f8df164fd53a6d))
+
 ## [2.15.0](https://github.com/djkix/ma-cave/compare/v2.14.0...v2.15.0) (2026-10-20)
 
 ### Résumé
