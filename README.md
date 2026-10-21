@@ -103,10 +103,13 @@ zone), `POST /api/caves/current/zones/order` (`{ ids }` : nouvel ordre), `PUT`, 
 photo de la pièce, un schéma dessiné à la main, un étage, un cellier. Dans *Ma
 cave*, la carte *Plans de la cave* (avant *Zones*) montre un onglet par
 plan et *+ Ajouter un plan* : on donne le *Nom du plan* (40 caractères au plus,
-unique dans la cave sans tenir compte de la casse), puis sa photo (réduite à
-2400 px par le téléphone avant l'envoi, 15 Mo au plus, redressée selon l'EXIF,
-ramenée à 2400 px sur le grand côté, en JPEG ; le téléphone propose de prendre
-une photo ou d'en choisir une dans la galerie). Dans le menu ⋯ du plan :
+unique dans la cave sans tenir compte de la casse) et sa photo avec *Choisir
+une photo*, dans l'ordre qu'on veut (le nom du fichier s'affiche), puis *Créer
+le plan*. La photo est réduite à 2400 px par l'appareil avant l'envoi (15 Mo
+au plus, redressée selon l'EXIF, ramenée à 2400 px sur le grand côté, en
+JPEG) ; le téléphone propose de prendre une photo ou d'en choisir une dans la
+galerie, l'ordinateur un fichier. Les photos des zones se choisissent avec le
+même bouton. Dans le menu ⋯ du plan :
 *Renommer*, *Remplacer la photo* (les repères restent à leur place) et
 *Supprimer le plan* (après confirmation). Sans plan, la carte explique :
 « Photographiez la pièce ou un schéma dessiné à la main, puis placez vos zones

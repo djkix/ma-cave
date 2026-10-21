@@ -345,3 +345,11 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 }
 .cell-grid__count { font-size: 11px; opacity: .8; }
 .cell-grid__cell[aria-pressed="true"] { background: var(--color-primary-action); border-color: var(--color-primary-action); color: var(--color-on-primary); font-weight: 600; }
+
+/* Choix d'une photo (PhotoPicker) : bouton à la largeur de son texte, contenu centré en hauteur, nom du fichier à côté. */
+.photo-picker { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); min-width: 0; }
+.photo-picker__button { align-self: flex-start; }
+.photo-picker__button::before { content: 'add_photo_alternate'; font-family: 'Material Symbols Outlined'; font-size: 22px; line-height: 1; font-weight: 400; font-feature-settings: 'liga'; }
+.photo-picker__button--disabled { opacity: 0.5; cursor: not-allowed; }
+.photo-picker__input:focus-visible + .photo-picker__button { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
+.photo-picker__name { font-size: 14px; color: var(--color-secondary); overflow-wrap: anywhere; min-width: 0; }
