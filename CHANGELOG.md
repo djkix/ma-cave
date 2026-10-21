@@ -11,6 +11,23 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.20.0](https://github.com/djkix/ma-cave/compare/v2.19.0...v2.20.0) (2026-10-21)
 
+### Résumé
+
+**Analyse du plan réparée.** Depuis la 2.18.0, Google refusait l'analyse d'un
+plan (400 « Request contains an invalid argument ») : le format de réponse
+imposé, avec des cases imbriquées dans des meubles, n'était pas accepté.
+L'analyse demande maintenant une réponse en JSON sans format imposé, la forme
+étant décrite dans la consigne, et le serveur continue de trier les cases. Un
+refus de Google (400, 403, 404) s'affiche à part : « L'IA a refusé la demande »,
+au lieu de « L'IA n'a pas répondu après plusieurs essais ».
+
+**Nouvelle version disponible.** L'application ne se recharge plus d'elle-même
+au milieu d'une saisie : un bandeau *Nouvelle version disponible* propose de
+recharger quand une mise à jour est installée sur le serveur. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
