@@ -5,6 +5,7 @@ import { BottomNav } from '../components/BottomNav';
 import { PersonRow } from '../components/PersonRow';
 import { TopBar } from '../components/TopBar';
 import { BudgetSection } from '../components/admin/BudgetSection';
+import { GeminiModelSection } from '../components/admin/GeminiModelSection';
 import { GeminiUsageSection } from '../components/admin/GeminiUsageSection';
 import { GuardsSection } from '../components/admin/GuardsSection';
 import { ReadingQualitySection } from '../components/admin/ReadingQualitySection';
@@ -139,6 +140,7 @@ export function AdminPage() {
             )}
             {tab === 'couts' && (
               <>
+                <GeminiModelSection />
                 <BudgetSection />
                 <GeminiUsageSection />
               </>

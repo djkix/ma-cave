@@ -14,23 +14,23 @@ const mount = () =>
 
 const usage = (over: Partial<api.GeminiUsage> = {}): api.GeminiUsage => ({
   rows: [
-    { day: '2026-10-08', usage: 'LECTURE_ENTREE', ok: 3, refused503: 2, refused429: 1, errors: 1, costCents: 12 },
-    { day: '2026-10-07', usage: 'ACCORDS', ok: 5, refused503: 0, refused429: 0, errors: 0, costCents: 1 },
+    { day: '2026-10-08', usage: 'LECTURE_ENTREE', ok: 3, refused503: 2, refused429: 1, errors: 1, costCents: 12, model: 'gemini-3.5-flash' },
+    { day: '2026-10-07', usage: 'ACCORDS', ok: 5, refused503: 0, refused429: 0, errors: 0, costCents: 1, model: 'gemini-3.5-flash' },
   ],
   totals: { ok: 8, refused: 3, errors: 1, costCents: 13 },
   pause: { until: null, reason: null },
   ...over,
 });
 
-it('affiche une ligne par jour et par usage, et les totaux', async () => {
+it('affiche une ligne par jour, par usage et par modèle, et les totaux', async () => {
   vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage());
   mount();
   const table = await screen.findByRole('table');
   const row = within(table).getByText('Lecture à l’entrée').closest('tr')!;
   expect(within(row).getByText('08/10')).toBeInTheDocument();
-  expect(within(row).getAllByRole('cell').map((c) => c.textContent?.replace(/\s/g, ' '))).toEqual(['08/10', 'Lecture à l’entrée', '3', '2', '1', '1', '0,12 €']);
+  expect(within(row).getAllByRole('cell').map((c) => c.textContent?.replace(/\s/g, ' '))).toEqual(['08/10', 'Lecture à l’entrée', 'gemini-3.5-flash', '3', '2', '1', '1', '0,12 €']);
   expect(within(table).getByText('Accords').closest('tr')).toHaveTextContent('07/10');
-  for (const h of ['Jour', 'Usage', 'Réussis', 'Refusés (saturé)', 'Refusés (quota)', 'Erreurs', 'Coût']) {
+  for (const h of ['Jour', 'Usage', 'Modèle', 'Réussis', 'Refusés (saturé)', 'Refusés (quota)', 'Erreurs', 'Coût']) {
     expect(screen.getByRole('columnheader', { name: h })).toBeInTheDocument();
   }
   expect(screen.getByText(/Total : 8 réussis, 3 refusés, 1 erreur/)).toHaveTextContent('0,13 €');
@@ -81,9 +81,9 @@ it('dit quand la consommation ne se charge pas', async () => {
 
 const chart = (): api.GeminiUsage => usage({
   rows: [
-    { day: '2026-10-18', usage: 'LECTURE_ENTREE', ok: 10, refused503: 1, refused429: 1, errors: 0, costCents: 30 },
-    { day: '2026-10-18', usage: 'ACCORDS', ok: 2, refused503: 0, refused429: 0, errors: 0, costCents: 5 },
-    { day: '2026-10-17', usage: 'DESCRIPTIF', ok: 7, refused503: 0, refused429: 0, errors: 0, costCents: 18 },
+    { day: '2026-10-18', usage: 'LECTURE_ENTREE', ok: 10, refused503: 1, refused429: 1, errors: 0, costCents: 30, model: 'gemini-3.5-flash' },
+    { day: '2026-10-18', usage: 'ACCORDS', ok: 2, refused503: 0, refused429: 0, errors: 0, costCents: 5, model: 'gemini-3.5-flash' },
+    { day: '2026-10-17', usage: 'DESCRIPTIF', ok: 7, refused503: 0, refused429: 0, errors: 0, costCents: 18, model: 'gemini-3.5-flash' },
   ],
   totals: { ok: 19, refused: 2, errors: 0, costCents: 53 },
 });
@@ -118,8 +118,8 @@ it('une barre empilée par jour, du plus ancien au plus récent, et la légende 
 it('« Analyse du plan » : sa propre couleur dans la barre et dans la légende', async () => {
   vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage({
     rows: [
-      { day: '2026-10-18', usage: 'ANALYSE_PLAN', ok: 1, refused503: 0, refused429: 0, errors: 0, costCents: 3 },
-      { day: '2026-10-18', usage: 'LECTURE_ENTREE', ok: 1, refused503: 0, refused429: 0, errors: 0, costCents: 1 },
+      { day: '2026-10-18', usage: 'ANALYSE_PLAN', ok: 1, refused503: 0, refused429: 0, errors: 0, costCents: 3, model: 'gemini-3.5-flash' },
+      { day: '2026-10-18', usage: 'LECTURE_ENTREE', ok: 1, refused503: 0, refused429: 0, errors: 0, costCents: 1, model: 'gemini-3.5-flash' },
     ],
     totals: { ok: 2, refused: 0, errors: 0, costCents: 4 },
   }));
@@ -135,7 +135,7 @@ it('« Analyse du plan » : sa propre couleur dans la barre et dans la légende'
 
 it('un seul jour, un seul usage : une barre pleine', async () => {
   vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage({
-    rows: [{ day: '2026-10-18', usage: 'ACCORDS', ok: 1, refused503: 0, refused429: 0, errors: 0, costCents: 2 }],
+    rows: [{ day: '2026-10-18', usage: 'ACCORDS', ok: 1, refused503: 0, refused429: 0, errors: 0, costCents: 2, model: 'gemini-3.5-flash' }],
     totals: { ok: 1, refused: 0, errors: 0, costCents: 2 },
   }));
   mount();
@@ -155,7 +155,7 @@ it('le détail par jour est replié dans un <details>', async () => {
 
 it('30 jours : chaque colonne garde sa ligne d’étiquette, même vide, pour des barres comparables', async () => {
   const rows = Array.from({ length: 9 }, (_, i) => (
-    { day: `2026-10-${String(10 + i)}`, usage: 'ACCORDS' as const, ok: 2, refused503: 0, refused429: 0, errors: 0, costCents: 1 }
+    { day: `2026-10-${String(10 + i)}`, usage: 'ACCORDS' as const, ok: 2, refused503: 0, refused429: 0, errors: 0, costCents: 1, model: 'gemini-3.5-flash' }
   ));
   vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage({ rows, totals: { ok: 18, refused: 0, errors: 0, costCents: 9 } }));
   mount();
@@ -172,4 +172,29 @@ it('« Détail par jour » : résumé en cible tactile', async () => {
   mount();
   await screen.findByRole('table');
   expect(screen.getByText('Détail par jour')).toHaveClass('usage-details__summary');
+});
+
+it('deux modèles le même jour pour le même usage : deux lignes au détail, une seule barre et des chiffres clés inchangés', async () => {
+  vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(
+    usage({
+      rows: [
+        { day: '2026-10-08', usage: 'ACCORDS', ok: 2, refused503: 0, refused429: 0, errors: 0, costCents: 3, model: 'gemini-3.5-flash' },
+        { day: '2026-10-08', usage: 'ACCORDS', ok: 1, refused503: 0, refused429: 0, errors: 0, costCents: 1, model: 'gemini-3.5-flash-lite' },
+        { day: '2026-10-08', usage: 'ACCORDS', ok: 1, refused503: 0, refused429: 0, errors: 0, costCents: 0, model: null },
+      ],
+      totals: { ok: 4, refused: 0, errors: 0, costCents: 4 },
+    }),
+  );
+  mount();
+  const table = await screen.findByRole('table');
+  expect(within(table).getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[2].textContent)).toEqual([
+    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
+    '—',
+  ]);
+  const bars = screen.getAllByRole('img');
+  expect(bars).toHaveLength(1);
+  expect(bars[0]).toHaveAccessibleName(/08\/10 : 4 appels, 0,04 €/);
+  expect(bars[0].querySelectorAll('.usage-chart__seg')).toHaveLength(1);
+  expect(screen.getByText('Réussis', { selector: 'span.list__meta' }).previousElementSibling).toHaveTextContent('4');
 });

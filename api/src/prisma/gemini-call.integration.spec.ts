@@ -39,6 +39,7 @@ describeIfDb('journal des appels Gemini (base réelle)', () => {
       { column_name: 'duration_ms', data_type: 'integer', is_nullable: 'NO' },
       { column_name: 'http_status', data_type: 'integer', is_nullable: 'YES' },
       { column_name: 'id', data_type: 'text', is_nullable: 'NO' },
+      { column_name: 'model', data_type: 'text', is_nullable: 'YES' },
       { column_name: 'outcome', data_type: 'text', is_nullable: 'NO' },
       { column_name: 'reason', data_type: 'text', is_nullable: 'YES' },
       { column_name: 'usage', data_type: 'text', is_nullable: 'NO' },
@@ -65,7 +66,7 @@ describeIfDb('journal des appels Gemini (base réelle)', () => {
     await expect(prisma.geminiCall.create({ data: { usage: 'ACCORDS', outcome: 'PEUT-ETRE', durationMs: 1 } })).rejects.toThrow();
   });
 
-  it('agrège par jour de Paris et par usage', async () => {
+  it('agrège par jour de Paris, par usage et par modèle', async () => {
     // Période d'essai en 2001 : aucune autre ligne de la base n'y tombe.
     const now = new Date('2001-06-15T10:00:00.000Z');
     const rows = [
@@ -73,6 +74,7 @@ describeIfDb('journal des appels Gemini (base réelle)', () => {
       { createdAt: new Date('2001-06-15T08:00:00.000Z'), usage: 'LECTURE_SORTIE', outcome: 'OK', httpStatus: null, costCents: 2 },
       { createdAt: new Date('2001-06-14T21:30:00.000Z'), usage: 'LECTURE_SORTIE', outcome: 'REFUSE', httpStatus: 429 }, // 14 juin à Paris
       { createdAt: new Date('2001-06-14T12:00:00.000Z'), usage: 'DESCRIPTIF', outcome: 'ERREUR', httpStatus: 500 },
+      { createdAt: new Date('2001-06-15T09:00:00.000Z'), usage: 'LECTURE_SORTIE', outcome: 'OK', httpStatus: null, costCents: 1, model: 'gemini-3.5-flash-lite' },
     ];
     for (const r of rows) {
       const c = await prisma.geminiCall.create({ data: { ...r, durationMs: 10 } });
@@ -80,11 +82,12 @@ describeIfDb('journal des appels Gemini (base réelle)', () => {
     }
     const report = await new GeminiUsageService(prisma as never, new GeminiJournal(prisma, quiet)).report(2, now);
     expect(report.rows).toEqual([
-      { day: '2001-06-15', usage: 'LECTURE_SORTIE', ok: 1, refused503: 1, refused429: 0, errors: 0, costCents: 2 },
-      { day: '2001-06-14', usage: 'LECTURE_SORTIE', ok: 0, refused503: 0, refused429: 1, errors: 0, costCents: 0 },
-      { day: '2001-06-14', usage: 'DESCRIPTIF', ok: 0, refused503: 0, refused429: 0, errors: 1, costCents: 0 },
+      { day: '2001-06-15', usage: 'LECTURE_SORTIE', model: null, ok: 1, refused503: 1, refused429: 0, errors: 0, costCents: 2 },
+      { day: '2001-06-15', usage: 'LECTURE_SORTIE', model: 'gemini-3.5-flash-lite', ok: 1, refused503: 0, refused429: 0, errors: 0, costCents: 1 },
+      { day: '2001-06-14', usage: 'LECTURE_SORTIE', model: null, ok: 0, refused503: 0, refused429: 1, errors: 0, costCents: 0 },
+      { day: '2001-06-14', usage: 'DESCRIPTIF', model: null, ok: 0, refused503: 0, refused429: 0, errors: 1, costCents: 0 },
     ]);
-    expect(report.totals).toEqual({ ok: 1, refused: 2, errors: 1, costCents: 2 });
+    expect(report.totals).toEqual({ ok: 2, refused: 2, errors: 1, costCents: 3 });
     expect(report.pause).toEqual({ until: null, reason: null });
   });
 

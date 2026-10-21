@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isLightModel } from '../config/env';
 
 export const updateAdminUserSchema = z
   .object({
@@ -27,6 +28,14 @@ export const updateBudgetSchema = z
     { invalid_type_error: INVALID_SHARE, required_error: INVALID_SHARE },
   )
   .refine((b) => b.caveShare !== undefined || b.invitedShare !== undefined, { message: INVALID_SHARE });
+
+const INVALID_MODEL = 'Seuls les modèles Gemini Flash ou Lite sont acceptés';
+
+/** Modèle Gemini choisi dans l'Administration : Flash ou Lite (voir `isLightModel`) ; connu de Google, vérifié à part. */
+export const updateGeminiModelSchema = z.object(
+  { model: z.string({ invalid_type_error: INVALID_MODEL, required_error: INVALID_MODEL }).refine(isLightModel, { message: INVALID_MODEL }) },
+  { invalid_type_error: INVALID_MODEL, required_error: INVALID_MODEL },
+);
 
 const INVALID_DAYS = 'La période doit être un nombre de jours entre 1 et 90';
 

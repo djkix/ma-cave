@@ -4,8 +4,9 @@ import { AdminGuard } from '../auth/admin.guard';
 import { AuthenticatedGuard } from '../auth/authenticated.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { VisionBudgetService } from '../queue/vision-budget.service';
+import { GeminiModelService } from '../vision/gemini-model.service';
 import { AdminService } from './admin.service';
-import { geminiUsageDaysSchema, updateAdminUserSchema, updateBudgetSchema } from './dto';
+import { geminiUsageDaysSchema, updateAdminUserSchema, updateBudgetSchema, updateGeminiModelSchema } from './dto';
 import { GeminiUsageService } from './gemini-usage.service';
 
 @Controller('admin/users')
@@ -93,5 +94,29 @@ export class AdminGeminiUsageController {
     const parsed = geminiUsageDaysSchema.safeParse(days);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0].message);
     return this.usage.report(parsed.data);
+  }
+}
+
+/** Modèle Gemini de tous les usages : Flash ou Lite, parmi ceux que Google propose. */
+@Controller('admin/gemini-model')
+@UseGuards(AuthenticatedGuard, AdminGuard)
+export class AdminGeminiModelController {
+  constructor(private readonly models: GeminiModelService) {}
+
+  @Get()
+  async get() {
+    const [current, available] = await Promise.all([this.models.current(), this.models.available()]);
+    return { ...current, ...available };
+  }
+
+  @Put()
+  async update(@Body() body: unknown) {
+    const parsed = updateGeminiModelSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues[0].message);
+    const { model } = parsed.data;
+    const { models, error } = await this.models.available();
+    // Liste indisponible : le nom (Flash ou Lite) est accepté tel quel.
+    if (error === null && !models.includes(model)) throw new BadRequestException('Modèle inconnu de Google');
+    return this.models.set(model);
   }
 }
