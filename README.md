@@ -247,7 +247,7 @@ deux rangées ou des rangées de hauteurs différentes sont donc bien comptées,
 une photo un peu inclinée reste tolérée ; un meuble de moins de deux cases est
 ignoré. Le reste (nommage « Casier A », états, garde par date de demande) ne
 change pas. Le modèle de l'analyse des plans se règle à part avec
-`GEMINI_PLAN_MODEL` (par défaut `GEMINI_MODEL`). **Relancer l’analyse** est
+`GEMINI_PLAN_MODEL` (par défaut `GEMINI_MODEL` ; Flash ou Lite seulement). **Relancer l’analyse** est
 aussi dans le menu ⋯ du plan, même après une analyse réussie (désactivé pendant
 une analyse en cours) ; s'il reste des propositions en attente, une
 confirmation prévient : « Relancer l’analyse ? Les propositions en attente
@@ -858,8 +858,8 @@ openssl rand -hex 32
 | `BREAK_GLASS_EMAIL` / `BREAK_GLASS_PASSWORD` | compte local de secours (mot de passe de 12 caractères minimum), connexion par `/login?secours` ; laisser vide pour n'en créer aucun |
 | `ADMIN_EMAILS` | adresses administratrices, séparées par des virgules, en minuscules ; seule façon de désigner un administrateur (voir étape 7) |
 | `GEMINI_API_KEY` | clé Google AI Studio |
-| `GEMINI_MODEL` | `gemini-3.5-flash` |
-| `GEMINI_PLAN_MODEL` | modèle de l'analyse des plans seulement ; vide = `GEMINI_MODEL`. Si les propositions de zones restent approximatives, essayer un modèle plus précis (par exemple un modèle *Pro*) : il coûte plus cher par appel, et un modèle dont le nom contient « pro » est compté au tarif Pro dans le budget et les coûts de l’IA (environ 12 à 25 fois le tarif Flash) |
+| `GEMINI_MODEL` | `gemini-3.5-flash` ; un modèle Flash ou Lite seulement (l'api refuse de démarrer avec un modèle Pro) |
+| `GEMINI_PLAN_MODEL` | modèle de l'analyse des plans seulement ; vide = `GEMINI_MODEL`. Comme `GEMINI_MODEL`, un modèle **Flash ou Lite** seulement (par exemple `gemini-3.5-flash-lite`) : l'api refuse de démarrer avec un modèle Pro, et les coûts sont comptés au tarif Flash |
 | `GEMINI_MONTHLY_CAP_CENTS` | plafond mensuel approximatif en centimes (`500` = ~5 €) |
 | `BACKUP_DIR` / `BACKUP_RETENTION_DAYS` / `BACKUP_INTERVAL_SECONDS` | sauvegardes : répertoire, rétention, intervalle |
 

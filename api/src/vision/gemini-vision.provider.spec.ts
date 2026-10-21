@@ -590,14 +590,13 @@ describe('GeminiVisionProvider.analyzePlan', () => {
     expect(prompt).toContain('les objets posés devant ou dans les cases (sacs, seaux, cartons, bouteilles) : ce ne sont pas des cases, mais les cases qu\'ils cachent en partie comptent.');
   });
 
-  it('coût selon le modèle des plans : un modèle « pro » est compté au tarif Pro, sinon au tarif Flash', async () => {
+  it('coût de l’analyse d’un plan au tarif Flash, quel que soit le modèle des plans', async () => {
     const usage = { promptTokenCount: 10_000, candidatesTokenCount: 10_000 };
     const run = (name: string) => new GeminiVisionProvider(fakeModel('{}') as any, 'm', undefined, fakeModel(JSON.stringify({ units: [] }), usage) as any, name)
       .analyzePlan(Buffer.from('x'), 'image/jpeg');
-    // Flash : 10 × 0,01 + 10 × 0,04 = 0,5 ct → 1 ct. Pro : 10 × 0,125 + 10 × 1 = 11,25 ct → 12 ct.
+    // 10 × 0,01 + 10 × 0,04 = 0,5 ct → 1 ct.
     expect((await run('gemini-3.5-flash')).costCents).toBe(1);
-    expect((await run('gemini-3.5-pro')).costCents).toBe(12);
-    expect((await run('Gemini-Pro-Latest')).costCents).toBe(12);
+    expect((await run('gemini-3.5-flash-lite')).costCents).toBe(1);
   });
 
   it('modèle dédié aux plans : seul `analyzePlan` l’emploie', async () => {
