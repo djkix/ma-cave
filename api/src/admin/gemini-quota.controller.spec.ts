@@ -36,12 +36,18 @@ describe('AdminGeminiQuotaController', () => {
 
 describe('GeminiUsageService — bandeau de pause', () => {
   const NOW = new Date('2026-10-21T12:02:30Z');
-  const service = (pause: { until: Date; reason: string } | null, blocked: GeminiQuotaError | null) =>
+  const service = (pause: { until: Date; reason: string } | null, blocked: GeminiQuotaError | null | Error) =>
     new GeminiUsageService(
       { geminiCall: { findMany: jest.fn(async () => []) } } as any,
       { currentPause: jest.fn(async () => pause) } as any,
-      { blocked: jest.fn(async () => blocked) } as any,
+      { blocked: jest.fn(async () => { if (blocked instanceof Error && !(blocked instanceof GeminiQuotaError)) throw blocked; return blocked; }) } as any,
     );
+
+  it('limiteur en panne (Redis) : la consommation s’affiche quand même, sans limite', async () => {
+    const r = await service(null, new Error('ECONNREFUSED')).report(7, NOW);
+    expect(r.pause).toEqual({ until: null, reason: null, message: null });
+    expect(r.rows).toEqual([]);
+  });
 
   it('sans pause ni limite atteinte : rien', async () => {
     expect((await service(null, null).report(7, NOW)).pause).toEqual({ until: null, reason: null, message: null });

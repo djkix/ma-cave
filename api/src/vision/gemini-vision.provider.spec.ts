@@ -693,6 +693,22 @@ describe('GeminiVisionProvider — limiteur de débit', () => {
     expect(quota.addTokens).toHaveBeenCalledWith(120);
   });
 
+  it('la place est réservée juste avant l’appel réseau : un échec local (modèle illisible) n’en consomme pas', async () => {
+    const quota = limiter();
+    const provider = new GeminiVisionProvider(() => fakeModel(validJson) as any, async () => { throw new Error('base injoignable'); }, undefined, quota);
+    await expect(provider.extractWineLabel(Buffer.from('x'), 'image/jpeg')).rejects.toThrow('base injoignable');
+    expect(quota.reserve).not.toHaveBeenCalled();
+  });
+
+  it('la réservation précède l’appel à Google', async () => {
+    const order: string[] = [];
+    const quota = limiter();
+    quota.reserve.mockImplementation(async () => { order.push('reserve'); });
+    const model = { generateContent: jest.fn(async () => { order.push('google'); return { response: { text: () => validJson, usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 } } }; }) };
+    await withQuota(model, quota).extractWineLabel(Buffer.from('x'), 'image/jpeg');
+    expect(order).toEqual(['reserve', 'google']);
+  });
+
   it('pendant une pause commune, aucune place n’est réservée', async () => {
     const prisma = fakePrisma();
     prisma.settings.set(GEMINI_PAUSE_UNTIL_KEY, new Date(Date.now() + 60_000).toISOString());

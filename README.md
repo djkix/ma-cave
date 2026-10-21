@@ -484,16 +484,19 @@ enregistrées : elles s’appliquent dès le prochain appel. » ; au plus 30 s p
 tard pour l'autre processus), et la ligne « Aujourd’hui : 7 / 20 requêtes ·
 Cette minute : 1 / 5 requêtes, 2 700 / 250 000 jetons », relue toutes les 30 s.
 Les réglages sont dans `app_setting` (`gemini_rpm`, `gemini_tpm`,
-`gemini_rpd`), les compteurs dans Redis : requêtes et jetons de la minute (UTC,
-gardés 2 min), requêtes du jour (gardées 26 h). Le jour est celui du Pacifique :
+`gemini_rpd`), les compteurs dans Redis : requêtes et jetons des **60 dernières
+secondes** (fenêtre glissante, comme Google : deux appels à 59 s d'écart
+comptent dans la même minute), requêtes du jour (gardées 26 h). Le jour est celui du Pacifique :
 comme Google, le compteur journalier repart de zéro à **minuit heure du
 Pacifique** (America/Los_Angeles, heure d'été comprise), soit 9 h à Paris la
 plupart de l'année. Avant chaque appel, une réservation atomique vérifie le jour,
-puis les requêtes et les jetons de la minute ; après la réponse, ses jetons réels
-(entrée + sortie) s'ajoutent à la minute. Une limite atteinte n'envoie rien à
+puis les requêtes et les jetons des 60 dernières secondes, juste avant l'envoi
+(un échec local avant l'appel ne consomme pas de place) ; après la réponse, ses
+jetons réels (entrée + sortie) s'ajoutent à la fenêtre. Une limite atteinte n'envoie rien à
 Google, ne laisse aucune ligne au journal et ne pose pas la pause commune : la
-tâche est simplement **reportée jusqu'à l'heure de reprise** (minute suivante,
-ou minuit du Pacifique) puis repart seule — photos d'entrée, accords et
+tâche est simplement **reportée jusqu'à l'heure de reprise** (une seconde
+après que la plus ancienne requête, ou assez de jetons, sont sortis de la
+fenêtre de 60 s ; ou minuit du Pacifique) puis repart seule — photos d'entrée, accords et
 descriptifs sans consommer de tentative, analyses des plans à l'heure dite. Les
 textes : « Quota Gemini du jour atteint (20 requêtes) : reprise demain à
 09:00. » (« aujourd'hui à » si c'est le jour même), « Limite de 5 requêtes par
@@ -503,7 +506,8 @@ en attente d'analyse, dans le bandeau d'analyse du plan, dans le bandeau de la
 carte *Consommation Gemini* (`GET /api/admin/gemini-usage` : `pause` porte
 `reason` `QUOTA_*` et `message`) et pour la recherche d'image (503 avec le
 texte) ; une analyse de sortie échoue tout de suite avec ce texte, comme pendant
-une pause. Redis injoignable : l'appel part quand même. API : `GET
+une pause. Redis injoignable : l'appel part quand même, et l'Administration
+affiche des compteurs à zéro au lieu d'une erreur. API : `GET
 /api/admin/gemini-quota` → `{ minute: { requests, tokens }, day: { requests },
 limits: { rpm, tpm, rpd }, dayResetsAt }` ; `PUT /api/admin/gemini-quota` `{ rpm,
 tpm, rpd }` → la même réponse ; réservées à l'administrateur (403 sinon).
