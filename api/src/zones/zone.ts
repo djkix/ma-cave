@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 export const ZONE_NOT_FOUND = 'Zone introuvable';
 export const ZONE_NAME_TAKEN = 'Une zone porte déjà ce nom';
-export const ZONE_STOCKED = 'Des bouteilles sont encore rangées dans cette zone';
 export const ZONE_PHOTO_NOT_FOUND = 'Photo introuvable';
 export const ZONE_ARCHIVED_TAKEN = 'Cette zone a été supprimée ; rangez ces bouteilles ailleurs';
 export const PLAN_NOT_FOUND = 'Plan introuvable';
