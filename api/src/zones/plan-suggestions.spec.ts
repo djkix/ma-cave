@@ -49,6 +49,8 @@ describe('nameBlocks', () => {
   it('saute une lettre prise par une zone active, sans tenir compte de la casse', () => {
     expect(nameBlocks([block('CASIER', 0.1), block('ETAGERE', 0.5)], ['casier a', 'Cave du bas']).map((s) => s.name)).toEqual(['Casier B', 'Étagère C']);
     expect(nameBlocks([block('CASIER', 0.1)], ['ÉTAGÈRE A', 'Rangement B']).map((s) => s.name)).toEqual(['Casier C']);
+    // « Étagère A » saisi en forme décomposée (E + accent combinant) : même nom.
+    expect(nameBlocks([block('CASIER', 0.1)], ['E\u0301tage\u0300re A']).map((s) => s.name)).toEqual(['Casier B']);
   });
 
   it('une lettre seulement employée par une zone archivée (non passée par l’appelant) n’est pas sautée', () => {
