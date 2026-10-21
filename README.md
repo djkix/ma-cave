@@ -246,8 +246,8 @@ lignes = tablettes − 1, idem en largeur pour les colonnes). Une case haute de
 deux rangées ou des rangées de hauteurs différentes sont donc bien comptées, et
 une photo un peu inclinée reste tolérée ; un meuble de moins de deux cases est
 ignoré. Le reste (nommage « Casier A », états, garde par date de demande) ne
-change pas. Le modèle de l'analyse des plans se règle à part avec
-`GEMINI_PLAN_MODEL` (par défaut `GEMINI_MODEL` ; Flash ou Lite seulement). **Relancer l’analyse** est
+change pas. L'analyse des plans emploie le modèle choisi dans l'Administration
+(voir *Modèle de l'IA*), comme tous les autres usages. **Relancer l’analyse** est
 aussi dans le menu ⋯ du plan, même après une analyse réussie (désactivé pendant
 une analyse en cours) ; s'il reste des propositions en attente, une
 confirmation prévient : « Relancer l’analyse ? Les propositions en attente
@@ -431,8 +431,30 @@ recherche dans la cave ; les accords et descriptifs attendent la fin de la pause
 tentative, puis partent par lots ; la recherche d'image répond aussitôt par ce même message. La section
 *Consommation Gemini* de l'onglet *Coûts de l’IA* de l'Administration montre, sur 7 ou 30 jours, les appels
 par jour et par usage (réussis, refusés saturé ou quota, erreurs, coût), leurs
-totaux et la pause en cours. API : `GET /api/admin/gemini-usage?days=7` (1 à 90
-jours).
+totaux et la pause en cours ; le « Détail par jour » sépare aussi les modèles
+(colonne *Modèle*, « — » pour les appels d'avant la 2.19.0), le graphique et les
+chiffres clés restent tous modèles confondus. Chaque ligne de `gemini_call` note
+le modèle employé (colonne `model`). API : `GET /api/admin/gemini-usage?days=7`
+(1 à 90 jours) ; chaque ligne du détail porte `model` (regroupement jour × usage
+× modèle).
+
+**Modèle de l'IA.** Un seul modèle Gemini sert à tous les usages : lecture des
+étiquettes (entrée, sortie, lots), accords, descriptifs, recherche d'image et
+analyse des plans. Il se choisit dans *Administration › Coûts de l’IA*, carte
+**Modèle de l’IA**, parmi la liste que Google propose en direct (modèles Flash
+ou Lite seulement, jamais Pro, capables de `generateContent` ; liste gardée une
+heure). Le choix est enregistré en base (réglage `gemini_model` de
+`app_setting`) et sert dès l'appel suivant, dans l'api comme dans le worker (au
+plus 30 secondes plus tard pour l'autre processus). Tant qu'aucun modèle n'est
+choisi, `GEMINI_MODEL` du `.env` sert de valeur de départ (« Valeur du serveur
+(.env) tant qu’aucun modèle n’est choisi ici. »). Si la liste de Google est
+indisponible (pas de clé, Google en panne), la carte l'affiche en clair et ne
+propose que le modèle en vigueur, qu'on peut toujours enregistrer. API :
+`GET /api/admin/gemini-model` → `{ model, source, models, error }` (`source` :
+`ADMIN` ou `ENV`) ; `PUT /api/admin/gemini-model` `{ model }` → `{ model,
+source: 'ADMIN' }`, 400 « Seuls les modèles Gemini Flash ou Lite sont acceptés »
+ou « Modèle inconnu de Google » (quand la liste est disponible) ; réservées à
+l'administrateur (403 sinon).
 
 **Photos plus nettes.** Une version d'affichage est fabriquée par le serveur,
 sans aucun coût supplémentaire : la lecture Gemini d'une photo renvoie déjà le
@@ -723,6 +745,9 @@ administrateurs, trois onglets : *Comptes* (`/admin/comptes`, ouvert par défaut
   d'administration, avec confirmation pour *Bloquer* et *Retirer les droits*, et *Créer sa cave*) pour un
   compte actif qui n'en a pas (un invité qui veut aussi sa propre cave, ou un
   administrateur). Un compte n'est propriétaire que d'une seule cave.
+- *Coûts de l’IA* — **Modèle de l’IA**, en tête de l'onglet : le modèle Gemini
+  de tous les usages, choisi dans la liste de Google (voir *Modèle de l'IA* plus
+  haut).
 - *Coûts de l’IA* — **Budget** (jauge de consommation) : la dépense Gemini du mois et la **part maximale par cave**
   (20 % du plafond mensuel `GEMINI_MONTHLY_CAP_CENTS` par défaut, réglable de
   0 à 100 %). Une cave qui a atteint sa part voit ses analyses reportées avec
@@ -858,8 +883,7 @@ openssl rand -hex 32
 | `BREAK_GLASS_EMAIL` / `BREAK_GLASS_PASSWORD` | compte local de secours (mot de passe de 12 caractères minimum), connexion par `/login?secours` ; laisser vide pour n'en créer aucun |
 | `ADMIN_EMAILS` | adresses administratrices, séparées par des virgules, en minuscules ; seule façon de désigner un administrateur (voir étape 7) |
 | `GEMINI_API_KEY` | clé Google AI Studio |
-| `GEMINI_MODEL` | `gemini-3.5-flash` ; un modèle Flash ou Lite seulement (l'api refuse de démarrer avec un modèle Pro) |
-| `GEMINI_PLAN_MODEL` | modèle de l'analyse des plans seulement ; vide = `GEMINI_MODEL`. Comme `GEMINI_MODEL`, un modèle **Flash ou Lite** seulement (par exemple `gemini-3.5-flash-lite`) : l'api refuse de démarrer avec un modèle Pro, et les coûts sont comptés au tarif Flash |
+| `GEMINI_MODEL` | `gemini-3.5-flash` ; **valeur de départ** de tous les usages, tant qu'aucun modèle n'est choisi dans *Administration › Coûts de l’IA*. Un modèle Flash ou Lite seulement (l'api refuse de démarrer avec un modèle Pro ; les coûts sont comptés au tarif Flash) |
 | `GEMINI_MONTHLY_CAP_CENTS` | plafond mensuel approximatif en centimes (`500` = ~5 €) |
 | `BACKUP_DIR` / `BACKUP_RETENTION_DAYS` / `BACKUP_INTERVAL_SECONDS` | sauvegardes : répertoire, rétention, intervalle |
 
@@ -981,6 +1005,31 @@ Si les images sont construites localement, remplacer `docker compose pull` par
 `docker compose build`. Pour figer une version plutôt que suivre `latest`,
 fusionner la demande de version proposée par release-please puis renseigner
 `IMAGE_TAG=<version>` dans le `.env`.
+
+### Passage à la 2.19.0 (modèle de l'IA dans l'Administration)
+
+Une migration, **additive** et appliquée toute seule au démarrage de l'api,
+sans rien modifier ni supprimer : `20261023000000_modele_gemini` ajoute au
+journal des appels `gemini_call` la colonne `model` (nulle pour les appels
+existants, affichés « — » dans le détail de la consommation). Aucune sauvegarde
+particulière n'est nécessaire.
+
+Par précaution, sauvegarder comme d'habitude avant la mise à jour :
+
+```bash
+cd /opt/stacks/ma-cave && docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' | gzip > backups/cave-avant-2.19.0.sql.gz
+```
+
+`GEMINI_PLAN_MODEL` est **retirée** : l'analyse des plans suit le modèle choisi
+dans l'Administration. Une ligne `GEMINI_PLAN_MODEL=` restée dans le `.env` est
+simplement ignorée (le démarrage n'échoue pas) ; la retirer à l'occasion.
+`GEMINI_MODEL` reste la valeur de départ jusqu'au premier choix fait dans
+*Administration › Coûts de l’IA*.
+
+**Retour arrière vers une image 2.18.x** (sans restaurer la sauvegarde) : la
+colonne `model` et le réglage `gemini_model` sont ignorés ; le modèle redevient
+`GEMINI_MODEL` du `.env` (et `GEMINI_PLAN_MODEL` pour les plans, si elle y est
+encore).
 
 ### Passage à la 2.17.0 (analyse du plan plus visible)
 
