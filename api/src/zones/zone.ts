@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GRID_MAX_COLS, GRID_MAX_ROWS, PlanSuggestion } from './plan-suggestions';
 
 export const ZONE_NOT_FOUND = 'Zone introuvable';
 export const ZONE_NAME_TAKEN = 'Une zone porte déjà ce nom';
@@ -13,6 +14,8 @@ export const PHOTO_TOO_LARGE = 'Photo trop lourde (15 Mo au plus)';
 export const INVALID_ZONE_NAME = 'Le nom de la zone doit faire de 1 à 40 caractères';
 export const INVALID_INDICATION = 'L\'indication fait 300 caractères au plus';
 export const INVALID_ORDER = 'Ordre des zones invalide';
+export const INVALID_GRID = 'La grille fait de 1 à 26 lignes et de 1 à 30 colonnes';
+export const SUGGESTION_NOT_FOUND = 'Proposition introuvable';
 export const ZONE_NAME_MAX = 40;
 export const PLAN_NAME_MAX = 40;
 export const PLAN_MAX_COUNT = 20;
@@ -32,15 +35,23 @@ const indication = z
   .nullish()
   .transform((v) => (v ? v : null));
 
+/** Grille de cases : 1 à 26 lignes, 1 à 30 colonnes, entiers. */
+const gridSide = (max: number) => z.number({ invalid_type_error: INVALID_GRID, required_error: INVALID_GRID }).int(INVALID_GRID).min(1, INVALID_GRID).max(max, INVALID_GRID);
+const gridShape = { rows: gridSide(GRID_MAX_ROWS), cols: gridSide(GRID_MAX_COLS) };
+const grid = z.object(gridShape, { invalid_type_error: INVALID_GRID, required_error: INVALID_GRID });
+
 export const createZoneSchema = z.object({ name, indication }, { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME });
 export type CreateZoneInput = { name: string; indication?: string | null };
 
 /** Champs absents : inchangés ; `indication: null` ou vide l'efface. L'ordre se change par POST …/zones/order. */
 export const updateZoneSchema = z.object(
-  { name: name.optional(), indication: indication.optional() },
+  { name: name.optional(), indication: indication.optional(), grid: grid.nullable().optional() },
   { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME },
 );
-export type UpdateZoneInput = { name?: string; indication?: string | null };
+export type UpdateZoneInput = { name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null };
+
+/** Accepter une proposition : nom de zone et grille, mêmes règles que pour une zone. */
+export const acceptSuggestionSchema = z.object({ name, ...gridShape }, { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME });
 
 /** Nouvel ordre d'affichage : les zones de la cave, de la première à la dernière. */
 export const zoneOrderSchema = z.object(
@@ -57,17 +68,21 @@ export const zoneOrderSchema = z.object(
  * Zone telle que l'api la rend : la photo se lit par GET /api/caves/zones/:id/photo ;
  * `marker` : son repère sur un plan de la cave (le plan, puis fractions de la
  * largeur et de la hauteur), null sans repère. Effacé quand son plan est supprimé.
+ * `grid` : grille de cases (lignes A…, colonnes 1…), null sans grille.
  */
 export interface ZoneView {
   id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; marker: { planId: string; x: number; y: number } | null;
+  grid: { rows: number; cols: number } | null;
 }
 
 export function zoneView(z: {
   id: string; name: string; indication: string | null; photoPath: string | null; sortOrder: number; planId: string | null; planX: number | null; planY: number | null;
+  gridRows: number | null; gridCols: number | null;
 }): ZoneView {
   return {
     id: z.id, name: z.name, indication: z.indication, hasPhoto: z.photoPath != null, sortOrder: z.sortOrder,
     marker: z.planId != null && z.planX != null && z.planY != null ? { planId: z.planId, x: z.planX, y: z.planY } : null,
+    grid: z.gridRows != null && z.gridCols != null ? { rows: z.gridRows, cols: z.gridCols } : null,
   };
 }
 
@@ -97,7 +112,13 @@ export const markerSchema = z.object(
   { invalid_type_error: INVALID_MARKER, required_error: INVALID_MARKER },
 );
 
-/** Plan tel que l'api le rend : nom, taille en pixels, date du dernier envoi de l'image (ISO). */
-export interface PlanMeta { id: string; name: string; width: number; height: number; updatedAt: string }
+/**
+ * Plan tel que l'api le rend : nom, taille en pixels, date du dernier envoi de
+ * l'image (ISO), état de l'analyse de la photo et propositions de zones en attente.
+ */
+export interface PlanMeta {
+  id: string; name: string; width: number; height: number; updatedAt: string;
+  analysis: 'NONE' | 'PENDING' | 'DONE' | 'FAILED'; suggestions: PlanSuggestion[];
+}
 /** Repère affiché : `number` = rang (à partir de 1) sur son plan, parmi les zones non archivées, dans l'ordre d'affichage. */
 export interface PlanMarker { zoneId: string; planId: string; name: string; number: number; x: number; y: number }

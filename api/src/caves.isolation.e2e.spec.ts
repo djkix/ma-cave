@@ -77,6 +77,11 @@ const NOT_FOUND_WINE: Expected = { status: 404, message: 'Vin introuvable' };
 const NOT_FOUND_PHOTO: Expected = { status: 404, message: 'Photo introuvable' };
 const NOT_FOUND_ZONE: Expected = { status: 404, message: 'Zone introuvable' };
 const NOT_FOUND_PLAN: Expected = { status: 404, message: 'Plan introuvable' };
+/** Propositions en attente sur le plan de A. */
+const SUGGESTIONS_A = [
+  { id: randomUUID(), kind: 'CASIER', name: 'Casier A', box: [0.25, 0.25, 0.75, 0.75], rows: 2, cols: 3 },
+  { id: randomUUID(), kind: 'ETAGERE', name: 'Étagère B', box: [0, 0, 0.5, 0.5], rows: 1, cols: 4 },
+];
 const contains = (id: keyof Ids) => (res: supertest.Response, ids: Ids) => expect(res.text).toContain(ids[id]);
 
 /** La table : une ligne par route HTTP de l'application. */
@@ -204,7 +209,7 @@ const ROUTES: Route[] = [
   {
     method: 'GET', path: '/api/caves/current/plans', kind: 'cave-viewer-read', req: () => ({ url: '/api/caves/current/plans' }), foreign: 'own',
     readable: (res, i) => expect(res.body).toEqual({
-      plans: [{ id: i.planA, name: 'Plan A', width: 120, height: 160, updatedAt: expect.any(String) }],
+      plans: [{ id: i.planA, name: 'Plan A', width: 120, height: 160, updatedAt: expect.any(String), analysis: 'DONE', suggestions: SUGGESTIONS_A }],
       markers: [{ zoneId: i.zoneA, planId: i.planA, name: 'Cave A', number: 1, x: 0.5, y: 0.5 }],
     }),
   },
@@ -219,7 +224,10 @@ const ROUTES: Route[] = [
   },
   {
     method: 'POST', path: '/api/caves/current/plans', kind: 'cave-owner', req: () => ({ url: '/api/caves/current/plans', upload: true, fields: { name: 'Plan iso' } }), foreign: 'own',
-    happy: { status: 201, check: (res) => expect(res.body).toEqual({ id: expect.any(String), name: 'Plan iso', width: 120, height: 160, updatedAt: expect.any(String) }) },
+    happy: {
+      status: 201,
+      check: (res) => expect(res.body).toEqual({ id: expect.any(String), name: 'Plan iso', width: 120, height: 160, updatedAt: expect.any(String), analysis: 'NONE', suggestions: [] }),
+    },
   },
   {
     method: 'PATCH', path: '/api/caves/current/plans/:id', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/plans/${i.planA}`, body: { name: 'Renommé' } }),
@@ -228,6 +236,22 @@ const ROUTES: Route[] = [
   {
     method: 'PUT', path: '/api/caves/current/plans/:id/image', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/plans/${i.planA}/image`, upload: true }),
     foreign: NOT_FOUND_PLAN, happy: { status: 200, check: (res) => expect(res.body).toMatchObject({ width: 120, height: 160 }) },
+  },
+  // Propositions de zones du plan de A : l'une acceptée, l'autre rejetée.
+  {
+    method: 'POST', path: '/api/caves/current/plans/:id/suggestions/:sid/accept', kind: 'cave-owner',
+    req: (i) => ({ url: `/api/caves/current/plans/${i.planA}/suggestions/${SUGGESTIONS_A[0].id}/accept`, body: { name: 'Iso casier', rows: 2, cols: 3 } }),
+    foreign: NOT_FOUND_PLAN,
+    happy: { status: 201, check: (res, i) => expect(res.body).toMatchObject({ name: 'Iso casier', marker: { planId: i.planA, x: 0.5, y: 0.5 }, grid: { rows: 2, cols: 3 } }) },
+  },
+  {
+    method: 'DELETE', path: '/api/caves/current/plans/:id/suggestions/:sid', kind: 'cave-owner',
+    req: (i) => ({ url: `/api/caves/current/plans/${i.planA}/suggestions/${SUGGESTIONS_A[1].id}` }), foreign: NOT_FOUND_PLAN, happy: { status: 204 },
+  },
+  // Cases occupées d'une zone : lues par le membre (pas de prix).
+  {
+    method: 'GET', path: '/api/caves/current/zones/:id/cells', kind: 'cave-viewer-read', req: (i) => ({ url: `/api/caves/current/zones/${i.zoneA}/cells` }),
+    foreign: NOT_FOUND_ZONE, readable: (res) => expect(res.body).toEqual([]),
   },
   { method: 'DELETE', path: '/api/caves/current/plans/:id', kind: 'cave-owner', req: (i) => ({ url: `/api/caves/current/plans/${i.planA}` }), foreign: NOT_FOUND_PLAN, happy: { status: 204 } },
 
@@ -373,7 +397,7 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
     ids.zoneDeleteA = (await prisma.caveZone.create({ data: { caveId: ids.caveA, name: 'Iso à supprimer', sortOrder: 1 } })).id;
     ids.locationA = (await prisma.location.create({ data: { caveId: ids.caveA, zoneId: ids.zoneA, casier: 'Iso' } })).id;
     // Plan de A et photo de sa zone, sur disque (écrits plus bas avec les photos) ; la zone porte son repère sur ce plan.
-    const planA = await prisma.cavePlan.create({ data: { caveId: ids.caveA, name: 'Plan A', path: `plans/${ids.caveA}.jpg`, width: 120, height: 160, updatedAt: new Date() } });
+    const planA = await prisma.cavePlan.create({ data: { caveId: ids.caveA, name: 'Plan A', path: `plans/${ids.caveA}.jpg`, width: 120, height: 160, updatedAt: new Date(), analysisStatus: 'DONE', suggestions: SUGGESTIONS_A } });
     await prisma.caveZone.update({ where: { id: ids.zoneA }, data: { photoPath: `zones/${ids.zoneA}.jpg`, planId: planA.id, planX: 0.5, planY: 0.5 } });
     ids.planA = planA.id;
 

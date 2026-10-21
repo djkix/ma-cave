@@ -17,7 +17,7 @@ import { CurrentCaveZonesController } from './zones.controller';
 // qui possède C et est membre de A (photo lue hors de la cave courante).
 const describeIfInfra = process.env.DATABASE_URL && process.env.REDIS_URL ? describe : describe.skip;
 
-interface Zone { id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number }
+interface Zone { id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; grid: { rows: number; cols: number } | null }
 
 describeIfInfra('zones de la cave (HTTP)', () => {
   let app: INestApplication;
@@ -118,13 +118,13 @@ describeIfInfra('zones de la cave (HTTP)', () => {
     it('crée une zone en fin de liste, avec ou sans indication ; le membre lit la liste mais ne crée rien', async () => {
       const a = await newZone(`Liste ${run} 1`, '  à gauche en entrant  ');
       const b = await newZone(`Liste ${run} 2`);
-      expect(a).toEqual({ id: expect.any(String), name: `Liste ${run} 1`, indication: 'à gauche en entrant', hasPhoto: false, sortOrder: expect.any(Number), marker: null });
+      expect(a).toEqual({ id: expect.any(String), name: `Liste ${run} 1`, indication: 'à gauche en entrant', hasPhoto: false, sortOrder: expect.any(Number), marker: null, grid: null });
       expect(b.indication).toBeNull();
       expect(b.sortOrder).toBe(a.sortOrder + 1);
       const listed = await zones(viewerA);
       expect(listed.map((z) => z.id)).toEqual(expect.arrayContaining([a.id, b.id]));
       expect(listed.findIndex((z) => z.id === a.id)).toBeLessThan(listed.findIndex((z) => z.id === b.id));
-      expect(Object.keys(listed[0]).sort()).toEqual(['hasPhoto', 'id', 'indication', 'marker', 'name', 'sortOrder']);
+      expect(Object.keys(listed[0]).sort()).toEqual(['grid', 'hasPhoto', 'id', 'indication', 'marker', 'name', 'sortOrder']);
       expectStatus(await create('Interdite', undefined, viewerA), 403, 'Lecture seule');
       expect((await zones()).some((z) => z.name === 'Interdite')).toBe(false);
     });
@@ -159,6 +159,57 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       expectStatus(await ownerA.patch(`/api/caves/current/zones/${randomUUID()}`).send({ name: 'X' }), 404, 'Zone introuvable');
       expectStatus(await ownerA.patch('/api/caves/current/zones/pas-un-uuid').send({ name: 'X' }), 404, 'Zone introuvable');
       expect((await zones()).find((x) => x.id === z.id)?.name).toBe(`Modifiée ${run}`);
+    });
+  });
+
+  describe('grille de cases', () => {
+    const patch = (id: string, body: unknown, agent: supertest.Agent = ownerA) => agent.patch(`/api/caves/current/zones/${id}`).send(body as object);
+
+    it('PATCH `grid` pose, change puis retire la grille ; les autres champs ne bougent pas', async () => {
+      const z = await newZone(`Grille ${run}`, 'Au mur');
+      const res = await patch(z.id, { grid: { rows: 6, cols: 4 } });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: z.id, name: `Grille ${run}`, indication: 'Au mur', grid: { rows: 6, cols: 4 } });
+      expect((await patch(z.id, { name: `Grille ${run} bis` })).body.grid).toEqual({ rows: 6, cols: 4 });
+      expect((await patch(z.id, { grid: { rows: 26, cols: 30 } })).body.grid).toEqual({ rows: 26, cols: 30 });
+      expect((await zones(viewerA)).find((x) => x.id === z.id)?.grid).toEqual({ rows: 26, cols: 30 });
+      const cleared = await patch(z.id, { grid: null });
+      expect(cleared.status).toBe(200);
+      expect(cleared.body).toMatchObject({ name: `Grille ${run} bis`, indication: 'Au mur', grid: null });
+    });
+
+    it('400 hors bornes (1 à 26 lignes, 1 à 30 colonnes) ; membre : 403 ; autre cave : 404 ; la grille ne change pas', async () => {
+      const z = await newZone(`Grille bornes ${run}`);
+      expect((await patch(z.id, { grid: { rows: 2, cols: 3 } })).status).toBe(200);
+      for (const grid of [{ rows: 0, cols: 4 }, { rows: 27, cols: 4 }, { rows: 6, cols: 0 }, { rows: 6, cols: 31 }, { rows: 1.5, cols: 4 }, { rows: 6 }, 'A1', {}]) {
+        expectStatus(await patch(z.id, { grid }), 400, 'La grille fait de 1 à 26 lignes et de 1 à 30 colonnes');
+      }
+      expectStatus(await patch(z.id, { grid: null }, viewerA), 403, 'Lecture seule');
+      expectStatus(await patch(z.id, { grid: null }, ownerB), 404, 'Zone introuvable');
+      expect((await zones()).find((x) => x.id === z.id)?.grid).toEqual({ rows: 2, cols: 3 });
+    });
+  });
+
+  describe('cases occupées', () => {
+    it('stock > 0 par casier (non vide) de la zone, lu par le membre ; autre cave ou inconnue : 404 « Zone introuvable »', async () => {
+      const z = await newZone(`Cases ${run}`);
+      const other = await newZone(`Cases autre ${run}`);
+      expect((await entry({ zoneId: z.id, casier: 'B3' }, 1)).status).toBe(201);
+      expect((await entry({ zoneId: z.id, casier: 'B3', position: 'fond' }, 1)).status).toBe(201);
+      expect((await entry({ zoneId: z.id, position: 'haut' }, 4)).status).toBe(201);
+      expect((await entry({ zoneId: other.id, casier: 'A1' }, 3)).status).toBe(201);
+      // A1 vidé par un déplacement : plus de stock, absent.
+      const a1 = await entry({ zoneId: z.id, casier: 'A1' }, 1);
+      const from = (await wine(a1.body.wine.id)).body.locations[0].id;
+      expect((await ownerA.post(`/api/wines/${a1.body.wine.id}/move`).send({ from, to: { zoneId: other.id, casier: 'C2' }, quantity: 1 })).status).toBe(201);
+      for (const agent of [ownerA, viewerA]) {
+        const res = await agent.get(`/api/caves/current/zones/${z.id}/cells`);
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual([{ casier: 'B3', quantity: 2 }]);
+      }
+      expect((await ownerA.get(`/api/caves/current/zones/${other.id}/cells`)).body).toEqual([{ casier: 'A1', quantity: 3 }, { casier: 'C2', quantity: 1 }]);
+      for (const id of [randomUUID(), 'pas-un-uuid']) expectStatus(await ownerA.get(`/api/caves/current/zones/${id}/cells`), 404, 'Zone introuvable');
+      expectStatus(await ownerB.get(`/api/caves/current/zones/${z.id}/cells`), 404, 'Zone introuvable');
     });
   });
 

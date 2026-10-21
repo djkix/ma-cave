@@ -77,6 +77,13 @@ export class CurrentCaveZonesController {
     return this.zones.update(cave.caveId, id, parse(updateZoneSchema, body));
   }
 
+  /** Cases occupées de la zone : `[{ casier, quantity }]`, lues par un membre aussi. */
+  @Get(':id/cells')
+  @CaveRole('VIEWER')
+  cells(@CurrentCave() cave: CaveAccess, @Param('id', zoneId) id: string) {
+    return this.zones.cells(cave.caveId, id);
+  }
+
   /** 200 `{ archived }` : true si la zone a servi (archivée), false si elle a été supprimée. */
   @Delete(':id')
   @CaveRole('OWNER')
