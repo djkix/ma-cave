@@ -560,3 +560,47 @@ describe('GeminiVisionProvider — journal des appels et pause commune', () => {
     await expect(new GeminiVisionProvider(failing(GEMINI_503) as any, 'm', journal).suggestPairingsBatch([wine])).rejects.toBe(GEMINI_503);
   });
 });
+
+describe('GeminiVisionProvider.analyzePlan', () => {
+  const NOW = new Date('2026-10-21T12:00:00.000Z');
+  const blocks = [{ kind: 'CASIER', box_2d: [200, 100, 900, 400], rows: 6, cols: 4 }];
+
+  it('envoie l’image avec le schéma de sortie structurée et rend les blocs bruts avec le coût', async () => {
+    const model = fakeModel(JSON.stringify({ blocks }));
+    const res = await new GeminiVisionProvider(model as any, 'm').analyzePlan(Buffer.from('img'), 'image/jpeg');
+    expect(res).toEqual({ blocks, costCents: 1 });
+    const call = model.generateContent.mock.calls[0][0];
+    expect(call.contents[0].parts[1]).toEqual({ inlineData: { data: Buffer.from('img').toString('base64'), mimeType: 'image/jpeg' } });
+    expect(call.generationConfig.responseMimeType).toBe('application/json');
+    const list = call.generationConfig.responseSchema.properties.blocks;
+    expect(list.maxItems).toBe(12);
+    const item = list.items;
+    expect(Object.keys(item.properties).sort()).toEqual(['box_2d', 'cols', 'kind', 'rows']);
+    expect(item.properties.box_2d).toMatchObject({ minItems: 4, maxItems: 4, items: { type: 'integer' } });
+    expect(item.properties.kind.enum).toEqual(['CASIER', 'ETAGERE', 'AUTRE']);
+    expect(call.contents[0].parts[0].text).toMatch(/12/);
+  });
+
+  it('JSON illisible : sortie du modèle invalide, avec son coût', async () => {
+    const e = await new GeminiVisionProvider(fakeModel('pas du json') as any, 'm').analyzePlan(Buffer.from('x'), 'image/jpeg').catch((x) => x);
+    expect(e.message).toMatch(/sortie du modèle invalide/i);
+    expect(e.costCents).toBe(1);
+  });
+
+  it('journalise l’appel sous l’usage ANALYSE_PLAN', async () => {
+    const prisma = fakePrisma();
+    const journal = new GeminiJournal(prisma, { warn: jest.fn(), error: jest.fn() }, () => NOW);
+    await new GeminiVisionProvider(fakeModel(JSON.stringify({ blocks: [] })) as any, 'm', journal).analyzePlan(Buffer.from('x'), 'image/jpeg');
+    expect(prisma.calls).toEqual([{ usage: 'ANALYSE_PLAN', outcome: 'OK', httpStatus: null, reason: null, costCents: 1, durationMs: expect.any(Number) }]);
+  });
+
+  it('pendant une pause commune, aucun appel ne part', async () => {
+    const prisma = fakePrisma();
+    prisma.settings.set(GEMINI_PAUSE_UNTIL_KEY, new Date(NOW.getTime() + 60_000).toISOString());
+    prisma.settings.set(GEMINI_PAUSE_REASON_KEY, 'refus');
+    const model = fakeModel('{}');
+    const journal = new GeminiJournal(prisma, { warn: jest.fn(), error: jest.fn() }, () => NOW);
+    await expect(new GeminiVisionProvider(model as any, 'm', journal).analyzePlan(Buffer.from('x'), 'image/jpeg')).rejects.toBeInstanceOf(GeminiPausedError);
+    expect(model.generateContent).not.toHaveBeenCalled();
+  });
+});

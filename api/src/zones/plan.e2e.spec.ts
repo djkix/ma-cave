@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import supertest from 'supertest';
+import { PLAN_ANALYSIS_QUEUE_TOKEN } from '../queue/plan-analysis';
 import { createTestCave, deleteTestCaves } from '../test-utils/cave';
 import { CavePlansController } from './plan.controller';
 
@@ -17,7 +18,8 @@ import { CavePlansController } from './plan.controller';
 const describeIfInfra = process.env.DATABASE_URL && process.env.REDIS_URL ? describe : describe.skip;
 
 interface Zone { id: string; name: string; marker: { planId: string; x: number; y: number } | null }
-interface Plan { id: string; name: string; width: number; height: number; updatedAt: string }
+interface Suggestion { id: string; kind: string; name: string; box: number[]; rows: number; cols: number }
+interface Plan { id: string; name: string; width: number; height: number; updatedAt: string; analysis: string; suggestions: Suggestion[] }
 interface PlansRead { plans: Plan[]; markers: Array<{ zoneId: string; planId: string; name: string; number: number; x: number; y: number }> }
 
 describeIfInfra('plans de la cave (HTTP)', () => {
@@ -61,6 +63,7 @@ describeIfInfra('plans de la cave (HTTP)', () => {
   };
   const mark = (id: string, body: unknown, agent: supertest.Agent = ownerA) => agent.put(`/api/caves/current/zones/${id}/marker`).send(body as object);
   const planFile = (id: string) => join(storage, 'plans', `${id}.jpg`);
+  const analysisQueue = { add: jest.fn<Promise<object>, unknown[]>(async () => ({})), close: jest.fn(async () => undefined), opts: {} };
 
   beforeAll(async () => {
     process.env.SESSION_SECRET ??= 'e2e-secret-e2e-secret-e2e-secret-e2e-secret';
@@ -74,7 +77,11 @@ describeIfInfra('plans de la cave (HTTP)', () => {
     const { setupSession } = await import('../auth/session.setup');
     const { PrismaService } = await import('../prisma/prisma.service');
 
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    // File d'analyse remplacée : chaque mise en file est notée, aucune tâche ne part dans Redis.
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(PLAN_ANALYSIS_QUEUE_TOKEN)
+      .useValue(analysisQueue)
+      .compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
     sessionRedis = setupSession(app);
@@ -147,8 +154,11 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       expectStatus(await create('Cellier', big, viewerA), 403, 'Lecture seule');
       const res = await create('  Cellier  ', big);
       expect(res.status).toBe(201);
-      expect(res.body).toEqual({ id: expect.any(String), name: 'Cellier', width: 2400, height: 1200, updatedAt: expect.any(String) });
+      expect(res.body).toEqual({ id: expect.any(String), name: 'Cellier', width: 2400, height: 1200, updatedAt: expect.any(String), analysis: 'PENDING', suggestions: [] });
       p1 = res.body;
+      // Une tâche d'analyse en file, avec la date de l'image analysée.
+      expect(analysisQueue.add).toHaveBeenCalledTimes(1);
+      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p1.id, updatedAt: p1.updatedAt }, { jobId: `${p1.id}_${Date.parse(p1.updatedAt)}` });
       expect(await sharp(planFile(p1.id)).metadata()).toMatchObject({ format: 'jpeg', width: 2400, height: 1200 });
       expect(await read(viewerA)).toEqual({ plans: [p1], markers: [] });
       // Aucun fichier temporaire ne reste à côté du plan.
@@ -172,6 +182,15 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       expectStatus(await create('Garage', Buffer.alloc(15 * 1024 * 1024 + 1), ownerA, 'image/jpeg'), 413, 'Photo trop lourde (15 Mo au plus)');
       expect((await read()).plans).toEqual([p1]);
       expect(readdirSync(join(storage, 'plans'))).toEqual([`${p1.id}.jpg`]);
+    });
+
+    it('mise en file impossible : le plan est créé quand même, analyse FAILED', async () => {
+      analysisQueue.add.mockRejectedValueOnce(new Error('Redis injoignable'));
+      const res = await create('Cave à part', await png(100, 100));
+      expect(res.status).toBe(201);
+      expect(res.body.analysis).toBe('FAILED');
+      expect((await read()).plans.find((p) => p.id === res.body.id)?.analysis).toBe('FAILED');
+      expect((await ownerA.delete(`/api/caves/current/plans/${res.body.id}`)).status).toBe(204);
     });
 
     it('un second plan suit le premier (ordre de création) ; B a ses propres plans', async () => {
@@ -260,12 +279,19 @@ describeIfInfra('plans de la cave (HTTP)', () => {
   });
 
   describe('remplacer l’image', () => {
-    it('nouvelle taille et nouvelle date, même fichier ; repères inchangés', async () => {
+    it('nouvelle taille et nouvelle date, même fichier ; repères inchangés ; anciennes propositions effacées, nouvelle analyse en file', async () => {
+      await prisma.cavePlan.update({
+        where: { id: p1.id },
+        data: { analysisStatus: 'DONE', suggestions: [{ id: randomUUID(), kind: 'CASIER', name: 'Casier A', box: [0, 0, 1, 1], rows: 1, cols: 1 }] },
+      });
       const before = await read();
       await new Promise((r) => setTimeout(r, 5));
+      analysisQueue.add.mockClear();
       const res = await replace(p1.id, await png(500, 1000));
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ id: p1.id, name: 'Cellier', width: 500, height: 1000, updatedAt: expect.any(String) });
+      expect(res.body).toEqual({ id: p1.id, name: 'Cellier', width: 500, height: 1000, updatedAt: expect.any(String), analysis: 'PENDING', suggestions: [] });
+      expect(analysisQueue.add).toHaveBeenCalledTimes(1);
+      expect(analysisQueue.add).toHaveBeenCalledWith('analyse', { planId: p1.id, updatedAt: res.body.updatedAt }, { jobId: `${p1.id}_${Date.parse(res.body.updatedAt)}` });
       expect(new Date(res.body.updatedAt).getTime()).toBeGreaterThan(new Date(p1.updatedAt).getTime());
       expect(await sharp(planFile(p1.id)).metadata()).toMatchObject({ width: 500, height: 1000 });
       expect((await read()).markers).toEqual(before.markers);
@@ -308,6 +334,99 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       }
       expect((await read(ownerB)).plans).toEqual([pB]);
       expect(existsSync(planFile(pB.id))).toBe(true);
+    });
+  });
+
+  describe('propositions de zones', () => {
+    const s1: Suggestion = { id: randomUUID(), kind: 'CASIER', name: 'Casier A', box: [0.25, 0.5, 0.75, 1], rows: 6, cols: 4 };
+    const s2: Suggestion = { id: randomUUID(), kind: 'ETAGERE', name: 'Étagère B', box: [0.5, 0, 1, 0.5], rows: 3, cols: 8 };
+    const s3: Suggestion = { id: randomUUID(), kind: 'AUTRE', name: 'Rangement C', box: [0, 0, 0.25, 0.25], rows: 1, cols: 1 };
+    const accept = (sid: string, body: unknown, agent: supertest.Agent = ownerA, planId = p2.id) =>
+      agent.post(`/api/caves/current/plans/${planId}/suggestions/${sid}/accept`).send(body as object);
+    const reject = (sid: string, agent: supertest.Agent = ownerA, planId = p2.id) => agent.delete(`/api/caves/current/plans/${planId}/suggestions/${sid}`);
+    const plan2 = async (agent: supertest.Agent = ownerA) => (await read(agent)).plans.find((p) => p.id === p2.id)!;
+    const accepted: string[] = [];
+
+    // Les zones acceptées perdent leur repère : la suite ne voit que ceux posés plus haut.
+    afterAll(async () => {
+      for (const id of accepted) expect((await ownerA.delete(`/api/caves/current/zones/${id}/marker`)).status).toBe(200);
+    });
+
+    it('GET plans expose l’état de l’analyse et les propositions, au membre aussi', async () => {
+      await prisma.cavePlan.update({ where: { id: p2.id }, data: { analysisStatus: 'DONE', suggestions: [s1, s2, s3] as object[] } });
+      expect(await plan2(viewerA)).toMatchObject({ analysis: 'DONE', suggestions: [s1, s2, s3] });
+      expect((await read()).plans.find((p) => p.id === p1.id)).toMatchObject({ analysis: 'PENDING', suggestions: [] });
+    });
+
+    it('le membre n’accepte ni ne rejette : 403, rien ne change', async () => {
+      expectStatus(await accept(s1.id, { name: 'Casier A', rows: 6, cols: 4 }, viewerA), 403, 'Lecture seule');
+      expectStatus(await reject(s1.id, viewerA), 403, 'Lecture seule');
+      expect((await plan2()).suggestions).toEqual([s1, s2, s3]);
+    });
+
+    it('plan d’une autre cave, inconnu ou mal désigné : 404 « Plan introuvable » ; proposition absente : 404 « Proposition introuvable »', async () => {
+      expectStatus(await accept(s1.id, { name: 'Casier A', rows: 6, cols: 4 }, ownerB), 404, 'Plan introuvable');
+      expectStatus(await reject(s1.id, ownerB), 404, 'Plan introuvable');
+      for (const planId of [pB.id, randomUUID(), 'pas-un-uuid']) {
+        expectStatus(await accept(s1.id, { name: 'Casier A', rows: 6, cols: 4 }, ownerA, planId), 404, 'Plan introuvable');
+        expectStatus(await reject(s1.id, ownerA, planId), 404, 'Plan introuvable');
+      }
+      for (const sid of [randomUUID(), 'inconnue']) {
+        expectStatus(await accept(sid, { name: 'Casier A', rows: 6, cols: 4 }), 404, 'Proposition introuvable');
+        expectStatus(await reject(sid), 404, 'Proposition introuvable');
+      }
+      expect((await plan2()).suggestions).toEqual([s1, s2, s3]);
+    });
+
+    it('corps invalide : 400 (nom de zone, bornes de la grille), rien ne change', async () => {
+      const name = 'Le nom de la zone doit faire de 1 à 40 caractères';
+      const grid = 'La grille fait de 1 à 26 lignes et de 1 à 30 colonnes';
+      expectStatus(await accept(s1.id, { name: ' ', rows: 6, cols: 4 }), 400, name);
+      expectStatus(await accept(s1.id, { rows: 6, cols: 4 }), 400, name);
+      for (const [rows, cols] of [[0, 4], [27, 4], [6, 0], [6, 31], [2.5, 4], ['6', 4], [undefined, 4]]) {
+        expectStatus(await accept(s1.id, { name: 'Casier A', rows, cols }), 400, grid);
+      }
+      expect((await plan2()).suggestions).toEqual([s1, s2, s3]);
+    });
+
+    it('accepter : 201, zone en fin de liste, repère au centre du cadre sur ce plan, grille ; la proposition est retirée', async () => {
+      const before = await plan2();
+      const res = await accept(s1.id, { name: '  Casier A  ', rows: 5, cols: 4 });
+      expect(res.status).toBe(201);
+      accepted.push(res.body.id);
+      expect(res.body).toEqual({
+        id: expect.any(String), name: 'Casier A', indication: null, hasPhoto: false, sortOrder: expect.any(Number),
+        marker: { planId: p2.id, x: 0.5, y: 0.75 }, grid: { rows: 5, cols: 4 },
+      });
+      const listed = await zones();
+      expect(listed[listed.length - 1]).toEqual(res.body);
+      // L'image n'a pas changé : même date.
+      expect(await plan2()).toEqual({ ...before, suggestions: [s2, s3] });
+      expect((await read()).markers).toContainEqual({ zoneId: res.body.id, planId: p2.id, name: 'Casier A', number: 2, x: 0.5, y: 0.75 });
+    });
+
+    it('accepter deux fois la même proposition : une seule zone, le second appel reçoit 404 « Proposition introuvable »', async () => {
+      expectStatus(await accept(s1.id, { name: 'Casier A bis', rows: 6, cols: 4 }), 404, 'Proposition introuvable');
+      const count = (await zones()).length;
+      // Double toucher, deux appareils : en même temps, sous verrou du plan.
+      const both = await Promise.all([accept(s2.id, { name: 'Étagère B', rows: 3, cols: 8 }), accept(s2.id, { name: 'Étagère B2', rows: 3, cols: 8 })]);
+      expect(both.map((r) => r.status).sort()).toEqual([201, 404]);
+      expect(both.find((r) => r.status === 404)?.body.message).toBe('Proposition introuvable');
+      accepted.push(both.find((r) => r.status === 201)!.body.id);
+      expect((await zones()).length).toBe(count + 1);
+      expect((await plan2()).suggestions).toEqual([s3]);
+    });
+
+    it('nom pris par une zone active (casse ignorée) : 409 « Une zone porte déjà ce nom », la proposition reste', async () => {
+      expectStatus(await accept(s3.id, { name: 'casier a', rows: 1, cols: 1 }), 409, 'Une zone porte déjà ce nom');
+      expect((await plan2()).suggestions).toEqual([s3]);
+    });
+
+    it('rejeter : 204, la proposition est retirée ; une seconde fois : 404', async () => {
+      const res = await reject(s3.id);
+      expect(res.status).toBe(204);
+      expect(await plan2()).toMatchObject({ analysis: 'DONE', suggestions: [] });
+      expectStatus(await reject(s3.id), 404, 'Proposition introuvable');
     });
   });
 

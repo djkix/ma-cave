@@ -99,7 +99,7 @@ export function WinePage() {
       const r = await postInventory(wine.id, { idempotencyKey: inventoryKey, counted: parsed, ...inventoryLocation });
       setInventoryMessage(`Stock corrigé : ${r.stock} en stock`);
       setCounting(false);
-      void qc.invalidateQueries({ predicate: (q) => ['cave', 'wine', 'movements', 'locations'].includes(String(q.queryKey[0])) });
+      void qc.invalidateQueries({ predicate: (q) => ['cave', 'wine', 'movements', 'locations', 'zone-cells'].includes(String(q.queryKey[0])) });
     } catch (e) {
       setInventoryError(e instanceof Error ? e.message : 'Correction impossible');
     } finally {

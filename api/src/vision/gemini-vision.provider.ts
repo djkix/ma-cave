@@ -1,4 +1,4 @@
-import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
+import { GenerativeModel, GoogleGenerativeAI, ResponseSchema, SchemaType } from '@google/generative-ai';
 import { EXTRACTION_JSON_SCHEMA_DESCRIPTION, parseExtraction } from './extraction-schema';
 import { GeminiJournal, GeminiUsage, classifyFailure } from './gemini-journal';
 import { parsePairingOutput } from './pairing-output';
@@ -203,6 +203,41 @@ function siteOf(text: string): string | null {
   }
 }
 
+/** Consigne de l'analyse d'un plan ; la forme de la réponse est imposée par `PLAN_SCHEMA`. */
+const PLAN_PROMPT = `Tu regardes la photo d'une cave à vin (ou le schéma d'une cave). Repère uniquement les rangements à bouteilles : casiers, étagères, autres meubles où l'on range des bouteilles. Ignore tout le reste (murs, portes, cartons isolés, objets). Au plus 12 rangements.
+Pour chacun, donne :
+- "kind" : CASIER (casier à alvéoles, une case par bouteille ou par pile), ETAGERE (tablettes ou étagères), AUTRE (tout autre rangement à bouteilles) ;
+- "box_2d" : le cadre serré autour du rangement, [ymin, xmin, ymax, xmax] en entiers normalisés de 0 à 1000 (0,0 = coin haut gauche) ;
+- "rows" : le nombre de rangées de cases de haut en bas (1 à 26) ; "cols" : le nombre de cases par rangée, de gauche à droite (1 à 30).
+Si la photo ne montre aucun rangement à bouteilles, réponds {"blocks": []}.`;
+
+/**
+ * `minItems` / `maxItems` sont acceptés par l'API Gemini mais absents des types
+ * de `@google/generative-ai` 0.21 (le SDK transmet le schéma tel quel) : d'où
+ * la conversion de type en fin d'objet.
+ */
+const PLAN_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    blocks: {
+      type: SchemaType.ARRAY,
+      maxItems: 12,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          kind: { type: SchemaType.STRING, format: 'enum', enum: ['CASIER', 'ETAGERE', 'AUTRE'] },
+          // Convention native de Gemini, convertie en fractions [x0, y0, x1, y1] par le traitement.
+          box_2d: { type: SchemaType.ARRAY, minItems: 4, maxItems: 4, items: { type: SchemaType.INTEGER } },
+          rows: { type: SchemaType.INTEGER },
+          cols: { type: SchemaType.INTEGER },
+        },
+        required: ['kind', 'box_2d', 'rows', 'cols'],
+      },
+    },
+  },
+  required: ['blocks'],
+} as ResponseSchema;
+
 /**
  * L'outil de recherche Google de Gemini 3 n'est pas encore typé par
  * `@google/generative-ai` (qui ne connaît que `googleSearchRetrieval`) : la
@@ -312,6 +347,26 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
     });
 
     return { items, model: this.modelName, latencyMs, costCents };
+  }
+
+  /** Photo d'un plan : une ligne `ANALYSE_PLAN` au journal. JSON illisible : `VisionInvalidOutputError` (avec son coût). */
+  analyzePlan(image: Buffer, mimeType: string): Promise<{ blocks: unknown; costCents: number }> {
+    return this.call('ANALYSE_PLAN', () => this.readPlan(image, mimeType));
+  }
+
+  private async readPlan(image: Buffer, mimeType: string): Promise<{ blocks: unknown; costCents: number }> {
+    const result = await this.model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: PLAN_PROMPT }, { inlineData: { data: image.toString('base64'), mimeType } }] }],
+      generationConfig: { responseMimeType: 'application/json', responseSchema: PLAN_SCHEMA },
+    });
+    const costCents = costCentsOf(result.response.usageMetadata);
+    let raw: unknown;
+    try {
+      raw = JSON.parse(stripFences(result.response.text()));
+    } catch {
+      throw new VisionInvalidOutputError('Sortie du modèle invalide (JSON illisible)', costCents);
+    }
+    return { blocks: (raw as { blocks?: unknown } | null)?.blocks, costCents };
   }
 
   /** Accords de tout un lot de vins (dix au plus) en un seul appel : une ligne `ACCORDS` au journal. */

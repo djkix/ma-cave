@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import * as api from '../lib/api-client';
@@ -14,9 +14,9 @@ beforeAll(() => {
 });
 
 const zones: api.Zone[] = [
-  { id: 'z1', name: 'Cave 1', indication: 'À gauche en entrant', hasPhoto: true, sortOrder: 0, marker: null },
-  { id: 'z2', name: 'Garage', indication: null, hasPhoto: false, sortOrder: 1, marker: null },
-  { id: 'z3', name: 'Cellier', indication: 'Au fond, derrière l’escalier', hasPhoto: false, sortOrder: 2, marker: null },
+  { id: 'z1', name: 'Cave 1', indication: 'À gauche en entrant', hasPhoto: true, sortOrder: 0, marker: null, grid: null },
+  { id: 'z2', name: 'Garage', indication: null, hasPhoto: false, sortOrder: 1, marker: null, grid: null },
+  { id: 'z3', name: 'Cellier', indication: 'Au fond, derrière l’escalier', hasPhoto: false, sortOrder: 2, marker: null, grid: null },
 ];
 
 // Zones lues par défaut (vide) : les tests des membres et du nom n'en dépendent pas.
@@ -100,7 +100,7 @@ describe('zones', () => {
 
   it('ajoute une zone (nom et indication) puis relit la liste', async () => {
     const list = vi.spyOn(api, 'getZones').mockResolvedValue(zones);
-    const create = vi.spyOn(api, 'createZone').mockResolvedValue({ id: 'z4', name: 'Placard', indication: null, hasPhoto: false, sortOrder: 3, marker: null });
+    const create = vi.spyOn(api, 'createZone').mockResolvedValue({ id: 'z4', name: 'Placard', indication: null, hasPhoto: false, sortOrder: 3, marker: null, grid: null });
     mount();
     await zonesCard().findByText('Cave 1');
     await userEvent.type(zonesCard().getByLabelText('Nom de la nouvelle zone'), '  Placard ');
@@ -148,7 +148,7 @@ describe('zones', () => {
     await userEvent.type(name, 'Cellier du bas');
     await userEvent.clear(sheet.getByLabelText('Indication'));
     await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { name: 'Cellier du bas', indication: null }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { name: 'Cellier du bas', indication: null, grid: null }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Modifier Cellier' })).not.toBeInTheDocument());
   });
 
@@ -164,6 +164,46 @@ describe('zones', () => {
     await userEvent.click(sheet.getByRole('button', { name: 'Annuler' }));
     await userEvent.click(zoneRow('Cellier').getByRole('button', { name: 'Modifier' }));
     expect(within(screen.getByRole('dialog', { name: 'Modifier Cellier' })).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('« Modifier » : Lignes et Colonnes donnent la grille de la zone, avec l’aperçu des cases ; vides, pas de grille', async () => {
+    const gridded: api.Zone[] = [zones[0], { ...zones[1], grid: { rows: 2, cols: 3 } }, zones[2]];
+    vi.spyOn(api, 'getZones').mockResolvedValue(gridded);
+    const update = vi.spyOn(api, 'updateZone').mockResolvedValue(gridded[1]);
+    mount();
+    await zonesCard().findByText('Garage');
+    await userEvent.click(zoneRow('Cellier').getByRole('button', { name: 'Modifier' }));
+    let sheet = within(screen.getByRole('dialog', { name: 'Modifier Cellier' }));
+    expect(sheet.getByLabelText('Lignes')).toHaveValue(null);
+    expect(sheet.getByLabelText('Colonnes')).toHaveValue(null);
+    await userEvent.type(sheet.getByLabelText('Lignes'), '6');
+    await userEvent.type(sheet.getByLabelText('Colonnes'), '4');
+    expect(sheet.getByText('Cases A1 à F4')).toBeInTheDocument();
+    await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { name: 'Cellier', indication: 'Au fond, derrière l’escalier', grid: { rows: 6, cols: 4 } }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    await userEvent.click(zoneRow('Garage').getByRole('button', { name: 'Modifier' }));
+    sheet = within(screen.getByRole('dialog', { name: 'Modifier Garage' }));
+    expect(sheet.getByLabelText('Lignes')).toHaveValue(2);
+    expect(sheet.getByLabelText('Colonnes')).toHaveValue(3);
+    expect(sheet.getByText('Cases A1 à B3')).toBeInTheDocument();
+    await userEvent.clear(sheet.getByLabelText('Lignes'));
+    await userEvent.clear(sheet.getByLabelText('Colonnes'));
+    await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => expect(update).toHaveBeenLastCalledWith('z2', { name: 'Garage', indication: null, grid: null }));
+  });
+
+  it('« Modifier » : une seule des deux dimensions, ou hors bornes, ne s’enregistre pas', async () => {
+    vi.spyOn(api, 'getZones').mockResolvedValue(zones);
+    mount();
+    await zonesCard().findByText('Garage');
+    await userEvent.click(zoneRow('Garage').getByRole('button', { name: 'Modifier' }));
+    const sheet = within(screen.getByRole('dialog', { name: 'Modifier Garage' }));
+    await userEvent.type(sheet.getByLabelText('Lignes'), '3');
+    expect(sheet.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
+    await userEvent.type(sheet.getByLabelText('Colonnes'), '31');
+    expect(sheet.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
   });
 
   it('« Modifier » puis « Annuler » ferme la feuille sans appel', async () => {
@@ -341,8 +381,8 @@ it('affiche le refus de l’api au renommage', async () => {
 });
 
 describe('plan de la cave', () => {
-  const main: api.CavePlan = { id: 'p1', name: 'Plan principal', width: 2000, height: 1000, updatedAt: '2026-10-13T10:00:00.000Z' };
-  const cellier: api.CavePlan = { id: 'p2', name: 'Cellier', width: 800, height: 600, updatedAt: '2026-10-20T09:00:00.000Z' };
+  const main: api.CavePlan = { id: 'p1', name: 'Plan principal', width: 2000, height: 1000, updatedAt: '2026-10-13T10:00:00.000Z', analysis: 'NONE', suggestions: [] };
+  const cellier: api.CavePlan = { id: 'p2', name: 'Cellier', width: 800, height: 600, updatedAt: '2026-10-20T09:00:00.000Z', analysis: 'NONE', suggestions: [] };
   const m1: api.PlanMarker = { zoneId: 'z1', planId: 'p1', name: 'Cave 1', number: 1, x: 0.1, y: 0.2 };
   const m3: api.PlanMarker = { zoneId: 'z3', planId: 'p2', name: 'Cellier', number: 1, x: 0.6, y: 0.4 };
   const placed: api.Zone[] = [{ ...zones[0], marker: { planId: 'p1', x: 0.1, y: 0.2 } }, zones[1], zones[2]];
@@ -395,7 +435,7 @@ describe('plan de la cave', () => {
   });
 
   it('« + Ajouter un plan » : nom puis photo, le plan est créé et son onglet choisi', async () => {
-    const garage: api.CavePlan = { id: 'p3', name: 'Garage', width: 1000, height: 1000, updatedAt: '2026-10-20T10:00:00.000Z' };
+    const garage: api.CavePlan = { id: 'p3', name: 'Garage', width: 1000, height: 1000, updatedAt: '2026-10-20T10:00:00.000Z', analysis: 'NONE', suggestions: [] };
     const get = vi.spyOn(api, 'getPlans').mockResolvedValueOnce(twoPlans).mockResolvedValue({ plans: [main, cellier, garage], markers: [m1, m3] });
     const create = vi.spyOn(api, 'createPlan').mockResolvedValue(garage);
     mount();
@@ -622,6 +662,117 @@ describe('plan de la cave', () => {
     await tapPlan(0.3, 0.3);
     await userEvent.click(planCard().getByRole('button', { name: 'Garage' }));
     expect(await planCard().findByRole('alert')).toHaveTextContent('Plan introuvable');
+  });
+
+  describe('propositions de zones', () => {
+    const casierA: api.PlanSuggestion = { id: 's1', kind: 'CASIER', name: 'Casier A', box: [0.1, 0.1, 0.4, 0.5], rows: 6, cols: 4 };
+    const etagereA: api.PlanSuggestion = { id: 's2', kind: 'ETAGERE', name: 'Étagère A', box: [0.5, 0.1, 0.7, 0.3], rows: 1, cols: 5 };
+    const rangementA: api.PlanSuggestion = { id: 's3', kind: 'AUTRE', name: 'Rangement A', box: [0.75, 0.1, 0.8, 0.2], rows: 1, cols: 1 };
+    const analysed = (suggestions: api.PlanSuggestion[]) => ({ plans: [{ ...main, analysis: 'DONE' as const, suggestions }], markers: [] });
+    const sheet = () => within(screen.getByRole('dialog', { name: 'Proposition' }));
+    async function openProposal(name: string) {
+      await userEvent.click(await planCard().findByRole('button', { name: `Proposition ${name}` }));
+      return sheet();
+    }
+
+    afterEach(() => vi.useRealTimers());
+
+    it('analyse en cours : le dit sous le plan et relit les plans toutes les 10 s, jusqu’à la fin', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const getPlans = vi.spyOn(api, 'getPlans')
+        .mockResolvedValueOnce({ plans: [{ ...main, analysis: 'PENDING' }], markers: [] })
+        .mockResolvedValue(analysed([casierA]));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      expect(await planCard().findByText('Analyse du plan en cours…')).toBeInTheDocument();
+      expect(getPlans).toHaveBeenCalledTimes(1);
+      await act(() => vi.advanceTimersByTimeAsync(10_000));
+      expect(await planCard().findByRole('button', { name: 'Proposition Casier A' })).toBeInTheDocument();
+      expect(planCard().queryByText('Analyse du plan en cours…')).not.toBeInTheDocument();
+      expect(getPlans).toHaveBeenCalledTimes(2);
+      await act(() => vi.advanceTimersByTimeAsync(30_000));
+      expect(getPlans).toHaveBeenCalledTimes(2);
+    });
+
+    it('analyse en échec : invite à placer les zones à la main', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [{ ...main, analysis: 'FAILED' }], markers: [] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      expect(await planCard().findByText('Les zones n’ont pas pu être proposées. Placez-les à la main.')).toBeInTheDocument();
+      expect(planCard().queryByRole('button', { name: /^Proposition/ })).not.toBeInTheDocument();
+    });
+
+    it('analyse faite : un cadre par proposition, étiquette « Casier A · 24 cases », phrase au-dessus du plan', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([casierA, etagereA, rangementA]));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      const sentence = await planCard().findByText('3 zones proposées : touchez-les pour les accepter.');
+      const frame = planCard().getByRole('button', { name: 'Proposition Casier A' });
+      expect(frame).toHaveTextContent('Casier A · 24 cases');
+      expect(sentence.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(planCard().getByRole('button', { name: 'Proposition Étagère A' })).toHaveTextContent('Étagère A · 5 cases');
+      expect(planCard().getByRole('button', { name: 'Proposition Rangement A' })).toHaveTextContent('Rangement A · 1 case');
+    });
+
+    it('une seule proposition : phrase au singulier', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([casierA]));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      expect(await planCard().findByText('1 zone proposée : touchez-la pour l’accepter.')).toBeInTheDocument();
+    });
+
+    it('toucher un cadre ouvre « Proposition » préremplie ; Accepter envoie les valeurs modifiées puis ferme', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValueOnce(analysed([casierA])).mockResolvedValue(analysed([]));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      const accept = vi.spyOn(api, 'acceptSuggestion').mockResolvedValue({ ...zones[0], id: 'zn', name: 'Casier du fond', grid: { rows: 5, cols: 4 } });
+      mount();
+      const s = await openProposal('Casier A');
+      expect(s.getByLabelText('Nom')).toHaveValue('Casier A');
+      expect(s.getByLabelText('Lignes')).toHaveValue(6);
+      expect(s.getByLabelText('Colonnes')).toHaveValue(4);
+      expect(s.getByText('Cases A1 à F4')).toBeInTheDocument();
+      await userEvent.clear(s.getByLabelText('Nom'));
+      await userEvent.type(s.getByLabelText('Nom'), ' Casier du fond ');
+      await userEvent.clear(s.getByLabelText('Lignes'));
+      await userEvent.type(s.getByLabelText('Lignes'), '5');
+      expect(s.getByText('Cases A1 à E4')).toBeInTheDocument();
+      await userEvent.click(s.getByRole('button', { name: 'Accepter' }));
+      await waitFor(() => expect(accept).toHaveBeenCalledWith('p1', 's1', { name: 'Casier du fond', rows: 5, cols: 4 }));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Proposition' })).not.toBeInTheDocument());
+      await waitFor(() => expect(planCard().queryByRole('button', { name: 'Proposition Casier A' })).not.toBeInTheDocument());
+    });
+
+    it('Rejeter retire la proposition', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([casierA]));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      const reject = vi.spyOn(api, 'rejectSuggestion').mockResolvedValue(undefined);
+      mount();
+      const s = await openProposal('Casier A');
+      await userEvent.click(s.getByRole('button', { name: 'Rejeter' }));
+      await waitFor(() => expect(reject).toHaveBeenCalledWith('p1', 's1'));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Proposition' })).not.toBeInTheDocument());
+    });
+
+    it('le refus de l’api s’affiche dans la feuille, qui reste ouverte', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([casierA]));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      vi.spyOn(api, 'acceptSuggestion').mockRejectedValue(new api.ApiError(409, 'Une zone porte déjà ce nom'));
+      mount();
+      const s = await openProposal('Casier A');
+      await userEvent.click(s.getByRole('button', { name: 'Accepter' }));
+      expect(await s.findByRole('alert')).toHaveTextContent('Une zone porte déjà ce nom');
+      expect(screen.getByRole('dialog', { name: 'Proposition' })).toBeInTheDocument();
+    });
+
+    it('toucher le plan hors des cadres pose toujours un « + »', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([casierA]));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      await planCard().findByRole('button', { name: 'Proposition Casier A' });
+      await tapPlan(0.9, 0.9);
+      expect(planCard().getByRole('group', { name: 'Nommer cet endroit' })).toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: 'Proposition' })).not.toBeInTheDocument();
+    });
   });
 
   it('archiver une zone placée ou changer l’ordre relit les plans : repère disparu, numéros échangés', async () => {

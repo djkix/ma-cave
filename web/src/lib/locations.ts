@@ -41,9 +41,12 @@ export function lastUsedInput(locations: Location[] | undefined): LocationInput 
   return l ? { zoneId: l.zoneId ?? null, casier: l.casier, position: l.position } : null;
 }
 
-/** Plans de la cave courante et repères des zones (lisibles par un membre). */
+/** Plans de la cave courante et repères des zones (lisibles par un membre). Relus toutes les 10 s tant qu'un plan est en cours d'analyse. */
 export function usePlans(enabled = true) {
-  return useQuery({ queryKey: ['plans'], queryFn: getPlans, enabled, retry: false });
+  return useQuery({
+    queryKey: ['plans'], queryFn: getPlans, enabled, retry: false,
+    refetchInterval: (q) => (q.state.data?.plans.some((p) => p.analysis === 'PENDING') ? 10_000 : false),
+  });
 }
 
 /** Zones de la cave dans l'ordre d'affichage (lisibles par un membre). Sans nouvelles tentatives : une erreur ne retient aucune saisie. */

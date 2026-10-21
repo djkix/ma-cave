@@ -32,8 +32,8 @@ const cellar: api.Location[] = [
 ];
 
 const zones: api.Zone[] = [
-  { id: 'z1', name: 'Garage', indication: 'Au fond, derrière l’escalier', hasPhoto: true, sortOrder: 0, marker: null },
-  { id: 'z2', name: 'Cave 2', indication: null, hasPhoto: false, sortOrder: 1, marker: null },
+  { id: 'z1', name: 'Garage', indication: 'Au fond, derrière l’escalier', hasPhoto: true, sortOrder: 0, marker: null, grid: null },
+  { id: 'z2', name: 'Cave 2', indication: null, hasPhoto: false, sortOrder: 1, marker: null, grid: null },
 ];
 
 beforeEach(() => {
@@ -106,7 +106,7 @@ it('membre : voit les emplacements et le détail des zones, mais aucun bouton ni
 });
 
 describe('plan de la cave', () => {
-  const plan = { id: 'p1', name: 'Plan principal', width: 1200, height: 800, updatedAt: '2026-10-13T10:00:00.000Z' };
+  const plan = { id: 'p1', name: 'Plan principal', width: 1200, height: 800, updatedAt: '2026-10-13T10:00:00.000Z', analysis: 'NONE' as const, suggestions: [] };
   const markers = [{ zoneId: 'z1', planId: 'p1', name: 'Garage', number: 1, x: 0.2, y: 0.3 }, { zoneId: 'z2', planId: 'p1', name: 'Cave 2', number: 2, x: 0.6, y: 0.7 }];
   const placed: api.Zone[] = [{ ...zones[0], marker: { planId: 'p1', x: 0.2, y: 0.3 } }, { ...zones[1], marker: { planId: 'p1', x: 0.6, y: 0.7 } }];
 
