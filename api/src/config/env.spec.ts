@@ -54,4 +54,9 @@ describe('isLightModel', () => {
     expect(['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-2.0-flash-light', 'Gemini-Flash'].every(isLightModel)).toBe(true);
     expect(['gemini-3.5-pro', 'gemini-3.5-flash-pro', 'gemini-embedding', ''].some(isLightModel)).toBe(false);
   });
+
+  it('nom de modèle : lettres, chiffres, point et tiret seulement', () => {
+    expect(['gemini flash', 'gemini-flash/../x', 'gemini-flash\n', 'gemini-flash?key=1', 'gémini-flash'].some(isLightModel)).toBe(false);
+    expect(() => parseEnv({ ...minimal, GEMINI_MODEL: 'gemini-3.5-flash?x=1' })).toThrow(/Flash ou Lite/);
+  });
 });
