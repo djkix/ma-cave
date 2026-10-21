@@ -1,0 +1,162 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import Redis from 'ioredis';
+import { GeminiQuotaError, nextPacificMidnight, pacificDay, pauseAfter429, quotaMessage } from './gemini-pause';
+import { DEFAULT_LIMITS, GEMINI_RPD_KEY, GEMINI_RPM_KEY, GEMINI_TPM_KEY, GeminiQuotaService } from './gemini-quota';
+import { fakeGeminiPrisma as fakePrisma } from '../test-utils/fake-gemini-prisma';
+
+describe('minuit du Pacifique', () => {
+  it('heure d’été (PDT, UTC−7) et d’hiver (PST, UTC−8)', () => {
+    expect(nextPacificMidnight(new Date('2026-10-21T20:00:00Z')).toISOString()).toBe('2026-10-22T07:00:00.000Z');
+    expect(nextPacificMidnight(new Date('2026-12-10T20:00:00Z')).toISOString()).toBe('2026-12-11T08:00:00.000Z');
+    // Juste avant minuit là-bas, et juste après.
+    expect(nextPacificMidnight(new Date('2026-10-22T06:59:59Z')).toISOString()).toBe('2026-10-22T07:00:00.000Z');
+    expect(nextPacificMidnight(new Date('2026-10-22T07:00:00Z')).toISOString()).toBe('2026-10-23T07:00:00.000Z');
+  });
+
+  it('jours de changement d’heure (1er novembre et 8 mars 2026)', () => {
+    expect(nextPacificMidnight(new Date('2026-10-31T20:00:00Z')).toISOString()).toBe('2026-11-01T07:00:00.000Z');
+    expect(nextPacificMidnight(new Date('2026-11-01T12:00:00Z')).toISOString()).toBe('2026-11-02T08:00:00.000Z');
+    expect(nextPacificMidnight(new Date('2026-03-07T20:00:00Z')).toISOString()).toBe('2026-03-08T08:00:00.000Z');
+    expect(nextPacificMidnight(new Date('2026-03-08T12:00:00Z')).toISOString()).toBe('2026-03-09T07:00:00.000Z');
+  });
+
+  it('jour du Pacifique', () => {
+    expect(pacificDay(new Date('2026-10-22T06:59:59Z'))).toBe('2026-10-21');
+    expect(pacificDay(new Date('2026-10-22T07:00:00Z'))).toBe('2026-10-22');
+  });
+});
+
+describe('textes des quotas (heure de Paris)', () => {
+  const now = new Date('2026-10-21T12:02:30Z'); // 14:02 à Paris
+  it('minute, jetons, jour, Google', () => {
+    expect(quotaMessage('QUOTA_MINUTE', new Date('2026-10-21T12:03:00Z'), 5, now)).toBe('Limite de 5 requêtes par minute atteinte : reprise à 14:03.');
+    expect(quotaMessage('QUOTA_TOKENS', new Date('2026-10-21T12:03:00Z'), 250000, now)).toBe('Limite de jetons par minute atteinte : reprise à 14:03.');
+    expect(quotaMessage('QUOTA_JOUR', new Date('2026-10-22T07:00:00Z'), 20, now)).toBe('Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.');
+    expect(quotaMessage('QUOTA_JOUR', new Date('2026-10-22T07:00:00Z'), 20, new Date('2026-10-22T05:00:00Z'))).toBe("Quota Gemini du jour atteint (20 requêtes) : reprise aujourd'hui à 09:00.");
+    expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-21T12:40:00Z'), null, now)).toBe('Quota Gemini dépassé chez Google : reprise à 14:40.');
+    expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-22T07:00:00Z'), null, now)).toBe('Quota Gemini dépassé chez Google : reprise demain à 09:00.');
+  });
+});
+
+describe('pause après un 429 de Google', () => {
+  const now = new Date('2026-10-21T12:00:00Z');
+  const sdk = (detail: string) =>
+    `[GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent: [429 Too Many Requests] ${detail}`;
+
+  it('RetryInfo « retryDelay » : maintenant + délai', () => {
+    const message = sdk(
+      'You exceeded your current quota, please check your plan and billing details. [{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_requests","quotaId":"GenerateRequestsPerMinutePerProjectPerModel-FreeTier","quotaDimensions":{"location":"global","model":"gemini-3.8-flash"},"quotaValue":"5"}]},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Learn more about Gemini API quotas","url":"https://ai.google.dev/gemini-api/docs/rate-limits"}]},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"37s"}]',
+    );
+    expect(pauseAfter429(message, now).toISOString()).toBe('2026-10-21T12:00:37.000Z');
+  });
+
+  it('texte « Please retry in 37.2s »', () => {
+    expect(pauseAfter429(sdk('Resource has been exhausted. Please retry in 37.2s.'), now).toISOString()).toBe('2026-10-21T12:00:37.200Z');
+  });
+
+  it('quota journalier : prochain minuit du Pacifique, même avec un retryDelay', () => {
+    const message = sdk(
+      'You exceeded your current quota. [{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_requests","quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier","quotaValue":"20"}]},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"12s"}]',
+    );
+    expect(pauseAfter429(message, now).toISOString()).toBe('2026-10-22T07:00:00.000Z');
+  });
+
+  it('sans indication : une heure, comme avant', () => {
+    expect(pauseAfter429(sdk('quota'), now).toISOString()).toBe('2026-10-21T13:00:00.000Z');
+  });
+});
+
+describe('GeminiQuotaService (Redis réel)', () => {
+  const redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', { maxRetriesPerRequest: 1 });
+  const prefix = `test-gemini-quota-${process.pid}`;
+  const NOW = new Date('2026-10-21T12:02:30Z');
+  const quiet = { error: jest.fn() };
+  const serviceWith = (limits: Partial<Record<string, string>> = {}, prisma = fakePrisma()) => {
+    for (const [key, value] of Object.entries(limits)) prisma.settings.set(key, value);
+    return { prisma, quota: new GeminiQuotaService(prisma, redis, { prefix, log: quiet }) };
+  };
+
+  afterEach(async () => {
+    const keys = await redis.keys(`${prefix}:*`);
+    if (keys.length) await redis.del(...keys);
+  });
+  afterAll(() => redis.quit());
+
+  it('limites par défaut 5 / 250 000 / 20, puis réglées en base', async () => {
+    expect(DEFAULT_LIMITS).toEqual({ rpm: 5, tpm: 250000, rpd: 20 });
+    await expect(serviceWith().quota.limits()).resolves.toEqual(DEFAULT_LIMITS);
+    const { quota, prisma } = serviceWith({ [GEMINI_RPM_KEY]: '10', [GEMINI_TPM_KEY]: '1000', [GEMINI_RPD_KEY]: 'abc' });
+    await expect(quota.limits()).resolves.toEqual({ rpm: 10, tpm: 1000, rpd: 20 });
+    await quota.setLimits({ rpm: 3, tpm: 500, rpd: 7 });
+    expect(prisma.settings.get(GEMINI_RPD_KEY)).toBe('7');
+    await expect(quota.limits()).resolves.toEqual({ rpm: 3, tpm: 500, rpd: 7 });
+  });
+
+  it('minute : la 6e requête est refusée jusqu’au début de la minute suivante', async () => {
+    const { quota } = serviceWith();
+    for (let i = 0; i < 5; i++) await quota.reserve(NOW);
+    const e = await quota.reserve(NOW).catch((x: any) => x);
+    expect(e).toBeInstanceOf(GeminiQuotaError);
+    expect(e.reason).toBe('QUOTA_MINUTE');
+    expect(e.until.toISOString()).toBe('2026-10-21T12:03:00.000Z');
+    expect(e.message).toBe('Limite de 5 requêtes par minute atteinte : reprise à 14:03.');
+    // La minute suivante repart de zéro.
+    await expect(quota.reserve(new Date('2026-10-21T12:03:00Z'))).resolves.toBeUndefined();
+  });
+
+  it('jetons : refus une fois le plafond de la minute atteint', async () => {
+    const { quota } = serviceWith({ [GEMINI_TPM_KEY]: '1000' });
+    await quota.reserve(NOW);
+    await quota.addTokens(999, NOW);
+    await expect(quota.reserve(NOW)).resolves.toBeUndefined();
+    await quota.addTokens(1, NOW);
+    const e = await quota.reserve(NOW).catch((x: any) => x);
+    expect(e.reason).toBe('QUOTA_TOKENS');
+    expect(e.until.toISOString()).toBe('2026-10-21T12:03:00.000Z');
+  });
+
+  it('jour : refus jusqu’au prochain minuit du Pacifique, compteur par jour du Pacifique', async () => {
+    const { quota } = serviceWith({ [GEMINI_RPD_KEY]: '2', [GEMINI_RPM_KEY]: '100' });
+    await quota.reserve(NOW);
+    await quota.reserve(new Date(NOW.getTime() + 60_000));
+    const e = await quota.reserve(new Date(NOW.getTime() + 120_000)).catch((x: any) => x);
+    expect(e.reason).toBe('QUOTA_JOUR');
+    expect(e.until.toISOString()).toBe('2026-10-22T07:00:00.000Z');
+    expect(e.message).toBe('Quota Gemini du jour atteint (2 requêtes) : reprise demain à 09:00.');
+    await expect(quota.reserve(new Date('2026-10-22T07:00:00Z'))).resolves.toBeUndefined();
+  });
+
+  it('deux réservations simultanées pour une seule place : une seule passe', async () => {
+    const { quota } = serviceWith({ [GEMINI_RPM_KEY]: '1' });
+    const results = await Promise.allSettled([quota.reserve(NOW), quota.reserve(NOW)]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
+  });
+
+  it('durées de vie : 2 min pour la minute, 26 h pour le jour', async () => {
+    const { quota } = serviceWith();
+    await quota.reserve(NOW);
+    await quota.addTokens(10, NOW);
+    const ttls = await Promise.all((await redis.keys(`${prefix}:*`)).sort().map(async (k) => [k.split(':')[1], await redis.ttl(k)] as const));
+    expect(Object.fromEntries(ttls)).toEqual({ rpd: 26 * 3600, rpm: 120, tpm: 120 });
+  });
+
+  it('usage : compteurs, limites et heure de remise à zéro du jour', async () => {
+    const { quota } = serviceWith();
+    await quota.reserve(NOW);
+    await quota.addTokens(2700, NOW);
+    await expect(quota.usage(NOW)).resolves.toEqual({
+      minute: { requests: 1, tokens: 2700 },
+      day: { requests: 1 },
+      limits: DEFAULT_LIMITS,
+      dayResetsAt: '2026-10-22T07:00:00.000Z',
+    });
+  });
+
+  it('Redis injoignable : l’appel part quand même (journalisé)', async () => {
+    const log = { error: jest.fn() };
+    const broken = { eval: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')) } as unknown as Redis;
+    await expect(new GeminiQuotaService(fakePrisma(), broken, { prefix, log }).reserve(NOW)).resolves.toBeUndefined();
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining('ECONNREFUSED'));
+  });
+});
