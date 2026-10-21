@@ -18,8 +18,8 @@ function mount() {
   );
 }
 
-const plan = (id: string) => ({ id, name: id, width: 1, height: 1, updatedAt: '' });
-const zone = (id: string) => ({ id, name: id, indication: null, hasPhoto: false, sortOrder: 0, marker: null });
+const plan = (id: string) => ({ id, name: id, width: 1, height: 1, updatedAt: '', analysis: 'NONE' as const, suggestions: [] });
+const zone = (id: string) => ({ id, name: id, indication: null, hasPhoto: false, sortOrder: 0, marker: null, grid: null });
 const member = (id: string) => ({ id, email: `${id}@example.fr`, displayName: null, role: 'VIEWER' as const, pending: false });
 const registration = (id: string) => ({ id, email: `${id}@example.fr`, displayName: null, createdAt: '' });
 const times = <T,>(n: number, f: (id: string) => T) => Array.from({ length: n }, (_, i) => f(`x${i}`));

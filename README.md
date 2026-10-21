@@ -144,6 +144,45 @@ plans par ordre de création), `POST /api/caves/current/plans` (`{ name }` ;
 et de la hauteur entre 0 et 1, sinon « Position invalide sur le plan ») et
 `DELETE` ; chaque zone porte `marker: { planId, x, y } | null`.
 
+**Propositions de zones à partir de la photo du plan** (2.16.0). À chaque plan
+créé ou photo remplacée, l'application fait analyser la photo par Gemini en
+arrière-plan, sans jamais bloquer : l'IA détecte les blocs de rangement (casier,
+étagère) avec leur cadre et leur nombre de lignes et de colonnes. Sous le plan,
+*Analyse du plan en cours…* tant que l'analyse tourne (l'écran se relit toutes
+les 10 s), puis, si elle a échoué, « Les zones n’ont pas pu être proposées.
+Placez-les à la main. » (les plans existants ne sont pas analysés). Quand des
+zones sont proposées, leurs cadres apparaissent **en pointillés** sur le plan,
+avec une étiquette « Casier A · 24 cases », et une ligne au-dessus du plan
+annonce « 3 zones proposées : touchez-les pour les accepter. ». Toucher un cadre
+ouvre la feuille **Proposition** : *Nom* (prérempli : « Casier A », « Étagère B »,
+« Rangement C »… de gauche à droite, en sautant les lettres déjà prises),
+*Lignes* et *Colonnes* (préremplis), aperçu « Cases A1 à F4 », puis *Accepter*
+(crée la zone avec son repère au centre du cadre et sa grille) ou *Rejeter*
+(retire la proposition). Le propriétaire seul accepte ou rejette ; un nom déjà
+pris est refusé (« Une zone porte déjà ce nom »). Les cases se nomment en
+lignes × colonnes : A1, A2… pour la première ligne, B1, B2… pour la deuxième
+(1 à 26 lignes, 1 à 30 colonnes ; les cases sont calculées, jamais stockées).
+Au démarrage du worker, les analyses restées en attente sont **remises en file**.
+
+**Grille d'une zone.** *Modifier la zone* (carte *Zones*) propose *Lignes* et
+*Colonnes* (vides = pas de grille) avec l'aperçu des cases. **Ranger une
+bouteille** dans une zone qui a une grille (entrée, *Déplacer*, emplacements de
+la fiche vin) : sous le champ *Casier*, une grille de cases à toucher (48 px
+minimum, défilement horizontal si elle est large) ; une case occupée affiche le
+nombre de bouteilles qu'elle contient, la case choisie est mise en avant et
+remplit *Casier*, dont la liste de suggestions propose aussi les cases. La saisie
+libre reste possible ; une zone sans grille ne change pas. Dans *Coûts de l’IA*,
+le nouvel usage s'affiche sous « Analyse du plan » (barres, légende, détail).
+API : `GET /api/caves/current/plans` renvoie en plus, par plan, `analysis`
+(`NONE`, `PENDING`, `DONE`, `FAILED`) et `suggestions` (`{ id, kind, name, box,
+rows, cols }`, `box` en fractions de l'image) ; `POST
+/api/caves/current/plans/:id/suggestions/:sid/accept` (`{ name, rows, cols }`,
+201 avec la zone) et `DELETE /api/caves/current/plans/:id/suggestions/:sid`
+(204) ; « Proposition introuvable » (404) si elle n'existe plus ; `PATCH
+/api/caves/current/zones/:id` accepte `grid: { rows, cols } | null` ; `GET
+/api/caves/current/zones/:id/cells` renvoie `[{ casier, quantity }]` (stock
+supérieur à 0 par case) ; chaque zone porte `grid: { rows, cols } | null`.
+
 **Membres en lecture seule.** Dans *Ma cave* (propriétaire seulement), la
 section *Membres* liste les membres, invite une adresse Google (« Cette
 adresse est déjà membre » si elle l'est déjà), retire un membre (jamais le
@@ -869,6 +908,30 @@ Si les images sont construites localement, remplacer `docker compose pull` par
 `docker compose build`. Pour figer une version plutôt que suivre `latest`,
 fusionner la demande de version proposée par release-please puis renseigner
 `IMAGE_TAG=<version>` dans le `.env`.
+
+### Passage à la 2.16.0 (propositions de zones)
+
+Deux migrations, **additives** et appliquées toutes seules au démarrage de
+l'api, sans rien modifier ni supprimer : `20261021000000_propositions_zones`
+(sur chaque plan, l'état de l'analyse `analysis_status`, à `NONE` pour les plans
+existants, et les propositions `suggestions`, vides ; sur chaque zone, la grille
+`grid_rows` et `grid_cols`, nulles, avec leur contrainte) et
+`20261021010000_usage_analyse_plan` (le journal des appels Gemini accepte
+l'usage `ANALYSE_PLAN`). Aucune sauvegarde particulière n'est nécessaire.
+Les plans existants ne sont pas analysés : seule une photo envoyée ou
+remplacée déclenche l'analyse. Les colonnes ajoutées sont ignorées d'une image 2.15.x, mais celle-ci ne
+connaît pas l'usage `ANALYSE_PLAN` du journal des appels.
+
+Par précaution, sauvegarder comme d'habitude avant la mise à jour :
+
+```bash
+cd /opt/stacks/ma-cave && docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' | gzip > backups/cave-avant-2.16.0.sql.gz
+```
+
+**Retour arrière vers une image 2.15.x** (sans restaurer la sauvegarde) : le
+détail des coûts IA affiche le libellé brut `ANALYSE_PLAN` et omet cet usage des
+barres (aucun plantage) ; les tâches d'analyse de plan ne sont pas traitées, les
+plans restent « en cours » jusqu'à la mise à jour suivante, qui les remet en file.
 
 ### Passage à la 2.14.0 (plusieurs plans)
 

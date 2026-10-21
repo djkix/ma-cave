@@ -63,6 +63,26 @@ it('repère qui vient d’être posé : « + », nommé « Nouveau repère », m
   expect(pending.style.left).toBe('40%');
 });
 
+it('propositions : cadres en pointillés placés en pourcentage, étiquette « Casier A · 24 cases » ; un toucher ouvre la proposition, pas le plan', async () => {
+  const onPlanClick = vi.fn();
+  const onSuggestionClick = vi.fn();
+  const suggestions: api.PlanSuggestion[] = [
+    { id: 's1', kind: 'CASIER', name: 'Casier A', box: [0.1, 0.2, 0.4, 0.8], rows: 6, cols: 4 },
+    { id: 's2', kind: 'AUTRE', name: 'Rangement A', box: [0.5, 0.5, 0.6, 0.6], rows: 1, cols: 1 },
+  ];
+  render(<PlanView src="/plan.jpg" plan={plan} markers={markers} suggestions={suggestions} onPlanClick={onPlanClick} onSuggestionClick={onSuggestionClick} />);
+  const frame = screen.getByRole('button', { name: 'Proposition Casier A' });
+  expect(frame).toHaveTextContent('Casier A · 24 cases');
+  expect(frame.style.left).toBe('10%');
+  expect(frame.style.top).toBe('20%');
+  expect(frame.style.width).toBe('30%');
+  expect(frame.style.height).toBe('60%');
+  expect(screen.getByRole('button', { name: 'Proposition Rangement A' })).toHaveTextContent('Rangement A · 1 case');
+  await userEvent.click(frame);
+  expect(onSuggestionClick).toHaveBeenCalledWith('s1');
+  expect(onPlanClick).not.toHaveBeenCalled();
+});
+
 describe('au clavier', () => {
   const props = { src: '/plan.jpg', plan, markers };
   const focusPlan = () => {
@@ -117,8 +137,8 @@ describe('ZonePlan', () => {
   afterEach(() => vi.restoreAllMocks());
 
   const plans: api.CavePlan[] = [
-    { id: 'p1', name: 'Plan principal', width: 2000, height: 1000, updatedAt: '2026-10-13T10:00:00.000Z' },
-    { id: 'p2', name: 'Cellier', width: 800, height: 600, updatedAt: '2026-10-20T09:00:00.000Z' },
+    { id: 'p1', name: 'Plan principal', width: 2000, height: 1000, updatedAt: '2026-10-13T10:00:00.000Z', analysis: 'NONE', suggestions: [] },
+    { id: 'p2', name: 'Cellier', width: 800, height: 600, updatedAt: '2026-10-20T09:00:00.000Z', analysis: 'NONE', suggestions: [] },
   ];
   const all: api.PlanMarker[] = [
     { zoneId: 'z1', planId: 'p1', name: 'Cave 1', number: 1, x: 0.1, y: 0.2 },

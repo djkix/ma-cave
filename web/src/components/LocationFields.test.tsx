@@ -1,7 +1,9 @@
-import { render, screen, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import * as api from '../lib/api-client';
 import type { Location, LocationInput, Zone } from '../lib/api-client';
 import { EntryLocationBlock, LocationFields } from './LocationFields';
 
@@ -11,18 +13,19 @@ const locations: Location[] = [
 ];
 // Ordre d'affichage choisi dans « Ma cave › Réglages », pas l'ordre alphabétique.
 const zones: Zone[] = [
-  { id: 'z1', name: 'Garage', indication: 'Au fond, derrière l’escalier', hasPhoto: true, sortOrder: 0, marker: null },
-  { id: 'z2', name: 'Cave 2', indication: null, hasPhoto: false, sortOrder: 1, marker: null },
+  { id: 'z1', name: 'Garage', indication: 'Au fond, derrière l’escalier', hasPhoto: true, sortOrder: 0, marker: null, grid: null },
+  { id: 'z2', name: 'Cave 2', indication: null, hasPhoto: false, sortOrder: 1, marker: null, grid: null },
 ];
 
 function Harness({ initial, zoneList = zones, block = true }: { initial: LocationInput; zoneList?: Zone[] | null; block?: boolean }) {
   const [v, setV] = useState(initial);
+  const [qc] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));
   return (
-    <MemoryRouter>
+    <QueryClientProvider client={qc}><MemoryRouter>
       {block
         ? <EntryLocationBlock value={v} onChange={setV} locations={locations} zones={zoneList ?? undefined} />
         : <LocationFields value={v} onChange={setV} locations={locations} zones={zoneList ?? undefined} />}
-    </MemoryRouter>
+    </MemoryRouter></QueryClientProvider>
   );
 }
 
@@ -96,4 +99,56 @@ it('zones pas encore lues ou illisibles : choix grisé, zone pré-remplie affich
 it('avec des zones : pas de lien « Créer une zone »', () => {
   render(<Harness initial={{ zoneId: null, casier: null, position: null }} block={false} />);
   expect(screen.queryByRole('link', { name: 'Créer une zone' })).not.toBeInTheDocument();
+});
+
+describe('zone avec une grille', () => {
+  const gridZones: Zone[] = [
+    { id: 'z1', name: 'Garage', indication: null, hasPhoto: false, sortOrder: 0, marker: null, grid: null },
+    { id: 'z3', name: 'Casier A', indication: null, hasPhoto: false, sortOrder: 1, marker: null, grid: { rows: 2, cols: 3 } },
+  ];
+  const casierList = (container: HTMLElement) =>
+    [...container.querySelector(`datalist#${CSS.escape(screen.getByLabelText('Casier').getAttribute('list')!)}`)!.querySelectorAll('option')].map((o) => o.getAttribute('value'));
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(api, 'getZoneCells').mockResolvedValue([{ casier: 'B3', quantity: 2 }, { casier: 'Z9', quantity: 1 }]);
+  });
+
+  it('montre la grille, les cases occupées, et toucher une case remplit « Casier »', async () => {
+    const { container } = render(<Harness initial={{ zoneId: 'z3', casier: null, position: null }} zoneList={gridZones} block={false} />);
+    const cells = within(screen.getByRole('group', { name: 'Cases de Casier A' })).getAllByRole('button');
+    expect(cells.map((c) => c.textContent)).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3']);
+    expect(await screen.findByRole('button', { name: 'Case B3, 2 bouteilles' })).toHaveTextContent('B32');
+    expect(api.getZoneCells).toHaveBeenCalledWith('z3');
+    await userEvent.click(screen.getByRole('button', { name: 'Case A2' }));
+    expect(screen.getByLabelText('Casier')).toHaveValue('A2');
+    expect(screen.getByRole('button', { name: 'Case A2' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Case A1' })).toHaveAttribute('aria-pressed', 'false');
+    // Suggestions : les cases puis les valeurs déjà utilisées.
+    expect(casierList(container)).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'B']);
+  });
+
+  it('casier saisi en minuscules : la case correspondante est choisie', async () => {
+    render(<Harness initial={{ zoneId: 'z3', casier: 'b3', position: null }} zoneList={gridZones} block={false} />);
+    expect(await screen.findByRole('button', { name: 'Case B3, 2 bouteilles' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('valeur hors grille (« Z9 ») gardée dans le champ, aucune case choisie ; saisie libre conservée', async () => {
+    render(<Harness initial={{ zoneId: 'z3', casier: 'Z9', position: null }} zoneList={gridZones} block={false} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Case B3, 2 bouteilles' })).toBeInTheDocument());
+    expect(screen.getByLabelText('Casier')).toHaveValue('Z9');
+    expect(screen.queryByRole('button', { pressed: true })).not.toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText('Casier'));
+    await userEvent.type(screen.getByLabelText('Casier'), 'Haut');
+    expect(screen.getByLabelText('Casier')).toHaveValue('Haut');
+  });
+
+  it('zone sans grille : aucune grille, aucune lecture des cases', async () => {
+    const { container } = render(<Harness initial={{ zoneId: 'z1', casier: null, position: null }} zoneList={gridZones} block={false} />);
+    expect(screen.queryByRole('group', { name: /Cases de/ })).not.toBeInTheDocument();
+    expect(casierList(container)).toEqual(['B']);
+    expect(api.getZoneCells).not.toHaveBeenCalled();
+    await userEvent.selectOptions(screen.getByLabelText('Zone'), 'Casier A');
+    expect(screen.getByRole('group', { name: 'Cases de Casier A' })).toBeInTheDocument();
+    await waitFor(() => expect(api.getZoneCells).toHaveBeenCalledTimes(1));
+  });
 });

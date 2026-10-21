@@ -44,6 +44,8 @@ export type LabelPurpose = 'ENTRY' | 'EXIT';
 export interface VisionProvider {
   extractWineLabel(image: Buffer, mimeType: string, purpose?: LabelPurpose): Promise<VisionResult>;
   extractWineLabels(images: Array<{ data: Buffer; mimeType: string }>): Promise<BatchVisionResult>;
+  /** Rangements à bouteilles repérés sur la photo d'un plan : sortie brute (`blocks`), validée par l'appelant. */
+  analyzePlan(image: Buffer, mimeType: string): Promise<{ blocks: unknown; costCents: number }>;
 }
 
 export const VISION_PROVIDER = 'VISION_PROVIDER';
