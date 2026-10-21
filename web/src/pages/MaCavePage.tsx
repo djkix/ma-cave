@@ -124,8 +124,12 @@ function ZoneRow({ zone, index, count, busy, error, photoVersion, onMove, onActi
   const [editing, setEditing] = useState(false);
   const id = useId();
   function confirmDelete() {
-    if (window.confirm(`Supprimer la zone ${zone.name} ?`)) {
-      onAction(async () => ((await deleteZone(zone.id)).archived ? 'Zone archivée (elle reste dans l’historique)' : 'Zone supprimée'));
+    if (window.confirm(`Supprimer la zone ${zone.name} ? Les bouteilles qui y sont rangées restent en stock, sans emplacement.`)) {
+      onAction(async () => {
+        const { archived, unplaced } = await deleteZone(zone.id);
+        if (unplaced > 0) return `Zone archivée : ${unplaced} bouteille${unplaced > 1 ? 's' : ''} sans emplacement`;
+        return archived ? 'Zone archivée (elle reste dans l’historique)' : 'Zone supprimée';
+      });
     }
   }
   async function pickPhoto(e: ChangeEvent<HTMLInputElement>) {
@@ -190,7 +194,7 @@ function ZonesCard() {
       setError(e instanceof Error ? e.message : 'Action impossible');
     } finally {
       setBusy(false);
-      // Zones et libellés (emplacements, fiches, cave) suivent un renommage ou un nouvel ordre.
+      // Zones et libellés (emplacements, fiches, cave) suivent un renommage, un nouvel ordre ou une suppression.
       void qc.invalidateQueries({ predicate: (q) => ['zones', 'plans', 'locations', 'wine', 'cave', 'movements'].includes(String(q.queryKey[0])) });
     }
   }
