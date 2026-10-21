@@ -52,7 +52,7 @@ it('chaque en-tête d’emplacement montre l’indication et la vignette de sa z
 });
 
 describe('plan de la cave', () => {
-  const plan = { id: 'p1', name: 'Plan principal', width: 1200, height: 800, updatedAt: '2026-10-13T10:00:00.000Z', analysis: 'NONE' as const, suggestions: [] };
+  const plan = { id: 'p1', name: 'Plan principal', width: 1200, height: 800, updatedAt: '2026-10-13T10:00:00.000Z', analysis: 'NONE' as const, suggestions: [], analysisInfo: null };
   const markers = [{ zoneId: 'z1', planId: 'p1', name: 'Garage', number: 1, x: 0.2, y: 0.3 }, { zoneId: 'z3', planId: 'p1', name: 'Cellier', number: 2, x: 0.8, y: 0.8 }];
 
   beforeEach(() => {

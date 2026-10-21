@@ -18,7 +18,7 @@ function mount() {
   );
 }
 
-const plan = (id: string) => ({ id, name: id, width: 1, height: 1, updatedAt: '', analysis: 'NONE' as const, suggestions: [] });
+const plan = (id: string) => ({ id, name: id, width: 1, height: 1, updatedAt: '', analysis: 'NONE' as const, suggestions: [], analysisInfo: null });
 const zone = (id: string) => ({ id, name: id, indication: null, hasPhoto: false, sortOrder: 0, marker: null, grid: null });
 const member = (id: string) => ({ id, email: `${id}@example.fr`, displayName: null, role: 'VIEWER' as const, pending: false });
 const registration = (id: string) => ({ id, email: `${id}@example.fr`, displayName: null, createdAt: '' });
@@ -59,6 +59,16 @@ it('montre le profil et les quatre cartes au propriétaire administrateur', asyn
 it('accorde les résumés au singulier et dit « Aucun plan »', () => {
   expect(caveSummary(1, 1, 1)).toBe('1 plan · 1 zone · 1 membre');
   expect(caveSummary(0, 0, 1)).toBe('Aucun plan · 0 zone · 1 membre');
+});
+
+it('un plan en cours d’analyse : « Analyse du plan en cours » à la place du résumé de Ma cave', async () => {
+  vi.spyOn(api, 'getMe').mockResolvedValue(meFixture());
+  stubSummaries();
+  vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [plan('x0'), { ...plan('x1'), analysis: 'PENDING' }], markers: [] });
+  mount();
+  const cave = await screen.findByRole('link', { name: /^Ma cave/ });
+  expect(await within(cave).findByText('Analyse du plan en cours')).toBeInTheDocument();
+  expect(within(cave).queryByText(/plans ·/)).not.toBeInTheDocument();
 });
 
 it('dit « 1 cave » quand on n’en a qu’une', async () => {
