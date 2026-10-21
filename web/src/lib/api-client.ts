@@ -42,6 +42,9 @@ export interface Me {
   currentCaveId: string | null;
 }
 
+/** Santé de l'API, avec la version du serveur : public, sans session. */
+export const getHealth = () => apiFetch<{ status: string; version: string }>('/health');
+
 export const getMe = () => apiFetch<Me>('/auth/me');
 /** Change la cave courante de la session ; répond à la forme de /auth/me. */
 export const setCurrentCave = (caveId: string) =>

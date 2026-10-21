@@ -6,7 +6,14 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // « prompt » et non « autoUpdate » : on propose la mise à jour par un
+      // bandeau, on ne recharge pas la page sous les doigts de quelqu'un qui
+      // est en train de saisir une fiche.
+      registerType: 'prompt',
+      // Sinon le plugin injecte son propre enregistrement et `useRegisterSW`
+      // (voir src/lib/pwa.ts) n'a plus la main sur le registration, donc plus
+      // de vérification périodique.
+      injectRegister: false,
       manifest: {
         name: 'Ma Cave',
         short_name: 'Cave',
