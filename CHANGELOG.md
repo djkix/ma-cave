@@ -11,6 +11,23 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.22.0](https://github.com/djkix/ma-cave/compare/v2.21.0...v2.22.0) (2026-10-21)
 
+### Résumé
+
+**Limites de débit Gemini.** Avant chaque appel, l'application vérifie les
+limites du compte Gemini, partagées entre l'api et le worker : requêtes et
+jetons par minute (sur les 60 dernières secondes, comme Google) et requêtes
+par jour (remises à zéro à minuit, heure du Pacifique). Une limite atteinte
+devient une attente : rien n'est envoyé à Google, les tâches reprennent seules
+à l'heure dite. Un refus de quota de Google (429) respecte le délai qu'il
+indique. Les messages donnent l'heure de reprise (« Quota Gemini du jour
+atteint (20 requêtes) : reprise demain à 09:00. ») sur les photos en attente,
+le bandeau d'analyse du plan, la recherche d'image et l'Administration. Dans
+Administration › Coûts de l'IA, les trois limites se règlent (5, 250 000 et 20
+par défaut) et l'utilisation en cours s'affiche. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
