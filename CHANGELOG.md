@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.18.1](https://github.com/djkix/ma-cave/compare/v2.18.0...v2.18.1) (2026-10-21)
+
+
+### Corrections
+
+* **api:** modèles Gemini Flash ou Lite seulement, tarif Pro retiré ([0535e75](https://github.com/djkix/ma-cave/commit/0535e75fcc31bcb9c573da33b8a9ec0d37b3c01e))
+
 ## [2.18.0](https://github.com/djkix/ma-cave/compare/v2.17.1...v2.18.0) (2026-10-21)
 
 ### Résumé
