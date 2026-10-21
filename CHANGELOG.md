@@ -11,6 +11,18 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.17.1](https://github.com/djkix/ma-cave/compare/v2.17.0...v2.17.1) (2026-10-21)
 
+### Résumé
+
+**Photo du plan sur ordinateur.** Le champ « Photo du plan » restait
+désactivé tant que le nom était vide, sans le dire : sur ordinateur on ne
+pouvait pas choisir la photo. Nom et photo se donnent maintenant dans l'ordre
+qu'on veut, puis *Créer le plan*. Le champ fichier du navigateur (gris, texte
+mal centré) devient un bouton *Choisir une photo* qui affiche le nom du
+fichier, aussi pour les photos des zones. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Corrections
 
