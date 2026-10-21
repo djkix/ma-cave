@@ -180,26 +180,27 @@ describe('zones', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it('« Supprimer » demande confirmation et affiche tel quel le 409 des bouteilles encore rangées', async () => {
+  it('« Supprimer » demande confirmation : les bouteilles restent en stock, sans emplacement', async () => {
     vi.spyOn(api, 'getZones').mockResolvedValue(zones);
-    const remove = vi.spyOn(api, 'deleteZone').mockRejectedValue(new api.ApiError(409, 'Des bouteilles sont encore rangées dans cette zone'));
+    const remove = vi.spyOn(api, 'deleteZone').mockResolvedValue({ archived: true, unplaced: 0 });
     const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
     mount();
     await zonesCard().findByText('Garage');
     await userEvent.click(zoneRow('Garage').getByRole('button', { name: 'Supprimer' }));
-    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('Garage'));
+    expect(confirm).toHaveBeenCalledWith('Supprimer la zone Garage ? Les bouteilles qui y sont rangées restent en stock, sans emplacement.');
     expect(remove).not.toHaveBeenCalled();
     await userEvent.click(zoneRow('Garage').getByRole('button', { name: 'Supprimer' }));
     await waitFor(() => expect(remove).toHaveBeenCalledWith('z2'));
-    expect(await zonesCard().findByRole('alert')).toHaveTextContent('Des bouteilles sont encore rangées dans cette zone');
   });
 
   it.each([
-    [false, 'Zone supprimée'],
-    [true, 'Zone archivée (elle reste dans l’historique)'],
-  ])('après « Supprimer » (archived: %s) : « %s »', async (archived, message) => {
+    [false, 0, 'Zone supprimée'],
+    [true, 0, 'Zone archivée (elle reste dans l’historique)'],
+    [true, 1, 'Zone archivée : 1 bouteille sans emplacement'],
+    [true, 12, 'Zone archivée : 12 bouteilles sans emplacement'],
+  ])('après « Supprimer » (archived: %s, unplaced: %s) : « %s »', async (archived, unplaced, message) => {
     vi.spyOn(api, 'getZones').mockResolvedValue(zones);
-    const remove = vi.spyOn(api, 'deleteZone').mockResolvedValue({ archived });
+    const remove = vi.spyOn(api, 'deleteZone').mockResolvedValue({ archived, unplaced });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     mount();
     await zonesCard().findByText('Garage');
@@ -632,7 +633,7 @@ describe('plan de la cave', () => {
     const both: api.Zone[] = [placed[0], zones[1], { ...zones[2], marker: { planId: 'p1', x: 0.8, y: 0.8 } }];
     vi.spyOn(api, 'getZones').mockResolvedValue(both);
     vi.spyOn(api, 'reorderZones').mockResolvedValue(both);
-    vi.spyOn(api, 'deleteZone').mockResolvedValue({ archived: true });
+    vi.spyOn(api, 'deleteZone').mockResolvedValue({ archived: true, unplaced: 0 });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     mount();
     expect(await planCard().findByRole('button', { name: 'Zone 2 : Cellier' })).toBeInTheDocument();

@@ -135,8 +135,11 @@ export const createZone = (input: { name: string; indication?: string | null }) 
   apiFetch<Zone>('/caves/current/zones', { method: 'POST', body: JSON.stringify(input) });
 export const updateZone = (id: string, patch: { name?: string; indication?: string | null }) =>
   apiFetch<Zone>(`/caves/current/zones/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
-/** Supprime la zone, ou l'archive si elle a servi (`archived: true`) ; 409 si des bouteilles y sont encore rangées. */
-export const deleteZone = (id: string) => apiFetch<{ archived: boolean }>(`/caves/current/zones/${id}`, { method: 'DELETE' });
+/**
+ * Supprime la zone, ou l'archive si elle a servi (`archived: true`) ; les bouteilles qui y étaient
+ * rangées passent sans zone (même casier, même position) : `unplaced` dit combien.
+ */
+export const deleteZone = (id: string) => apiFetch<{ archived: boolean; unplaced: number }>(`/caves/current/zones/${id}`, { method: 'DELETE' });
 /** Nouvel ordre d'affichage (les zones absentes de la liste suivent dans leur ordre). */
 export const reorderZones = (ids: string[]) =>
   apiFetch<Zone[]>('/caves/current/zones/order', { method: 'POST', body: JSON.stringify({ ids }) });
