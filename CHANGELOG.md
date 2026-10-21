@@ -9,6 +9,19 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.18.0](https://github.com/djkix/ma-cave/compare/v2.17.1...v2.18.0) (2026-10-21)
+
+
+### Fonctionnalités
+
+* **api:** détection des cases, regroupées par meuble ([db175b4](https://github.com/djkix/ma-cave/commit/db175b4ab01bd0d0c5b582ff652b9a80d1ea199f))
+* **web:** « Relancer l’analyse » dans le menu ⋯ du plan ([ad3457b](https://github.com/djkix/ma-cave/commit/ad3457bdc560b6083ec14da0d4dddeca5e8963f7))
+
+
+### Corrections
+
+* **api:** rangées comptées sur les tablettes, tarif Pro, consigne précisée ([022662e](https://github.com/djkix/ma-cave/commit/022662eb44ee4df821b15a32ca7475788deeddaa))
+
 ## [2.17.1](https://github.com/djkix/ma-cave/compare/v2.17.0...v2.17.1) (2026-10-21)
 
 ### Résumé
