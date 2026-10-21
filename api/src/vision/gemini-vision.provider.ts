@@ -1,6 +1,6 @@
 import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { EXTRACTION_JSON_SCHEMA_DESCRIPTION, parseExtraction } from './extraction-schema';
-import { GeminiJournal, GeminiUsage, classifyFailure } from './gemini-journal';
+import { GeminiJournal, GeminiPausedError, GeminiUsage, classifyFailure } from './gemini-journal';
 import { GeminiQuotaService } from './gemini-quota';
 import { parsePairingOutput } from './pairing-output';
 import { PairingBatchItem, PairingBatchResult, PairingProvider, PairingWine } from './pairing-provider.interface';
@@ -253,12 +253,11 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
    * appel ne part (`GeminiPausedError`) et rien n'est noté ; sinon une ligne
    * `gemini_call` par requête envoyée, réussie, refusée (429, 503 : la pause
    * est posée) ou en erreur, avec le modèle employé. Le journal ne lève jamais.
-   * Le limiteur réserve ensuite la place de l'appel : refus (`GeminiQuotaError`),
-   * rien ne part et rien n'est noté ; après la réponse, ses jetons sont comptés.
+   * Le limiteur réserve la place juste avant l'envoi (voir `counted`) : refus
+   * (`GeminiQuotaError`), rien ne part et rien n'est noté.
    */
   private async call<T extends { costCents: number }>(usage: GeminiUsage, run: (model: Model, modelName: string) => Promise<T>): Promise<T> {
     await this.journal?.assertNotPaused();
-    await this.quota?.reserve();
     const model = await this.currentModel();
     const counted = this.counted(this.modelFor(model));
     if (!this.journal) return run(counted, model);
@@ -267,6 +266,8 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
     try {
       result = await run(counted, model);
     } catch (e) {
+      // Refus du limiteur : rien n'est parti, rien n'est noté.
+      if (e instanceof GeminiPausedError) throw e;
       await this.journal.record({ usage, ...classifyFailure(e), model, durationMs: Date.now() - started }, undefined, e instanceof Error ? e.message : String(e));
       throw e;
     }
@@ -274,12 +275,17 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
     return result;
   }
 
-  /** Le modèle, dont chaque réponse ajoute ses jetons (entrée + sortie) au compteur de la minute, même si sa sortie est ensuite refusée. */
+  /**
+   * Le modèle, qui réserve sa place auprès du limiteur juste avant l'envoi (un
+   * échec local avant l'appel ne consomme rien) et ajoute les jetons de chaque
+   * réponse (entrée + sortie), même si sa sortie est ensuite refusée.
+   */
   private counted(model: Model): Model {
     const quota = this.quota;
     if (!quota) return model;
     return {
       generateContent: async (...args: Parameters<Model['generateContent']>) => {
+        await quota.reserve();
         const result = await model.generateContent(...args);
         const u = result.response.usageMetadata;
         await quota.addTokens((u?.promptTokenCount ?? 0) + (u?.candidatesTokenCount ?? 0));

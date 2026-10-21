@@ -92,34 +92,51 @@ describe('GeminiQuotaService (Redis réel)', () => {
     await expect(quota.limits()).resolves.toEqual({ rpm: 3, tpm: 500, rpd: 7 });
   });
 
-  it('minute : la 6e requête est refusée jusqu’au début de la minute suivante', async () => {
+  const at = (s: number) => new Date(NOW.getTime() + s * 1000);
+
+  it('fenêtre glissante de 60 s : la 6e requête attend que la plus ancienne ait 60 s (+ 1 s)', async () => {
     const { quota } = serviceWith();
-    for (let i = 0; i < 5; i++) await quota.reserve(NOW);
-    const e = await quota.reserve(NOW).catch((x: any) => x);
+    for (let i = 0; i < 5; i++) await quota.reserve(at(i * 10)); // 12:02:30, :40, :50, 12:03:00, :10
+    const e = await quota.reserve(at(45)).catch((x: any) => x);
     expect(e).toBeInstanceOf(GeminiQuotaError);
     expect(e.reason).toBe('QUOTA_MINUTE');
-    expect(e.until.toISOString()).toBe('2026-10-21T12:03:00.000Z');
+    expect(e.until.toISOString()).toBe('2026-10-21T12:03:31.000Z');
     expect(e.message).toBe('Limite de 5 requêtes par minute atteinte : reprise à 14:03.');
-    // La minute suivante repart de zéro.
-    await expect(quota.reserve(new Date('2026-10-21T12:03:00Z'))).resolves.toBeUndefined();
+    // Changer de minute UTC ne remet rien à zéro : la plus ancienne compte encore.
+    await expect(quota.reserve(at(59))).rejects.toBeInstanceOf(GeminiQuotaError);
+    await expect(quota.reserve(at(61))).resolves.toBeUndefined();
   });
 
-  it('jetons : refus une fois le plafond de la minute atteint', async () => {
-    const { quota } = serviceWith({ [GEMINI_TPM_KEY]: '1000' });
-    await quota.reserve(NOW);
-    await quota.addTokens(999, NOW);
-    await expect(quota.reserve(NOW)).resolves.toBeUndefined();
-    await quota.addTokens(1, NOW);
-    const e = await quota.reserve(NOW).catch((x: any) => x);
+  it('deux appels à 59 s d’écart comptent ensemble, à 61 s non', async () => {
+    const { quota } = serviceWith({ [GEMINI_RPM_KEY]: '1' });
+    await quota.reserve(at(0));
+    const e = await quota.reserve(at(59)).catch((x: any) => x);
+    expect(e.reason).toBe('QUOTA_MINUTE');
+    expect(e.until.toISOString()).toBe(at(61).toISOString());
+    await expect(quota.reserve(at(61))).resolves.toBeUndefined();
+  });
+
+  it('jetons sur 60 s glissantes : refus au plafond, reprise quand assez de jetons sont sortis de la fenêtre', async () => {
+    const { quota } = serviceWith({ [GEMINI_TPM_KEY]: '1000', [GEMINI_RPM_KEY]: '100' });
+    await quota.reserve(at(0));
+    await quota.addTokens(400, at(0));
+    await quota.reserve(at(10));
+    await quota.addTokens(599, at(10));
+    await expect(quota.reserve(at(20))).resolves.toBeUndefined();
+    await quota.addTokens(300, at(20));
+    // 1 299 jetons : il faut que 400 (à 0 s) sortent pour repasser sous 1 000.
+    const e = await quota.reserve(at(30)).catch((x: any) => x);
     expect(e.reason).toBe('QUOTA_TOKENS');
-    expect(e.until.toISOString()).toBe('2026-10-21T12:03:00.000Z');
+    expect(e.until.toISOString()).toBe(at(61).toISOString());
+    expect(e.message).toBe('Limite de jetons par minute atteinte : reprise à 14:03.');
+    await expect(quota.reserve(at(61))).resolves.toBeUndefined();
   });
 
   it('jour : refus jusqu’au prochain minuit du Pacifique, compteur par jour du Pacifique', async () => {
     const { quota } = serviceWith({ [GEMINI_RPD_KEY]: '2', [GEMINI_RPM_KEY]: '100' });
     await quota.reserve(NOW);
-    await quota.reserve(new Date(NOW.getTime() + 60_000));
-    const e = await quota.reserve(new Date(NOW.getTime() + 120_000)).catch((x: any) => x);
+    await quota.reserve(at(60));
+    const e = await quota.reserve(at(120)).catch((x: any) => x);
     expect(e.reason).toBe('QUOTA_JOUR');
     expect(e.until.toISOString()).toBe('2026-10-22T07:00:00.000Z');
     expect(e.message).toBe('Quota Gemini du jour atteint (2 requêtes) : reprise demain à 09:00.');
@@ -141,16 +158,36 @@ describe('GeminiQuotaService (Redis réel)', () => {
     expect(Object.fromEntries(ttls)).toEqual({ rpd: 26 * 3600, rpm: 120, tpm: 120 });
   });
 
-  it('usage : compteurs, limites et heure de remise à zéro du jour', async () => {
+  it('usage : compteurs des 60 dernières secondes et du jour, limites et heure de remise à zéro du jour', async () => {
     const { quota } = serviceWith();
+    await quota.reserve(at(-70));
+    await quota.addTokens(500, at(-70));
     await quota.reserve(NOW);
     await quota.addTokens(2700, NOW);
     await expect(quota.usage(NOW)).resolves.toEqual({
       minute: { requests: 1, tokens: 2700 },
-      day: { requests: 1 },
+      day: { requests: 2 },
       limits: DEFAULT_LIMITS,
       dayResetsAt: '2026-10-22T07:00:00.000Z',
     });
+  });
+
+  it('blocked : le refus qu’essuierait un appel, sans rien réserver', async () => {
+    const { quota } = serviceWith({ [GEMINI_RPM_KEY]: '1' });
+    await expect(quota.blocked(NOW)).resolves.toBeNull();
+    await quota.reserve(NOW);
+    const b = await quota.blocked(at(5));
+    expect(b).toMatchObject({ reason: 'QUOTA_MINUTE', until: at(61) });
+    expect((await quota.usage(at(5))).minute.requests).toBe(1);
+  });
+
+  it('usage, Redis injoignable : compteurs à zéro (journalisé), jamais d’erreur', async () => {
+    const log = { error: jest.fn() };
+    const broken = new Proxy({}, { get: () => jest.fn().mockRejectedValue(new Error('ECONNREFUSED')) }) as unknown as Redis;
+    const quota = new GeminiQuotaService(fakePrisma(), broken, { prefix, log });
+    await expect(quota.usage(NOW)).resolves.toMatchObject({ minute: { requests: 0, tokens: 0 }, day: { requests: 0 } });
+    await expect(quota.blocked(NOW)).resolves.toBeNull();
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining('ECONNREFUSED'));
   });
 
   it('Redis injoignable : l’appel part quand même (journalisé)', async () => {

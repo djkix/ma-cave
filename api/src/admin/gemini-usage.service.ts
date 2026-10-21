@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GeminiJournal } from '../vision/gemini-journal';
 import { QUOTA_REASONS, QuotaReason, quotaMessage } from '../vision/gemini-pause';
@@ -15,6 +15,8 @@ export interface GeminiUsageReport {
 /** Consommation Gemini (journal `gemini_call`, toutes caves) et attente en cours : pause commune ou limite de débit atteinte (la plus lointaine). */
 @Injectable()
 export class GeminiUsageService {
+  private readonly logger = new Logger(GeminiUsageService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly journal: GeminiJournal,
@@ -28,7 +30,11 @@ export class GeminiUsageService {
         select: { createdAt: true, usage: true, outcome: true, httpStatus: true, costCents: true, model: true },
       }),
       this.journal.currentPause(now),
-      this.quota.blocked(now),
+      // Limiteur illisible (Redis) : la consommation s'affiche quand même, sans limite.
+      this.quota.blocked(now).catch((e: unknown) => {
+        this.logger.error(`Limites de débit illisibles : ${e instanceof Error ? e.message : String(e)}`);
+        return null;
+      }),
     ]);
     const pause = blocked && (!common || blocked.until > common.until) ? blocked : common;
     const message = pause && QUOTA_REASONS.includes(pause.reason) ? (blocked === pause ? blocked.message : quotaMessage(pause.reason as QuotaReason, pause.until, null, now)) : null;

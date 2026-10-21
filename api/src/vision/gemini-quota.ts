@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import type Redis from 'ioredis';
-import { GeminiQuotaError, nextMinute, nextPacificMidnight, pacificDay } from './gemini-pause';
+import { GeminiQuotaError, nextPacificMidnight, pacificDay } from './gemini-pause';
 
 /** Réglages `app_setting` des limites de débit Gemini (niveau sans frais de Google). */
 export const GEMINI_RPM_KEY = 'gemini_rpm';
@@ -25,23 +26,47 @@ export interface GeminiQuotaUsage {
 
 /** Comme le modèle : l'api et le worker relisent les limites au plus tard 30 s après un changement. */
 const LIMITS_TTL_MS = 30_000;
-const MINUTE_TTL_S = 120;
+/** Google compte les requêtes et les jetons par minute sur une fenêtre glissante de 60 s. */
+const WINDOW_MS = 60_000;
+/** Reprise une seconde après la sortie de fenêtre : jamais juste avant. */
+const MARGIN_MS = 1000;
+const WINDOW_TTL_S = 120;
 const DAY_TTL_S = 26 * 3600;
 
 /**
- * Réservation atomique : refus (1 minute, 2 jetons, 3 jour) ou incrément des
- * compteurs de la minute et du jour. Le jour est vérifié d'abord : son attente
- * est la plus longue, inutile de revenir chaque minute jusqu'à minuit.
+ * Réservation atomique sur 60 s glissantes. KEYS : requêtes (ensemble trié,
+ * score = instant), jetons (ensemble trié, membre « id:jetons »), requêtes du
+ * jour du Pacifique. ARGV : maintenant (ms), rpm, tpm, rpd, identifiant, essai
+ * à blanc (1 : rien n'est écrit). Rend {0} (place prise), {3} (jour), ou
+ * {1|2, instant} : la place se libère quand l'entrée de cet instant sort de la
+ * fenêtre (requêtes : la plus ancienne ; jetons : celle qui ramène sous le
+ * plafond). Le jour est vérifié d'abord : son attente est la plus longue.
  */
 const RESERVE = `
-if tonumber(redis.call('GET', KEYS[3]) or '0') + 1 > tonumber(ARGV[3]) then return 3 end
-if tonumber(redis.call('GET', KEYS[1]) or '0') + 1 > tonumber(ARGV[1]) then return 1 end
-if tonumber(redis.call('GET', KEYS[2]) or '0') >= tonumber(ARGV[2]) then return 2 end
-redis.call('INCR', KEYS[1])
-redis.call('EXPIRE', KEYS[1], ${MINUTE_TTL_S})
+local now = tonumber(ARGV[1])
+local from = now - ${WINDOW_MS}
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', from)
+redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', from)
+if tonumber(redis.call('GET', KEYS[3]) or '0') + 1 > tonumber(ARGV[4]) then return {3} end
+if redis.call('ZCARD', KEYS[1]) + 1 > tonumber(ARGV[2]) then
+  return {1, tonumber(redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')[2])}
+end
+local entries = redis.call('ZRANGE', KEYS[2], 0, -1, 'WITHSCORES')
+local sum = 0
+for i = 1, #entries, 2 do sum = sum + tonumber(string.match(entries[i], ':(%d+)$')) end
+local tpm = tonumber(ARGV[3])
+if sum >= tpm then
+  for i = 1, #entries, 2 do
+    sum = sum - tonumber(string.match(entries[i], ':(%d+)$'))
+    if sum < tpm then return {2, tonumber(entries[i + 1])} end
+  end
+end
+if ARGV[6] == '1' then return {0} end
+redis.call('ZADD', KEYS[1], now, ARGV[5])
+redis.call('EXPIRE', KEYS[1], ${WINDOW_TTL_S})
 redis.call('INCR', KEYS[3])
 redis.call('EXPIRE', KEYS[3], ${DAY_TTL_S})
-return 0`;
+return {0}`;
 
 interface Deps {
   prefix?: string;
@@ -99,53 +124,72 @@ export class GeminiQuotaService {
     return limits;
   }
 
-  /** Avant chaque appel : une place, ou `GeminiQuotaError` avec l'heure de reprise. */
+  /** Avant chaque appel : une place, ou `GeminiQuotaError` avec l'heure de reprise. Redis injoignable : l'appel part. */
   async reserve(now = new Date(this.clock())): Promise<void> {
-    const limits = await this.limits();
-    let code: number;
+    let refusal: GeminiQuotaError | null;
     try {
-      code = Number(await this.redis.eval(RESERVE, 3, ...this.keys(now), limits.rpm, limits.tpm, limits.rpd));
+      refusal = await this.check(now, false);
     } catch (e) {
       this.log.error(`Limiteur Gemini injoignable, appel envoyé : ${messageOf(e)}`);
       return;
     }
-    if (code === 3) throw new GeminiQuotaError(nextPacificMidnight(now), 'QUOTA_JOUR', limits.rpd, now);
-    if (code === 1) throw new GeminiQuotaError(nextMinute(now), 'QUOTA_MINUTE', limits.rpm, now);
-    if (code === 2) throw new GeminiQuotaError(nextMinute(now), 'QUOTA_TOKENS', limits.tpm, now);
+    if (refusal) throw refusal;
   }
 
-  /** Après l'appel : jetons réellement consommés (entrée + sortie), comptés dans la minute. */
+  /** Refus qu'essuierait un appel maintenant, sans rien réserver ; Redis injoignable : null (journalisé). */
+  async blocked(now = new Date(this.clock())): Promise<GeminiQuotaError | null> {
+    try {
+      return await this.check(now, true);
+    } catch (e) {
+      this.log.error(`Limiteur Gemini illisible : ${messageOf(e)}`);
+      return null;
+    }
+  }
+
+  private async check(now: Date, dryRun: boolean): Promise<GeminiQuotaError | null> {
+    const limits = await this.limits();
+    const [code, at] = (await this.redis.eval(RESERVE, 3, ...this.keys(now), now.getTime(), limits.rpm, limits.tpm, limits.rpd, randomUUID(), dryRun ? 1 : 0)) as number[];
+    if (code === 3) return new GeminiQuotaError(nextPacificMidnight(now), 'QUOTA_JOUR', limits.rpd, now);
+    const until = new Date(at + WINDOW_MS + MARGIN_MS);
+    if (code === 1) return new GeminiQuotaError(until, 'QUOTA_MINUTE', limits.rpm, now);
+    if (code === 2) return new GeminiQuotaError(until, 'QUOTA_TOKENS', limits.tpm, now);
+    return null;
+  }
+
+  /** Après l'appel : jetons réellement consommés (entrée + sortie), comptés sur 60 s glissantes à partir de la réponse. */
   async addTokens(tokens: number, now = new Date(this.clock())): Promise<void> {
     if (!(tokens > 0)) return;
     const [, key] = this.keys(now);
     try {
-      await this.redis.multi().incrby(key, tokens).expire(key, MINUTE_TTL_S).exec();
+      await this.redis.multi().zadd(key, now.getTime(), `${randomUUID()}:${Math.round(tokens)}`).expire(key, WINDOW_TTL_S).exec();
     } catch (e) {
       this.log.error(`Jetons Gemini non comptés : ${messageOf(e)}`);
     }
   }
 
+  /** Utilisation des 60 dernières secondes et du jour ; Redis injoignable : compteurs à zéro (journalisé). */
   async usage(now = new Date(this.clock())): Promise<GeminiQuotaUsage> {
-    const [limits, counts] = await Promise.all([this.limits(), this.redis.mget(...this.keys(now))]);
-    const [requests, tokens, day] = counts.map((c) => Number(c ?? 0));
-    return { minute: { requests, tokens }, day: { requests: day }, limits, dayResetsAt: nextPacificMidnight(now).toISOString() };
+    const limits = await this.limits();
+    const [requestsKey, tokensKey, dayKey] = this.keys(now);
+    const from = `(${now.getTime() - WINDOW_MS}`;
+    let counts = { requests: 0, tokens: 0, day: 0 };
+    try {
+      const [requests, entries, day] = await Promise.all([
+        this.redis.zcount(requestsKey, from, '+inf'),
+        this.redis.zrangebyscore(tokensKey, from, '+inf'),
+        this.redis.get(dayKey),
+      ]);
+      counts = { requests, tokens: entries.reduce((sum, e) => sum + Number(e.split(':').pop()), 0), day: Number(day ?? 0) };
+    } catch (e) {
+      this.log.error(`Compteurs Gemini illisibles : ${messageOf(e)}`);
+    }
+    return { minute: { requests: counts.requests, tokens: counts.tokens }, day: { requests: counts.day }, limits, dayResetsAt: nextPacificMidnight(now).toISOString() };
   }
 
-  /** Refus qu'essuierait un appel maintenant (même ordre que la réservation), ou null. */
-  async blocked(now = new Date(this.clock())): Promise<GeminiQuotaError | null> {
-    const u = await this.usage(now);
-    if (u.day.requests >= u.limits.rpd) return new GeminiQuotaError(nextPacificMidnight(now), 'QUOTA_JOUR', u.limits.rpd, now);
-    if (u.minute.requests >= u.limits.rpm) return new GeminiQuotaError(nextMinute(now), 'QUOTA_MINUTE', u.limits.rpm, now);
-    if (u.minute.tokens >= u.limits.tpm) return new GeminiQuotaError(nextMinute(now), 'QUOTA_TOKENS', u.limits.tpm, now);
-    return null;
-  }
-
-  /** Requêtes de la minute (UTC), jetons de la minute, requêtes du jour (Pacifique). */
+  /** Requêtes et jetons des 60 dernières secondes, requêtes du jour (Pacifique). */
   private keys(now: Date): [string, string, string] {
-    const minute = Math.floor(now.getTime() / 60_000);
-    return [`${this.prefix}:rpm:${minute}`, `${this.prefix}:tpm:${minute}`, `${this.prefix}:rpd:${pacificDay(now)}`];
+    return [`${this.prefix}:rpm`, `${this.prefix}:tpm`, `${this.prefix}:rpd:${pacificDay(now)}`];
   }
-
   onModuleDestroy(): void {
     this.redis.disconnect();
   }

@@ -52,11 +52,6 @@ export function nextPacificMidnight(now: Date): Date {
   return new Date(target - (pacificWallAsUtc(probe) - probe));
 }
 
-/** Début de la minute UTC suivante : remise à zéro des compteurs par minute. */
-export function nextMinute(now: Date): Date {
-  return new Date((Math.floor(now.getTime() / 60_000) + 1) * 60_000);
-}
-
 /** « à 14:03 », « aujourd'hui à 09:00 » (quota du jour) ou « demain à 09:00 », heure de Paris. */
 function resumeAt(until: Date, now: Date, sameDayWord: boolean): string {
   const hour = parisTime.format(until);

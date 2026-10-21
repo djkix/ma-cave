@@ -4,7 +4,9 @@ import { AppModule } from './app.module';
 import { setupSession } from './auth/session.setup';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Connexions fermées d'office à l'arrêt (flux SSE ouverts) ; crochets d'arrêt : Prisma, files et limiteur (Redis) se ferment proprement.
+  const app = await NestFactory.create(AppModule, { forceCloseConnections: true });
+  app.enableShutdownHooks();
   app.setGlobalPrefix('api');
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
   setupSession(app);
