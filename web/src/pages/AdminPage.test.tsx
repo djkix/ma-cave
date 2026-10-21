@@ -27,7 +27,8 @@ beforeEach(() => {
   vi.spyOn(api, 'getAdminBudget').mockResolvedValue(budget);
   vi.spyOn(api, 'getGeminiModel').mockResolvedValue({ model: 'gemini-3.5-flash', source: 'ENV', models: ['gemini-3.5-flash'], error: null });
   vi.spyOn(api, 'getReadingQuality').mockResolvedValue({ days: 30, entries: 0, rate: null, fields: [] });
-  vi.spyOn(api, 'getGeminiUsage').mockResolvedValue({ rows: [], totals: { ok: 0, refused: 0, errors: 0, costCents: 0 }, pause: { until: null, reason: null } });
+  vi.spyOn(api, 'getGeminiUsage').mockResolvedValue({ rows: [], totals: { ok: 0, refused: 0, errors: 0, costCents: 0 }, pause: { until: null, reason: null, message: null } });
+  vi.spyOn(api, 'getGeminiQuota').mockResolvedValue({ minute: { requests: 0, tokens: 0 }, day: { requests: 0 }, limits: { rpm: 5, tpm: 250000, rpd: 20 }, dayResetsAt: '2026-10-22T07:00:00.000Z' });
   vi.spyOn(api, 'getVintages').mockResolvedValue({ regions: [], qualities: [] });
   vi.spyOn(api, 'searchGuards').mockResolvedValue([]);
 });

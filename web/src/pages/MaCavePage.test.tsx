@@ -783,6 +783,16 @@ describe('plan de la cave', () => {
       ['BUDGET', { waiting: 'BUDGET' as const, nextAttemptAt: local(0, 5, 1, 10) }, 'En attente : budget de l’IA atteint ce mois-ci. Nouvel essai le 1 nov. à 00:05.'],
       ['BUDGET sans reprise', { waiting: 'BUDGET' as const }, 'En attente : budget de l’IA atteint ce mois-ci. Nouvel essai plus tard.'],
       ['RETRY', { waiting: 'RETRY' as const, attempt: 2, nextAttemptAt: local(10, 52) }, 'Nouvel essai à 10:52 (tentative 2 sur 10).'],
+      [
+        'QUOTA (jour)',
+        { waiting: 'QUOTA' as const, pauseUntil: local(9, 0), quotaKind: 'JOUR' as const, message: 'Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.' },
+        'Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.',
+      ],
+      [
+        'QUOTA (minute)',
+        { waiting: 'QUOTA' as const, pauseUntil: local(14, 3), quotaKind: 'MINUTE' as const, message: 'Limite de 5 requêtes par minute atteinte : reprise à 14:03.' },
+        'Limite de 5 requêtes par minute atteinte : reprise à 14:03.',
+      ],
     ])('en attente (%s) : le dit', async (_, info, text) => {
       vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [pending(info)], markers: [] });
       vi.spyOn(api, 'getZones').mockResolvedValue([]);

@@ -14,8 +14,17 @@ const view = (over: Partial<api.GeminiModelView> = {}): api.GeminiModelView => (
   ...over,
 });
 
-const mount = (v: api.GeminiModelView) => {
+const quota = (over: Partial<api.GeminiQuotaUsage> = {}): api.GeminiQuotaUsage => ({
+  minute: { requests: 1, tokens: 2700 },
+  day: { requests: 7 },
+  limits: { rpm: 5, tpm: 250000, rpd: 20 },
+  dayResetsAt: '2026-10-22T07:00:00.000Z',
+  ...over,
+});
+
+const mount = (v: api.GeminiModelView, q = quota()) => {
   vi.spyOn(api, 'getGeminiModel').mockResolvedValue(v);
+  vi.spyOn(api, 'getGeminiQuota').mockResolvedValue(q);
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <GeminiModelSection />
@@ -81,4 +90,38 @@ it('400 de l’api : message affiché tel quel', async () => {
   await userEvent.selectOptions(select, 'gemini-3.5-flash-lite');
   await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Modèle inconnu de Google');
+});
+
+it('limites de débit : trois champs préremplis et la ligne d’utilisation (nombres à la française)', async () => {
+  mount(view());
+  await waitFor(() => expect(screen.getByLabelText('Requêtes par minute')).toHaveValue(5));
+  expect(screen.getByLabelText('Jetons par minute')).toHaveValue(250000);
+  expect(screen.getByLabelText('Requêtes par jour')).toHaveValue(20);
+  const line = 'Aujourd’hui : 7 / 20 requêtes · Cette minute : 1 / 5 requêtes, 2 700 / 250 000 jetons';
+  expect(screen.getByText((_, el) => el?.tagName === 'P' && el.textContent?.replace(/\s/g, ' ') === line)).toBeInTheDocument();
+});
+
+it('« Enregistrer les limites » : envoie les trois valeurs et confirme', async () => {
+  mount(view());
+  const put = vi.spyOn(api, 'putGeminiQuota').mockResolvedValue(quota({ limits: { rpm: 10, tpm: 250000, rpd: 500 } }));
+  const rpm = await screen.findByLabelText('Requêtes par minute');
+  await waitFor(() => expect(rpm).toHaveValue(5));
+  await userEvent.clear(rpm);
+  await userEvent.type(rpm, '10');
+  await userEvent.clear(screen.getByLabelText('Requêtes par jour'));
+  await userEvent.type(screen.getByLabelText('Requêtes par jour'), '500');
+  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer les limites' }));
+  expect(put).toHaveBeenCalledWith({ rpm: 10, tpm: 250000, rpd: 500 });
+  expect(await screen.findByRole('status')).toHaveTextContent('Limites enregistrées : elles s’appliquent dès le prochain appel.');
+});
+
+it('limites refusées par l’api : son message tel quel', async () => {
+  mount(view());
+  vi.spyOn(api, 'putGeminiQuota').mockRejectedValue(new Error('Limites invalides : entiers positifs attendus'));
+  const rpm = await screen.findByLabelText('Requêtes par minute');
+  await waitFor(() => expect(rpm).toHaveValue(5));
+  await userEvent.clear(rpm);
+  await userEvent.type(rpm, '0');
+  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer les limites' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Limites invalides : entiers positifs attendus');
 });
