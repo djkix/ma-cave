@@ -57,7 +57,7 @@ const usageRank = (usage: string) => {
 /**
  * Consommation par jour de Paris (les `days` derniers, aujourd'hui compris) et
  * par usage, du jour le plus récent au plus ancien, puis dans l'ordre des usages
- * (lecture à l'entrée, à la sortie, accords, descriptifs, recherche d'image).
+ * (lecture à l'entrée, à la sortie, accords, descriptifs, recherche d'image, analyse du plan).
  */
 export function aggregateGeminiUsage(calls: GeminiCallRow[], now: Date, days: number): { rows: GeminiUsageRow[]; totals: GeminiUsageTotals } {
   const today = parisDay(now);

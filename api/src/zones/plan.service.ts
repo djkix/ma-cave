@@ -1,5 +1,6 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CavePlan, Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -7,6 +8,7 @@ import { CaveContextService } from '../caves/cave-context.service';
 import { ImageNormalizationService } from '../photos/image-normalization.service';
 import { PHOTO_STORAGE_DIR } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { enqueuePlanAnalysis, PLAN_ANALYSIS_QUEUE_TOKEN, PlanAnalysisJobData } from '../queue/plan-analysis';
 import { PlanSuggestion } from './plan-suggestions';
 import {
   PLAN_LIMIT, PLAN_MAX_COUNT, PLAN_MAX_SIDE, PLAN_NAME_TAKEN, PLAN_NOT_FOUND, PlanMarker, PlanMeta, planPath, SUGGESTION_NOT_FOUND, ZONE_NAME_TAKEN, ZoneView,
@@ -32,11 +34,14 @@ function nameTaken(e: unknown): never {
  */
 @Injectable()
 export class PlanService {
+  private readonly logger = new Logger(PlanService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly normalization: ImageNormalizationService,
     private readonly caves: CaveContextService,
     @Inject(PHOTO_STORAGE_DIR) private readonly dir: string,
+    @Inject(PLAN_ANALYSIS_QUEUE_TOKEN) private readonly analysisQueue: Pick<Queue<PlanAnalysisJobData>, 'add'>,
   ) {}
 
   /**
@@ -73,10 +78,12 @@ export class PlanService {
         await tx.$queryRaw`SELECT id FROM cave WHERE id = ${caveId} FOR UPDATE`;
         if ((await tx.cavePlan.count({ where: { caveId } })) >= PLAN_MAX_COUNT) throw new ConflictException(PLAN_LIMIT);
         const now = new Date();
-        saved = await tx.cavePlan.create({ data: { id, caveId, name, path, width: size.width, height: size.height, updatedAt: now, createdAt: now } });
+        saved = await tx.cavePlan.create({
+          data: { id, caveId, name, path, width: size.width, height: size.height, updatedAt: now, createdAt: now, analysisStatus: 'PENDING', suggestions: [] },
+        });
         await place();
       }).catch(nameTaken));
-    return meta(saved!);
+    return this.analyze(saved!);
   }
 
   async rename(caveId: string, id: string, name: string): Promise<PlanMeta> {
@@ -98,9 +105,13 @@ export class PlanService {
       this.prisma.$transaction(async (tx) => {
         await this.lockOwn(tx, caveId, id);
         await place();
-        saved = await tx.cavePlan.update({ where: { id }, data: { width: size.width, height: size.height, updatedAt: new Date() } });
+        // Anciennes propositions effacées avec la date : elles ne survivent jamais à la photo.
+        saved = await tx.cavePlan.update({
+          where: { id },
+          data: { width: size.width, height: size.height, updatedAt: new Date(), analysisStatus: 'PENDING', suggestions: [] },
+        });
       }));
-    return meta(saved!);
+    return this.analyze(saved!);
   }
 
   /**
@@ -169,6 +180,22 @@ export class PlanService {
       data: { analysisStatus: result.status, suggestions: result.status === 'DONE' ? (result.suggestions as object[]) : [] },
     });
     return count > 0;
+  }
+
+  /**
+   * Met en file l'analyse de la photo qui vient d'être enregistrée. File
+   * injoignable : le plan reste utilisable, l'analyse passe en échec (on place
+   * les zones à la main) ; la requête ne tombe jamais pour autant.
+   */
+  private async analyze(plan: CavePlan): Promise<PlanMeta> {
+    try {
+      await enqueuePlanAnalysis(this.analysisQueue, { planId: plan.id, updatedAt: plan.updatedAt.toISOString() });
+      return meta(plan);
+    } catch (e) {
+      this.logger.warn(`Analyse du plan ${plan.id} impossible à mettre en file : ${(e as Error).message}`);
+      await this.setAnalysis(plan.id, plan.updatedAt, { status: 'FAILED' });
+      return meta({ ...plan, analysisStatus: 'FAILED' });
+    }
   }
 
   /** Image du plan, pour tout compte qui a accès à sa cave (cave courante ou non) ; sinon « Plan introuvable ». */
