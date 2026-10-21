@@ -95,7 +95,7 @@ export function AConfirmerPage() {
   };
 
   const refreshAfterChange = () => {
-    for (const queryKey of [['entry-inbox'], ['cave'], ['movements'], ['stats'], ['locations']]) void qc.invalidateQueries({ queryKey });
+    for (const queryKey of [['entry-inbox'], ['cave'], ['movements'], ['stats'], ['locations'], ['zone-cells']]) void qc.invalidateQueries({ queryKey });
   };
 
   const update = (id: string, patch: Partial<Row>) => setRows((rs) => rs.map((r) => (r.photoId === id ? { ...r, ...patch } : r)));
