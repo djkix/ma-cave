@@ -17,6 +17,8 @@ export interface GeminiCallRecord {
   httpStatus: number | null;
   reason: string | null;
   costCents: number;
+  /** Modèle employé pour cet appel (celui en vigueur à l'appel). */
+  model: string;
   durationMs: number;
 }
 

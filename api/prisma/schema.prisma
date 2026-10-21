@@ -256,6 +256,8 @@ model GeminiCall {
   reason     String?
   costCents  Int      @default(0) @map("cost_cents")
   durationMs Int      @map("duration_ms")
+  /// Modèle employé (ex. gemini-3.5-flash) ; NULL pour les appels d'avant la 2.19.
+  model      String?
 
   @@index([createdAt])
   @@map("gemini_call")
