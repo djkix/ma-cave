@@ -264,12 +264,17 @@ chaque proposition : cadre = union des cases, lignes et colonnes comptées
 pris de biais, dont une même tablette descend de plus d'une case d'un bout à
 l'autre, donnait 260 cases pour 48). Chaque case est reliée à sa voisine de
 droite (chevauchement vertical d'au moins la moitié de la moins haute des deux)
-et à celle du dessous (idem en largeur) ; les rangées sont les suites de cases
-reliées de gauche à droite, les colonnes celles reliées de haut en bas. Une
-case oubliée par l'IA ne coupe pas sa rangée (la voisine suivante est cherchée
-plus loin). Quand une case haute ou large relie deux rangées ou deux colonnes,
-le compte de cet axe passe au plus grand nombre de cases empilées (rangées) ou
-côte à côte (colonnes). Chaque proposition garde aussi `cellCount` (cases
+et à celle du dessous (idem en largeur), une seule précédente par case (la plus
+proche, puis la mieux alignée, la garde) ; les rangées sont les suites de cases
+reliées de gauche à droite, les colonnes celles reliées de haut en bas, rangées
+ordonnées par ces liens (une rangée vient avant celle de ses voisines du
+dessous), pas par leur hauteur moyenne. Une case oubliée par l'IA ne coupe pas
+sa rangée (la voisine suivante est cherchée jusqu'à deux cases plus loin) ni ne
+décale les noms des autres. Quand une case large relie deux colonnes (ou que
+des cadres trop bruités coupent des rangées), le compte de cet axe passe au plus
+grand nombre de cases empilées (rangées) ou côte à côte (colonnes), et les cases
+y sont numérotées par leur rang dans une rangée (ou colonne) complète, sans nom
+ailleurs. Une case haute de deux rangées prend le nom de celle du haut. Chaque proposition garde aussi `cellCount` (cases
 valides repérées) et `cells` (200 au plus) : cadre de chaque case, sa rangée et
 sa colonne, et son nom dans la grille (« A1 » en haut à gauche) ; une case dont
 la rangée ou la colonne reste indéterminée garde son cadre, sans nom. Un meuble
