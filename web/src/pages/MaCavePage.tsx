@@ -259,7 +259,15 @@ function ZonesCard() {
   );
 }
 
-/** Proposition de l'analyse du plan : nom, lignes et colonnes préremplis et modifiables ; Accepter crée la zone, Rejeter la retire. */
+const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
+/** « 48 cases repérées sur la photo · grille proposée : 4 rangées × 12 colonnes ». */
+const detectedSummary = (count: number, rows: number, cols: number) =>
+  `${plural(count, 'case')} repérée${count > 1 ? 's' : ''} sur la photo · grille proposée : ${plural(rows, 'rangée')} × ${plural(cols, 'colonne')}`;
+
+/**
+ * Proposition de l'analyse du plan : nom, lignes et colonnes préremplis et modifiables, et ce que l'analyse a
+ * vu (cases repérées, grille proposée) ; Accepter crée la zone, Rejeter la retire.
+ */
 function ProposalForm({ suggestion, idPrefix, busy, onAccept, onReject }: {
   suggestion: PlanSuggestion; idPrefix: string; busy: boolean;
   onAccept: (v: { name: string; rows: number; cols: number }) => void; onReject: () => void;
@@ -277,6 +285,7 @@ function ProposalForm({ suggestion, idPrefix, busy, onAccept, onReject }: {
       <label className="field__label" htmlFor={`${idPrefix}-name`}>Nom</label>
       <input id={`${idPrefix}-name`} value={name} maxLength={ZONE_NAME_MAX} autoComplete="off" onChange={(e) => setName(e.target.value)} />
       <GridFields idPrefix={idPrefix} rows={rows} cols={cols} setRows={setRows} setCols={setCols} />
+      {suggestion.cellCount !== undefined && <p className="list__meta" style={{ margin: 0 }}>{detectedSummary(suggestion.cellCount, suggestion.rows, suggestion.cols)}</p>}
       <button type="submit" className="btn btn--primary" disabled={!name.trim() || !grid || busy}>Accepter</button>
       <Button variant="link" disabled={busy} onClick={onReject}>Rejeter</Button>
     </form>
@@ -481,7 +490,7 @@ function PlanCard() {
           )}
           <PlanView src={planImageUrl(plan.id, plan.updatedAt)} plan={plan} markers={markers}
             // Pendant « Déplacer », tout toucher pose le repère : pas de cadres.
-            suggestions={mode.kind === 'moving' ? [] : suggestions} onSuggestionClick={openProposal}
+            suggestions={mode.kind === 'moving' ? [] : suggestions} openSuggestionId={proposal?.id} onSuggestionClick={openProposal}
             pending={mode.kind === 'pending' || mode.kind === 'moving' ? { x: mode.x, y: mode.y } : null} highlightZoneId={selected?.id}
             onPlanClick={(x, y) => tap(plan.id, x, y)} planRef={planRef}
             onMarkerClick={mode.kind === 'moving' ? undefined : (zoneId) => setMode({ kind: 'selected', zoneId })}

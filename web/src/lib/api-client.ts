@@ -178,7 +178,13 @@ export function uploadZonePhoto(id: string, file: File | Blob) {
 }
 export const removeZonePhoto = (id: string) => apiFetch<Zone>(`/caves/current/zones/${id}/photo`, { method: 'DELETE' });
 /** Zone proposée par l'analyse du plan : `box` = [x0, y0, x1, y1] en fractions de l'image. */
-export interface PlanSuggestion { id: string; kind: 'CASIER' | 'ETAGERE' | 'AUTRE'; name: string; box: [number, number, number, number]; rows: number; cols: number }
+/** Case repérée sur la photo : cadre en fractions, rangée et colonne (0 = haut, gauche), nom dans la grille (« B3 ») ; null si indéterminé. */
+export interface DetectedCell { box: [number, number, number, number]; row: number | null; col: number | null; name: string | null }
+/** Proposition de zone. `cellCount` et `cells` (cases repérées) : absents des propositions d'avant la 2.23. */
+export interface PlanSuggestion {
+  id: string; kind: 'CASIER' | 'ETAGERE' | 'AUTRE'; name: string; box: [number, number, number, number]; rows: number; cols: number;
+  cellCount?: number; cells?: DetectedCell[];
+}
 /**
  * Détail de l'analyse (`since` = date de la demande : envoi, remplacement ou relance ; dates ISO) :
  * en attente, son avancement ; en échec, sa raison ; null sinon (NONE, DONE).

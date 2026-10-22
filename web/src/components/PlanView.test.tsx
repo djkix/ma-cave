@@ -83,6 +83,39 @@ it('propositions : cadres en pointillés placés en pourcentage, étiquette « C
   expect(onPlanClick).not.toHaveBeenCalled();
 });
 
+it('proposition avec cases repérées : étiquette sur cellCount ; cases ouvertes : un point nommé par case, non cliquable', async () => {
+  const onSuggestionClick = vi.fn();
+  const cells: api.DetectedCell[] = [
+    { box: [0.1, 0.2, 0.2, 0.4], row: 0, col: 0, name: 'A1' },
+    { box: [0.2, 0.2, 0.4, 0.4], row: 0, col: 1, name: 'A2' },
+    { box: [0.1, 0.4, 0.2, 0.8], row: null, col: null, name: null },
+  ];
+  const suggestions: api.PlanSuggestion[] = [
+    { id: 's1', kind: 'CASIER', name: 'Casier A', box: [0.1, 0.2, 0.4, 0.8], rows: 2, cols: 2, cellCount: 3, cells },
+    { id: 's2', kind: 'CASIER', name: 'Casier B', box: [0.5, 0.5, 0.6, 0.6], rows: 2, cols: 3 },
+  ];
+  const props = { src: '/plan.jpg', plan, markers, suggestions, onSuggestionClick };
+  const { container, rerender } = render(<PlanView {...props} />);
+  expect(screen.getByRole('button', { name: 'Proposition Casier A' })).toHaveTextContent('Casier A · 3 cases');
+  // Proposition d'avant les cases repérées : rows × cols.
+  expect(screen.getByRole('button', { name: 'Proposition Casier B' })).toHaveTextContent('Casier B · 6 cases');
+  expect(container.querySelector('.plan-view__cell')).toBeNull();
+
+  rerender(<PlanView {...props} openSuggestionId="s1" />);
+  const drawn = [...container.querySelectorAll<HTMLElement>('.plan-view__cell')];
+  expect(drawn).toHaveLength(3);
+  expect(drawn.map((c) => c.textContent)).toEqual(['A1', 'A2', '']);
+  expect(drawn[1].style.left).toBe('20%');
+  expect(drawn[1].style.top).toBe('20%');
+  expect(drawn[1].style.width).toBe('20%');
+  expect(drawn[1].style.height).toBe('20%');
+  expect(drawn.every((c) => c.getAttribute('aria-hidden') === 'true' && c.tagName === 'SPAN')).toBe(true);
+  expect(container.querySelector('.plan-view__cells')).toHaveAttribute('aria-hidden', 'true');
+
+  rerender(<PlanView {...props} openSuggestionId="s2" />);
+  expect(container.querySelector('.plan-view__cell')).toBeNull();
+});
+
 describe('au clavier', () => {
   const props = { src: '/plan.jpg', plan, markers };
   const focusPlan = () => {

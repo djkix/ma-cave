@@ -988,6 +988,36 @@ describe('plan de la cave', () => {
       await waitFor(() => expect(planCard().queryByRole('button', { name: 'Proposition Casier A' })).not.toBeInTheDocument());
     });
 
+    it('proposition ouverte : cases repérées nommées sur le plan et phrase « 3 cases repérées… » ; refermée : plus de cases', async () => {
+      const cells: api.DetectedCell[] = [
+        { box: [0.1, 0.1, 0.25, 0.3], row: 0, col: 0, name: 'A1' },
+        { box: [0.25, 0.1, 0.4, 0.3], row: 0, col: 1, name: 'A2' },
+        { box: [0.1, 0.3, 0.25, 0.5], row: 1, col: 0, name: 'B1' },
+      ];
+      vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([{ ...casierA, rows: 2, cols: 2, cellCount: 3, cells }, { ...etagereA, cellCount: 1, cells: [] }]));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      expect(await planCard().findByRole('button', { name: 'Proposition Casier A' })).toHaveTextContent('Casier A · 3 cases');
+      expect(planCard().queryByText('B1')).not.toBeInTheDocument();
+      const s = await openProposal('Casier A');
+      expect(s.getByText('3 cases repérées sur la photo · grille proposée : 2 rangées × 2 colonnes')).toBeInTheDocument();
+      expect(planCard().getByText('A1')).toBeInTheDocument();
+      expect(planCard().getByText('B1')).toBeInTheDocument();
+      // Toucher le fond referme la feuille.
+      fireEvent.click(screen.getByRole('dialog', { name: 'Proposition' }));
+      await waitFor(() => expect(planCard().queryByText('B1')).not.toBeInTheDocument());
+      const e = await openProposal('Étagère A');
+      expect(e.getByText('1 case repérée sur la photo · grille proposée : 1 rangée × 5 colonnes')).toBeInTheDocument();
+    });
+
+    it('proposition sans cases repérées (d’avant) : pas de phrase sur les cases repérées', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([casierA]));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      const s = await openProposal('Casier A');
+      expect(s.queryByText(/repérées? sur la photo/)).not.toBeInTheDocument();
+    });
+
     it('Rejeter retire la proposition', async () => {
       vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([casierA]));
       vi.spyOn(api, 'getZones').mockResolvedValue([]);
