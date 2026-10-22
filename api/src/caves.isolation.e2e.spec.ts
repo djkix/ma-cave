@@ -211,7 +211,7 @@ const ROUTES: Route[] = [
     method: 'GET', path: '/api/caves/current/plans', kind: 'cave-viewer-read', req: () => ({ url: '/api/caves/current/plans' }), foreign: 'own',
     readable: (res, i) => expect(res.body).toEqual({
       plans: [{ id: i.planA, name: 'Plan A', width: 120, height: 160, updatedAt: expect.any(String), analysis: 'DONE', suggestions: SUGGESTIONS_A, analysisInfo: null }],
-      markers: [{ zoneId: i.zoneA, planId: i.planA, name: 'Cave A', number: 1, x: 0.5, y: 0.5 }],
+      markers: [{ zoneId: i.zoneA, planId: i.planA, name: 'Cave A', number: 1, x: 0.5, y: 0.5, cellBoxes: {}, cellNames: {} }],
     }),
   },
   { method: 'GET', path: '/api/caves/plans/:planId/image', kind: 'photo-image', req: (i) => ({ url: `/api/caves/plans/${i.planA}/image` }), foreign: NOT_FOUND_PLAN, happy: { status: 200 } },

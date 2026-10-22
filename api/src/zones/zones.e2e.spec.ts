@@ -17,7 +17,10 @@ import { CurrentCaveZonesController } from './zones.controller';
 // qui possède C et est membre de A (photo lue hors de la cave courante).
 const describeIfInfra = process.env.DATABASE_URL && process.env.REDIS_URL ? describe : describe.skip;
 
-interface Zone { id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; grid: { rows: number; cols: number } | null; cellNames: Record<string, string> }
+interface Zone {
+  id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; grid: { rows: number; cols: number } | null;
+  cellPrefix: string | null; cellNames: Record<string, string>; cellBoxes: Record<string, number[]>;
+}
 
 describeIfInfra('zones de la cave (HTTP)', () => {
   let app: INestApplication;
@@ -95,6 +98,12 @@ describeIfInfra('zones de la cave (HTTP)', () => {
     if (app) await app.close();
     if (sessionRedis) await sessionRedis.quit();
     rmSync(storage, { recursive: true, force: true });
+  });
+
+  // Chaque test part avec les 26 lettres libres dans A (les zones à grille des tests
+  // précédents deviennent « d'avant la 2.27 ») : la lettre choisie est prévisible.
+  beforeEach(async () => {
+    if (caveA) await prisma.caveZone.updateMany({ where: { caveId: caveA }, data: { cellPrefix: null } });
   });
 
   const zones = async (agent: supertest.Agent = ownerA): Promise<Zone[]> => (await agent.get('/api/caves/current/zones')).body;
@@ -237,7 +246,7 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       expect((await ownerA.put(`/api/wines/${wineId}/apogee`).send({ min: year - 5, max: year })).status).toBe(200);
       const label = `Noms libellé ${run} / Champagnes (A7) / 2`;
       const detail = (await wine(wineId)).body;
-      expect(detail.locations).toEqual([{ id: expect.any(String), label, quantity: 2, zoneId: z.id }]);
+      expect(detail.locations).toEqual([{ id: expect.any(String), label, quantity: 2, zoneId: z.id, casier: 'a7' }]);
       expect(detail.movements[0].locationLabel).toBe(label);
       const journal = (await ownerA.get('/api/movements/recent?limit=100')).body;
       expect(journal.find((m: { wine: { id: string } }) => m.wine.id === wineId).locationLabel).toBe(label);
@@ -269,6 +278,122 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       const cells: unknown[] = [];
       stock.eachRow((row) => cells.push(row.getCell(col).value));
       expect(cells).toContain(`${label} × 2`);
+    });
+  });
+
+  describe('lettre et positions des cases', () => {
+    const patch = (id: string, body: unknown, agent: supertest.Agent = ownerA) => agent.patch(`/api/caves/current/zones/${id}`).send(body as object);
+    const box = (k: number) => [k / 100, k / 100, (k + 1) / 100, (k + 1) / 100];
+    const setBoxes = (id: string, cellBoxes: Record<string, number[]>) => prisma.caveZone.update({ where: { id }, data: { cellBoxes } });
+    const zoneIn = async (id: string) => (await zones()).find((x) => x.id === id)!;
+    /** Plan posé directement en base (aucune analyse en file). */
+    const newPlan = async (name: string) =>
+      (await prisma.cavePlan.create({ data: { caveId: caveA, name: `${name} ${run}`, path: `plans/${randomUUID()}.jpg`, width: 10, height: 10, updatedAt: new Date() } })).id;
+
+    it('PATCH grid sur une zone sans lettre : lettre choisie par le nom ; grid null : lettre, noms et positions effacés', async () => {
+      const z = await newZone(`Casier ${run} F`);
+      const res = await patch(z.id, { grid: { rows: 2, cols: 2 }, cellNames: { f1: 'Loire' } });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ grid: { rows: 2, cols: 2 }, cellPrefix: 'F', cellNames: { F1: 'Loire' }, cellBoxes: {} });
+      await setBoxes(z.id, { F1: box(1) });
+      expect((await patch(z.id, { grid: null })).body).toMatchObject({ grid: null, cellPrefix: null, cellNames: {}, cellBoxes: {} });
+    });
+
+    it('PATCH cellPrefix A → C : noms, positions et emplacements de la zone renommés ; le stock suit', async () => {
+      const z = await newZone(`Lettre ${run}`);
+      const other = await newZone(`Lettre autre ${run}`);
+      expect((await patch(z.id, { grid: { rows: 4, cols: 12 }, cellNames: { A5: 'Champagnes' } })).body.cellPrefix).toBe('A');
+      await setBoxes(z.id, { A5: box(5), A40: box(40) });
+      const a5 = (await entry({ zoneId: z.id, casier: 'a5' }, 2)).body.wine.id;
+      const a40 = (await entry({ zoneId: z.id, casier: 'A40', position: 'fond' }, 1)).body.wine.id;
+      const loire = (await entry({ zoneId: z.id, casier: 'Loire' }, 1)).body.wine.id;
+      const elsewhere = (await entry({ zoneId: other.id, casier: 'A7' }, 1)).body.wine.id;
+
+      const res = await patch(z.id, { cellPrefix: 'c' });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ grid: { rows: 4, cols: 12 }, cellPrefix: 'C', cellNames: { C5: 'Champagnes' }, cellBoxes: { C5: box(5), C40: box(40) } });
+      const place = async (wineId: string) => (await wine(wineId)).body.locations;
+      expect(await place(a5)).toEqual([{ id: expect.any(String), label: `Lettre ${run} / Champagnes (C5)`, quantity: 2, zoneId: z.id, casier: 'C5' }]);
+      expect((await place(a40))[0]).toMatchObject({ label: `Lettre ${run} / C40 / fond`, quantity: 1, casier: 'C40' });
+      expect((await place(loire))[0]).toMatchObject({ label: `Lettre ${run} / Loire`, casier: 'Loire' });
+      expect((await place(elsewhere))[0]).toMatchObject({ label: `Lettre autre ${run} / A7`, casier: 'A7' });
+      expect((await ownerA.get(`/api/caves/current/zones/${z.id}/cells`)).body).toEqual([{ casier: 'C40', quantity: 1 }, { casier: 'C5', quantity: 2 }, { casier: 'LOIRE', quantity: 1 }]);
+      // Une nouvelle entrée sous « Champagnes » rejoint l'emplacement renommé.
+      const again = (await entry({ zoneId: z.id, casier: 'champagnes' }, 1)).body.wine.id;
+      expect((await place(again))[0].id).toBe((await place(a5))[0].id);
+    });
+
+    it('PATCH cellPrefix vers une lettre déjà rangée dans la zone (casier libre « C5 ») : 409, rien ne change', async () => {
+      const z = await newZone(`Lettre refus ${run}`);
+      await patch(z.id, { grid: { rows: 2, cols: 3 }, cellNames: { A5: 'Loire' } });
+      await setBoxes(z.id, { A5: box(5) });
+      const a5 = (await entry({ zoneId: z.id, casier: 'A5' }, 1)).body.wine.id;
+      expect((await entry({ zoneId: z.id, casier: 'c5' }, 1)).status).toBe(201);
+      expectStatus(await patch(z.id, { cellPrefix: 'C' }), 409, 'Des bouteilles sont déjà rangées sous ces codes dans cette zone');
+      expect(await zoneIn(z.id)).toMatchObject({ cellPrefix: 'A', cellNames: { A5: 'Loire' }, cellBoxes: { A5: box(5) } });
+      expect((await wine(a5)).body.locations[0]).toMatchObject({ casier: 'A5' });
+    });
+
+    it('même grille renvoyée : positions gardées ; grille changée : positions effacées, noms des codes restants gardés ; nom seul : lettre inchangée', async () => {
+      const z = await newZone(`Lettre grille ${run}`);
+      await patch(z.id, { grid: { rows: 4, cols: 12 }, cellNames: { A5: 'Loire', A45: 'Bordeaux' } });
+      await setBoxes(z.id, { A5: box(5) });
+      expect((await patch(z.id, { grid: { rows: 4, cols: 12 }, name: `Casier ${run} Z` })).body).toMatchObject({
+        name: `Casier ${run} Z`, cellPrefix: 'A', cellNames: { A5: 'Loire', A45: 'Bordeaux' }, cellBoxes: { A5: box(5) },
+      });
+      expect((await patch(z.id, { grid: { rows: 4, cols: 10 } })).body).toMatchObject({ cellPrefix: 'A', cellNames: { A5: 'Loire' }, cellBoxes: {} });
+    });
+
+    it('deux zones actives ne partagent pas une lettre (409) ; une zone archivée libère la sienne', async () => {
+      const x = await newZone(`Lettre prise ${run}`);
+      const y = await newZone(`Lettre libre ${run}`);
+      expect((await patch(x.id, { grid: { rows: 1, cols: 2 }, cellPrefix: 'K' })).body.cellPrefix).toBe('K');
+      expectStatus(await patch(y.id, { grid: { rows: 1, cols: 2 }, cellPrefix: 'k' }), 409, 'Cette lettre est déjà prise par une autre zone');
+      expect((await zoneIn(y.id)).grid).toBeNull();
+      await prisma.caveZone.update({ where: { id: x.id }, data: { archivedAt: new Date() } });
+      expect((await patch(y.id, { grid: { rows: 1, cols: 2 }, cellPrefix: 'K' })).body).toMatchObject({ cellPrefix: 'K', grid: { rows: 1, cols: 2 } });
+    });
+
+    it('zone d’avant la 2.27 (grille sans lettre) : la même grille renvoyée lui attribue une lettre, les noms qui ne sont pas des codes sont perdus', async () => {
+      const z = await newZone(`Ancienne grille ${run} L`);
+      await prisma.caveZone.update({ where: { id: z.id }, data: { gridRows: 2, gridCols: 2, cellNames: { B2: 'x', A1: 'y' } } });
+      expect((await zoneIn(z.id)).cellPrefix).toBeNull();
+      const res = await patch(z.id, { grid: { rows: 2, cols: 2 } });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ grid: { rows: 2, cols: 2 }, cellPrefix: 'L', cellNames: {} });
+    });
+
+    it('retirer le repère ou le poser sur un autre plan efface les positions ; le déplacer sur le même plan les garde', async () => {
+      const [p1, p2] = [await newPlan('Lettre plan 1'), await newPlan('Lettre plan 2')];
+      const z = await newZone(`Lettre repère ${run}`);
+      await patch(z.id, { grid: { rows: 1, cols: 2 } });
+      const marker = (planId: string, x = 0.5) => ownerA.put(`/api/caves/current/zones/${z.id}/marker`).send({ planId, x, y: 0.5 });
+      expect((await marker(p1)).status).toBe(200);
+      await setBoxes(z.id, { A1: box(1) });
+      expect((await marker(p1, 0.6)).body.cellBoxes).toEqual({ A1: box(1) });
+      expect((await marker(p2)).body.cellBoxes).toEqual({});
+      await setBoxes(z.id, { A1: box(1) });
+      const removed = await ownerA.delete(`/api/caves/current/zones/${z.id}/marker`);
+      expect(removed.body).toMatchObject({ marker: null, cellBoxes: {} });
+    });
+
+    it('PATCH cellPrefix qui n’est pas une lettre : 400', async () => {
+      const z = await newZone(`Lettre invalide ${run}`);
+      for (const cellPrefix of ['CC', '1', 'É', '', 3]) {
+        expectStatus(await patch(z.id, { grid: { rows: 1, cols: 1 }, cellPrefix }), 400, 'La lettre des cases est une lettre de A à Z');
+      }
+    });
+
+    it('conflits d’unicité de la base : la lettre et le nom sont distingués', async () => {
+      const { zoneConflict } = await import('./zones.service');
+      const z = await newZone(`Conflit ${run}`);
+      await prisma.caveZone.update({ where: { id: z.id }, data: { gridRows: 1, gridCols: 1, cellPrefix: 'Q' } });
+      const fail = (data: object) => prisma.caveZone.create({ data: { caveId: caveA, sortOrder: 99, ...data } as never }).then(() => undefined, (e: unknown) => e);
+      const prefix = await fail({ name: `Conflit bis ${run}`, gridRows: 1, gridCols: 1, cellPrefix: 'Q' });
+      const name = await fail({ name: `conflit ${run}` });
+      expect(() => zoneConflict(prefix)).toThrow('Cette lettre est déjà prise par une autre zone');
+      expect(() => zoneConflict(name)).toThrow('Une zone porte déjà ce nom');
+      expect(() => zoneConflict(new Error('autre'))).toThrow('autre');
     });
   });
 
@@ -326,7 +451,7 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       const res = await entry({ zoneId: z.id, casier: 'B' });
       expect(res.status).toBe(201);
       const detail = await wine(res.body.wine.id);
-      expect(detail.body.locations).toEqual([{ id: expect.any(String), label: `Saisie ${run} / B`, quantity: 2, zoneId: z.id }]);
+      expect(detail.body.locations).toEqual([{ id: expect.any(String), label: `Saisie ${run} / B`, quantity: 2, zoneId: z.id, casier: 'B' }]);
       const listed = (await ownerA.get('/api/locations')).body.find((l: { id: string }) => l.id === detail.body.locations[0].id);
       expect(listed).toMatchObject({ zoneId: z.id, zone: `Saisie ${run}`, casier: 'B', position: null, label: `Saisie ${run} / B`, lastUsed: true });
       // Même zone, casier en minuscules : même emplacement.
@@ -395,7 +520,7 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       const filtered = (await ownerA.get(`/api/cave?location=${location.id}`)).body;
       expect(filtered.map((w: { id: string }) => w.id)).toEqual([wineId]);
       const soon = (await ownerA.get('/api/cave?drinkSoon=true')).body.find((w: { id: string }) => w.id === wineId);
-      expect(soon.places).toEqual([{ id: location.id, label, quantity: 2, zoneId: z.id }]);
+      expect(soon.places).toEqual([{ id: location.id, label, quantity: 2, zoneId: z.id, casier: 'R' }]);
       // Le membre voit le même libellé.
       expect((await viewerA.get(`/api/wines/${wineId}`)).body.locations[0].label).toBe(label);
 

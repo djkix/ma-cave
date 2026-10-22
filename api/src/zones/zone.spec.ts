@@ -36,6 +36,10 @@ describe('renamePrefix', () => {
     expect(renamePrefix({ A1: 'x', A12: 'y', B3: 'z' }, 'A', 'C')).toEqual({ C1: 'x', C12: 'y', B3: 'z' });
     expect(renamePrefix({ A1: [0, 0, 1, 1], AB: 'w', A0: 'v' }, 'A', 'C')).toEqual({ C1: [0, 0, 1, 1], AB: 'w', A0: 'v' });
   });
+
+  it('n’écrase jamais une clé existante : refusé', () => {
+    expect(() => renamePrefix({ A5: 'x', C5: 'y' }, 'A', 'C')).toThrow('C5 existe déjà');
+  });
 });
 
 describe('cellNamesFor', () => {

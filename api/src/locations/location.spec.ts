@@ -78,32 +78,32 @@ describe('cellCodeOf', () => {
 });
 
 describe('placesOf', () => {
-  const loc = (id: string, zone: string) => ({ id, zoneId: `z-${zone}`, zone, casier: null, position: null });
+  const loc = (id: string, zone: string, casier: string | null = null) => ({ id, zoneId: `z-${zone}`, zone, casier, position: null });
 
   it('emplacements par libellé puis « Sans emplacement » (total − stocks positifs), quantités > 0 seulement', () => {
     expect(
       placesOf([
         { location: loc('l2', 'Placard'), quantity: 2 },
         { location: null, quantity: 3 },
-        { location: loc('l1', 'Cave'), quantity: 4 },
+        { location: loc('l1', 'Cave', 'c5'), quantity: 4 },
         { location: loc('l3', 'Vide'), quantity: 0 },
       ]),
     ).toEqual([
-      { id: 'l1', label: 'Cave', quantity: 4, zoneId: 'z-Cave' },
-      { id: 'l2', label: 'Placard', quantity: 2, zoneId: 'z-Placard' },
-      { id: null, label: 'Sans emplacement', quantity: 3, zoneId: null },
+      { id: 'l1', label: 'Cave / c5', quantity: 4, zoneId: 'z-Cave', casier: 'c5' },
+      { id: 'l2', label: 'Placard', quantity: 2, zoneId: 'z-Placard', casier: null },
+      { id: null, label: 'Sans emplacement', quantity: 3, zoneId: null, casier: null },
     ]);
   });
 
   it('« Sans emplacement » jamais négatif ni nul à l’affichage', () => {
-    expect(placesOf([{ location: loc('l1', 'Cave'), quantity: 2 }, { location: null, quantity: -2 }])).toEqual([{ id: 'l1', label: 'Cave', quantity: 2, zoneId: 'z-Cave' }]);
-    expect(placesOf([{ location: loc('l1', 'Cave'), quantity: 2 }])).toEqual([{ id: 'l1', label: 'Cave', quantity: 2, zoneId: 'z-Cave' }]);
+    expect(placesOf([{ location: loc('l1', 'Cave'), quantity: 2 }, { location: null, quantity: -2 }])).toEqual([{ id: 'l1', label: 'Cave', quantity: 2, zoneId: 'z-Cave', casier: null }]);
+    expect(placesOf([{ location: loc('l1', 'Cave'), quantity: 2 }])).toEqual([{ id: 'l1', label: 'Cave', quantity: 2, zoneId: 'z-Cave', casier: null }]);
   });
 });
 
 describe('formatPlaces', () => {
   it('« Cave 2 / B / 3 × 4 ; Sans emplacement × 2 »', () => {
-    expect(formatPlaces([{ id: 'l', label: 'Cave 2 / B / 3', quantity: 4, zoneId: 'z' }, { id: null, label: 'Sans emplacement', quantity: 2, zoneId: null }])).toBe(
+    expect(formatPlaces([{ id: 'l', label: 'Cave 2 / B / 3', quantity: 4, zoneId: 'z', casier: 'B' }, { id: null, label: 'Sans emplacement', quantity: 2, zoneId: null, casier: null }])).toBe(
       'Cave 2 / B / 3 × 4 ; Sans emplacement × 2',
     );
     expect(formatPlaces([])).toBe('');

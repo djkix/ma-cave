@@ -11,12 +11,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   enqueuePlanAnalysis, PLAN_ANALYSIS_QUEUE_TOKEN, PlanAnalysisJobData, PlanAnalysisJobState, planAnalysisJobState, QUEUED_STATE, withTimeout,
 } from '../queue/plan-analysis';
-import { PlanSuggestion } from './plan-suggestions';
+import { cellCode, PlanSuggestion } from './plan-suggestions';
 import {
-  ANALYSIS_IN_PROGRESS, cellNamesFor, CellNames, PLAN_LIMIT, PLAN_MAX_COUNT, PLAN_MAX_SIDE, PLAN_NAME_TAKEN, PLAN_NOT_FOUND, PlanAnalysisInfo, PlanFailedReason, PlanMarker, PlanMeta,
-  planPath, SUGGESTION_NOT_FOUND, ZONE_NAME_TAKEN, ZoneView, zoneView,
+  ANALYSIS_IN_PROGRESS, CellBoxes, cellNamesFor, CellNames, PLAN_LIMIT, PLAN_MAX_COUNT, PLAN_MAX_SIDE, PLAN_NAME_TAKEN, PLAN_NOT_FOUND, PlanAnalysisInfo, PlanFailedReason,
+  PlanMarker, PlanMeta, planPath, SUGGESTION_NOT_FOUND, ZoneView, zoneView,
 } from './zone';
-import { placeImage, unlinkIgnoringMissing } from './zones.service';
+import { choosePrefix, placeImage, unlinkIgnoringMissing, zoneConflict } from './zones.service';
 
 /** Lecture de l'avancement dans Redis : au-delà, la valeur par défaut (GET plans ne tombe ni ne traîne jamais). */
 const JOB_STATE_TIMEOUT_MS = 1000;
@@ -62,7 +62,8 @@ export class PlanService {
 
   /**
    * Plans dans l'ordre de création, et repères des zones non archivées, dans
-   * l'ordre d'affichage des zones, numérotés à partir de 1 sur chaque plan.
+   * l'ordre d'affichage des zones, numérotés à partir de 1 sur chaque plan, avec
+   * les positions et noms des cases de leur zone.
    * Analyse en attente : avancement lu sur sa tâche (voir `jobState`).
    */
   async list(caveId: string): Promise<{ plans: PlanMeta[]; markers: PlanMarker[] }> {
@@ -75,7 +76,8 @@ export class PlanService {
     const markers = zones.map((z) => {
       const number = (counts.get(z.planId!) ?? 0) + 1;
       counts.set(z.planId!, number);
-      return { zoneId: z.id, planId: z.planId!, name: z.name, number, x: z.planX!, y: z.planY! };
+      const { cellBoxes, cellNames } = zoneView(z);
+      return { zoneId: z.id, planId: z.planId!, name: z.name, number, x: z.planX!, y: z.planY!, cellBoxes, cellNames };
     });
     return { plans: await Promise.all(plans.map(async (p) => meta(p, p.analysisStatus === 'PENDING' ? await this.jobState(p) : undefined))), markers };
   }
@@ -147,13 +149,13 @@ export class PlanService {
 
   /**
    * Supprime le plan ; ses zones (archivées comprises) sont gardées et perdent
-   * leur repère, dans la même transaction. L'image n'est effacée qu'une fois la
+   * leur repère et les positions de leurs cases, dans la même transaction. L'image n'est effacée qu'une fois la
    * transaction validée : un échec en base ne laisse jamais un plan sans image.
    */
   async remove(caveId: string, id: string): Promise<void> {
     const path = await this.prisma.$transaction(async (tx) => {
       const { path } = await this.lockOwn(tx, caveId, id);
-      await tx.caveZone.updateMany({ where: { planId: id }, data: { planId: null, planX: null, planY: null } });
+      await tx.caveZone.updateMany({ where: { planId: id }, data: { planId: null, planX: null, planY: null, cellBoxes: {} } });
       await tx.cavePlan.delete({ where: { id } });
       return path;
     });
@@ -162,34 +164,38 @@ export class PlanService {
 
   /**
    * Accepte une proposition : crée la zone (fin de liste) avec son repère au
-   * centre du cadre sur ce plan, sa grille et les noms donnés à ses cases (400
-   * avant toute écriture s'ils sont refusés), et retire la proposition, dans la
-   * même transaction, sous verrou du plan. Deux acceptations simultanées de la
-   * même proposition : la seconde attend le verrou, ne la trouve plus (404).
-   * Nom pris : 409, rien n'est écrit.
+   * centre du cadre sur ce plan, sa grille, la lettre de ses cases (donnée,
+   * sinon celle de la proposition, sinon choisie par le nom), les noms donnés à
+   * ses cases (400 s'ils sont refusés) et la position de chaque case repérée
+   * dont la rangée et la colonne tiennent dans la grille acceptée (sous son
+   * code) ; puis retire la proposition, dans la même transaction, sous verrou
+   * du plan. Deux acceptations simultanées de la même proposition : la seconde
+   * attend le verrou, ne la trouve plus (404). Nom ou lettre pris : 409, rien n'est écrit.
    */
   async acceptSuggestion(
-    caveId: string, id: string, sid: string, input: { name: string; rows: number; cols: number; cellNames?: CellNames },
+    caveId: string, id: string, sid: string, input: { name: string; rows: number; cols: number; cellNames?: CellNames; cellPrefix?: string },
   ): Promise<ZoneView> {
-    const cellNames = cellNamesFor(input.cellNames ?? {}, { rows: input.rows, cols: input.cols }, null);
+    const { rows, cols } = input;
     return this.prisma.$transaction(async (tx) => {
       const { suggestions } = await this.lockOwn(tx, caveId, id);
       const s = suggestions.find((x) => x.id === sid);
       if (!s) throw new NotFoundException(SUGGESTION_NOT_FOUND);
+      const prefix = await choosePrefix(tx, caveId, null, input.cellPrefix ?? s.cellPrefix ?? null, input.name);
+      const cellNames = cellNamesFor(input.cellNames ?? {}, { rows, cols }, prefix);
+      const inGrid = (v: number | null, max: number): v is number => Number.isInteger(v) && v! >= 0 && v! < max;
+      const cellBoxes: CellBoxes = Object.fromEntries((s.cells ?? []).flatMap((c) =>
+        inGrid(c.row, rows) && inGrid(c.col, cols) ? [[cellCode(prefix, c.row, c.col, cols), c.box]] : []));
       const last = await tx.caveZone.aggregate({ where: { caveId, archivedAt: null }, _max: { sortOrder: true } });
       const [x0, y0, x1, y1] = s.box;
       const zone = await tx.caveZone.create({
         data: {
           caveId, name: input.name, sortOrder: (last._max.sortOrder ?? -1) + 1, planId: id, planX: (x0 + x1) / 2, planY: (y0 + y1) / 2,
-          gridRows: input.rows, gridCols: input.cols, cellNames,
+          gridRows: rows, gridCols: cols, cellPrefix: prefix, cellNames, cellBoxes,
         },
       });
       await tx.cavePlan.update({ where: { id }, data: { suggestions: suggestions.filter((x) => x.id !== sid) as object[] } });
       return zoneView(zone);
-    }).catch((e: unknown) => {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new ConflictException(ZONE_NAME_TAKEN);
-      throw e;
-    });
+    }).catch(zoneConflict);
   }
 
   /** Retire une proposition, sous verrou du plan. */

@@ -10,11 +10,45 @@ import { ImageNormalizationService } from '../photos/image-normalization.service
 import { PHOTO_STORAGE_DIR } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  cellNamesFor, CellNames, CreateZoneInput, keptCellNames, PLAN_NOT_FOUND, UpdateZoneInput, ZONE_NAME_TAKEN, ZONE_NOT_FOUND, ZONE_PHOTO_NOT_FOUND, zonePhotoPath, ZoneView, zoneView,
+  CELL_CODES_TAKEN, CELL_PREFIX_TAKEN, CellBoxes, cellNamesFor, CellNames, CreateZoneInput, keptCellNames, NO_FREE_PREFIX, PLAN_NOT_FOUND, renamePrefix, suggestPrefix,
+  UpdateZoneInput, ZONE_NAME_TAKEN, ZONE_NOT_FOUND, ZONE_PHOTO_NOT_FOUND, zonePhotoPath, ZoneView, zoneView,
 } from './zone';
 
 function isUniqueViolation(e: unknown): boolean {
   return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002';
+}
+
+/**
+ * Index unique violé (course entre deux écritures) : 409 « lettre prise » pour
+ * cave_zone_cave_id_cell_prefix_key, « nom pris » pour cave_zone_cave_id_name_key ;
+ * toute autre erreur repart telle quelle.
+ */
+export function zoneConflict(e: unknown): never {
+  if (isUniqueViolation(e)) {
+    const target = String((e as Prisma.PrismaClientKnownRequestError).meta?.target);
+    throw new ConflictException(target.includes('cell_prefix') ? CELL_PREFIX_TAKEN : ZONE_NAME_TAKEN);
+  }
+  throw e;
+}
+
+/**
+ * Lettre des cases d'une zone à grille, lue dans la transaction qui l'écrit :
+ * `wanted` (demandée ou déjà la sienne) si aucune autre zone active de la cave
+ * ne l'a, sinon 409 ; sans `wanted`, le choix automatique par le nom (409 quand
+ * les 26 sont prises). `zoneId` : la zone elle-même, exclue (null : nouvelle zone).
+ */
+export async function choosePrefix(tx: Prisma.TransactionClient, caveId: string, zoneId: string | null, wanted: string | null, name: string): Promise<string> {
+  const others = await tx.caveZone.findMany({
+    where: { caveId, archivedAt: null, cellPrefix: { not: null }, ...(zoneId ? { id: { not: zoneId } } : {}) }, select: { cellPrefix: true },
+  });
+  const taken = others.map((z) => z.cellPrefix!);
+  if (wanted) {
+    if (taken.includes(wanted)) throw new ConflictException(CELL_PREFIX_TAKEN);
+    return wanted;
+  }
+  const auto = suggestPrefix(name, taken);
+  if (!auto) throw new ConflictException(NO_FREE_PREFIX);
+  return auto;
 }
 
 export async function unlinkIgnoringMissing(path: string): Promise<void> {
@@ -96,39 +130,61 @@ export class ZonesService {
   }
 
   /**
-   * Renommer, changer l'indication, la grille (`null` la retire) ou les noms des
-   * cases (remplacement complet, vérifiés contre la grille qui en résulte) : le
+   * Renommer, changer l'indication, la grille (`null` la retire, avec lettre,
+   * noms et positions des cases), la lettre ou les noms des cases (remplacement
+   * complet, vérifiés contre la grille et la lettre qui en résultent) : le
    * nouveau nom vaut partout, l'emplacement ne change pas. Une grille réduite
-   * perd les noms des cases disparues.
+   * perd les noms des cases disparues ; une grille changée (lignes ou colonnes)
+   * perd les positions de ses cases. Une zone à grille sans lettre en reçoit une
+   * (demandée, sinon choisie) quand sa grille est enregistrée ; renommer la zone
+   * ne change pas sa lettre. Changer la lettre renomme les noms, les positions
+   * et le casier des emplacements de la zone qui sont des codes de l'ancienne
+   * (« a5 » → « C5 ») : les bouteilles suivent. Sous verrou de la zone : une
+   * entrée simultanée dans la zone (LocationsService.resolve la lit FOR SHARE)
+   * passe avant ou après.
    */
   async update(caveId: string, id: string, input: UpdateZoneInput): Promise<ZoneView> {
-    const current = await this.findOwn(caveId, id);
-    const grid = input.grid !== undefined ? input.grid : zoneView(current).grid;
-    const cellNames: CellNames | undefined =
-      input.cellNames !== undefined ? cellNamesFor(input.cellNames, grid, current.cellPrefix)
-        : input.grid !== undefined ? keptCellNames(zoneView(current).cellNames, grid, current.cellPrefix) : undefined;
-    try {
-      // updateMany : la condition de cave et « non archivée » est vérifiée au moment de l'écriture.
-      const { count } = await this.prisma.caveZone.updateMany({
-        where: { id, caveId, archivedAt: null },
+    await this.prisma.$transaction(async (tx) => {
+      await this.lockOwn(tx, caveId, id);
+      const current = zoneView(await tx.caveZone.findUniqueOrThrow({ where: { id } }));
+      const grid = input.grid !== undefined ? input.grid : current.grid;
+      const gridChanged = input.grid !== undefined && (input.grid?.rows !== current.grid?.rows || input.grid?.cols !== current.grid?.cols);
+      const wanted = input.cellPrefix ?? current.cellPrefix;
+      const prefix = grid && (wanted || input.grid !== undefined) ? await choosePrefix(tx, caveId, id, wanted, input.name ?? current.name) : null;
+      const old = current.cellPrefix;
+      const renamed = old != null && prefix != null && prefix !== old;
+      const cellNames: CellNames | undefined =
+        input.cellNames !== undefined ? cellNamesFor(input.cellNames, grid, prefix)
+          : input.grid !== undefined || prefix !== old ? keptCellNames(renamed ? renamePrefix(current.cellNames, old, prefix) : current.cellNames, grid, prefix)
+            : undefined;
+      const cellBoxes: CellBoxes | undefined = !grid || gridChanged ? {} : renamed ? renamePrefix(current.cellBoxes, old, prefix) : undefined;
+      if (renamed) {
+        await tx.$executeRaw`
+          UPDATE location SET casier = ${prefix} || substring(casier from 2)
+          WHERE zone_id = ${id} AND casier ~* ${`^${old}[1-9][0-9]*$`}`.catch((e: unknown) => {
+          // Un emplacement de la zone porte déjà un code de la nouvelle lettre (location_place_key).
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2010' && e.meta?.code === '23505') throw new ConflictException(CELL_CODES_TAKEN);
+          throw e;
+        });
+      }
+      await tx.caveZone.update({
+        where: { id },
         data: {
           ...(input.name !== undefined ? { name: input.name } : {}),
           ...(input.indication !== undefined ? { indication: input.indication } : {}),
           ...(input.grid !== undefined ? { gridRows: input.grid?.rows ?? null, gridCols: input.grid?.cols ?? null } : {}),
+          cellPrefix: prefix,
           ...(cellNames !== undefined ? { cellNames } : {}),
+          ...(cellBoxes !== undefined ? { cellBoxes } : {}),
         },
       });
-      if (count === 0) throw new NotFoundException(ZONE_NOT_FOUND);
-    } catch (e) {
-      if (isUniqueViolation(e)) throw new ConflictException(ZONE_NAME_TAKEN);
-      throw e;
-    }
+    }).catch(zoneConflict);
     return zoneView(await this.findOwn(caveId, id));
   }
 
   /**
    * Cases occupées : stock > 0 par valeur de casier (non vide) dans la zone,
-   * toutes positions confondues, en majuscules (« b3 » et « B3 » : une seule case « B3 »). Les bouteilles d'une case disparue d'une grille
+   * toutes positions confondues, en majuscules (« c15 » et « C15 » : une seule case « C15 »). Les bouteilles d'une case disparue d'une grille
    * réduite restent lues ici.
    */
   async cells(caveId: string, id: string): Promise<Array<{ casier: string; quantity: number }>> {
@@ -252,11 +308,15 @@ export class ZonesService {
    * introuvable » pour une zone d'une autre cave ou archivée, puis 404 « Plan
    * introuvable » pour un plan absent ou d'une autre cave (la clé étrangère
    * composite (plan_id, cave_id) le refuse, même pour un plan supprimé entre-temps).
+   * Sur un autre plan, les positions des cases sont effacées (elles ne valent que sur le leur).
    */
   async setMarker(caveId: string, id: string, marker: { planId: string; x: number; y: number }): Promise<ZoneView> {
-    await this.findOwn(caveId, id);
+    const current = await this.findOwn(caveId, id);
     const { count } = await this.prisma.caveZone
-      .updateMany({ where: { id, caveId, archivedAt: null }, data: { planId: marker.planId, planX: marker.x, planY: marker.y } })
+      .updateMany({
+        where: { id, caveId, archivedAt: null },
+        data: { planId: marker.planId, planX: marker.x, planY: marker.y, ...(current.planId !== marker.planId ? { cellBoxes: {} } : {}) },
+      })
       .catch((e: unknown) => {
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') throw new NotFoundException(PLAN_NOT_FOUND);
         throw e;
@@ -265,9 +325,9 @@ export class ZonesService {
     return zoneView(await this.findOwn(caveId, id));
   }
 
-  /** Retire le repère de la zone (plan et position). */
+  /** Retire le repère de la zone (plan et position), avec les positions de ses cases. */
   async removeMarker(caveId: string, id: string): Promise<ZoneView> {
-    const { count } = await this.prisma.caveZone.updateMany({ where: { id, caveId, archivedAt: null }, data: { planId: null, planX: null, planY: null } });
+    const { count } = await this.prisma.caveZone.updateMany({ where: { id, caveId, archivedAt: null }, data: { planId: null, planX: null, planY: null, cellBoxes: {} } });
     if (count === 0) throw new NotFoundException(ZONE_NOT_FOUND);
     return zoneView(await this.findOwn(caveId, id));
   }

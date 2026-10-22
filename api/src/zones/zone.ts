@@ -96,10 +96,20 @@ export function suggestPrefix(name: string, taken: Iterable<string>): string | n
   return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').find((l) => !used.has(l)) ?? null;
 }
 
-/** Clés `<from><n>` renommées en `<to><n>` (lettre des cases changée) ; les autres clés sont gardées telles quelles. */
+/**
+ * Clés `<from><n>` renommées en `<to><n>` (lettre des cases changée) ; les autres clés sont gardées telles quelles.
+ * Deux clés sur un même code n'arrivent pas (les clés sont des codes de `from`, `to` est libre dans la cave) :
+ * refusé plutôt qu'écrasé, si jamais.
+ */
 export function renamePrefix<T>(map: Record<string, T>, from: string, to: string): Record<string, T> {
   const code = new RegExp(`^${from}([1-9][0-9]*)$`);
-  return Object.fromEntries(Object.entries(map).map(([k, v]) => [k.replace(code, `${to}$1`), v]));
+  const out = new Map<string, T>();
+  for (const [k, v] of Object.entries(map)) {
+    const key = k.replace(code, `${to}$1`);
+    if (out.has(key)) throw new Error(`Lettre des cases : ${key} existe déjà`);
+    out.set(key, v);
+  }
+  return Object.fromEntries(out);
 }
 
 /**
@@ -244,5 +254,8 @@ export interface PlanMeta {
   id: string; name: string; width: number; height: number; updatedAt: string;
   analysis: 'NONE' | 'PENDING' | 'DONE' | 'FAILED'; suggestions: PlanSuggestion[]; analysisInfo: PlanAnalysisInfo;
 }
-/** Repère affiché : `number` = rang (à partir de 1) sur son plan, parmi les zones non archivées, dans l'ordre d'affichage. */
-export interface PlanMarker { zoneId: string; planId: string; name: string; number: number; x: number; y: number }
+/**
+ * Repère affiché : `number` = rang (à partir de 1) sur son plan, parmi les zones non archivées, dans l'ordre d'affichage ;
+ * `cellBoxes` et `cellNames` : positions et noms des cases de la zone, pour les dessiner sur ce plan ({} sans case).
+ */
+export interface PlanMarker { zoneId: string; planId: string; name: string; number: number; x: number; y: number; cellBoxes: CellBoxes; cellNames: CellNames }
