@@ -6,7 +6,8 @@ import { BottomNav } from '../components/BottomNav';
 import { Button } from '../components/Button';
 import { DomaineBlock, producerPollInterval } from '../components/DomaineBlock';
 import { ImageSearchBlock } from '../components/ImageSearchBlock';
-import { LocationFields, PlacePicker } from '../components/LocationFields';
+import { PlacePicker } from '../components/LocationFields';
+import { PlanCellPicker } from '../components/PlanCellPicker';
 import { LocationButton, LocationsBlock } from '../components/LocationsBlock';
 import { PairingBlock, pairingPollInterval } from '../components/PairingBlock';
 import { QuoteBlock } from '../components/QuoteBlock';
@@ -167,7 +168,7 @@ export function WinePage() {
               {places && delta !== null && delta > 0 && (
                 <fieldset className="move-form__to">
                   <legend className="field__label">Emplacement</legend>
-                  <LocationFields value={increaseTo} onChange={setIncreaseTo} locations={cellar.data ?? []} zones={zones.data} />
+                  <PlanCellPicker value={increaseTo} onChange={setIncreaseTo} locations={cellar.data ?? []} zones={zones.data} />
                 </fieldset>
               )}
               <p>{tooMany ? 'Nombre de bouteilles trop élevé' : delta === null ? 'Saisis un nombre entier' : delta === 0 ? 'Stock déjà juste' : `${delta > 0 ? '+' : '−'}${plural(Math.abs(delta))}`}</p>

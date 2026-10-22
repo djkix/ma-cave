@@ -201,6 +201,19 @@ describe('plan de la cave', () => {
     expect(section().queryByRole('img', { name: 'Plan de la cave' })).not.toBeInTheDocument();
   });
 
+  it('Ranger / déplacer : « Vers » se choisit en touchant la case sur le plan', async () => {
+    vi.spyOn(api, 'getLocations').mockResolvedValue(cellar);
+    vi.spyOn(api, 'getZoneCells').mockResolvedValue([]);
+    const move = vi.spyOn(api, 'moveWine').mockResolvedValue({ locations: inCasier.locations! });
+    mountPlaced();
+    await userEvent.click(await screen.findByRole('button', { name: 'Ranger / déplacer' }));
+    const form = within(screen.getByRole('form', { name: 'Ranger / déplacer' }));
+    await userEvent.click(await form.findByRole('button', { name: 'Case C2, Casier C' }));
+    expect(form.getByRole('status')).toHaveTextContent('Casier C · case C2');
+    await userEvent.click(form.getByRole('button', { name: 'Déplacer' }));
+    await waitFor(() => expect(move).toHaveBeenCalledWith('w1', expect.objectContaining({ to: { zoneId: 'z3', casier: 'C2', position: null } })));
+  });
+
   it('fenêtre « Emplacement » : vignette, la toucher montre le plan entier', async () => {
     mountPlaced();
     HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.open = true; };

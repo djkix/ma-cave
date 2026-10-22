@@ -208,6 +208,10 @@ a.bars__row .bars__text > span:first-child { text-decoration: underline; text-un
 .zone-details__photo { width: 72px; height: 54px; object-fit: cover; border-radius: var(--radius-lg); flex-shrink: 0; }
 .zone-details__text { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--color-secondary); font-size: 14px; }
 .location-fields select { width: 100%; min-width: 0; }
+.plan-cell-picker { display: grid; gap: var(--space-sm); margin-top: var(--space-sm); min-width: 0; }
+.plan-cell-picker__plan { cursor: pointer; }
+.plan-cell-picker__status { margin: 0; }
+.plan-cell-picker .btn--link { justify-self: start; }
 .locations-list__item--zone { flex-direction: column; }
 .locations-list__toggle {
   display: flex; justify-content: space-between; gap: var(--space-sm); width: 100%; min-height: var(--size-touch-target);
@@ -361,6 +365,9 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
   background: transparent; cursor: pointer; pointer-events: auto;
 }
 .plan-view__cell-button:focus-visible { outline: 2px solid var(--color-primary-action); outline-offset: -10px; }
+/* « Où est la bouteille ? » : le bouton couvre toute la case, le toucher choisit la case sous le doigt. */
+.plan-view__cell-button--fill { inset: 0; width: auto; height: auto; transform: none; border-radius: 0; }
+.plan-view__cell-button--fill:focus-visible { outline-offset: 0; }
 /* Zone acceptée dessinée par ses cases (PlanView) : points discrets, rouges pour la zone en avant ; case courante encadrée, point plus gros, nom toujours affiché. */
 .plan-view__zone-cell { border-color: transparent; outline-color: transparent; }
 .plan-view__zone-cell--highlight::before { background: #c62828; }

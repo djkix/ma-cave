@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { LOW_CONFIDENCE } from '../components/ConfidenceBadge';
 import { EditableField } from '../components/EditableField';
-import { EntryLocationBlock } from '../components/LocationFields';
+import { EntryLocationBlock } from '../components/PlanCellPicker';
 import { OfflineQueueBanner } from '../components/OfflineQueueBanner';
 import { QuantityPicker } from '../components/QuantityPicker';
 import { TopBar } from '../components/TopBar';

@@ -3,7 +3,7 @@ import { Fragment, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getZoneCells, type Location, type LocationInput, type Place, type Zone, zonePhotoUrl } from '../lib/api-client';
 import { cellCodeOf, cellNames } from '../lib/grid';
-import { distinctParts, inputLabel, NO_ZONE, zoneNameOf } from '../lib/locations';
+import { distinctParts, NO_ZONE, zoneNameOf } from '../lib/locations';
 import { useCurrentCave } from '../lib/use-current-cave';
 import { CellNamesEditor } from './CellNamesFields';
 
@@ -121,21 +121,6 @@ export function LocationFields({ value, onChange, locations, zones }: {
         </Fragment>
       ))}
     </div>
-  );
-}
-
-/** Bloc replié « Emplacement » de l'entrée : le titre montre l'emplacement retenu, pré-rempli ou saisi. */
-export function EntryLocationBlock({ value, onChange, locations, zones }: {
-  value: LocationInput; onChange: (v: LocationInput) => void; locations: Location[]; zones: Zone[] | undefined;
-}) {
-  return (
-    <details className="card location-block">
-      <summary>
-        Emplacement
-        <span className="list__meta location-block__current">{inputLabel(value, zones, locations)}</span>
-      </summary>
-      <LocationFields value={value} onChange={onChange} locations={locations} zones={zones} />
-    </details>
   );
 }
 

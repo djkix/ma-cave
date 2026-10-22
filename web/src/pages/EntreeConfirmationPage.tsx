@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { EditableField } from '../components/EditableField';
-import { EntryLocationBlock } from '../components/LocationFields';
+import { EntryLocationBlock } from '../components/PlanCellPicker';
 import { Icon } from '../components/Icon';
 import { QuantityPicker } from '../components/QuantityPicker';
 import { TopBar } from '../components/TopBar';

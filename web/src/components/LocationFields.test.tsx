@@ -6,7 +6,8 @@ import { MemoryRouter } from 'react-router-dom';
 import * as api from '../lib/api-client';
 import type { Location, LocationInput, Zone } from '../lib/api-client';
 import { meFixture, viewerMe } from '../test-fixtures';
-import { EntryLocationBlock, LocationFields } from './LocationFields';
+import { LocationFields } from './LocationFields';
+import { EntryLocationBlock } from './PlanCellPicker';
 
 const locations: Location[] = [
   { id: 'l1', zoneId: 'z2', zone: 'Cave 2', casier: 'B', position: '3', label: 'Cave 2 / B / 3', lastUsed: false },

@@ -43,6 +43,10 @@ const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRigh
  * `highlightCell` : code de la case mise en évidence dans la zone `highlightZoneId`
  * (cadre, point plus gros, nom toujours affiché).
  *
+ * `onCellPick` (« Où est la bouteille ? ») : chaque case d'une zone acceptée est un
+ * bouton qui couvre tout son cadre, « Case Champagnes (C1), Casier C », `aria-pressed`
+ * pour la case en évidence ; le toucher choisit la case sous le doigt.
+ *
  * `editCells` (« Ajuster les cases sur le plan ») : les cases `boxes` d'une zone sont des
  * boutons « Case C17 » (« Case Champagnes (C15) »), `aria-pressed` pour la case choisie
  * (`selected`) ; toucher une case la choisit (`onSelect`), toucher ensuite le plan y
@@ -50,11 +54,11 @@ const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRigh
  * case choisie, Échap pour la désélectionner, Entrée sur le plan pour poser au point
  * `home` une case choisie qui n'a pas encore de position.
  */
-export function PlanView({ src, plan, markers, highlightZoneId, highlightCell, pending, suggestions = [], openSuggestionId, cellNames, editCells, onPlanClick, onMarkerClick, onSuggestionClick, onCellClick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
+export function PlanView({ src, plan, markers, highlightZoneId, highlightCell, pending, suggestions = [], openSuggestionId, cellNames, editCells, onPlanClick, onMarkerClick, onSuggestionClick, onCellClick, onCellPick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
   src: string; plan: Pick<CavePlan, 'width' | 'height'>; markers: PlanMarker[]; highlightZoneId?: string | null; highlightCell?: string | null; pending?: { x: number; y: number } | null;
   suggestions?: PlanSuggestion[]; openSuggestionId?: string | null; onSuggestionClick?: (id: string) => void;
   cellNames?: Record<string, string>; onCellClick?: (code: string) => void; editCells?: EditCells;
-  onPlanClick?: (x: number, y: number) => void; onMarkerClick?: (zoneId: string) => void;
+  onPlanClick?: (x: number, y: number) => void; onMarkerClick?: (zoneId: string) => void; onCellPick?: (zoneId: string, code: string) => void;
   onPendingMove?: (x: number, y: number) => void; onCancel?: () => void; planRef?: Ref<HTMLSpanElement>; maxWidth?: number; alt?: string;
 }) {
   const selected = editCells?.selected;
@@ -142,7 +146,7 @@ export function PlanView({ src, plan, markers, highlightZoneId, highlightCell, p
         const highlighted = m.zoneId === highlightZoneId;
         const label = `Zone ${m.number} : ${m.name}`;
         return (
-          <span key={m.zoneId} className="plan-view__cells" {...(!onMarkerClick && { role: 'img', 'aria-label': label, 'aria-current': highlighted ? ('true' as const) : undefined })}>
+          <span key={m.zoneId} className="plan-view__cells" {...(!onMarkerClick && !onCellPick && { role: 'img', 'aria-label': label, 'aria-current': highlighted ? ('true' as const) : undefined })}>
             {Object.entries(m.cellBoxes!).map(([code, [x0, y0, x1, y1]]) => {
               const name = m.cellNames?.[code];
               const current = highlighted && code === highlightCell;
@@ -150,7 +154,11 @@ export function PlanView({ src, plan, markers, highlightZoneId, highlightCell, p
                 <span key={code} className={`plan-view__cell plan-view__zone-cell${highlighted ? ' plan-view__zone-cell--highlight' : ''}${current ? ' plan-view__zone-cell--current' : ''}`}
                   style={{ left: pct(x0), top: pct(y0), width: pct(x1 - x0), height: pct(y1 - y0) }}>
                   <span className="plan-view__cell-name" aria-hidden="true">{name ?? code}</span>
-                  {onMarkerClick && (
+                  {onCellPick && (
+                    <button type="button" className="plan-view__cell-button plan-view__cell-button--fill" aria-label={`Case ${name ? `${name} (${code})` : code}, ${m.name}`}
+                      aria-pressed={current} onClick={(e) => { e.stopPropagation(); onCellPick(m.zoneId, code); }} />
+                  )}
+                  {onMarkerClick && !onCellPick && (
                     <button type="button" className="plan-view__cell-button" aria-label={`${label}, case ${name ? `${name} (${code})` : code}`}
                       aria-current={highlighted ? 'true' : undefined} onClick={(e) => { e.stopPropagation(); onMarkerClick(m.zoneId); }} />
                   )}
