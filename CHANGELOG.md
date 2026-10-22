@@ -11,6 +11,24 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.23.0](https://github.com/djkix/ma-cave/compare/v2.22.0...v2.23.0) (2026-10-22)
 
+### Résumé
+
+**Grille de cases juste, même sur une photo prise de biais.** Sur un mur photographié en
+perspective, une même tablette descend d'un bout à l'autre : l'ancien calcul y voyait
+plusieurs rangées et proposait par exemple « 260 cases » pour un mur de 48. Les rangées
+et les colonnes se comptent maintenant par voisinage des cases (une case et sa voisine de
+droite, une case et celle du dessous), robuste à la perspective, aux cases oubliées et
+aux cadres imprécis ; dans le doute, une case reste sans nom plutôt que mal nommée.
+L'étiquette d'une proposition affiche le nombre de cases réellement repérées
+(« Casier A · 48 cases »), et la feuille *Proposition* le détaille (« 48 cases repérées sur
+la photo · grille proposée : 4 rangées × 12 colonnes »). Quand une proposition est
+ouverte, chaque case repérée est dessinée sur la photo avec un point et son nom (A1 en haut
+à gauche), le nom même qui sera proposé pour ranger une bouteille. Aucune migration ;
+relancer l'analyse d'un plan pour en profiter.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
