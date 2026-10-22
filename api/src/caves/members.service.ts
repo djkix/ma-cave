@@ -54,10 +54,14 @@ export class MembersService {
   }
 
   /**
-   * `email` déjà normalisé (minuscules, sans espaces). Un compte existant est
-   * rattaché directement (VIEWER) ; s'il est en attente de validation, il
-   * devient actif (l'invitation suffit) ; un compte bloqué reste bloqué. Sans
-   * compte, une invitation attend sa première connexion Google. 409 si
+   * `email` déjà normalisé (minuscules, sans espaces). Crée toujours une
+   * invitation par adresse, qu'un compte existe ou non : la réponse est la
+   * même dans les deux cas (`pending`, sans nom affiché), si bien qu'un
+   * propriétaire n'apprend ni si l'adresse a un compte, ni le nom de ce
+   * compte. L'invitation n'est rattachée au compte que lorsqu'il ouvre
+   * l'application en étant actif (CaveContextService.acceptInvitations) ; elle
+   * ne change jamais son statut — un compte en attente reste en attente de la
+   * validation d'un administrateur, un compte bloqué reste bloqué. 409 si
    * l'adresse est déjà membre ou invitée (propriétaire compris), y compris
    * quand deux ajouts simultanés se croisent (unicité en base).
    */
@@ -66,7 +70,7 @@ export class MembersService {
       return await this.prisma.$transaction(async (tx) => {
         const user = await tx.appUser.findFirst({
           where: { email: { equals: email, mode: 'insensitive' } },
-          select: { id: true, email: true, displayName: true, status: true },
+          select: { id: true },
         });
         const existing = await tx.caveMember.findFirst({
           where: { caveId, OR: [{ invitedEmail: email }, ...(user ? [{ userId: user.id }] : [])] },
@@ -74,15 +78,8 @@ export class MembersService {
         });
         if (existing) throw new ConflictException(ALREADY_MEMBER);
 
-        if (!user) {
-          const row = await tx.caveMember.create({ data: { caveId, invitedEmail: email, role: 'VIEWER' } });
-          return { id: row.id, email, displayName: null, role: row.role, pending: true };
-        }
-        if (user.status === 'PENDING') {
-          await tx.appUser.updateMany({ where: { id: user.id, status: 'PENDING' }, data: { status: 'ACTIVE' } });
-        }
-        const row = await tx.caveMember.create({ data: { caveId, userId: user.id, role: 'VIEWER' } });
-        return { id: row.id, email: user.email, displayName: user.displayName, role: row.role, pending: false };
+        const row = await tx.caveMember.create({ data: { caveId, invitedEmail: email, role: 'VIEWER' } });
+        return { id: row.id, email, displayName: null, role: row.role, pending: true };
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new ConflictException(ALREADY_MEMBER);

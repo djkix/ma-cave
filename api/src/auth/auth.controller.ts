@@ -94,7 +94,10 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(AuthenticatedGuard)
-  me(@CurrentUser() user: AppUser, @Req() req: Request) {
+  async me(@CurrentUser() user: AppUser, @Req() req: Request) {
+    // Ouvrir l'application vaut acceptation des invitations, pour un compte
+    // actif seulement (voir CaveContextService.acceptInvitations).
+    if (user.status === 'ACTIVE') await this.caveContext.acceptInvitations(user.id, user.email);
     return this.toMe(user, req);
   }
 

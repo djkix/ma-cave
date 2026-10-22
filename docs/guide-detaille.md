@@ -332,7 +332,12 @@ seront remplacées. ». Les zones déjà acceptées ne bougent pas. Côté api, 
 **Membres en lecture seule.** Dans *Ma cave* (propriétaire seulement), la
 section *Membres* liste les membres, invite une adresse Google (« Cette
 adresse est déjà membre » si elle l'est déjà), retire un membre (jamais le
-propriétaire) et renomme la cave (1 à 80 caractères). Un membre voit la cave
+propriétaire) et renomme la cave (1 à 80 caractères). Toute invitation
+apparaît d'abord « Invitation en attente », sous la seule adresse saisie, que
+l'adresse ait déjà un compte ou non : le propriétaire n'apprend ni l'existence
+du compte ni son nom. Elle est acceptée quand le compte invité, actif, ouvre
+l'application (ou à la création du compte) ; un compte en attente de
+validation le reste, l'invitation ne valide personne. Un membre voit la cave
 qui l'a invité : la liste et ses filtres, la recherche par plat, la fiche vin
 (apogée, note, accords, descriptif du domaine, **emplacements**) et les
 statistiques. Il voit les emplacements (section de la fiche, filtre de la
@@ -916,8 +921,9 @@ et délai bornés.
 **Comptes et administration.** Toute adresse Google peut demander l'accès ;
 le compte reste **en attente** jusqu'à ce qu'un administrateur le valide. Les
 adresses de `ADMIN_EMAILS` sont actives et administratrices dès leur première
-connexion, et une adresse invitée par un propriétaire est active d'emblée,
-en lecture seule sur la cave qui l'a invitée. L'espace `/admin` (carte *Application* des *Réglages*) réunit, pour les
+connexion, et une adresse invitée par un propriétaire qui n'a pas encore de
+compte est active d'emblée, en lecture seule sur la cave qui l'a invitée (un
+compte déjà en attente de validation, lui, le reste). L'espace `/admin` (carte *Application* des *Réglages*) réunit, pour les
 administrateurs, trois onglets : *Comptes* (`/admin/comptes`, ouvert par défaut),
 *Coûts de l’IA* (`/admin/couts`) et *Données du vin* (`/admin/donnees`) :
 

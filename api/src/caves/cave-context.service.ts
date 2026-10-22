@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CaveRole } from '@prisma/client';
+import { CaveRole, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { mainCaveId } from './main-cave';
 
@@ -48,6 +48,30 @@ export class CaveContextService {
     const pick = sessionCaveId ? rows.find((r) => r.id === sessionCaveId) : undefined;
     const row = pick ?? rows.find((r) => r.role === 'OWNER') ?? rows[0];
     return row ? { caveId: row.id, role: row.role } : null;
+  }
+
+  /**
+   * Acceptation des invitations : les invitations en attente adressées à
+   * `email` sont rattachées au compte. Appelée pour un compte actif seulement,
+   * quand il ouvre l'application (/auth/me) : tant qu'un compte est en attente
+   * de validation, ses invitations restent en attente, et le propriétaire qui
+   * l'a invité ne voit que l'adresse saisie. Une invitation vers une cave dont
+   * le compte est déjà membre (unicité cave + compte) est simplement retirée.
+   */
+  async acceptInvitations(userId: string, email: string): Promise<void> {
+    const invitations = await this.prisma.caveMember.findMany({
+      where: { userId: null, invitedEmail: { equals: email, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    for (const { id } of invitations) {
+      try {
+        // Conditionnelle : une invitation retirée entre-temps n'est pas recréée.
+        await this.prisma.caveMember.updateMany({ where: { id, userId: null }, data: { userId, invitedEmail: null } });
+      } catch (e) {
+        if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002')) throw e;
+        await this.prisma.caveMember.deleteMany({ where: { id, userId: null } });
+      }
+    }
   }
 
   /** Caves du compte par date d'ajout ; pour le compte de secours, la cave principale en OWNER. */
