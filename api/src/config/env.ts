@@ -17,6 +17,11 @@ const lightModel = z.string().refine(isLightModel, { message: 'seuls les modèle
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().default(3000),
+  // Nombre de proxys de confiance devant l'api (`trust proxy` d'Express) :
+  // Nginx Proxy Manager puis le nginx du conteneur web, soit 2. Trop bas, tous
+  // les visiteurs partagent l'adresse du conteneur web (limiteur de débit
+  // commun) ; trop haut, un client peut choisir son adresse via X-Forwarded-For.
+  TRUST_PROXY_HOPS: emptyToUndefined(z.coerce.number().int().min(0).max(10).default(2)),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
   SESSION_SECRET: z.string().min(32),

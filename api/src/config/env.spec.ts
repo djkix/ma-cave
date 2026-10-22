@@ -32,6 +32,14 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ DATABASE_URL: minimal.DATABASE_URL })).toThrow();
   });
 
+  it('TRUST_PROXY_HOPS : 2 par défaut (NPM puis nginx du conteneur web), vide = défaut', () => {
+    expect(parseEnv(minimal).TRUST_PROXY_HOPS).toBe(2);
+    expect(parseEnv({ ...minimal, TRUST_PROXY_HOPS: '' }).TRUST_PROXY_HOPS).toBe(2);
+    expect(parseEnv({ ...minimal, TRUST_PROXY_HOPS: '1' }).TRUST_PROXY_HOPS).toBe(1);
+    expect(() => parseEnv({ ...minimal, TRUST_PROXY_HOPS: 'true' })).toThrow();
+    expect(() => parseEnv({ ...minimal, TRUST_PROXY_HOPS: '-1' })).toThrow();
+  });
+
   it('defaults ADMIN_EMAILS to an empty string when absent', () => {
     const env = parseEnv(minimal);
     expect(env.ADMIN_EMAILS).toBe('');

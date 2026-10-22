@@ -977,6 +977,7 @@ openssl rand -hex 32
 | `WEB_ORIGIN` | `https://cave.example.org` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | valeurs de l'étape 3 |
 | `GOOGLE_CALLBACK_URL` | `https://cave.example.org/api/auth/google/callback`, **identique** à l'URI déclaré chez Google |
+| `TRUST_PROXY_HOPS` | `2` : nombre de proxys devant l'api (NPM puis le nginx du conteneur `web`), pour retrouver l'adresse réelle du client ; ne changer que si un proxy est ajouté ou retiré |
 | `BREAK_GLASS_EMAIL` / `BREAK_GLASS_PASSWORD` | compte local de secours (mot de passe de 12 caractères minimum), connexion par `/login?secours` ; laisser vide pour n'en créer aucun |
 | `ADMIN_EMAILS` | adresses administratrices, séparées par des virgules, en minuscules ; seule façon de désigner un administrateur (voir étape 7) |
 | `GEMINI_API_KEY` | clé Google AI Studio |
