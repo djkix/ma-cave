@@ -1101,6 +1101,38 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 À lire avant une mise à jour qui change de version mineure. Les sections
 vont de la plus récente à la plus ancienne.
 
+### Passage à la version suivant la 2.26.0 (correctifs de sécurité)
+
+Aucune migration de base. Trois points à vérifier **avant** `docker compose up -d` :
+
+1. **Port publié** : le `docker-compose.yml` ne publie plus le port web que sur
+   `WEB_BIND` (`127.0.0.1` par défaut). NPM tournant sur une autre machine,
+   ajouter au `.env` l'adresse de la VM sur le réseau local, sinon le site
+   devient injoignable (502 côté NPM) :
+
+   ```bash
+   echo 'WEB_BIND=<adresse IP de la VM>' >> /opt/stacks/ma-cave/.env
+   ```
+
+   et n'ouvrir `WEB_PORT` qu'à l'hôte de NPM dans le pare-feu de la VM.
+2. **Proxys de confiance** : `TRUST_PROXY_HOPS` vaut `2` par défaut (NPM puis
+   le nginx du conteneur `web`) ; rien à faire tant que la chaîne de proxys
+   est celle-ci.
+3. **Compte `node`** : l'api et le worker ne tournent plus en root. Au premier
+   démarrage, l'entrypoint remet le volume `photo_data` (créé en root par les
+   versions précédentes) au compte `node`, ce qui peut prendre quelques
+   secondes avec beaucoup de photos (« remis au compte node » dans les
+   journaux). Pour le faire à la main plutôt :
+
+   ```bash
+   cd /opt/stacks/ma-cave && docker compose run --rm --no-deps --entrypoint chown api -R node:node /data/photos
+   ```
+
+Le conteneur `web` envoie désormais une Content-Security-Policy stricte (seules
+l'origine et les polices Google sont autorisées) : après la mise à jour, ouvrir
+la console du navigateur sur quelques écrans (connexion, fiche d'un vin, photo,
+plan) et vérifier l'absence d'erreur « Content Security Policy ».
+
 ### Passage à la 2.24.0 (noms des cases)
 
 Une migration, **additive** et appliquée toute seule au démarrage de l'api,
