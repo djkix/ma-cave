@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.27.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.28.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -783,6 +783,15 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.28.0 — 22 octobre 2026
+
+Publiée ([v2.28.0](https://github.com/djkix/ma-cave/releases/tag/v2.28.0)),
+images `ghcr.io/djkix/ma-cave-api:2.28.0` et `-web:2.28.0`.
+
+**Cote sur iDealwine, Wine-Searcher ou Vivino**, source affichée ; **ajuster
+les cases sur le plan** (déplacer, ajouter, voir tout le plan). Aucune
+migration.
+
 ### 2.27.0 — 22 octobre 2026
 
 Publiée ([v2.27.0](https://github.com/djkix/ma-cave/releases/tag/v2.27.0)),
@@ -859,6 +868,9 @@ images `ghcr.io/djkix/ma-cave-api:2.19.0` et `-web:2.19.0`.
 liste de Google) ; `GEMINI_PLAN_MODEL` retirée. Migration automatique : lire
 « Passage à la 2.19.0 ».
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.18.1 → 1.0.0)</summary>
+
 ### 2.18.1 — 21 octobre 2026
 
 Publiée ([v2.18.1](https://github.com/djkix/ma-cave/releases/tag/v2.18.1)),
@@ -867,9 +879,6 @@ images `ghcr.io/djkix/ma-cave-api:2.18.1` et `-web:2.18.1`.
 **Gemini Flash ou Lite seulement** : un modèle Pro est refusé au démarrage,
 tarif Pro retiré.
 
-
-<details>
-<summary><strong>Versions antérieures</strong> (2.18.0 → 1.0.0)</summary>
 
 ### 2.18.0 — 21 octobre 2026
 

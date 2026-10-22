@@ -11,6 +11,22 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.28.0](https://github.com/djkix/ma-cave/compare/v2.27.0...v2.28.0) (2026-10-22)
 
+### Résumé
+
+**Cote sur plusieurs sites.** Le bloc « Cote » de la fiche vin propose des
+liens vers **iDealwine**, **Wine-Searcher** et **Vivino** ; la source de la
+cote saisie est déduite du lien et affichée. La valeur de cession (cote ÷ 1,16)
+ne vaut plus que pour les cotes iDealwine ou sans lien, y compris dans les
+statistiques.
+
+**Ajuster les cases sur le plan.** Depuis « Modifier la zone », toucher une
+case puis sa nouvelle place, ou poser une case que l'analyse n'a pas repérée ;
+« Voir tout le plan » sort du cadre du casier, et une confirmation évite de
+perdre ses changements en fermant. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
