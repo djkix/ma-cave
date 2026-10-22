@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import { LabelBox } from '../vision/vision-provider.interface';
+import { MAX_INPUT_PIXELS } from './image-normalization.service';
 
 /** Taille maximale (plus grand côté) de la version d'affichage. */
 const DISPLAY_MAX_SIDE = 1200;
@@ -83,10 +84,10 @@ export function grayWorldFactors(means: [number, number, number]): [number, numb
  * 1200 px au plus, JPEG qualité 85. Lève si l'image est illisible.
  */
 export async function buildDisplayImage(input: Buffer, box: LabelBox | null): Promise<Buffer> {
-  const { width, height } = await sharp(input).metadata();
+  const { width, height } = await sharp(input, { limitInputPixels: MAX_INPUT_PIXELS }).metadata();
   if (!width || !height) throw new Error('Dimensions de l’image inconnues');
 
-  let base = sharp(input).removeAlpha();
+  let base = sharp(input, { limitInputPixels: MAX_INPUT_PIXELS }).removeAlpha();
   if (plausibleLabelBox(box)) base = base.extract(cropRect(box, width, height));
   // Matérialisé avant les statistiques : la balance des blancs se calcule sur
   // l'étiquette recadrée, pas sur le décor autour.

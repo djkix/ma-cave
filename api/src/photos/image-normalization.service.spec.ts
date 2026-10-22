@@ -38,4 +38,10 @@ describe('ImageNormalizationService', () => {
     expect(out).toMatchObject({ width: 100, height: 300 });
     expect(await sharp(out.buffer).metadata()).toMatchObject({ width: 100, height: 300 });
   });
+
+  it('refuse une image de plus de 40 Mpx avant de la décoder (bombe de décompression)', async () => {
+    // 6 400 × 6 400 = 41 Mpx : quelques kilo-octets en PNG, 120 Mo une fois décodée.
+    const bomb = await sharp({ create: { width: 6400, height: 6400, channels: 3, background: '#000' } }).png({ compressionLevel: 1 }).toBuffer();
+    await expect(service.normalize(bomb)).rejects.toThrow(/pixel limit/i);
+  });
 });
