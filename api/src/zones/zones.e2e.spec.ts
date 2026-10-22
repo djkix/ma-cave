@@ -17,7 +17,7 @@ import { CurrentCaveZonesController } from './zones.controller';
 // qui possède C et est membre de A (photo lue hors de la cave courante).
 const describeIfInfra = process.env.DATABASE_URL && process.env.REDIS_URL ? describe : describe.skip;
 
-interface Zone { id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; grid: { rows: number; cols: number } | null }
+interface Zone { id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; grid: { rows: number; cols: number } | null; cellNames: Record<string, string> }
 
 describeIfInfra('zones de la cave (HTTP)', () => {
   let app: INestApplication;
@@ -118,13 +118,13 @@ describeIfInfra('zones de la cave (HTTP)', () => {
     it('crée une zone en fin de liste, avec ou sans indication ; le membre lit la liste mais ne crée rien', async () => {
       const a = await newZone(`Liste ${run} 1`, '  à gauche en entrant  ');
       const b = await newZone(`Liste ${run} 2`);
-      expect(a).toEqual({ id: expect.any(String), name: `Liste ${run} 1`, indication: 'à gauche en entrant', hasPhoto: false, sortOrder: expect.any(Number), marker: null, grid: null });
+      expect(a).toEqual({ id: expect.any(String), name: `Liste ${run} 1`, indication: 'à gauche en entrant', hasPhoto: false, sortOrder: expect.any(Number), marker: null, grid: null, cellNames: {} });
       expect(b.indication).toBeNull();
       expect(b.sortOrder).toBe(a.sortOrder + 1);
       const listed = await zones(viewerA);
       expect(listed.map((z) => z.id)).toEqual(expect.arrayContaining([a.id, b.id]));
       expect(listed.findIndex((z) => z.id === a.id)).toBeLessThan(listed.findIndex((z) => z.id === b.id));
-      expect(Object.keys(listed[0]).sort()).toEqual(['grid', 'hasPhoto', 'id', 'indication', 'marker', 'name', 'sortOrder']);
+      expect(Object.keys(listed[0]).sort()).toEqual(['cellNames', 'grid', 'hasPhoto', 'id', 'indication', 'marker', 'name', 'sortOrder']);
       expectStatus(await create('Interdite', undefined, viewerA), 403, 'Lecture seule');
       expect((await zones()).some((z) => z.name === 'Interdite')).toBe(false);
     });
@@ -187,6 +187,85 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       expectStatus(await patch(z.id, { grid: null }, viewerA), 403, 'Lecture seule');
       expectStatus(await patch(z.id, { grid: null }, ownerB), 404, 'Zone introuvable');
       expect((await zones()).find((x) => x.id === z.id)?.grid).toEqual({ rows: 2, cols: 3 });
+    });
+  });
+
+  describe('noms des cases', () => {
+    const patch = (id: string, body: unknown, agent: supertest.Agent = ownerA) => agent.patch(`/api/caves/current/zones/${id}`).send(body as object);
+
+    it('PATCH `cellNames` remplace les noms (codes en majuscules, vide = sans nom) ; le membre les lit, ne les change pas', async () => {
+      const z = await newZone(`Noms ${run}`);
+      expect((await patch(z.id, { grid: { rows: 3, cols: 4 } })).body.cellNames).toEqual({});
+      const res = await patch(z.id, { cellNames: { b3: ' Champagnes ', A1: 'Bordeaux', C4: '' } });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ grid: { rows: 3, cols: 4 }, cellNames: { B3: 'Champagnes', A1: 'Bordeaux' } });
+      expect((await patch(z.id, { cellNames: { B3: 'Champagnes' } })).body.cellNames).toEqual({ B3: 'Champagnes' });
+      expect((await patch(z.id, { name: `Noms ${run} bis` })).body.cellNames).toEqual({ B3: 'Champagnes' });
+      expect((await zones(viewerA)).find((x) => x.id === z.id)?.cellNames).toEqual({ B3: 'Champagnes' });
+      expectStatus(await patch(z.id, { cellNames: {} }, viewerA), 403, 'Lecture seule');
+      expectStatus(await patch(z.id, { cellNames: {} }, ownerB), 404, 'Zone introuvable');
+    });
+
+    it('400 : case hors grille, nom déjà pris (casse ignorée) ou égal au code d’une autre case, nom trop long ; rien ne change', async () => {
+      const z = await newZone(`Noms refus ${run}`);
+      await patch(z.id, { grid: { rows: 2, cols: 2 }, cellNames: { A1: 'Loire' } });
+      expectStatus(await patch(z.id, { cellNames: { C1: 'X' } }), 400, 'Case inconnue dans cette zone');
+      expectStatus(await patch(z.id, { cellNames: { A1: 'Loire', B2: 'LOIRE' } }), 400, 'Ce nom est déjà pris dans cette zone');
+      expectStatus(await patch(z.id, { cellNames: { A1: 'b2' } }), 400, 'Ce nom est déjà pris dans cette zone');
+      expectStatus(await patch(z.id, { cellNames: { A1: 'x'.repeat(41) } }), 400, 'Le nom d\'une case fait 40 caractères au plus');
+      // Grille retirée et noms dans la même demande : les noms visent la nouvelle grille.
+      expectStatus(await patch(z.id, { grid: null, cellNames: { A1: 'Loire' } }), 400, 'Case inconnue dans cette zone');
+      expect((await zones()).find((x) => x.id === z.id)).toMatchObject({ grid: { rows: 2, cols: 2 }, cellNames: { A1: 'Loire' } });
+    });
+
+    it('réduire la grille supprime les noms des cases disparues ; la retirer, tous', async () => {
+      const z = await newZone(`Noms grille ${run}`);
+      await patch(z.id, { grid: { rows: 3, cols: 3 }, cellNames: { A1: 'Bordeaux', C3: 'Champagnes' } });
+      expect((await patch(z.id, { grid: { rows: 2, cols: 3 } })).body.cellNames).toEqual({ A1: 'Bordeaux' });
+      expect((await patch(z.id, { grid: null })).body.cellNames).toEqual({});
+    });
+
+    it('libellé « Nom (code) » partout ; « Champagnes » saisi dans casier désigne la case B3', async () => {
+      const z = await newZone(`Noms libellé ${run}`);
+      await patch(z.id, { grid: { rows: 3, cols: 4 }, cellNames: { B3: 'Champagnes' } });
+      const res = await entry({ zoneId: z.id, casier: 'b3', position: '2' }, 2);
+      const wineId = res.body.wine.id;
+      const year = new Date().getFullYear();
+      expect((await ownerA.put(`/api/wines/${wineId}/apogee`).send({ min: year - 5, max: year })).status).toBe(200);
+      const label = `Noms libellé ${run} / Champagnes (B3) / 2`;
+      const detail = (await wine(wineId)).body;
+      expect(detail.locations).toEqual([{ id: expect.any(String), label, quantity: 2, zoneId: z.id }]);
+      expect(detail.movements[0].locationLabel).toBe(label);
+      const journal = (await ownerA.get('/api/movements/recent?limit=100')).body;
+      expect(journal.find((m: { wine: { id: string } }) => m.wine.id === wineId).locationLabel).toBe(label);
+      const listed = (await ownerA.get('/api/locations')).body.find((l: { id: string }) => l.id === detail.locations[0].id);
+      expect(listed).toEqual({ id: detail.locations[0].id, zoneId: z.id, zone: `Noms libellé ${run}`, casier: 'b3', position: '2', label, lastUsed: true });
+      const soon = (await ownerA.get('/api/cave?drinkSoon=true')).body.find((w: { id: string }) => w.id === wineId);
+      expect(soon.places[0].label).toBe(label);
+
+      // Saisie par le nom : même emplacement, enregistré sous le code.
+      const byName = await entry({ zoneId: z.id, casier: ' champagnes ', position: '2' }, 1);
+      expect((await wine(byName.body.wine.id)).body.locations[0]).toMatchObject({ id: detail.locations[0].id, label });
+      const fresh = await entry({ zoneId: z.id, casier: 'Champagnes' }, 1);
+      const loc = await prisma.location.findFirst({ where: { zoneId: z.id, position: null } });
+      expect(loc?.casier).toBe('B3');
+      expect((await wine(fresh.body.wine.id)).body.locations[0].label).toBe(`Noms libellé ${run} / Champagnes (B3)`);
+      // Les cases occupées restent comptées par code.
+      expect((await ownerA.get(`/api/caves/current/zones/${z.id}/cells`)).body).toEqual([{ casier: 'B3', quantity: 4 }]);
+
+      const xlsx = await ownerA.get('/api/export.xlsx').buffer(true).parse((r, cb) => {
+        const chunks: Buffer[] = [];
+        r.on('data', (c: Buffer) => chunks.push(c));
+        r.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
+      const wb = new ExcelJS.Workbook();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- voir export.service.spec
+      await wb.xlsx.load(xlsx.body as any);
+      const stock = wb.getWorksheet('Stock')!;
+      const col = (stock.getRow(1).values as unknown[]).slice(1).indexOf('Emplacements') + 1;
+      const cells: unknown[] = [];
+      stock.eachRow((row) => cells.push(row.getCell(col).value));
+      expect(cells).toContain(`${label} × 2`);
     });
   });
 

@@ -10,7 +10,7 @@ import { ImageNormalizationService } from '../photos/image-normalization.service
 import { PHOTO_STORAGE_DIR } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  CreateZoneInput, PLAN_NOT_FOUND, UpdateZoneInput, ZONE_NAME_TAKEN, ZONE_NOT_FOUND, ZONE_PHOTO_NOT_FOUND, zonePhotoPath, ZoneView, zoneView,
+  cellNamesFor, CellNames, CreateZoneInput, keptCellNames, PLAN_NOT_FOUND, UpdateZoneInput, ZONE_NAME_TAKEN, ZONE_NOT_FOUND, ZONE_PHOTO_NOT_FOUND, zonePhotoPath, ZoneView, zoneView,
 } from './zone';
 
 function isUniqueViolation(e: unknown): boolean {
@@ -95,9 +95,18 @@ export class ZonesService {
     }
   }
 
-  /** Renommer, changer l'indication ou la grille (`null` la retire) : le nouveau nom vaut partout, l'emplacement ne change pas. */
+  /**
+   * Renommer, changer l'indication, la grille (`null` la retire) ou les noms des
+   * cases (remplacement complet, vérifiés contre la grille qui en résulte) : le
+   * nouveau nom vaut partout, l'emplacement ne change pas. Une grille réduite
+   * perd les noms des cases disparues.
+   */
   async update(caveId: string, id: string, input: UpdateZoneInput): Promise<ZoneView> {
-    await this.findOwn(caveId, id);
+    const current = await this.findOwn(caveId, id);
+    const grid = input.grid !== undefined ? input.grid : zoneView(current).grid;
+    const cellNames: CellNames | undefined =
+      input.cellNames !== undefined ? cellNamesFor(input.cellNames, grid)
+        : input.grid !== undefined ? keptCellNames(zoneView(current).cellNames, grid) : undefined;
     try {
       // updateMany : la condition de cave et « non archivée » est vérifiée au moment de l'écriture.
       const { count } = await this.prisma.caveZone.updateMany({
@@ -106,6 +115,7 @@ export class ZonesService {
           ...(input.name !== undefined ? { name: input.name } : {}),
           ...(input.indication !== undefined ? { indication: input.indication } : {}),
           ...(input.grid !== undefined ? { gridRows: input.grid?.rows ?? null, gridCols: input.grid?.cols ?? null } : {}),
+          ...(cellNames !== undefined ? { cellNames } : {}),
         },
       });
       if (count === 0) throw new NotFoundException(ZONE_NOT_FOUND);
