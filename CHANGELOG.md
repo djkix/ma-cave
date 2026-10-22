@@ -11,6 +11,19 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.31.0](https://github.com/djkix/ma-cave/compare/v2.30.0...v2.31.0) (2026-10-22)
 
+### Résumé
+
+**Emplacement au doigt.** À l'entrée, dans « À confirmer », pour « Vers »
+quand on déplace une bouteille et quand on corrige le stock à la hausse, le
+sélecteur « Où est la bouteille ? » montre la photo du plan (un onglet par
+plan à casiers) : on touche la case, elle s'allume, et une ligne confirme la
+zone, la case et les bouteilles déjà rangées. « Saisir à la main » rouvre les
+anciens champs, d'office pour une zone sans plan ou une case non repérée.
+Données inchangées, aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
