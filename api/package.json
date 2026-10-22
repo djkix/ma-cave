@@ -18,10 +18,10 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
-    "@nestjs/common": "^10.4.0",
-    "@nestjs/core": "^10.4.0",
-    "@nestjs/passport": "^10.0.3",
-    "@nestjs/platform-express": "^10.4.0",
+    "@nestjs/common": "^11.2.7",
+    "@nestjs/core": "^11.2.7",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/platform-express": "^11.2.7",
     "@nestjs/throttler": "^6.7.0",
     "@prisma/client": "^5.20.0",
     "argon2": "^0.41.0",
@@ -30,7 +30,7 @@
     "exceljs": "^4.4.0",
     "express-session": "^1.18.0",
     "ioredis": "^5.4.1",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.5.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "prisma": "^5.20.0",
@@ -40,9 +40,9 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@nestjs/cli": "^10.4.0",
-    "@nestjs/testing": "^10.4.0",
-    "@types/express": "^4.17.21",
+    "@nestjs/cli": "^11.0.24",
+    "@nestjs/testing": "^11.2.7",
+    "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.0",
     "@types/jest": "^29.5.12",
     "@types/multer": "^1.4.12",
@@ -58,5 +58,8 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.5.4"
+  },
+  "overrides": {
+    "multer": "$multer"
   }
 }
