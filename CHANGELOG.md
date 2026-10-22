@@ -11,6 +11,15 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.25.0](https://github.com/djkix/ma-cave/compare/v2.24.0...v2.25.0) (2026-10-22)
 
+### Résumé
+
+**Onglet Réglages.** La barre du bas gagne un sixième onglet, *Réglages* (l'ancien
+« Mon compte » : Moi, Ma cave, Application, À propos), allumé sur tous ses écrans. Dans
+les Réglages, la version de l'application (« v2.25.0 ») s'affiche en haut à droite à la
+place de l'icône du compte. **Heure de reprise juste après minuit** : une attente de
+quota qui finit un autre jour dit « reprise jeudi à 09:00 » plutôt que « demain », qui
+devenait faux une fois le message enregistré sur la photo. Aucune migration.
+
 
 ### Fonctionnalités
 
