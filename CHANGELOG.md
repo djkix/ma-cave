@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.26.0](https://github.com/djkix/ma-cave/compare/v2.25.0...v2.26.0) (2026-10-22)
+
+
+### Fonctionnalités
+
+* **web:** plus d'icône du compte en haut à droite, l'onglet Réglages y mène (gardée pour un compte sans cave) ([5082ea2](https://github.com/djkix/ma-cave/commit/5082ea255680ff7d616f0b60542f7ca3ec97f877))
+
 ## [2.25.0](https://github.com/djkix/ma-cave/compare/v2.24.0...v2.25.0) (2026-10-22)
 
 ### Résumé
