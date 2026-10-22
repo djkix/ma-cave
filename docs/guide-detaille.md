@@ -131,26 +131,35 @@ photo ; lignes × colonnes pour une proposition d'avant), et une ligne au-dessus
 annonce « 3 zones proposées : touchez-les pour les accepter. ». Toucher un cadre
 ouvre la feuille **Proposition** : *Nom* (prérempli : « Casier A », « Étagère B »,
 « Rangement C »… de gauche à droite, en sautant les lettres déjà prises),
-*Lignes* et *Colonnes* (préremplis), aperçu « Cases A1 à F4 », ce que l'IA a
+*Lignes* et *Colonnes* (préremplis), *Lettre des cases* (voir plus bas), aperçu « Cases C1 à C48 », ce que l'IA a
 vu (« 48 cases repérées sur la photo · grille proposée : 4 rangées × 12
 colonnes »), puis *Accepter*
-(crée la zone avec son repère au centre du cadre et sa grille) ou *Rejeter*
+(crée la zone avec son repère au centre du cadre et sa grille ; **les positions
+des cases restent alors sur le plan**, dessinées en points avec leur nom) ou *Rejeter*
 (retire la proposition). Tant que la feuille est ouverte, chaque case repérée
 est dessinée sur le plan : cadre fin, **point au centre et nom de la case**
-(« B3 », le nom même qu'on choisira en rangeant une bouteille dans la zone
+(« C15 », le nom même qu'on choisira en rangeant une bouteille dans la zone
 acceptée ; nom masqué quand la case fait moins de 24 px de large, point seul).
 La feuille reprend ce plan, recadré sur la proposition (cases aussi grandes que
 possible), et la liste « Noms des cases » de la grille saisie (un champ par
 case, le code en placeholder) : toucher un point met le focus sur le champ de
 sa case, le point affiche ensuite le nom donné, et les noms partent avec
 *Accepter* (voir « Noms des cases » ci-dessous). Le propriétaire seul accepte ou rejette ; un nom déjà
-pris est refusé (« Une zone porte déjà ce nom »). Les cases se nomment en
-lignes × colonnes : A1, A2… pour la première ligne, B1, B2… pour la deuxième
-(1 à 26 lignes, 1 à 30 colonnes ; les cases sont calculées, jamais stockées).
+pris est refusé (« Une zone porte déjà ce nom »). Les cases se numérotent **par casier,
+rangée par rangée** : avec la lettre C et 12 colonnes, C1 en haut à gauche, C12 au
+bout de la première rangée, C13 au début de la deuxième, jusqu'à C48
+(1 à 26 lignes, 1 à 30 colonnes ; les codes sont calculés, seules les positions
+sur le plan sont stockées, colonne `cell_boxes`).
 Au démarrage du worker, les analyses restées en attente sont **remises en file**.
 
 **Grille d'une zone.** *Modifier la zone* (carte *Zones*) propose *Lignes* et
-*Colonnes* (vides = pas de grille) avec l'aperçu des cases. **Ranger une
+*Colonnes* (vides = pas de grille) et *Lettre des cases* avec l'aperçu des cases.
+La lettre (A à Z) est choisie automatiquement (la lettre finale du nom, « Casier C »
+→ C, sinon la première libre) ; deux zones actives d'une même cave ne la partagent
+pas (« Cette lettre est déjà prise par une autre zone »). La changer renomme les
+noms, positions et emplacements de la zone (C15 devient F15) ; retirer la grille
+efface la lettre, les noms et les positions. Une zone à grille d'avant la 2.27.0
+n'a pas de lettre et se lit avec « A ». **Ranger une
 bouteille** dans une zone qui a une grille (entrée, *Déplacer*, emplacements de
 la fiche vin) : sous le champ *Casier*, une grille de cases à toucher (48 px
 minimum, défilement horizontal si elle est large) ; une case occupée affiche le
@@ -158,25 +167,31 @@ nombre de bouteilles qu'elle contient, la case choisie est mise en avant et
 remplit *Casier*, dont la liste de suggestions propose aussi les cases. La saisie
 libre reste possible ; une zone sans grille ne change pas.
 
-**Noms des cases.** Chaque case garde son code (A1, B3…), qui reste la valeur
+**Vignette de la fiche vin.** Pour une bouteille rangée dans une zone placée sur
+un plan, la fiche vin montre le plan **recadré sur la zone** (sur ses cases, ou
+autour du repère quand elle n'en a pas), avec la case de la bouteille en évidence
+et une légende donnant l'endroit. Zone sans repère : pas de vignette. Toucher la
+vignette affiche le plan entier.
+
+**Noms des cases.** Chaque case garde son code (C1, C15…), qui reste la valeur
 enregistrée dans *Casier* ; on peut lui donner en plus un nom libre
 (« Champagnes », 40 caractères au plus), simple libellé d'affichage qui ne
 déplace aucune bouteille. Les noms se donnent dans la feuille *Proposition*
 (liste des cases, sous le plan recadré), dans *Modifier la zone* (section « Noms des cases » : un
 champ facultatif par case, le code en placeholder) ou sous la grille de
 rangement (*Renommer les cases*, propriétaire seulement). Partout, un
-emplacement s'affiche alors **« Nom (code) »** : « Cave / Champagnes (B3) / 2 »
+emplacement s'affiche alors **« Nom (code) »** : « Cave / Champagnes (C15) / 2 »
 sur la fiche vin, *À boire*, le journal, « D'où sort-elle ? » et l'export Excel
-(sans nom : « B3 »). La grille de rangement montre le nom et le petit code ;
+(sans nom : « C15 »). La grille de rangement montre le nom et le petit code ;
 *Casier* propose noms et codes, et **saisir le nom** (casse ignorée) range dans
-la case : l'api enregistre le code, « Champagnes » et « B3 » sont donc le même
+la case : l'api enregistre le code, « Champagnes » et « C15 » sont donc le même
 emplacement. Des bouteilles rangées plus tôt sous un casier libre « Champagnes »
 (avant que la case porte ce nom) restent un emplacement à part : *Déplacer* les
 regroupe dans la case. Règles : un nom vide retire le nom ; deux cases d'une même zone ne
 portent pas le même nom (casse ignorée), ni un nom égal au code d'une autre case
 (« Ce nom est déjà pris dans cette zone ») ; une case hors de la grille est
 refusée (« Case inconnue dans cette zone ») ; réduire la grille supprime les
-noms des cases disparues. API : `cellNames` (`{ "B3": "Champagnes" }`) dans
+noms des cases disparues. API : `cellNames` (`{ "C15": "Champagnes" }`) dans
 chaque zone, accepté (remplacement complet) par `PATCH
 /api/caves/current/zones/:id` et par `POST
 /api/caves/current/plans/:id/suggestions/:sid/accept`.
@@ -276,7 +291,7 @@ grand nombre de cases empilées (rangées) ou côte à côte (colonnes), et les 
 y sont numérotées par leur rang dans une rangée (ou colonne) complète, sans nom
 ailleurs. Une case haute de deux rangées prend le nom de celle du haut. Chaque proposition garde aussi `cellCount` (cases
 valides repérées) et `cells` (200 au plus) : cadre de chaque case, sa rangée et
-sa colonne, et son nom dans la grille (« A1 » en haut à gauche) ; une case dont
+sa colonne, et son numéro dans la grille (1 en haut à gauche, rangée par rangée) ; une case dont
 la rangée ou la colonne reste indéterminée garde son cadre, sans nom. Un meuble
 de moins de deux cases est ignoré. Le reste (nommage « Casier A », états, garde par date de demande) ne
 change pas. L'analyse des plans emploie le modèle choisi dans l'Administration
@@ -1094,6 +1109,33 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 
 À lire avant une mise à jour qui change de version mineure. Les sections
 vont de la plus récente à la plus ancienne.
+
+### Passage à la 2.27.0 (cases numérotées par casier)
+
+Une migration, **additive** et appliquée toute seule au démarrage de l'api,
+sans rien modifier ni supprimer : `20261025000000_cases_visuelles` ajoute aux
+zones `cave_zone` la colonne `cell_prefix` (la lettre des cases, `NULL` sans
+grille ; une lettre de A à Z, vérifiée par la contrainte
+`cave_zone_cell_prefix_check`, unique parmi les zones non archivées d'une cave
+grâce à l'index unique partiel `cave_zone_cave_id_cell_prefix_key`) et la
+colonne `cell_boxes` (JSONB, `{}` par défaut : les positions des cases sur le
+plan ; un objet JSON, vérifié par `cave_zone_cell_boxes_check`). Les
+emplacements existants ne changent pas. Par précaution, sauvegarder avant la
+mise à jour :
+
+```bash
+cd /opt/stacks/ma-cave && docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' | gzip > backups/cave-avant-2.27.0.sql.gz
+```
+
+**À faire après la mise à jour.** Les codes des cases sont désormais numérotés
+par casier, rangée par rangée (C1…C48), et non plus « rangée + colonne » (B3) :
+les zones à grille existantes n'ont ni lettre ni position et se lisent avec la
+lettre A. Supprimer ces zones (*Réglages → Ma cave*), puis relancer l'analyse du
+plan et accepter de nouveau les propositions, qui gardent leurs cases sur le plan.
+
+**Retour arrière vers une image 2.26.x** (sans restaurer la sauvegarde) : les
+colonnes `cell_prefix` et `cell_boxes` sont ignorées et les codes sont lus comme
+« rangée + colonne ».
 
 ### Passage à la 2.24.0 (noms des cases)
 

@@ -28,7 +28,7 @@
 │                                                      │
 │ À boire prochainement                                │
 │   Domaine A · Cuvée 2014                  Cave 1 / A │
-│   Domaine B · 2016          Garage / Champagnes (B3) │
+│   Domaine B · 2016          Garage / Champagnes (C15) │
 │                                        Tout voir (7) │
 │                                                      │
 │ DERNIERS MOUVEMENTS                                  │
@@ -144,7 +144,8 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Zones** : nom, indication, photo, ordre ; archivées si elles ont servi
 - **Jusqu'à 20 plans** par cave, **repères numérotés** des zones
 - **Propositions de zones** : Gemini repère les casiers sur la photo du plan
-- **Grille de cases** (A1, B3…) à toucher pour ranger, **noms de cases** (« Champagnes (B3) »)
+- **Grille de cases** numérotées par casier, rangée par rangée (C1…C48, *Lettre des cases* au choix), à toucher pour ranger ; **noms de cases** (« Champagnes (C15) »)
+- Cases **gardées sur le plan** après acceptation ; **vignette recadrée** sur la zone dans la fiche vin
 
 ### 📊 Statistiques
 - Bouteilles, références, **valeur au prix d'achat** et **à la cote** (propriétaire)
@@ -580,6 +581,7 @@ Versions avec migration ou geste particulier :
 
 | Version | À retenir |
 |---------|-----------|
+| [2.27.0](docs/guide-detaille.md#passage-à-la-2270-cases-numérotées-par-casier) | Colonnes `cell_prefix` et `cell_boxes` des zones, additive ; **supprimer les zones à grille et relancer l'analyse du plan** |
 | [2.24.0](docs/guide-detaille.md#passage-à-la-2240-noms-des-cases) | Colonne `cell_names` des zones, additive |
 | [2.19.0](docs/guide-detaille.md#passage-à-la-2190-modèle-de-lia-dans-ladministration) | Colonne `model` du journal Gemini, `GEMINI_PLAN_MODEL` retirée |
 | [2.17.0](docs/guide-detaille.md#passage-à-la-2170-analyse-du-plan-plus-visible) | État d'analyse des plans, additive |
