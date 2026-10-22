@@ -982,6 +982,9 @@ cave et celles où il est invité, comme tout compte.
 
 Seul le port `3100` est joint par Nginx Proxy Manager, qui termine TLS et garde
 80/443. Aucune autre ouverture n'est nécessaire sur la box.
+Le port n'est publié que sur l'adresse `WEB_BIND` (`127.0.0.1` par défaut) :
+le conteneur `web` relaie les en-têtes `X-Forwarded-*` qu'il reçoit, il ne doit
+être joignable que par NPM.
 
 ## Déploiement
 
@@ -1058,6 +1061,7 @@ openssl rand -hex 32
 | Variable | Valeur attendue |
 | --- | --- |
 | `WEB_PORT` | port publié sur l'hôte (défaut `3100`), cible du proxy |
+| `WEB_BIND` | adresse de l'hôte où publier ce port : `127.0.0.1` par défaut (NPM sur la même machine, hors Docker) ; **adresse de la VM sur le réseau local** si NPM tourne sur une autre machine, avec un pare-feu qui n'ouvre `WEB_PORT` qu'à l'hôte de NPM |
 | `IMAGE_TAG` | `latest`, ou un numéro de version (`1.0.0`) pour figer le déploiement |
 | `POSTGRES_USER` / `POSTGRES_DB` | `cave` / `cave` |
 | `POSTGRES_PASSWORD` | `openssl rand -hex 24` |
@@ -1150,6 +1154,7 @@ la lui crée.
 
 - *Domain Names* : `cave.example.org`
 - *Scheme* : `http` · *Forward Hostname / IP* : IP de la VM Docker · *Forward Port* : `3100`
+  (la VM doit alors publier le port sur cette adresse : `WEB_BIND` dans le `.env`)
 - *Websockets Support* et *Block Common Exploits* activés
 - Onglet **SSL** : certificat Let's Encrypt, *Force SSL* et HTTP/2 activés
 
