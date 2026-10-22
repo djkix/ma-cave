@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import * as api from '../lib/api-client';
 import type { Location, LocationInput, Zone } from '../lib/api-client';
+import { meFixture, viewerMe } from '../test-fixtures';
 import { EntryLocationBlock, LocationFields } from './LocationFields';
 
 const locations: Location[] = [
@@ -110,6 +111,7 @@ describe('zone avec une grille', () => {
     [...container.querySelector(`datalist#${CSS.escape(screen.getByLabelText('Casier').getAttribute('list')!)}`)!.querySelectorAll('option')].map((o) => o.getAttribute('value'));
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(api, 'getMe').mockResolvedValue(meFixture());
     vi.spyOn(api, 'getZoneCells').mockResolvedValue([{ casier: 'B3', quantity: 2 }, { casier: 'Z9', quantity: 1 }]);
   });
 
@@ -140,6 +142,39 @@ describe('zone avec une grille', () => {
     await userEvent.clear(screen.getByLabelText('Casier'));
     await userEvent.type(screen.getByLabelText('Casier'), 'Haut');
     expect(screen.getByLabelText('Casier')).toHaveValue('Haut');
+  });
+
+  it('cases nommées : le bouton montre le nom et le petit code, Casier propose noms et codes, saisir le nom choisit la case', async () => {
+    const named: Zone[] = [gridZones[0], { ...gridZones[1], cellNames: { B3: 'Champagnes' } }];
+    const { container } = render(<Harness initial={{ zoneId: 'z3', casier: null, position: null }} zoneList={named} block={false} />);
+    const b3 = await screen.findByRole('button', { name: 'Case Champagnes (B3), 2 bouteilles' });
+    expect(b3).toHaveTextContent('ChampagnesB32');
+    expect(casierList(container)).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'Champagnes', 'B']);
+    await userEvent.type(screen.getByLabelText('Casier'), 'champagnes');
+    expect(b3).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('« Renommer les cases » (propriétaire) ouvre la liste des cases ; Enregistrer envoie les noms, le refus de l’api s’affiche tel quel', async () => {
+    const update = vi.spyOn(api, 'updateZone')
+      .mockRejectedValueOnce(new api.ApiError(400, 'Ce nom est déjà pris dans cette zone'))
+      .mockResolvedValue({ ...gridZones[1], cellNames: { A1: 'Bordeaux' } });
+    render(<Harness initial={{ zoneId: 'z3', casier: null, position: null }} zoneList={gridZones} block={false} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Renommer les cases' }));
+    const names = within(screen.getByRole('group', { name: 'Noms des cases' }));
+    expect(names.getAllByRole('textbox')).toHaveLength(6);
+    await userEvent.type(names.getByLabelText('Nom de la case A1'), 'Bordeaux');
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer les noms' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ce nom est déjà pris dans cette zone');
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer les noms' }));
+    await waitFor(() => expect(update).toHaveBeenLastCalledWith('z3', { cellNames: { A1: 'Bordeaux' } }));
+    await waitFor(() => expect(screen.queryByRole('group', { name: 'Noms des cases' })).not.toBeInTheDocument());
+  });
+
+  it('membre : pas de « Renommer les cases »', async () => {
+    vi.spyOn(api, 'getMe').mockResolvedValue(viewerMe());
+    render(<Harness initial={{ zoneId: 'z3', casier: null, position: null }} zoneList={gridZones} block={false} />);
+    await screen.findByRole('button', { name: 'Case B3, 2 bouteilles' });
+    expect(screen.queryByRole('button', { name: 'Renommer les cases' })).not.toBeInTheDocument();
   });
 
   it('zone sans grille : aucune grille, aucune lecture des cases', async () => {

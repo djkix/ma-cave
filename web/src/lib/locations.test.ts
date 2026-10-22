@@ -26,6 +26,12 @@ describe('inputLabel', () => {
     expect(inputLabel({ zoneId: null, casier: null, position: '4' }, zones)).toBe('4');
     expect(inputLabel({ zoneId: null, casier: ' ', position: null }, zones)).toBe('Sans emplacement');
   });
+
+  it('case nommée de la zone : « Nom (code) », saisie par code ou par nom', () => {
+    const named: Zone[] = [{ ...zones[0], grid: { rows: 3, cols: 3 }, cellNames: { B3: 'Champagnes' } }];
+    expect(inputLabel({ zoneId: 'z1', casier: 'b3', position: '2' }, named)).toBe('Cave 2 / Champagnes (B3) / 2');
+    expect(inputLabel({ zoneId: 'z1', casier: 'champagnes', position: null }, named)).toBe('Cave 2 / Champagnes (B3)');
+  });
 });
 
 describe('distinctParts', () => {

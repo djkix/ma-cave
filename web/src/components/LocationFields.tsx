@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Fragment, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getZoneCells, type Location, type LocationInput, type Place, type Zone, zonePhotoUrl } from '../lib/api-client';
-import { cellNames } from '../lib/grid';
+import { cellCodeOf, cellNames } from '../lib/grid';
 import { distinctParts, inputLabel, NO_ZONE, zoneNameOf } from '../lib/locations';
+import { useCurrentCave } from '../lib/use-current-cave';
+import { CellNamesEditor } from './CellNamesFields';
 
 const TEXT_FIELDS: Array<{ key: 'casier' | 'position'; label: string }> = [{ key: 'casier', label: 'Casier' }, { key: 'position', label: 'Position' }];
 
@@ -34,21 +36,30 @@ export function ZoneDetails({ zone, version }: { zone: Zone | undefined; version
  * « Ma cave › Réglages » pour en créer une (formulaires réservés au propriétaire).
  * Zone avec une grille : sous « Casier », un bouton par case (nombre de
  * bouteilles s'il y en a) qui remplit le champ, et les cases en suggestion.
- * La saisie libre reste possible ; la comparaison ignore la casse.
+ * La saisie libre reste possible ; la comparaison ignore la casse. Une case
+ * nommée montre son nom et son petit code ; « Casier » propose noms et codes, et
+ * le nom saisi choisit la case (l'api l'enregistre sous son code). Propriétaire :
+ * « Renommer les cases » sous la grille ouvre la liste des noms.
  */
 export function LocationFields({ value, onChange, locations, zones }: {
   value: LocationInput; onChange: (v: LocationInput) => void; locations: Location[]; zones: Zone[] | undefined;
 }) {
   const id = useId();
+  const { isOwner } = useCurrentCave();
+  const [renaming, setRenaming] = useState(false);
   const suggestions = distinctParts(locations);
   const selected = zones?.find((z) => z.id === value.zoneId);
   const grid = selected?.grid ?? null;
   const cells = useQuery({ queryKey: ['zone-cells', selected?.id], queryFn: () => getZoneCells(selected!.id), enabled: !!grid });
   const names = grid ? cellNames(grid.rows, grid.cols) : [];
+  // Noms des cases de la grille actuelle (ceux d'une case disparue ne comptent plus).
+  const given = grid ? selected?.cellNames ?? {} : {};
+  const named = names.filter((n) => given[n]).map((n) => given[n]);
+  const known = new Set([...names, ...named.map((n) => n.toUpperCase())]);
   const counts = new Map((grid ? cells.data ?? [] : []).map((c) => [c.casier, c.quantity]));
-  const chosen = value.casier?.trim().toUpperCase();
+  const chosen = cellCodeOf(value.casier, given)?.trim().toUpperCase();
   const lists = {
-    casier: [...names, ...suggestions.casier.filter((v) => !names.includes(v.toUpperCase()))],
+    casier: [...names, ...named, ...suggestions.casier.filter((v) => !known.has(v.toUpperCase()))],
     position: suggestions.position,
   };
   return (
@@ -92,16 +103,21 @@ export function LocationFields({ value, onChange, locations, zones }: {
               style={{ gridTemplateColumns: `repeat(${grid.cols}, minmax(48px, 1fr))` }}>
               {names.map((n) => {
                 const q = counts.get(n);
+                const label = given[n] ? `${given[n]} (${n})` : n;
                 return (
                   <button key={n} type="button" className="cell-grid__cell" aria-pressed={chosen === n}
-                    aria-label={q ? `Case ${n}, ${q} bouteille${q > 1 ? 's' : ''}` : `Case ${n}`}
+                    aria-label={q ? `Case ${label}, ${q} bouteille${q > 1 ? 's' : ''}` : `Case ${label}`}
                     onClick={() => onChange({ ...value, casier: n })}>
-                    {n}{q ? <span className="cell-grid__count">{q}</span> : null}
+                    {given[n] ? <>{given[n]}<span className="cell-grid__code">{n}</span></> : n}
+                    {q ? <span className="cell-grid__count">{q}</span> : null}
                   </button>
                 );
               })}
             </div>
           )}
+          {key === 'casier' && grid && isOwner && (renaming
+            ? <CellNamesEditor key={selected!.id} zone={selected!} grid={grid} onDone={() => setRenaming(false)} />
+            : <button type="button" className="btn btn--link" onClick={() => setRenaming(true)}>Renommer les cases</button>)}
         </Fragment>
       ))}
     </div>

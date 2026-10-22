@@ -351,6 +351,12 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
   background: rgba(0, 0, 0, 0.65); color: #fff; font: 600 10px/1.3 var(--font-sans); white-space: nowrap;
 }
 @container (max-width: 23.99px) { .plan-view__cell-name { display: none; } }
+/* Feuille « Proposition » : point de case touchable, cible de 44 px centrée sur le point. */
+.plan-view__cell-button {
+  position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); padding: 0; border: 0; border-radius: 50%;
+  background: transparent; cursor: pointer; pointer-events: auto;
+}
+.plan-view__cell-button:focus-visible { outline: 2px solid var(--color-primary-action); outline-offset: -10px; }
 /* Grille de rangement sous « Casier » : cibles de 48 px, défilement horizontal interne pour les grilles larges. */
 .cell-grid { display: grid; gap: var(--space-xs); overflow-x: auto; min-width: 0; max-width: 100%; }
 .cell-grid__cell {
@@ -360,6 +366,11 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 }
 .cell-grid__count { font-size: 11px; opacity: .8; }
 .cell-grid__cell[aria-pressed="true"] { background: var(--color-primary-action); border-color: var(--color-primary-action); color: var(--color-on-primary); font-weight: 600; }
+
+/* Noms des cases (« Modifier la zone », « Renommer les cases ») : un petit champ par case, placeholder = code. */
+.cell-names { border: 0; margin: 0; padding: 0; min-width: 0; }
+.cell-names__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: var(--space-xs); }
+.cell-grid__code { font-size: 11px; opacity: .8; }
 
 /* Choix d'une photo (PhotoPicker) : bouton à la largeur de son texte, contenu centré en hauteur, nom du fichier à côté. */
 .photo-picker { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); min-width: 0; }
