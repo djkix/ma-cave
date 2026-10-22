@@ -9,6 +9,22 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.28.0](https://github.com/djkix/ma-cave/compare/v2.27.0...v2.28.0) (2026-10-22)
+
+
+### Fonctionnalités
+
+* **api:** cote sur iDealwine, Wine-Searcher ou Vivino ([26ba5b6](https://github.com/djkix/ma-cave/commit/26ba5b65585d1833f5f444bb843bef638de9bbeb))
+* **api:** PATCH zone accepte cellBoxes (positions des cases sur le plan) ([ae69ab9](https://github.com/djkix/ma-cave/commit/ae69ab91b5774c31710c8685382f702a23d97f0a))
+* **web:** ajuster les cases sur le plan depuis « Modifier la zone » ([0a42de8](https://github.com/djkix/ma-cave/commit/0a42de85c733f0e20cdd210661b3082474875f8e))
+* **web:** bloc « Cote » avec liens iDealwine, Wine-Searcher et Vivino ([295ea0f](https://github.com/djkix/ma-cave/commit/295ea0f2588fafcad1a290cfd67ecc676951ce73))
+
+
+### Corrections
+
+* source de la cote en base, valeur de cession des seules cotes d'enchères ([aa0739a](https://github.com/djkix/ma-cave/commit/aa0739a2c6898c9c814f55839cf3124c3125c05b))
+* **web:** ajuster les cases — voir tout le plan, confirmation avant fermeture ([546c6f4](https://github.com/djkix/ma-cave/commit/546c6f407016d973add1fc0c2816336f37479b77))
+
 ## [2.27.0](https://github.com/djkix/ma-cave/compare/v2.26.0...v2.27.0) (2026-10-22)
 
 ### Résumé
