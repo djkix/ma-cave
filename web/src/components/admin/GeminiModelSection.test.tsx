@@ -15,10 +15,15 @@ const view = (over: Partial<api.GeminiModelView> = {}): api.GeminiModelView => (
 });
 
 const quota = (over: Partial<api.GeminiQuotaUsage> = {}): api.GeminiQuotaUsage => ({
+  model: 'gemini-3.5-flash',
   minute: { requests: 1, tokens: 2700 },
   day: { requests: 7 },
   limits: { rpm: 5, tpm: 250000, rpd: 20 },
   dayResetsAt: '2026-10-22T07:00:00.000Z',
+  models: [
+    { model: 'gemini-3.5-flash', requests: 7, rpd: 20, exhaustedUntil: null },
+    { model: 'gemini-3.5-flash-lite', requests: 20, rpd: 20, exhaustedUntil: '2026-10-22T07:00:00.000Z' },
+  ],
   ...over,
 });
 
@@ -124,4 +129,15 @@ it('limites refusées par l’api : son message tel quel', async () => {
   await userEvent.type(rpm, '0');
   await userEvent.click(screen.getByRole('button', { name: 'Enregistrer les limites' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Limites invalides : entiers positifs attendus');
+});
+
+it('limites du modèle choisi, requêtes du jour de chaque modèle de la liste de bascule, modèle épuisé signalé', async () => {
+  mount(view());
+  expect(await screen.findByRole('heading', { name: 'Limites de gemini-3.5-flash' })).toBeInTheDocument();
+  expect(screen.getByText('Quand le quota du jour d’un modèle est atteint, l’application passe seule au suivant.')).toBeInTheDocument();
+  const items = screen.getAllByRole('listitem').map((li) => li.textContent?.replace(/\s/g, ' '));
+  expect(items).toEqual([
+    'gemini-3.5-flash : 7 / 20 requêtes aujourd’hui',
+    'gemini-3.5-flash-lite : 20 / 20 requêtes aujourd’hui épuisé jusqu’à 09:00',
+  ]);
 });

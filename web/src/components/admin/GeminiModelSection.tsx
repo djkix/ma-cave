@@ -3,6 +3,7 @@ import { FormEvent, useState } from 'react';
 import { GeminiLimits, GeminiModelView, getGeminiModel, getGeminiQuota, putGeminiModel, putGeminiQuota } from '../../lib/api-client';
 
 const n = (v: number) => v.toLocaleString('fr-FR');
+const parisTime = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
 const LIMIT_FIELDS: Array<[keyof GeminiLimits, string]> = [['rpm', 'Requêtes par minute'], ['tpm', 'Jetons par minute'], ['rpd', 'Requêtes par jour']];
 
 /** Modèle Gemini de tous les usages, choisi parmi les modèles Flash ou Lite que Google propose. */
@@ -15,6 +16,8 @@ export function GeminiModelSection() {
     mutationFn: (model: string) => putGeminiModel(model),
     onSuccess: (data) => {
       qc.setQueryData<GeminiModelView>(['admin', 'gemini-model'], (old) => old && { ...old, ...data });
+      // Les limites affichées sont celles du modèle choisi.
+      void qc.invalidateQueries({ queryKey: ['admin', 'gemini-quota'] });
       setDraft(null);
     },
   });
@@ -56,7 +59,7 @@ export function GeminiModelSection() {
   );
 }
 
-/** Limites de débit Gemini (niveau sans frais de Google) et leur utilisation, relue toutes les 30 s. */
+/** Limites de débit du modèle choisi (niveau sans frais de Google, compté modèle par modèle), utilisation et liste de bascule, relues toutes les 30 s. */
 function GeminiLimitsForm() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['admin', 'gemini-quota'], queryFn: getGeminiQuota, refetchInterval: 30_000 });
@@ -80,7 +83,8 @@ function GeminiLimitsForm() {
 
   return (
     <>
-      <form onSubmit={submit} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)', alignItems: 'end', marginTop: 'var(--space-sm)' }}>
+      <h3 style={{ fontSize: 16, marginTop: 'var(--space-sm)' }}>{d ? `Limites de ${d.model}` : 'Limites'}</h3>
+      <form onSubmit={submit} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)', alignItems: 'end', marginTop: 'var(--space-xs)' }}>
         {LIMIT_FIELDS.map(([key, label]) => (
           <label key={key} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
             <span className="field__label">{label}</span>
@@ -100,6 +104,19 @@ function GeminiLimitsForm() {
         <p className="list__meta">
           {`Aujourd’hui : ${n(d.day.requests)} / ${n(d.limits.rpd)} requêtes · Cette minute : ${n(d.minute.requests)} / ${n(d.limits.rpm)} requêtes, ${n(d.minute.tokens)} / ${n(d.limits.tpm)} jetons`}
         </p>
+      )}
+      {d && d.models.length > 0 && (
+        <>
+          <p className="list__meta">Quand le quota du jour d’un modèle est atteint, l’application passe seule au suivant.</p>
+          <ul aria-label="Modèles de secours" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {d.models.map((m) => (
+              <li key={m.model} className="list__meta">
+                {`${m.model} : ${n(m.requests)} / ${n(m.rpd)} requêtes aujourd’hui`}
+                {m.exhaustedUntil && <> <span className="badge badge--warn">{`épuisé jusqu’à ${parisTime.format(new Date(m.exhaustedUntil))}`}</span></>}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       {save.isError && <p role="alert" className="text-error">{(save.error as Error).message}</p>}
       {save.isSuccess && <p role="status" className="list__meta">Limites enregistrées : elles s’appliquent dès le prochain appel.</p>}

@@ -113,7 +113,17 @@ export const putGeminiModel = (model: string) =>
 /** Limites de débit Gemini : requêtes par minute, jetons par minute, requêtes par jour. */
 export interface GeminiLimits { rpm: number; tpm: number; rpd: number }
 /** Utilisation en cours ; `dayResetsAt` : prochain minuit du Pacifique (ISO). */
-export interface GeminiQuotaUsage { minute: { requests: number; tokens: number }; day: { requests: number }; limits: GeminiLimits; dayResetsAt: string }
+/** Requêtes du jour d'un modèle de la liste de bascule ; `exhaustedUntil` : quota du jour atteint, jusqu'à quand. */
+export interface GeminiModelDayUsage { model: string; requests: number; rpd: number; exhaustedUntil: string | null }
+/** Compteurs et limites du modèle choisi (`model`), et liste de bascule (`models`, dans l'ordre d'emploi). */
+export interface GeminiQuotaUsage {
+  model: string;
+  minute: { requests: number; tokens: number };
+  day: { requests: number };
+  limits: GeminiLimits;
+  dayResetsAt: string;
+  models: GeminiModelDayUsage[];
+}
 export const getGeminiQuota = () => apiFetch<GeminiQuotaUsage>('/admin/gemini-quota');
 export const putGeminiQuota = (limits: GeminiLimits) =>
   apiFetch<GeminiQuotaUsage>('/admin/gemini-quota', { method: 'PUT', body: JSON.stringify(limits) });
