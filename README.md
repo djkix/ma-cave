@@ -1659,6 +1659,15 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
 Le détail par version, avec le lien vers chaque commit, est dans
 [`CHANGELOG.md`](CHANGELOG.md) ; voici les versions publiées.
 
+### 2.24.0 — 22 octobre 2026
+
+Publiée ([v2.24.0](https://github.com/djkix/ma-cave/releases/tag/v2.24.0)),
+images `ghcr.io/djkix/ma-cave-api:2.24.0` et `-web:2.24.0`.
+
+**Renommer une case** : affichage « Nom (B3) » partout, saisie par le nom,
+noms dans la Proposition, Modifier la zone et la grille de rangement. Petite
+migration (ajout d'une colonne) ; voir « Passage à la 2.24.0 ».
+
 ### 2.23.0 — 22 octobre 2026
 
 Publiée ([v2.23.0](https://github.com/djkix/ma-cave/releases/tag/v2.23.0)),
