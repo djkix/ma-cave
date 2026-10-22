@@ -11,6 +11,22 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.29.0](https://github.com/djkix/ma-cave/compare/v2.28.0...v2.29.0) (2026-10-22)
 
+### Résumé
+
+**Quotas Gemini par modèle et bascule automatique.** Comme chez Google, chaque
+modèle a son propre compteur et ses propres limites (requêtes par minute,
+jetons par minute, requêtes par jour). Quand le quota du jour du modèle
+choisi est atteint — refus de l'application ou de Google —, l'appel passe
+aussitôt au modèle suivant : les autres Flash et Flash-Lite stables, du plus
+récent au plus ancien, jamais Pro. On n'attend minuit (heure du Pacifique,
+9 h à Paris) que si tous les modèles sont épuisés. *Administration › Modèle*
+montre les limites du modèle choisi et, pour chaque modèle, ses requêtes du
+jour et « épuisé jusqu'à 09:00 ». Aucune migration ; une analyse déjà
+reportée au lendemain se relance avec *Relancer l'analyse*.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
