@@ -363,19 +363,24 @@ export interface WineDetail {
   locations?: Place[];
   /** Pré-sélection de la sortie (null = « Sans emplacement ») ; clé absente quand il ne reste rien. */
   exitDefault?: string | null;
-  /** Propriétaire seulement : cote iDealwine courante, null sans cote. Clé absente pour un membre. */
+  /** Propriétaire seulement : cote courante, null sans cote. Clé absente pour un membre. */
   quote?: Quote | null;
-  /** Propriétaire seulement : page iDealwine enregistrée, sinon la recherche. Clé absente pour un membre. */
+  /** Propriétaire seulement : un lien « Voir sur … » par site (recherche, ou page enregistrée sur ce site). Clé absente pour un membre. */
+  searchLinks?: SearchLink[];
+  /** Ancien lien unique (page iDealwine enregistrée, sinon leur recherche), gardé par l'api pour les clients en cache. */
   idealwineUrl?: string;
-  /** Propriétaire seulement : lien iDealwine enregistré sur une cote (null sans lien), pour pré-remplir le formulaire. Clé absente pour un membre. */
+  /** Propriétaire seulement : lien enregistré sur une cote (null sans lien), pour pré-remplir le formulaire. Clé absente pour un membre. */
   savedUrl?: string | null;
 }
 export const getWine = (id: string) => apiFetch<WineDetail>(`/wines/${id}`);
 
-/** Cote iDealwine saisie à la main ; `cessionCents` : cote hors frais acheteur d'environ 16 % (cote / 1,16). */
+/** Site où consulter une cote ; `hint` : ce qu'il donne (« enchères »). */
+export interface SearchLink { site: string; label: string; hint: string; url: string }
+
+/** Cote saisie à la main ; `source` : site déduit du lien (null sans lien) ; `cessionCents` : cote hors frais acheteur d'environ 16 % (cote / 1,16). */
 export interface Quote {
   coteCents: number; nTransactions: number | null; /** « AAAA-MM-JJ » */ quotedOn: string; sourceUrl: string | null;
-  enteredBy: string | null; cessionCents: number;
+  source: string | null; enteredBy: string | null; cessionCents: number;
 }
 export interface CreateQuoteInput { coteCents: number; nTransactions: number | null; quotedOn: string; sourceUrl: string | null }
 export const createQuote = (wineId: string, input: CreateQuoteInput) =>

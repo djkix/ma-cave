@@ -1,6 +1,6 @@
 /**
- * Cote iDealwine saisie à la main : jamais lue chez iDealwine (leurs CGS
- * l'interdisent). Lecture, âge et avertissements calculés ici, à partir de
+ * Cote saisie à la main : jamais lue chez iDealwine, Wine-Searcher ou Vivino
+ * (leurs conditions l'interdisent). Lecture, âge et avertissements calculés ici, à partir de
  * `quotedOn` et `nTransactions`. Messages identiques à ceux de l'api.
  */
 export const COTE_INVALID = 'La cote doit être comprise entre 0,01 € et 100 000 €';
@@ -57,14 +57,15 @@ export function quoteAge(quotedOn: string, today = parisToday()): string {
 
 const LONG_DATE = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-/** « 85 € — 12 transactions — cote du 3 mars 2026, il y a 7 mois » ; sans nombre connu, le segment disparaît. */
-export function quoteLine(q: { coteCents: number; nTransactions: number | null; quotedOn: string }, today = parisToday()): string {
+/** « 85 € — 12 transactions — cote du 3 mars 2026, il y a 7 mois · source Vivino » ; sans nombre ni source connus, le segment disparaît. */
+export function quoteLine(q: { coteCents: number; nTransactions: number | null; quotedOn: string; source?: string | null }, today = parisToday()): string {
   const n = q.nTransactions;
-  return [
+  const line = [
     formatCoteEuros(q.coteCents),
     n == null ? null : `${n} transaction${n > 1 ? 's' : ''}`,
     `cote du ${LONG_DATE.format(new Date(`${q.quotedOn}T00:00:00Z`))}, ${quoteAge(q.quotedOn, today)}`,
   ].filter(Boolean).join(' — ');
+  return q.source ? `${line} · source ${q.source}` : line;
 }
 
 /** Sous 5 transactions (nombre connu) ; au-delà de 12 mois (la date anniversaire passée). */

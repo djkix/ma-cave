@@ -46,6 +46,10 @@ describe('cote : affichage', () => {
       .toBe('85 € — 1 transaction — cote du 3 mars 2026, il y a 7 mois');
     expect(quoteLine({ coteCents: 8500, nTransactions: null, quotedOn: '2026-03-03' }, '2026-10-08'))
       .toBe('85 € — cote du 3 mars 2026, il y a 7 mois');
+    expect(quoteLine({ coteCents: 8500, nTransactions: null, quotedOn: '2026-03-03', source: 'Vivino' }, '2026-10-08'))
+      .toBe('85 € — cote du 3 mars 2026, il y a 7 mois · source Vivino');
+    expect(quoteLine({ coteCents: 8500, nTransactions: null, quotedOn: '2026-03-03', source: null }, '2026-10-08'))
+      .toBe('85 € — cote du 3 mars 2026, il y a 7 mois');
   });
 
   it('avertissements : sous 5 transactions, au-delà de 12 mois', () => {
