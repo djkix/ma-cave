@@ -10,7 +10,7 @@ import { ImageNormalizationService } from '../photos/image-normalization.service
 import { PHOTO_STORAGE_DIR } from '../photos/photos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  CELL_CODES_TAKEN, CELL_PREFIX_TAKEN, CellBoxes, cellNamesFor, CellNames, CreateZoneInput, keptCellNames, NO_FREE_PREFIX, PLAN_NOT_FOUND, renamePrefix, suggestPrefix,
+  CELL_CODES_TAKEN, CELL_PREFIX_TAKEN, CellBoxes, cellBoxesFor, cellNamesFor, CellNames, CreateZoneInput, keptCellNames, NO_FREE_PREFIX, NO_GRID, NO_MARKER, PLAN_NOT_FOUND, renamePrefix, suggestPrefix,
   UpdateZoneInput, ZONE_NAME_TAKEN, ZONE_NOT_FOUND, ZONE_PHOTO_NOT_FOUND, zonePhotoPath, ZoneView, zoneView,
 } from './zone';
 
@@ -157,7 +157,10 @@ export class ZonesService {
         input.cellNames !== undefined ? cellNamesFor(input.cellNames, grid, prefix)
           : input.grid !== undefined || prefix !== old ? keptCellNames(renamed ? renamePrefix(current.cellNames, old, prefix) : current.cellNames, grid, prefix)
             : undefined;
-      const cellBoxes: CellBoxes | undefined = !grid || gridChanged ? {} : renamed ? renamePrefix(current.cellBoxes, old, prefix) : undefined;
+      if (input.cellBoxes !== undefined && !grid) throw new BadRequestException(NO_GRID);
+      if (input.cellBoxes !== undefined && !current.marker) throw new BadRequestException(NO_MARKER);
+      const cellBoxes: CellBoxes | undefined = input.cellBoxes !== undefined ? cellBoxesFor(input.cellBoxes, grid, prefix)
+        : !grid || gridChanged ? {} : renamed ? renamePrefix(current.cellBoxes, old, prefix) : undefined;
       if (renamed) {
         await tx.$executeRaw`
           UPDATE location SET casier = ${prefix} || substring(casier from 2)

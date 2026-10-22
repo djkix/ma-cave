@@ -27,6 +27,9 @@ export const CELL_PREFIX_TAKEN = 'Cette lettre est déjà prise par une autre zo
 export const NO_FREE_PREFIX = 'Plus de lettre libre pour les cases (26 casiers au plus)';
 export const INVALID_CELL_PREFIX = 'La lettre des cases est une lettre de A à Z';
 export const CELL_CODES_TAKEN = 'Des bouteilles sont déjà rangées sous ces codes dans cette zone';
+export const INVALID_CELL_BOXES = 'Positions des cases invalides';
+export const NO_GRID = 'Cette zone n\'a pas de grille de cases';
+export const NO_MARKER = 'Cette zone n\'a pas de repère sur un plan';
 export const CELL_NAME_MAX = 40;
 export const ZONE_NAME_MAX = 40;
 export const PLAN_NAME_MAX = 40;
@@ -66,6 +69,17 @@ const cellPrefix = z
   .string({ invalid_type_error: INVALID_CELL_PREFIX })
   .regex(/^[A-Za-z]$/, INVALID_CELL_PREFIX)
   .transform((v) => v.toUpperCase());
+
+/**
+ * Positions des cases : { code: [x0, y0, x1, y1] } en fractions de l'image du plan,
+ * x0 < x1 et y0 < y1 (remplacement complet). Codes vérifiés par cellBoxesFor.
+ */
+const boxFraction = z.number({ invalid_type_error: INVALID_CELL_BOXES }).min(0, INVALID_CELL_BOXES).max(1, INVALID_CELL_BOXES);
+const cellBoxes = z.record(
+  z.tuple([boxFraction, boxFraction, boxFraction, boxFraction], { errorMap: () => ({ message: INVALID_CELL_BOXES }) })
+    .refine(([x0, y0, x1, y1]) => x0 < x1 && y0 < y1, INVALID_CELL_BOXES),
+  { invalid_type_error: INVALID_CELL_BOXES, required_error: INVALID_CELL_BOXES },
+);
 
 /** Nom d'affichage par case : { « C15 »: « Champagnes » }. Le code reste la valeur enregistrée dans `location.casier`. */
 export type CellNames = Record<string, string>;
@@ -137,6 +151,16 @@ export function cellNamesFor(input: CellNames, grid: { rows: number; cols: numbe
   return out;
 }
 
+/** Positions saisies → enregistrées : codes en majuscules ; 400 « Case inconnue dans cette zone » hors de la grille. */
+export function cellBoxesFor(input: CellBoxes, grid: { rows: number; cols: number } | null, prefix: string | null): CellBoxes {
+  const codes = new Set(gridCodes(grid, prefix));
+  return Object.fromEntries(Object.entries(input).map(([raw, box]) => {
+    const code = raw.trim().toUpperCase();
+    if (!codes.has(code)) throw new BadRequestException(UNKNOWN_CELL);
+    return [code, box];
+  }));
+}
+
 /**
  * Noms gardés après un changement de grille : ceux des cases qui existent encore,
  * sauf un nom devenu le code d'une autre case (grille agrandie), qui désignerait deux cases.
@@ -152,13 +176,20 @@ export function keptCellNames(names: CellNames, grid: { rows: number; cols: numb
 export const createZoneSchema = z.object({ name, indication }, { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME });
 export type CreateZoneInput = { name: string; indication?: string | null };
 
-/** Champs absents : inchangés ; `indication: null` ou vide l'efface. L'ordre se change par POST …/zones/order. */
+/**
+ * Champs absents : inchangés ; `indication: null` ou vide l'efface. L'ordre se change par POST …/zones/order.
+ * `cellBoxes` remplace les positions des cases ; avec une grille ou une lettre changée dans la même requête,
+ * elles désignent les cases du résultat (comme `cellNames`).
+ */
 export const updateZoneSchema = z.object(
-  { name: name.optional(), indication: indication.optional(), grid: grid.nullable().optional(), cellNames: cellNames.optional(), cellPrefix: cellPrefix.optional() },
+  {
+    name: name.optional(), indication: indication.optional(), grid: grid.nullable().optional(), cellNames: cellNames.optional(), cellPrefix: cellPrefix.optional(),
+    cellBoxes: cellBoxes.optional(),
+  },
   { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME },
 );
 export type UpdateZoneInput = {
-  name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null; cellNames?: CellNames; cellPrefix?: string;
+  name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null; cellNames?: CellNames; cellPrefix?: string; cellBoxes?: CellBoxes;
 };
 
 /** Accepter une proposition : nom de zone, grille, noms et lettre des cases (facultatifs), mêmes règles que pour une zone. */

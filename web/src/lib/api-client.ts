@@ -166,8 +166,11 @@ export interface Zone {
 export const getZones = () => apiFetch<Zone[]>('/caves/current/zones');
 export const createZone = (input: { name: string; indication?: string | null }) =>
   apiFetch<Zone>('/caves/current/zones', { method: 'POST', body: JSON.stringify(input) });
-/** `cellNames` : remplacement complet des noms des cases (codes de la grille). */
-export const updateZone = (id: string, patch: { name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null; cellNames?: Record<string, string>; cellPrefix?: string }) =>
+/** `cellNames`, `cellBoxes` : remplacement complet des noms et des positions des cases (codes de la grille). */
+export const updateZone = (id: string, patch: {
+  name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null; cellNames?: Record<string, string>; cellPrefix?: string;
+  cellBoxes?: Record<string, [number, number, number, number]>;
+}) =>
   apiFetch<Zone>(`/caves/current/zones/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 /** Bouteilles en stock par case (valeur de « casier », en majuscules) dans la zone. */
 export const getZoneCells = (zoneId: string) => apiFetch<{ casier: string; quantity: number }[]>(`/caves/current/zones/${zoneId}/cells`);

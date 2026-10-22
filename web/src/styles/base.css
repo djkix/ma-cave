@@ -225,6 +225,7 @@ a.bars__row .bars__text > span:first-child { text-decoration: underline; text-un
 .zone-row__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); min-width: 0; }
 .zone-row__actions input[type="file"] { max-width: 100%; min-width: 0; }
 .zone-form { display: flex; flex-direction: column; gap: var(--space-sm); min-width: 0; }
+.cell-editor p { margin: 0; }
 .zone-form textarea { width: 100%; min-width: 0; font: inherit; }
 
 /* Plan de la cave : image à la largeur disponible, repères en pourcentage (PlanView). */

@@ -10,13 +10,13 @@ import { ZoneDetails } from '../components/LocationFields';
 import { PersonRow } from '../components/PersonRow';
 import { PhotoPicker } from '../components/PhotoPicker';
 import { CellNamesFields } from '../components/CellNamesFields';
-import { PlanCrop, PlanView } from '../components/PlanView';
+import { PlanCrop, PlanView, thumbnailBox } from '../components/PlanView';
 import { TopBar } from '../components/TopBar';
 import {
   acceptSuggestion, CavePlan, createPlan, createZone, deletePlan, deleteZone, exportUrl, getMembers, inviteMember, MemberView, planImageUrl, PlanSuggestion, rejectSuggestion,
   removeMember, removeZoneMarker, removeZonePhoto, renameCave, renamePlan, relaunchAnalysis, reorderZones, replacePlanImage, setZoneMarker, updateZone, uploadZonePhoto, Zone,
 } from '../lib/api-client';
-import { type CellNameMap, cellCode, cellsPreview, cleanCellNames, GRID_MAX_COLS, GRID_MAX_ROWS, parseGrid, renamePrefix, suggestPrefix } from '../lib/grid';
+import { type CellBoxMap, type CellNameMap, cellCode, cellNames as gridCodes, cellsPreview, cleanCellNames, GRID_MAX_COLS, GRID_MAX_ROWS, parseGrid, placeCell, renamePrefix, suggestPrefix } from '../lib/grid';
 import { replacePlanInCache, usePlans, useZones } from '../lib/locations';
 import { shrinkPhoto } from '../lib/shrink-photo';
 import { useCurrentCave } from '../lib/use-current-cave';
@@ -169,6 +169,59 @@ function ZoneForm({ label, initial, takenPrefixes = [], submitLabel, busy, onSub
   );
 }
 
+/**
+ * « Ajuster les cases sur le plan » (zone avec grille, lettre et repère) : le plan du repère,
+ * recadré sur les cases (entier si aucune n'a de position). Toucher une case la choisit,
+ * toucher ensuite le plan y déplace son centre ; « Cases sans position » : en choisir une
+ * puis toucher le plan la pose. Enregistrer envoie toutes les positions d'un coup.
+ */
+function CellBoxesEditor({ zone, busy, onSave, onCancel, onChange }: {
+  zone: Zone & { grid: NonNullable<Zone['grid']>; cellPrefix: string; marker: NonNullable<Zone['marker']> }; busy: boolean;
+  onSave: (boxes: CellBoxMap) => void; onCancel: () => void;
+  /** Première position changée : la feuille demande confirmation avant de se fermer. */
+  onChange: () => void;
+}) {
+  const plan = usePlans().data?.plans.find((p) => p.id === zone.marker.planId);
+  const [boxes, setBoxes] = useState<CellBoxMap>(zone.cellBoxes ?? {});
+  const [selected, setSelected] = useState<string | null>(null);
+  // Cadre figé à l'ouverture : le plan ne bouge pas sous le doigt pendant l'ajustement.
+  const [crop] = useState(() => (Object.keys(boxes).length ? thumbnailBox({ ...zone.marker, cellBoxes: boxes }) : null));
+  // « Voir tout le plan » : pour poser une case hors du cadre (casier décalé, case oubliée au bord).
+  const [whole, setWhole] = useState(false);
+  const frame = crop && !whole ? crop : undefined;
+  const names = zone.cellNames ?? {};
+  const label = (code: string) => (names[code] ? `${names[code]} (${code})` : code);
+  const missing = gridCodes(zone.grid.rows, zone.grid.cols, zone.cellPrefix).filter((code) => !boxes[code]);
+  const view = plan && (
+    <PlanView src={planImageUrl(plan.id, plan.updatedAt)} plan={plan} markers={[]}
+      editCells={{
+        boxes, names, selected, home: frame ? { x: (frame[0] + frame[2]) / 2, y: (frame[1] + frame[3]) / 2 } : undefined,
+        // Recadré, la case reste dans le cadre : les flèches ne l'envoient pas hors de la vue.
+        onSelect: setSelected, onMove: (code, x, y) => { onChange(); setBoxes((b) => placeCell(b, code, x, y, frame)); },
+      }} />
+  );
+  return (
+    <div className="zone-form cell-editor">
+      <p className="list__meta">Touchez une case, puis l’endroit du plan où elle se trouve.</p>
+      {plan && frame ? <PlanCrop box={frame} plan={plan}>{view}</PlanCrop> : view}
+      {crop && <Button variant="link" aria-pressed={whole} onClick={() => setWhole(!whole)}>Voir tout le plan</Button>}
+      <p role="status" className="list__meta">
+        {selected && (boxes[selected] ? `Case ${label(selected)} choisie : touchez son nouvel endroit sur le plan.` : `Case ${label(selected)} choisie : touchez le plan pour la poser.`)}
+      </p>
+      {missing.length > 0 && (
+        <div role="group" aria-label="Cases sans position" className="zone-row__actions">
+          <p className="field__label" style={{ width: '100%' }} aria-hidden="true">Cases sans position</p>
+          {missing.map((code) => (
+            <Button key={code} variant="outline" aria-pressed={code === selected} onClick={() => setSelected(code)}>{label(code)}</Button>
+          ))}
+        </div>
+      )}
+      <button type="button" className="btn btn--dark" disabled={busy} onClick={() => onSave(boxes)}>Enregistrer</button>
+      <Button variant="link" onClick={onCancel}>Annuler</Button>
+    </div>
+  );
+}
+
 function ZoneRow({ zone, index, count, busy, error, photoVersion, takenPrefixes, onMove, onAction, onPhotoChanged, onEdit }: {
   zone: Zone; index: number; count: number; busy: boolean; photoVersion?: number;
   /** Lettres des cases des autres zones : la lettre proposée n'en fait pas partie. */
@@ -182,7 +235,12 @@ function ZoneRow({ zone, index, count, busy, error, photoVersion, takenPrefixes,
   onAction: (run: () => Promise<unknown>, after?: () => void) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  // Feuille « Modifier » passée à « Ajuster les cases sur le plan ».
+  const [adjusting, setAdjusting] = useState(false);
+  // Positions changées et pas encore enregistrées.
+  const unsaved = useRef(false);
   const id = useId();
+  const adjustable = zone.grid && zone.cellPrefix && zone.marker ? { ...zone, grid: zone.grid, cellPrefix: zone.cellPrefix, marker: zone.marker } : null;
   function confirmDelete() {
     if (window.confirm(`Supprimer la zone ${zone.name} ? Les bouteilles qui y sont rangées restent en stock, sans emplacement.`)) {
       onAction(async () => {
@@ -191,6 +249,11 @@ function ZoneRow({ zone, index, count, busy, error, photoVersion, takenPrefixes,
         return archived ? 'Zone archivée (elle reste dans l’historique)' : 'Zone supprimée';
       });
     }
+  }
+  // Échap ou toucher le fond pendant l'ajustement : les positions non enregistrées ne se perdent pas sans le dire.
+  function closeSheet() {
+    if (adjusting && unsaved.current && !window.confirm('Abandonner les positions non enregistrées ?')) return;
+    setEditing(false);
   }
   async function pickPhoto(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -206,13 +269,21 @@ function ZoneRow({ zone, index, count, busy, error, photoVersion, takenPrefixes,
       </div>
       <ZoneDetails key={photoVersion} zone={zone} version={photoVersion} />
       <div className="zone-row__actions">
-        <Button variant="link" disabled={busy} onClick={() => { onEdit(); setEditing(true); }}>Modifier</Button>
+        <Button variant="link" disabled={busy} onClick={() => { onEdit(); setAdjusting(false); setEditing(true); }}>Modifier</Button>
         <Button variant="link" disabled={busy} onClick={confirmDelete}>Supprimer</Button>
       </div>
-      <BottomSheet open={editing} title={`Modifier ${zone.name}`} onClose={() => setEditing(false)}>
-        <ZoneForm label={`Modifier ${zone.name}`} idPrefix={id} initial={{ name: zone.name, indication: zone.indication ?? '', grid: zone.grid, cellPrefix: zone.cellPrefix, cellNames: zone.cellNames }}
-          takenPrefixes={takenPrefixes} submitLabel="Enregistrer" busy={busy}
-          onSubmit={(v) => onAction(() => updateZone(zone.id, v), () => setEditing(false))} onCancel={() => setEditing(false)} />
+      <BottomSheet open={editing} title={adjusting ? `Ajuster les cases de ${zone.name}` : `Modifier ${zone.name}`} onClose={closeSheet}>
+        {adjusting && adjustable ? (
+          <CellBoxesEditor zone={adjustable} busy={busy} onCancel={() => setAdjusting(false)} onChange={() => { unsaved.current = true; }}
+            onSave={(cellBoxes) => onAction(async () => { await updateZone(zone.id, { cellBoxes }); return 'Positions des cases enregistrées.'; }, () => setEditing(false))} />
+        ) : (
+          <>
+            <ZoneForm label={`Modifier ${zone.name}`} idPrefix={id} initial={{ name: zone.name, indication: zone.indication ?? '', grid: zone.grid, cellPrefix: zone.cellPrefix, cellNames: zone.cellNames }}
+              takenPrefixes={takenPrefixes} submitLabel="Enregistrer" busy={busy}
+              onSubmit={(v) => onAction(() => updateZone(zone.id, v), () => setEditing(false))} onCancel={() => setEditing(false)} />
+            {adjustable && <Button variant="outline" disabled={busy} onClick={() => { unsaved.current = false; setAdjusting(true); }}>Ajuster les cases sur le plan</Button>}
+          </>
+        )}
         {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
       </BottomSheet>
       <div className="zone-row__actions">

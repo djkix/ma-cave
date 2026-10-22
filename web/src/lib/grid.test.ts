@@ -1,4 +1,4 @@
-import { casierLabel, cellCode, cellCodeOf, cellNames, cellsPreview, cleanCellNames, renamePrefix, suggestPrefix } from './grid';
+import { casierLabel, cellCode, cellCodeOf, cellNames, cellsPreview, cleanCellNames, placeCell, renamePrefix, suggestPrefix } from './grid';
 
 it('cases rangée par rangée : lettre du casier puis numéro de 1 à rangées × colonnes', () => {
   expect(cellNames(2, 3, 'C')).toEqual(['C1', 'C2', 'C3', 'C4', 'C5', 'C6']);
@@ -46,4 +46,19 @@ describe('noms des cases', () => {
     expect(cleanCellNames({ A1: ' Bordeaux ', A2: '  ', A5: 'Hors grille', A4: 'Loire' }, { rows: 2, cols: 2 }, 'A')).toEqual({ A1: 'Bordeaux', A4: 'Loire' });
     expect(cleanCellNames({ C1: ' x ', A1: 'y' }, { rows: 1, cols: 2 }, 'C')).toEqual({ C1: 'x' });
   });
+});
+
+it('placeCell : centre de la case au point touché, taille gardée, bornée à l’image', () => {
+  const boxes = { A1: [0.1, 0.1, 0.2, 0.3] as [number, number, number, number] };
+  expect(placeCell(boxes, 'A1', 0.5, 0.5)).toEqual({ A1: [0.45, 0.4, 0.55, 0.6] });
+  expect(placeCell(boxes, 'A1', 0.98, 0)).toEqual({ A1: [0.9, 0, 1, 0.2] });
+  expect(boxes.A1).toEqual([0.1, 0.1, 0.2, 0.3]);
+  // Cadre donné (plan recadré) : la case reste dedans.
+  expect(placeCell(boxes, 'A1', 0.5, 0.5, [0.2, 0.2, 0.5, 0.5])).toEqual({ A1: [0.4, 0.3, 0.5, 0.5] });
+});
+
+it('placeCell : case sans position posée à la taille moyenne des cases placées, sinon 4 % × 4 %', () => {
+  const boxes = { A1: [0, 0, 0.1, 0.2] as [number, number, number, number], A2: [0, 0, 0.3, 0.4] as [number, number, number, number] };
+  expect(placeCell(boxes, 'A3', 0.5, 0.5).A3).toEqual([0.4, 0.35, 0.6, 0.65]);
+  expect(placeCell({}, 'A1', 0.5, 0.5)).toEqual({ A1: [0.48, 0.48, 0.52, 0.52] });
 });

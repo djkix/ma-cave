@@ -147,6 +147,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Propositions de zones** : Gemini repère les casiers sur la photo du plan
 - **Grille de cases** numérotées par casier, rangée par rangée (C1…C48, *Lettre des cases* au choix), à toucher pour ranger ; **noms de cases** (« Champagnes (C15) »)
 - Cases **gardées sur le plan** après acceptation ; **vignette recadrée** sur la zone dans la fiche vin
+- **Ajuster les cases sur le plan** (*Modifier la zone*) : toucher une case puis son endroit, poser les cases oubliées
 
 ### 📊 Statistiques
 - Bouteilles, références, **valeur au prix d'achat** et **à la cote** (propriétaire)

@@ -173,6 +173,32 @@ autour du repère quand elle n'en a pas), avec la case de la bouteille en évide
 et une légende donnant l'endroit. Zone sans repère : pas de vignette. Toucher la
 vignette affiche le plan entier.
 
+**Ajuster les cases sur le plan.** L'analyse peut mal placer une case ou en
+oublier. *Modifier la zone* d'une zone qui a une grille, une lettre et un repère
+propose *Ajuster les cases sur le plan* (propriétaire seulement) : la feuille montre
+le plan du repère, recadré sur les cases comme la vignette (entier si aucune n'a
+encore de position) ; *Voir tout le plan* enlève le recadrage, pour poser une case
+hors du cadre (casier décalé, case oubliée au bord). Recadré, une case reste dans
+le cadre. **Toucher une case la choisit** (mise en évidence, nom
+annoncé), **toucher ensuite le plan y déplace son centre**, sa taille gardée ;
+toucher une autre case change le choix. La liste *Cases sans position* donne les
+cases de la grille absentes du plan : en choisir une puis toucher le plan la pose,
+à la taille moyenne des cases placées (4 % × 4 % de l'image s'il n'y en a aucune).
+Une case reste toujours dans l'image. Au clavier, chaque case est un bouton
+(« Case C17 », « Case Champagnes (C15) ») : flèches pour déplacer la case choisie
+(2 %, Maj 10 %), Échap pour la désélectionner, Entrée sur le plan pour poser une
+case sans position au centre de la vue. *Enregistrer* envoie toutes les positions
+d'un coup (« Positions des cases enregistrées. »), *Annuler* revient à *Modifier
+la zone* sans rien changer ; fermer la feuille (Échap, toucher le fond) avec des
+positions non enregistrées demande confirmation. Le plan et la vignette de la fiche vin suivent. Côté
+api, `PATCH /api/caves/current/zones/:id` accepte `cellBoxes`
+(`{ code: [x0, y0, x1, y1] }` en fractions de l'image, x0 < x1, y0 < y1), qui
+remplace toutes les positions : code hors de la grille, « Case inconnue dans cette
+zone » ; cadre invalide, « Positions des cases invalides » ; zone sans grille ou
+sans repère, 400 explicite. Avec une grille ou une lettre changée dans la même
+requête, les positions envoyées désignent les cases du résultat (comme
+`cellNames`). Ni glisser-déposer, ni redimensionnement, ni suppression d'une position.
+
 **Noms des cases.** Chaque case garde son code (C1, C15…), qui reste la valeur
 enregistrée dans *Casier* ; on peut lui donner en plus un nom libre
 (« Champagnes », 40 caractères au plus), simple libellé d'affichage qui ne

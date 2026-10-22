@@ -71,3 +71,26 @@ export function casierLabel(casier: string | null, names: CellNameMap = {}): str
 export function cleanCellNames(names: CellNameMap, grid: { rows: number; cols: number }, prefix: string): CellNameMap {
   return Object.fromEntries(cellNames(grid.rows, grid.cols, prefix).map((code) => [code, names[code]?.trim()]).filter(([, name]) => name));
 }
+
+/** Cadre d'une case sur le plan, en fractions de l'image : [x0, y0, x1, y1]. */
+export type CellBox = [number, number, number, number];
+/** Positions des cases d'une zone sur son plan : { « C15 »: cadre }. */
+export type CellBoxMap = Record<string, CellBox>;
+
+/** Fraction arrondie : pas de 0.45000000000000007 envoyés à l'api. */
+const round4 = (v: number) => +v.toFixed(4);
+
+/**
+ * Case `code` posée ou déplacée : son centre va en (x, y), sa taille est gardée ; une
+ * case sans position prend la taille moyenne des cases placées (4 % × 4 % s'il n'y en a
+ * pas). Le cadre est décalé pour rester dans l'image, ou dans `frame` (plan recadré).
+ */
+export function placeCell(boxes: CellBoxMap, code: string, x: number, y: number, frame: CellBox = [0, 0, 1, 1]): CellBoxMap {
+  const all = Object.values(boxes);
+  const mean = (k: 0 | 1) => (all.length ? all.reduce((s, b) => s + b[k + 2] - b[k], 0) / all.length : 0.04);
+  const [w, h] = boxes[code] ? [boxes[code][2] - boxes[code][0], boxes[code][3] - boxes[code][1]] : [mean(0), mean(1)];
+  const start = (c: number, size: number, k: 0 | 1) => Math.min(Math.max(c - size / 2, frame[k]), frame[k + 2] - size);
+  const x0 = start(x, w, 0);
+  const y0 = start(y, h, 1);
+  return { ...boxes, [code]: [x0, y0, x0 + w, y0 + h].map(round4) as CellBox };
+}

@@ -1,6 +1,6 @@
 import { KeyboardEvent, MouseEvent, ReactNode, Ref, useState } from 'react';
 import { type CavePlan, type PlanMarker, type PlanSuggestion, planImageUrl } from '../lib/api-client';
-import { cellCodeOf } from '../lib/grid';
+import { type CellBoxMap, type CellNameMap, cellCodeOf } from '../lib/grid';
 import { usePlans } from '../lib/locations';
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
@@ -42,19 +42,46 @@ const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRigh
  * le repère ; sinon les cases forment une image « Zone 2 : Casier C ».
  * `highlightCell` : code de la case mise en évidence dans la zone `highlightZoneId`
  * (cadre, point plus gros, nom toujours affiché).
+ *
+ * `editCells` (« Ajuster les cases sur le plan ») : les cases `boxes` d'une zone sont des
+ * boutons « Case C17 » (« Case Champagnes (C15) »), `aria-pressed` pour la case choisie
+ * (`selected`) ; toucher une case la choisit (`onSelect`), toucher ensuite le plan y
+ * déplace son centre (`onMove`). Au clavier : flèches (2 %, Maj 10 %) pour déplacer la
+ * case choisie, Échap pour la désélectionner, Entrée sur le plan pour poser au point
+ * `home` une case choisie qui n'a pas encore de position.
  */
-export function PlanView({ src, plan, markers, highlightZoneId, highlightCell, pending, suggestions = [], openSuggestionId, cellNames, onPlanClick, onMarkerClick, onSuggestionClick, onCellClick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
+export function PlanView({ src, plan, markers, highlightZoneId, highlightCell, pending, suggestions = [], openSuggestionId, cellNames, editCells, onPlanClick, onMarkerClick, onSuggestionClick, onCellClick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
   src: string; plan: Pick<CavePlan, 'width' | 'height'>; markers: PlanMarker[]; highlightZoneId?: string | null; highlightCell?: string | null; pending?: { x: number; y: number } | null;
   suggestions?: PlanSuggestion[]; openSuggestionId?: string | null; onSuggestionClick?: (id: string) => void;
-  cellNames?: Record<string, string>; onCellClick?: (code: string) => void;
+  cellNames?: Record<string, string>; onCellClick?: (code: string) => void; editCells?: EditCells;
   onPlanClick?: (x: number, y: number) => void; onMarkerClick?: (zoneId: string) => void;
   onPendingMove?: (x: number, y: number) => void; onCancel?: () => void; planRef?: Ref<HTMLSpanElement>; maxWidth?: number; alt?: string;
 }) {
+  const selected = editCells?.selected;
+  // Ajustement : un toucher déplace la case choisie (rien sans case choisie).
+  const place = editCells ? (selected ? (x: number, y: number) => editCells.onMove(selected, x, y) : undefined) : onPlanClick;
   function click(e: MouseEvent<HTMLSpanElement>) {
-    if (!onPlanClick) return;
+    if (!place) return;
     const box = e.currentTarget.getBoundingClientRect();
     if (box.width === 0 || box.height === 0) return;
-    onPlanClick(clamp((e.clientX - box.left) / box.width), clamp((e.clientY - box.top) / box.height));
+    place(clamp((e.clientX - box.left) / box.width), clamp((e.clientY - box.top) / box.height));
+  }
+  function editKey(e: KeyboardEvent<HTMLSpanElement>) {
+    if (!editCells || !selected) return;
+    // Touche sur le bouton d'une autre case que la case choisie : elle ne déplace rien.
+    const focused = (e.target as HTMLElement).dataset.cell;
+    if (focused !== undefined && focused !== selected) return;
+    const arrow = ARROWS[e.key];
+    const b = editCells.boxes[selected];
+    if (e.key === 'Escape') editCells.onSelect(null);
+    else if (arrow && b) {
+      const step = e.shiftKey ? 0.1 : 0.02;
+      editCells.onMove(selected, nudge((b[0] + b[2]) / 2, arrow[0] * step), nudge((b[1] + b[3]) / 2, arrow[1] * step));
+    } else if ((e.key === 'Enter' || e.key === ' ') && !b && e.target === e.currentTarget) editCells.onMove(selected, editCells.home?.x ?? 0.5, editCells.home?.y ?? 0.5);
+    else return;
+    // Échap ne ferme pas la feuille qui contient le plan.
+    e.preventDefault();
+    e.stopPropagation();
   }
   function key(e: KeyboardEvent<HTMLSpanElement>) {
     // Une touche sur un repère (bouton) reste au repère.
@@ -72,8 +99,9 @@ export function PlanView({ src, plan, markers, highlightZoneId, highlightCell, p
   return (
     // Placement au toucher (souris ou doigt) ou au clavier ; les repères restent des boutons.
     // span (affiché en bloc) : le petit plan d'« À boire » vit dans un bouton, qui n'admet pas de div.
-    <span ref={planRef} className={`plan-view${onPlanClick ? ' plan-view--placing' : ''}`} style={{ aspectRatio: `${plan.width} / ${plan.height}`, maxWidth }} onClick={click}
-      {...(onPlanClick && { tabIndex: 0, role: 'group', 'aria-label': `${alt}. Entrée pour poser un repère, flèches pour le déplacer, Échap pour annuler.`, onKeyDown: key })}>
+    <span ref={planRef} className={`plan-view${onPlanClick || editCells ? ' plan-view--placing' : ''}`} style={{ aspectRatio: `${plan.width} / ${plan.height}`, maxWidth }} onClick={click}
+      {...(onPlanClick && !editCells && { tabIndex: 0, role: 'group', 'aria-label': `${alt}. Entrée pour poser un repère, flèches pour le déplacer, Échap pour annuler.`, onKeyDown: key })}
+      {...(editCells && { tabIndex: 0, role: 'group', 'aria-label': `${alt}. ${EDIT_HELP}`, onKeyDown: editKey })}>
       <img className="plan-view__image" src={src} alt={alt} width={plan.width} height={plan.height} decoding="async" />
       {onSuggestionClick && suggestions.map(({ id, name, box: [x0, y0, x1, y1], rows, cols, cellCount = rows * cols }) => (
         <button key={id} type="button" className="plan-view__suggestion" aria-label={`Proposition ${name}`}
@@ -92,6 +120,22 @@ export function PlanView({ src, plan, markers, highlightZoneId, highlightCell, p
               )}
             </span>
           ))}
+        </span>
+      )}
+      {editCells && (
+        <span className="plan-view__cells">
+          {Object.entries(editCells.boxes).map(([code, [x0, y0, x1, y1]]) => {
+            const name = editCells.names[code];
+            const on = code === selected;
+            return (
+              <span key={code} className={`plan-view__cell plan-view__zone-cell${on ? ' plan-view__zone-cell--highlight plan-view__zone-cell--current' : ''}`}
+                style={{ left: pct(x0), top: pct(y0), width: pct(x1 - x0), height: pct(y1 - y0) }}>
+                <span className="plan-view__cell-name" aria-hidden="true">{name ?? code}</span>
+                <button type="button" className="plan-view__cell-button" aria-label={name ? `Case ${name} (${code})` : `Case ${code}`} aria-pressed={on} data-cell={code}
+                  onClick={(e) => { e.stopPropagation(); editCells.onSelect(code); }} />
+              </span>
+            );
+          })}
         </span>
       )}
       {markers.filter(hasCells).map((m) => {
@@ -133,6 +177,13 @@ export function PlanView({ src, plan, markers, highlightZoneId, highlightCell, p
     </span>
   );
 }
+
+/** Cases ajustables d'une zone (voir `PlanView`). */
+type EditCells = {
+  boxes: CellBoxMap; names: CellNameMap; selected: string | null; home?: { x: number; y: number };
+  onSelect: (code: string | null) => void; onMove: (code: string, x: number, y: number) => void;
+};
+const EDIT_HELP = 'Touchez une case puis l’endroit où la placer ; au clavier, flèches pour déplacer la case choisie (Maj : plus vite), Échap pour la désélectionner.';
 
 const hasCells = (m: PlanMarker) => Object.keys(m.cellBoxes ?? {}).length > 0;
 
@@ -196,7 +247,7 @@ const round = (v: number) => +v.toFixed(4);
  * englobant plus 4 % de chaque côté, coupé aux bords ; sinon une fenêtre de
  * 40 % × 40 % centrée sur le repère, décalée pour rester dans l'image.
  */
-export function thumbnailBox(marker: PlanMarker): [number, number, number, number] {
+export function thumbnailBox(marker: Pick<PlanMarker, 'x' | 'y' | 'cellBoxes'>): [number, number, number, number] {
   const boxes = Object.values(marker.cellBoxes ?? {});
   if (boxes.length > 0) {
     const m = 0.04;
