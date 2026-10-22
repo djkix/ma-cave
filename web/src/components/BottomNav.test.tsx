@@ -7,10 +7,10 @@ import { BottomNav } from './BottomNav';
 
 afterEach(() => vi.restoreAllMocks());
 
-function mount() {
+function mount(path = '/') {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <BottomNav />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -19,10 +19,16 @@ function mount() {
 
 const labels = () => screen.getAllByRole('link').map((l) => l.textContent);
 
-it('montre les cinq onglets au propriétaire', async () => {
+it('montre les six onglets au propriétaire, Réglages en dernier', async () => {
   mount();
   expect(await screen.findByRole('link', { name: /Journal/ })).toBeInTheDocument();
-  expect(labels()).toEqual(['shelvesCave', 'add_circleEntrée', 'remove_circle_outlineSortie', 'history_eduJournal', 'bar_chartStats']);
+  expect(labels()).toEqual(['shelvesCave', 'add_circleEntrée', 'remove_circle_outlineSortie', 'history_eduJournal', 'bar_chartStats', 'settingsRéglages']);
+});
+
+it.each(['/compte', '/compte/a-propos', '/ma-cave', '/admin/comptes'])('allume l’onglet Réglages sur %s', async (path) => {
+  mount(path);
+  expect(await screen.findByRole('link', { name: /Réglages/ })).toHaveAttribute('href', '/compte');
+  expect(screen.getByRole('link', { name: /Réglages/ })).toHaveClass('bottomnav__tab--active');
 });
 
 it('ne garde que Cave et Stats pour un membre en lecture seule', async () => {

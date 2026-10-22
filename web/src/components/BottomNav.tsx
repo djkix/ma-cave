@@ -1,6 +1,7 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useCurrentCave } from '../lib/use-current-cave';
 import { Icon } from './Icon';
+import { SETTINGS_PATH } from './TopBar';
 
 const tabs = [
   { to: '/cave', icon: 'shelves', label: 'Cave', soon: false, ownerOnly: false },
@@ -8,11 +9,13 @@ const tabs = [
   { to: '/sortie', icon: 'remove_circle_outline', label: 'Sortie', soon: false, ownerOnly: true },
   { to: '/journal', icon: 'history_edu', label: 'Journal', soon: false, ownerOnly: true },
   { to: '/stats', icon: 'bar_chart', label: 'Stats', soon: false, ownerOnly: false },
+  { to: '/compte', icon: 'settings', label: 'Réglages', soon: false, ownerOnly: false },
 ];
 
 export function BottomNav() {
   // Un membre en lecture seule n'a ni entrée, ni sortie, ni journal.
   const { me, isOwner, caves } = useCurrentCave();
+  const { pathname } = useLocation();
   // Sans cave (administrateur sur l'administration), Cave et Stats ne mèneraient
   // qu'à l'écran « pas encore de cave » : pas d'onglets du tout.
   if (me && caves.length === 0) return null;
@@ -25,7 +28,7 @@ export function BottomNav() {
             <span>{t.label}</span>
           </span>
         ) : (
-          <NavLink key={t.to} to={t.to} className={({ isActive }) => `bottomnav__tab${isActive ? ' bottomnav__tab--active' : ''}`}>
+          <NavLink key={t.to} to={t.to} className={({ isActive }) => `bottomnav__tab${isActive || (t.to === '/compte' && SETTINGS_PATH.test(pathname)) ? ' bottomnav__tab--active' : ''}`}>
             <Icon name={t.icon} />
             <span>{t.label}</span>
           </NavLink>

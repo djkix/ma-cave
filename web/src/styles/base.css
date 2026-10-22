@@ -27,6 +27,7 @@ h1, h2, h3, .serif { font-family: var(--font-serif); font-weight: 500; margin: 0
    mais toujours lisible : l'empreinte de commit d'une image `latest` peut
    allonger le libellé, d'où le retour à la ligne interdit. */
 .topbar__account { margin-left: auto; color: var(--color-primary); display: inline-flex; width: var(--size-touch-target); height: var(--size-touch-target); align-items: center; justify-content: center; }
+.topbar__version { margin-left: auto; padding-inline: var(--space-sm); font-size: 12px; color: var(--color-secondary); white-space: nowrap; }
 .topbar__logo { width: 32px; height: 32px; border-radius: 8px; margin-inline: 8px; }
 .topbar__back { color: var(--color-primary); display: inline-flex; width: var(--size-touch-target); height: var(--size-touch-target); align-items: center; justify-content: center; }
 

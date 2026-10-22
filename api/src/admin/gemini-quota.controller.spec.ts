@@ -68,7 +68,7 @@ describe('GeminiUsageService — bandeau de pause', () => {
   it('limite locale atteinte : sa raison, son heure de reprise et son texte', async () => {
     const until = new Date('2026-10-22T07:00:00Z');
     expect((await service(null, new GeminiQuotaError(until, 'QUOTA_JOUR', 20, NOW)).report(7, NOW)).pause).toEqual({
-      until: until.toISOString(), reason: 'QUOTA_JOUR', message: 'Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.',
+      until: until.toISOString(), reason: 'QUOTA_JOUR', message: 'Quota Gemini du jour atteint (20 requêtes) : reprise jeudi à 09:00.',
     });
   });
 

@@ -163,7 +163,7 @@ describe('ImageSearchService.search', () => {
     pause.currentPause.mockResolvedValueOnce(null).mockResolvedValueOnce({ until, reason: 'QUOTA_GOOGLE' });
     const e = await service.search('c1', 'w1').catch((x) => x);
     expect(e).toBeInstanceOf(ServiceUnavailableException);
-    expect(e.message).toMatch(/^Quota Gemini dépassé chez Google : reprise (demain )?à \d\d:\d\d\.$/);
+    expect(e.message).toMatch(/^Quota Gemini dépassé chez Google : reprise ([a-zé]+ )?à \d\d:\d\d\.$/);
   });
 
   it('limite de débit atteinte : 503 avec le texte de la limite, sans dépense comptée', async () => {
@@ -171,7 +171,7 @@ describe('ImageSearchService.search', () => {
     const { service, prisma } = setup({ providerError: refusal });
     const e = await service.search('c1', 'w1').catch((x) => x);
     expect(e).toBeInstanceOf(ServiceUnavailableException);
-    expect(e.message).toBe('Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.');
+    expect(e.message).toBe('Quota Gemini du jour atteint (20 requêtes) : reprise jeudi à 09:00.');
     expect(prisma.imageSearchCost.create).not.toHaveBeenCalled();
   });
 
