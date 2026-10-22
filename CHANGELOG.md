@@ -9,6 +9,32 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.30.0](https://github.com/djkix/ma-cave/compare/v2.29.0...v2.30.0) (2026-10-22)
+
+
+### Fonctionnalités
+
+* **api:** modèle Gemini choisi seul, modèle en cours et limites par modèle ([7369bd5](https://github.com/djkix/ma-cave/commit/7369bd509bf02bd92b31b6330e4d01348edbf8da))
+* **web:** carte « Modèle Gemini (automatique) » sans sélecteur ([208e9c2](https://github.com/djkix/ma-cave/commit/208e9c26ad532259c8675406dfb2ba79f165cb4c))
+
+
+### Corrections
+
+* **api:** seuls les modèles Gemini Flash et Flash-Lite stables, jamais les variantes tts ou image ([f90cdab](https://github.com/djkix/ma-cave/commit/f90cdab569de101a88763a49264d676eca591043))
+* **securite:** api et worker sous le compte node, plus en root ([842845c](https://github.com/djkix/ma-cave/commit/842845c60726684fa75d242121fd9ca2ad99edf7))
+* **securite:** deux proxys de confiance (TRUST_PROXY_HOPS) et X-Forwarded-Proto filtré ([293a08f](https://github.com/djkix/ma-cave/commit/293a08fe5e5775a1efa8390677ca376bca12c04a))
+* **securite:** en-têtes de sécurité HTTP (CSP, cadres, nosniff, Referrer, Permissions) ([8e42cac](https://github.com/djkix/ma-cave/commit/8e42cac8a53254c61638e02ed8b02206ecd4ad7b))
+* **securite:** invitation sans révéler le compte invité ni le valider ([ecbb3e5](https://github.com/djkix/ma-cave/commit/ecbb3e5e28222037090dcd0b5006fcedcae975dd))
+* **securite:** NestJS 11 et multer 2.5 (déni de service à l'envoi de fichiers) ([82f0f14](https://github.com/djkix/ma-cave/commit/82f0f14421fd7dc65b2ab219f4ce0dc9a71d447d))
+* **securite:** plafond de 40 Mpx pour les images envoyées (sharp) ([d74bc4f](https://github.com/djkix/ma-cave/commit/d74bc4fcf0394e97e07a3119e30094b13b1b1fcd))
+* **securite:** port web publié sur 127.0.0.1 par défaut (WEB_BIND) ([eb64f88](https://github.com/djkix/ma-cave/commit/eb64f88d6b18f59260270b4b36cc9dbb137dac39))
+* **securite:** sharp 0.35.5 (libvips, libheif, librsvg corrigés) ([13b6e01](https://github.com/djkix/ma-cave/commit/13b6e0159aeef800e8eafa5b1159b8e510ba2ddf))
+
+
+### Divers
+
+* publier la 2.30.0 ([5f6317f](https://github.com/djkix/ma-cave/commit/5f6317fd13905022b0b33a998beabc033a59a36b))
+
 ## [2.29.0](https://github.com/djkix/ma-cave/compare/v2.28.0...v2.29.0) (2026-10-22)
 
 ### Résumé
