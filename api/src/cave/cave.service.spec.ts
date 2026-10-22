@@ -68,7 +68,7 @@ describe('CaveService.exitCandidates', () => {
 });
 
 describe('CaveService.detail', () => {
-  describe('cote iDealwine', () => {
+  describe('cote', () => {
     const quote = (coteCents: number, quotedOn: string, createdAt: string, sourceUrl: string | null = null) => ({
       wineId: 'w19', coteCents, nTransactions: 12, quotedOn: new Date(`${quotedOn}T00:00:00Z`), sourceUrl, createdAt: new Date(createdAt),
       enteredBy: { displayName: null, email: 'proprietaire@example.com' },
@@ -79,6 +79,11 @@ describe('CaveService.detail', () => {
       const s = service(null);
       const r = await s.detail('c1', 'w19', 'OWNER');
       expect(r).toMatchObject({ quote: null, idealwineUrl: search, savedUrl: null });
+      expect(r.searchLinks?.map((l) => l.url)).toEqual([
+        search,
+        'https://www.wine-searcher.com/find/domaine+tempier+la+tourtine',
+        'https://www.vivino.com/search/wines?q=domaine%20tempier%20la%20tourtine',
+      ]);
       expect(s.mockPrisma.priceQuote.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { wineId: 'w19' } }));
     });
 
@@ -88,7 +93,9 @@ describe('CaveService.detail', () => {
         quote(9000, '2025-01-01', '2026-01-01T00:00:00Z', 'https://www.idealwine.com/fr/ancienne.jsp'),
         quote(8500, '2026-03-03', '2026-03-04T00:00:00Z', page),
       ]).detail('c1', 'w19', 'OWNER');
-      expect(r.quote).toEqual({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page, enteredBy: 'proprietaire@example.com', cessionCents: 7328 });
+      expect(r.quote).toEqual({
+        coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page, source: 'iDealwine', enteredBy: 'proprietaire@example.com', cessionCents: 7328,
+      });
       expect(r.idealwineUrl).toBe(page);
       expect(r.savedUrl).toBe(page);
       const noUrl = await service(null, [tempier19], undefined, null, [quote(8500, '2026-03-03', '2026-03-04T00:00:00Z')]).detail('c1', 'w19', 'OWNER');
@@ -111,12 +118,26 @@ describe('CaveService.detail', () => {
       expect(r.savedUrl).toBe(saved);
     });
 
+    it('page Vivino enregistrée : lien Vivino vers la page, source « Vivino », idealwineUrl reste la recherche iDealwine', async () => {
+      const page = 'https://www.vivino.com/FR/fr/domaine-tempier/w/1';
+      const r = await service(null, [tempier19], undefined, null, [quote(8500, '2026-03-03', '2026-03-04T00:00:00Z', page)]).detail('c1', 'w19', 'OWNER');
+      expect(r.quote).toMatchObject({ source: 'Vivino', sourceUrl: page });
+      expect(r.savedUrl).toBe(page);
+      expect(r.idealwineUrl).toBe(search);
+      expect(r.searchLinks?.map((l) => [l.label, l.url])).toEqual([
+        ['iDealwine', search],
+        ['Wine-Searcher', 'https://www.wine-searcher.com/find/domaine+tempier+la+tourtine'],
+        ['Vivino', page],
+      ]);
+    });
+
     it('membre : ni quote ni idealwineUrl (clés absentes), cotes non lues', async () => {
       const s = service(null, [tempier19], undefined, null, [quote(8500, '2026-03-03', '2026-03-04T00:00:00Z')]);
       const r = await s.detail('c1', 'w19', 'VIEWER');
       expect(r).not.toHaveProperty('quote');
       expect(r).not.toHaveProperty('idealwineUrl');
       expect(r).not.toHaveProperty('savedUrl');
+      expect(r).not.toHaveProperty('searchLinks');
       expect(JSON.stringify(r)).not.toMatch(/quote|cote|idealwine|cession|savedurl/i);
       expect(s.mockPrisma.priceQuote.findMany).not.toHaveBeenCalled();
       expect(await s.detail('c1', 'w19')).not.toHaveProperty('quote');

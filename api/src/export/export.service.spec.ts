@@ -191,29 +191,30 @@ describe('ExportService.buildWorkbook', () => {
     expect(stock.getRow(2).getCell(16).value).toBe('Cave 2 / B / 3 × 4 ; Sans emplacement × 2');
   });
 
-  it('ajoute la cote iDealwine courante, sa date et la valeur à la cote ; vides sans cote', async () => {
+  it('ajoute la cote courante, sa date, la valeur à la cote et sa source ; vides sans cote', async () => {
     const prisma = fakePrisma();
     const bandol = (id: string, producer: string) => ({ id, producer, cuvee: null, appellationRaw: 'Bandol', vintage: 2019, color: 'ROUGE', formatCl: 75,
       appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, appellation: { region: 'Provence', guardMinYears: 5, guardMaxYears: 20 } });
     prisma.wine.findMany = async () => [bandol('w1', 'A Coté'), bandol('w2', 'B Sans cote')] as any;
     prisma.$queryRaw = async () => [{ wine_id: 'w1', quantity: 6 }, { wine_id: 'w2', quantity: 2 }];
     prisma.priceQuote.findMany.mockImplementation(async () => [
-      { wineId: 'w1', coteCents: 9000, quotedOn: new Date('2025-01-01T00:00:00Z'), createdAt: new Date('2025-01-02T00:00:00Z') },
-      { wineId: 'w1', coteCents: 8550, quotedOn: new Date('2026-03-03T00:00:00Z'), createdAt: new Date('2026-03-04T00:00:00Z') },
+      { wineId: 'w1', coteCents: 9000, quotedOn: new Date('2025-01-01T00:00:00Z'), createdAt: new Date('2025-01-02T00:00:00Z'), sourceUrl: 'https://www.idealwine.com/fr/x' },
+      { wineId: 'w1', coteCents: 8550, quotedOn: new Date('2026-03-03T00:00:00Z'), createdAt: new Date('2026-03-04T00:00:00Z'), sourceUrl: 'https://www.vivino.com/w/1' },
     ]);
     const { buffer } = await new ExportService(prisma as any, noRules as any).buildWorkbook('c1', {}, 'u1');
     const wb = new ExcelJS.Workbook();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- voir le premier test
     await wb.xlsx.load(buffer as any);
     const stock = wb.getWorksheet('Stock')!;
-    expect([17, 18, 19].map((c) => stock.getRow(1).getCell(c).value)).toEqual(['Cote iDealwine (€)', 'Date de la cote', 'Valeur à la cote (€)']);
-    const [cote, date, value] = [17, 18, 19].map((c) => stock.getRow(2).getCell(c));
+    expect([17, 18, 19, 20].map((c) => stock.getRow(1).getCell(c).value)).toEqual(['Cote (€)', 'Date de la cote', 'Valeur à la cote (€)', 'Source']);
+    const [cote, date, value, source] = [17, 18, 19, 20].map((c) => stock.getRow(2).getCell(c));
     expect(cote.value).toBe(85.5);
     expect(date.value).toEqual(new Date('2026-03-03T00:00:00Z'));
     expect(date.numFmt).toBe('dd/mm/yyyy');
     expect(value.value).toBe(513); // 6 × 85,50 €
-    expect([17, 18, 19].map((c) => stock.getRow(3).getCell(c).value)).toEqual([null, null, null]);
-    expect(stock.autoFilter).toBe('A1:S1');
+    expect(source.value).toBe('Vivino');
+    expect([17, 18, 19, 20].map((c) => stock.getRow(3).getCell(c).value)).toEqual([null, null, null, null]);
+    expect(stock.autoFilter).toBe('A1:T1');
     expect(prisma.priceQuote.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { wine: { caveId: 'c1' } } }));
   });
 });

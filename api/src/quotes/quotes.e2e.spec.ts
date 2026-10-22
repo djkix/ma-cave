@@ -102,6 +102,7 @@ describeIfInfra('cote iDealwine (HTTP)', () => {
       expect(res.status).toBe(200);
       expect(res.body.quote).toBeNull();
       expect(res.body.idealwineUrl).toBe(`https://www.idealwine.com/fr/acheter-du-vin/recherche-chateau%20cote%20a%20hommage%20a%20jacques`);
+      expect(res.body.searchLinks.map((l: { label: string }) => l.label)).toEqual(['iDealwine', 'Wine-Searcher', 'Vivino']);
     });
   });
 
@@ -109,7 +110,7 @@ describeIfInfra('cote iDealwine (HTTP)', () => {
     it('propriétaire : 201, la cote créée, saisie par lui', async () => {
       const res = await ownerA.post(`/api/wines/${wineA}/quotes`).send({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page });
       expect(res.status).toBe(201);
-      expect(res.body).toEqual({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page, enteredBy: 'djkix', cessionCents: 7328 });
+      expect(res.body).toEqual({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page, source: 'iDealwine', enteredBy: 'djkix', cessionCents: 7328 });
       const row = await prisma.priceQuote.findFirstOrThrow({ where: { wineId: wineA } });
       expect(row).toMatchObject({ source: 'IDEALWINE', enteredById: userIds[0] });
     });
@@ -123,11 +124,20 @@ describeIfInfra('cote iDealwine (HTTP)', () => {
       expect(detail.body.idealwineUrl).toBe(page);
     });
 
+    it('lien Vivino ou Wine-Searcher accepté, source déduite de l’hôte', async () => {
+      const vivino = 'https://www.vivino.com/FR/fr/chateau-cote-a/w/1';
+      const res = await ownerA.post(`/api/wines/${wineA}/quotes`).send({ coteCents: 7000, quotedOn: '2024-01-01', sourceUrl: vivino });
+      expect(res.status).toBe(201);
+      expect(res.body).toMatchObject({ sourceUrl: vivino, source: 'Vivino' });
+      const ws = await ownerA.post(`/api/wines/${wineA}/quotes`).send({ coteCents: 7100, quotedOn: '2024-01-01', sourceUrl: 'https://www.wine-searcher.com/find/chateau+cote+a' });
+      expect(ws.body).toMatchObject({ source: 'Wine-Searcher' });
+    });
+
     it.each([
       [{ coteCents: 0, quotedOn: '2026-03-03' }, 'La cote doit être comprise entre 0,01 € et 100 000 €'],
       [{ coteCents: 100, nTransactions: -1, quotedOn: '2026-03-03' }, 'Nombre de transactions invalide'],
       [{ coteCents: 100, quotedOn: '1989-12-31' }, 'Date de cote invalide'],
-      [{ coteCents: 100, quotedOn: '2026-03-03', sourceUrl: 'https://www.idealwine.com.evil.test/' }, 'Le lien doit être une page www.idealwine.com'],
+      [{ coteCents: 100, quotedOn: '2026-03-03', sourceUrl: 'https://www.idealwine.com.evil.test/' }, 'Le lien doit être une page iDealwine, Wine-Searcher ou Vivino'],
     ])('400 %j', async (body, message) => {
       const before = await quoteCount();
       expectStatus(await ownerA.post(`/api/wines/${wineA}/quotes`).send(body), 400, message);
@@ -160,6 +170,7 @@ describeIfInfra('cote iDealwine (HTTP)', () => {
       expect(res.status).toBe(200);
       expect(res.body).not.toHaveProperty('quote');
       expect(res.body).not.toHaveProperty('idealwineUrl');
+      expect(res.body).not.toHaveProperty('searchLinks');
       // Clés seulement : le nom du vin (« Château Côté ») contient lui-même « cote ».
       const keysOf = (v: unknown): string[] =>
         Array.isArray(v) ? v.flatMap(keysOf) : v && typeof v === 'object' ? Object.entries(v).flatMap(([k, x]) => [k, ...keysOf(x)]) : [];
@@ -175,7 +186,7 @@ describeIfInfra('cote iDealwine (HTTP)', () => {
       for (const k of ['quotedValueCents', 'cessionValueCents', 'quotedReferences', 'quotableReferences']) expect(viewer.body).not.toHaveProperty(k);
     });
 
-    it('export : colonnes cote, date et valeur à la cote', async () => {
+    it('export : colonnes cote, date, valeur à la cote et source', async () => {
       const res = await ownerA.get('/api/export.xlsx').buffer(true).parse((r, cb) => {
         const chunks: Buffer[] = [];
         r.on('data', (c: Buffer) => chunks.push(c));
@@ -188,16 +199,17 @@ describeIfInfra('cote iDealwine (HTTP)', () => {
       const stock = wb.getWorksheet('Stock')!;
       const header = (stock.getRow(1).values as unknown[]).slice(1);
       const col = (name: string) => header.indexOf(name) + 1;
-      expect(col('Cote iDealwine (€)')).toBeGreaterThan(0);
+      expect(col('Cote (€)')).toBeGreaterThan(0);
       const rowOf = (producer: string) => {
         for (let r = 2; r <= stock.rowCount; r++) if (stock.getRow(r).getCell(1).value === producer) return stock.getRow(r);
         throw new Error(producer);
       };
       const a = rowOf('Château Côté a');
-      expect(a.getCell(col('Cote iDealwine (€)')).value).toBe(85);
+      expect(a.getCell(col('Cote (€)')).value).toBe(85);
       expect(a.getCell(col('Date de la cote')).value).toEqual(new Date('2026-03-03T00:00:00Z'));
       expect(a.getCell(col('Valeur à la cote (€)')).value).toBe(510);
-      expect(rowOf('Château Côté a2').getCell(col('Cote iDealwine (€)')).value).toBeNull();
+      expect(a.getCell(col('Source')).value).toBe('iDealwine');
+      expect(rowOf('Château Côté a2').getCell(col('Cote (€)')).value).toBeNull();
     });
 
     it('export : interdit au membre', async () => {

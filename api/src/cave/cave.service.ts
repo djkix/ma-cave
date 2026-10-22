@@ -6,7 +6,7 @@ import { ManualApogeeInput } from '../apogee/dto';
 import { labelOf, partsOf, Place } from '../locations/location';
 import { LocationsService } from '../locations/locations.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { currentQuote, idealwineSearchUrl, QUOTE_SELECT, QuoteView, quoteView, savedSourceUrl } from '../quotes/quote';
+import { currentQuote, idealwineSearchUrl, QUOTE_SELECT, quoteSiteOf, QuoteView, quoteView, savedSourceUrl, SearchLink, searchLinks } from '../quotes/quote';
 import { producerKeyOf } from '../producers/producer-key';
 import { PRODUCER_PROFILE_INCLUDE, producerProfileOf } from '../producers/producer-profile.view';
 import { parseExtraction } from '../vision/extraction-schema';
@@ -175,11 +175,17 @@ export class CaveService {
       // Cote : un prix, jamais lue pour un membre.
       role === 'OWNER' && withQuote ? this.prisma.priceQuote.findMany({ where: { wineId: id }, select: QUOTE_SELECT }) : null,
     ]);
-    let cote: { quote: QuoteView | null; idealwineUrl: string; savedUrl: string | null } | undefined;
+    let cote: { quote: QuoteView | null; searchLinks: SearchLink[]; idealwineUrl: string; savedUrl: string | null } | undefined;
     if (quotes) {
       const current = currentQuote(quotes);
       const savedUrl = savedSourceUrl(quotes);
-      cote = { quote: current && quoteView(current), idealwineUrl: savedUrl ?? idealwineSearchUrl(row), savedUrl };
+      cote = {
+        quote: current && quoteView(current),
+        searchLinks: searchLinks(row, savedUrl),
+        // Compatibilité (client encore en cache) : page iDealwine enregistrée, sinon leur recherche.
+        idealwineUrl: quoteSiteOf(savedUrl)?.site === 'idealwine' ? savedUrl! : idealwineSearchUrl(row),
+        savedUrl,
+      };
     }
     return {
       wine: {
@@ -198,11 +204,13 @@ export class CaveService {
       /** Endroit pré-sélectionné à la sortie : id, null = « Sans emplacement », absent = plus de stock. */
       exitDefault,
       /**
-       * Propriétaire seulement : cote iDealwine courante (null sans cote) et lien
-       * « Voir sur iDealwine » (page enregistrée de la cote courante, sinon de la
-       * plus récente cote qui en a une, sinon la recherche) ; `savedUrl` : ce lien
-       * enregistré seul (null sans lien), pour pré-remplir le formulaire. Pour un
-       * membre, les trois clés sont absentes, pas nulles.
+       * Propriétaire seulement : cote courante (null sans cote) et `searchLinks`,
+       * un lien « Voir sur … » par site (recherche du vin, ou page enregistrée
+       * pour le site qui l'héberge) ; `savedUrl` : la page enregistrée de la cote
+       * courante, sinon de la plus récente cote qui en a une (null sans lien),
+       * pour pré-remplir le formulaire ; `idealwineUrl` : ancien lien unique,
+       * gardé pour un client en cache. Pour un membre, ces clés sont absentes,
+       * pas nulles.
        */
       ...cote,
     };

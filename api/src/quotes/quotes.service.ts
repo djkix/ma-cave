@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuoteInput, QUOTE_SELECT, QuoteView, quoteView } from './quote';
 
-/** Cotes iDealwine saisies à la main : ajout seulement (l'historique est gardé). */
+/** Cotes saisies à la main : ajout seulement (l'historique est gardé). */
 @Injectable()
 export class QuotesService {
   constructor(private readonly prisma: PrismaService) {}

@@ -1,6 +1,6 @@
 import {
-  cessionCents, COTE_INVALID, createQuoteSchema, currentQuote, currentQuoteByWine, DATE_INVALID, idealwineSearchUrl, isIdealwineUrl,
-  parisToday, quoteView, TRANSACTIONS_INVALID, URL_INVALID,
+  cessionCents, COTE_INVALID, createQuoteSchema, currentQuote, currentQuoteByWine, DATE_INVALID, idealwineSearchUrl, parisToday,
+  quoteSiteOf, quoteView, searchLinks, TRANSACTIONS_INVALID, URL_INVALID,
 } from './quote';
 
 const valid = { coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: 'https://www.idealwine.com/fr/acheter-vin/B2210084-1.jsp' };
@@ -47,13 +47,21 @@ describe('createQuoteSchema', () => {
     'http://www.idealwine.com/fr/x',
     'https://idealwine.com/fr/x',
     'https://www.idealwine.com.evil.test/',
+    'https://vivino.com/w/1',
+    'https://www.vivino.com:8443/w/1',
+    'https://www.wine-searcher.com.evil.test/find/x',
+    'https://user:pw@www.wine-searcher.com/find/x',
     'https://evil.test/https://www.idealwine.com/',
     'https://www.idealwine.com@evil.test/',
     'pas un lien',
     42,
   ])('lien %p : refusé', (sourceUrl) => {
-    expect(errorOf({ ...valid, sourceUrl })).toEqual(['Le lien doit être une page www.idealwine.com']);
-    expect(URL_INVALID).toBe('Le lien doit être une page www.idealwine.com');
+    expect(errorOf({ ...valid, sourceUrl })).toEqual(['Le lien doit être une page iDealwine, Wine-Searcher ou Vivino']);
+    expect(URL_INVALID).toBe('Le lien doit être une page iDealwine, Wine-Searcher ou Vivino');
+  });
+
+  it.each(['https://www.wine-searcher.com/find/tempier+bandol', 'https://www.vivino.com/FR/fr/domaine-tempier/w/1'])('lien %p : accepté', (sourceUrl) => {
+    expect(createQuoteSchema.parse({ ...valid, sourceUrl }).sourceUrl).toBe(sourceUrl);
   });
 
   it('un lien vide vaut pas de lien', () => {
@@ -61,14 +69,34 @@ describe('createQuoteSchema', () => {
   });
 });
 
-describe('isIdealwineUrl', () => {
-  it('https et hôte exactement www.idealwine.com', () => {
-    expect(isIdealwineUrl('https://www.idealwine.com/')).toBe(true);
-    expect(isIdealwineUrl('https://WWW.IDEALWINE.COM/fr/x')).toBe(true);
-    expect(isIdealwineUrl('https://www.idealwine.com.evil.test/')).toBe(false);
-    expect(isIdealwineUrl('http://www.idealwine.com/')).toBe(false);
-    expect(isIdealwineUrl('https://www.idealwine.com:8443/')).toBe(false);
-    expect(isIdealwineUrl('https://user@www.idealwine.com/')).toBe(false);
+describe('quoteSiteOf', () => {
+  it('https et hôte exactement celui d’un des trois sites', () => {
+    expect(quoteSiteOf('https://www.idealwine.com/')?.label).toBe('iDealwine');
+    expect(quoteSiteOf('https://WWW.IDEALWINE.COM/fr/x')?.label).toBe('iDealwine');
+    expect(quoteSiteOf('https://www.wine-searcher.com/find/x')?.label).toBe('Wine-Searcher');
+    expect(quoteSiteOf('https://www.vivino.com/w/1')?.label).toBe('Vivino');
+    expect(quoteSiteOf('https://www.idealwine.com.evil.test/')).toBeNull();
+    expect(quoteSiteOf('http://www.idealwine.com/')).toBeNull();
+    expect(quoteSiteOf('https://www.idealwine.com:8443/')).toBeNull();
+    expect(quoteSiteOf('https://user@www.idealwine.com/')).toBeNull();
+    expect(quoteSiteOf(null)).toBeNull();
+    expect(quoteSiteOf('pas un lien')).toBeNull();
+  });
+});
+
+describe('searchLinks', () => {
+  const wine = { producer: 'Château de Beaucastel', cuvee: 'Hommage à Jacques Perrin', vintage: 2016 };
+  it('un lien de recherche par site, mêmes termes (sans millésime), dans l’ordre iDealwine, Wine-Searcher, Vivino', () => {
+    expect(searchLinks(wine, null)).toEqual([
+      { site: 'idealwine', label: 'iDealwine', hint: 'enchères', url: 'https://www.idealwine.com/fr/acheter-du-vin/recherche-chateau%20de%20beaucastel%20hommage%20a%20jacques%20perrin' },
+      { site: 'wine-searcher', label: 'Wine-Searcher', hint: 'prix moyen chez les cavistes', url: 'https://www.wine-searcher.com/find/chateau+de+beaucastel+hommage+a+jacques+perrin' },
+      { site: 'vivino', label: 'Vivino', hint: 'prix boutique et note', url: 'https://www.vivino.com/search/wines?q=chateau%20de%20beaucastel%20hommage%20a%20jacques%20perrin' },
+    ]);
+  });
+  it('la page enregistrée remplace la recherche de son site seulement', () => {
+    const page = 'https://www.vivino.com/FR/fr/beaucastel/w/1';
+    const links = searchLinks(wine, page);
+    expect(links.map((l) => l.url)).toEqual([idealwineSearchUrl(wine), expect.stringContaining('wine-searcher.com/find/'), page]);
   });
 });
 
@@ -123,7 +151,10 @@ describe('cote courante et vue', () => {
       coteCents: 8500, nTransactions: 12, quotedOn: new Date('2026-03-03T00:00:00Z'), sourceUrl: null,
       enteredBy: { displayName: null, email: 'proprietaire@example.com' },
     };
-    expect(quoteView(row)).toEqual({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: null, enteredBy: 'proprietaire@example.com', cessionCents: 7328 });
+    expect(quoteView(row)).toEqual({
+      coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: null, source: null, enteredBy: 'proprietaire@example.com', cessionCents: 7328,
+    });
+    expect(quoteView({ ...row, sourceUrl: 'https://www.vivino.com/w/1' }).source).toBe('Vivino');
     expect(quoteView({ ...row, enteredBy: { displayName: 'djkix', email: 'f@x' } }).enteredBy).toBe('djkix');
     expect(quoteView({ ...row, enteredBy: null }).enteredBy).toBeNull();
   });

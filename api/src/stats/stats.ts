@@ -36,7 +36,7 @@ export interface StatsMovement {
   reversesId: string | null;
 }
 
-/** Cote iDealwine courante d'un vin (saisie à la main). */
+/** Cote courante d'un vin (saisie à la main). */
 export interface StatsQuote { wineId: string; coteCents: number }
 
 export interface Share { key: string; bottles: number; share: number }
