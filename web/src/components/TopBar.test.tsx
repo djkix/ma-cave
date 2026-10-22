@@ -28,11 +28,19 @@ function mount(props: { title?: string; back?: string } = {}, path = '/') {
   return qc;
 }
 
-it('mène aux Réglages, sans afficher la version hors des Réglages', () => {
+it('n’a ni lien vers les Réglages (onglet du bas) ni version hors des Réglages', async () => {
+  const me = vi.spyOn(api, 'getMe').mockResolvedValue(meFixture());
   mount({ title: 'Revue groupée', back: '/entree' }, '/entree');
+  await waitFor(() => expect(me).toHaveBeenCalled());
   expect(screen.getByRole('link', { name: 'Retour' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/compte');
+  expect(screen.queryByRole('link', { name: 'Réglages' })).not.toBeInTheDocument();
   expect(screen.queryByLabelText(`Version ${APP_VERSION}`)).not.toBeInTheDocument();
+});
+
+it('garde le lien vers les Réglages pour un compte sans cave, qui n’a pas de barre du bas', async () => {
+  vi.spyOn(api, 'getMe').mockResolvedValue(meFixture({ caves: [], currentCaveId: null }));
+  mount({}, '/');
+  expect(await screen.findByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/compte');
 });
 
 it.each(['/compte', '/compte/moi', '/ma-cave', '/admin/comptes'])('affiche la version à la place du lien sur %s', (path) => {

@@ -57,7 +57,7 @@ mouvement, membre) d'une autre cave répond comme un identifiant inconnu (404),
 et une cave à laquelle le compte n'a pas accès répond « Cave introuvable ».
 
 **Ma cave.** Depuis l'accueil (lien *Ma cave › Réglages*) ou la carte *Ma cave* de
-*Mon compte*, la page `/ma-cave` (propriétaire seulement ; l'ancienne adresse
+*Réglages*, la page `/ma-cave` (propriétaire seulement ; l'ancienne adresse
 `/membres` y mène) regroupe, dans cet ordre, le **nom de la cave**, ses
 **plans** (menu ⋯ : *Renommer*, *Remplacer la photo*, *Supprimer le plan*), ses
 **zones** (*Modifier* ouvre une feuille en bas d'écran), ses **membres** et la
@@ -245,7 +245,7 @@ zone détectée sur cette photo. Placez-les à la main. ») jusqu'à la prochain
 action. Un plan jamais analysé (d'avant la 2.16.0) propose le lien **Proposer
 des zones**, qui lance l'analyse. L'onglet d'un plan en cours d'analyse porte un
 point animé (« Cellier, analyse en cours » pour un lecteur d'écran) et, dans
-*Mon compte*, la carte *Ma cave* résume « Analyse du plan en cours ». Chaque plan de `GET
+*Réglages*, la carte *Ma cave* résume « Analyse du plan en cours ». Chaque plan de `GET
 /api/caves/current/plans` porte aussi `analysisInfo` : `null` pour `NONE` et
 `DONE` ; pour `PENDING`, `{ since, attempt, maxAttempts, nextAttemptAt,
 waiting, pauseUntil }`, lu sur la tâche BullMQ (`since` = date de la demande
@@ -858,7 +858,7 @@ et délai bornés.
 le compte reste **en attente** jusqu'à ce qu'un administrateur le valide. Les
 adresses de `ADMIN_EMAILS` sont actives et administratrices dès leur première
 connexion, et une adresse invitée par un propriétaire est active d'emblée,
-en lecture seule sur la cave qui l'a invitée. L'espace `/admin` (carte *Application* de *Mon compte*) réunit, pour les
+en lecture seule sur la cave qui l'a invitée. L'espace `/admin` (carte *Application* des *Réglages*) réunit, pour les
 administrateurs, trois onglets : *Comptes* (`/admin/comptes`, ouvert par défaut),
 *Coûts de l’IA* (`/admin/couts`) et *Données du vin* (`/admin/donnees`) :
 
@@ -1076,7 +1076,7 @@ ADMIN_EMAILS=vous@gmail.com
 ```
 
 Une fois connecté avec cette adresse, l'espace **Administration** (carte
-*Application* de *Mon compte*, ou `/admin`) valide ou refuse les inscriptions, liste tous les
+*Application* des *Réglages*, ou `/admin`) valide ou refuse les inscriptions, liste tous les
 comptes créés et permet de bloquer un compte indésirable, de le réactiver, de
 promouvoir/retirer d'autres administrateurs, de créer la cave d'un compte qui
 n'en a pas et de régler la part de budget par cave. Un administrateur ne peut
@@ -1105,13 +1105,13 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
    simplement (« La connexion n’a pas abouti », puis quoi faire). L'écran ne
    montre que Google : le compte de secours s'ouvre par
    <https://cave.example.org/login?secours>, et la page de confidentialité
-   (`/confidentialite`, publique pour Google) est liée depuis *Mon compte → À propos*.
+   (`/confidentialite`, publique pour Google) est liée depuis *Réglages → À propos*.
 2. « Se connecter avec Google » puis rentrer une bouteille avec une vraie photo
    d'étiquette : la fiche doit arriver dans « À confirmer » en moins d'une
    minute.
 3. **Journal → Exporter le classeur** : la bouteille figure dans la feuille
    `Stock`.
-4. **Mon compte → Moi → Installer l'application** : bouton « Installer
+4. **Réglages → Moi → Installer l'application** : bouton « Installer
    l'application » sur Android, indication *Partager → Sur l'écran d'accueil*
    sur iPhone. L'icône est une niche voûtée en pierre claire où se tiennent
    trois bouteilles debout — Bordeaux, Champagne, Bourgogne
@@ -1297,7 +1297,34 @@ done
 cd /opt/stacks/ma-cave && docker compose pull && docker compose up -d
 ```
 
-Vérifier ensuite la connexion, la version dans « Mon compte → À propos » et quelques
+**Avec Dockhand, sans terminal.** Plutôt que copier les données, la nouvelle
+stack reprend les volumes de l'ancienne tels quels :
+
+1. Vérifier dans les journaux du service `db-backup` de la stack `cave-a-vin`
+   qu'une sauvegarde de la nuit existe (et, en plus, télécharger la sauvegarde
+   Excel depuis *Réglages → Ma cave* sur le site). Copier les variables
+   d'environnement (`.env`) de la stack, puis l'**arrêter** sans supprimer ses
+   volumes.
+2. Créer une stack `ma-cave` : coller le `docker-compose.yml` du dépôt, en
+   remplaçant son bloc final `volumes:` par celui ci-dessous, puis coller les
+   mêmes variables d'environnement.
+3. *Pull* puis *Déployer*.
+
+```yaml
+volumes:
+  postgres_data: { name: cave-a-vin_postgres_data, external: true }
+  redis_data: { name: cave-a-vin_redis_data, external: true }
+  photo_data: { name: cave-a-vin_photo_data, external: true }
+```
+
+Les volumes gardent leur ancien nom, sans conséquence. Les sauvegardes
+automatiques partent dans le dossier `backups` de la nouvelle stack ; les
+anciennes restent dans celui de `cave-a-vin` (à récupérer avant de le
+supprimer). Une fois la nouvelle stack validée, supprimer l'ancienne stack dans
+Dockhand **sans cocher la suppression des volumes**, puisqu'ils servent
+toujours.
+
+Vérifier ensuite la connexion, la version en haut à droite des Réglages et quelques
 photos. La nouvelle stack apparaît d'elle-même dans Dockge (elle est dans
 `/opt/stacks`). Quand tout est bon, quelques jours plus tard, supprimer
 l'ancienne : `rm -rf /opt/stacks/cave-a-vin` puis
@@ -1398,7 +1425,7 @@ votre adresse Google.
 administrateur n'existait : la cave a été créée sans propriétaire et votre
 compte en est devenu membre. Ajoutez `ADMIN_EMAILS=votre.adresse@gmail.com` au
 `.env`, relancez `docker compose up -d --force-recreate api worker`, puis
-reconnectez-vous avec Google (« Se déconnecter » dans Mon compte → Moi, ou
+reconnectez-vous avec Google (« Se déconnecter » dans Réglages → Moi, ou
 directement `https://votre-domaine/api/auth/google`) : le premier
 administrateur qui se connecte reçoit la cave sans propriétaire.
 
