@@ -46,7 +46,7 @@ it('propriétaire : bloc « Cote » sans cote', async () => {
 it('propriétaire : bloc avec la cote courante', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue({
     ...base,
-    quote: { coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: null, source: null, enteredBy: 'djkix', cessionCents: 7328 },
+    quote: { coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: null, site: null, source: null, enteredBy: 'djkix', cessionCents: 7328 },
     searchLinks, idealwineUrl: SEARCH, savedUrl: null,
   });
   mount();

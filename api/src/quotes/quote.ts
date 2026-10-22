@@ -34,15 +34,16 @@ function isValidQuotedOn(s: string): boolean {
 
 /**
  * Sites où consulter une cote : ajouter un site = ajouter une entrée. `search`
- * reçoit les termes « producteur cuvée » nettoyés (voir `searchTerms`).
+ * reçoit les termes « producteur cuvée » nettoyés (voir `searchTerms`) ;
+ * `dbSource` : valeur de la colonne `price_quote.source` (texte libre, sans contrainte).
  */
 export const QUOTE_SITES = [
   // Avec `_` ou `-`, leur moteur affiche le terme avec des tirets, qui ne donne plus rien quand on relance la recherche.
-  { site: 'idealwine', label: 'iDealwine', hint: 'enchères', host: 'www.idealwine.com',
+  { site: 'idealwine', label: 'iDealwine', hint: 'enchères', host: 'www.idealwine.com', dbSource: 'IDEALWINE',
     search: (t: string) => `https://www.idealwine.com/fr/acheter-du-vin/recherche-${encodeURIComponent(t)}` },
-  { site: 'wine-searcher', label: 'Wine-Searcher', hint: 'prix moyen chez les cavistes', host: 'www.wine-searcher.com',
+  { site: 'wine-searcher', label: 'Wine-Searcher', hint: 'prix moyen chez les cavistes', host: 'www.wine-searcher.com', dbSource: 'WINE_SEARCHER',
     search: (t: string) => `https://www.wine-searcher.com/find/${t.replace(/ /g, '+')}` },
-  { site: 'vivino', label: 'Vivino', hint: 'prix boutique et note', host: 'www.vivino.com',
+  { site: 'vivino', label: 'Vivino', hint: 'prix boutique et note', host: 'www.vivino.com', dbSource: 'VIVINO',
     search: (t: string) => `https://www.vivino.com/search/wines?q=${encodeURIComponent(t)}` },
 ] as const;
 
@@ -120,7 +121,13 @@ export interface SearchLink { site: QuoteSite['site']; label: string; hint: stri
 export function searchLinks(wine: SearchedWine, savedUrl: string | null): SearchLink[] {
   const terms = searchTerms(wine);
   const savedSite = quoteSiteOf(savedUrl);
-  return QUOTE_SITES.map(({ site, label, hint, search }) => ({ site, label, hint, url: savedSite?.site === site ? savedUrl! : search(terms) }));
+  return QUOTE_SITES.map(({ site, label, hint, search }) => ({ site, label, hint, url: savedUrl && savedSite?.site === site ? savedUrl : search(terms) }));
+}
+
+/** La cote inclut des frais acheteur d'enchères : cote iDealwine, ou sans lien (source inconnue). Pas pour un prix de caviste ou de boutique. */
+export function hasBuyerFees(sourceUrl: string | null): boolean {
+  const site = quoteSiteOf(sourceUrl);
+  return site === null || site.site === 'idealwine';
 }
 
 interface Dated { quotedOn: Date; createdAt: Date }
@@ -163,7 +170,9 @@ export interface QuoteView {
   /** « AAAA-MM-JJ ». */
   quotedOn: string;
   sourceUrl: string | null;
-  /** Site déduit du lien (« Vivino ») ; null sans lien. */
+  /** Clé du site déduite du lien (« vivino ») ; null sans lien. */
+  site: QuoteSite['site'] | null;
+  /** Nom du site (« Vivino ») ; null sans lien. */
   source: string | null;
   /** Nom affiché, sinon e-mail (vue réservée au propriétaire) ; null si le compte a été supprimé. */
   enteredBy: string | null;
@@ -179,6 +188,7 @@ export function quoteView(q: {
     nTransactions: q.nTransactions,
     quotedOn: q.quotedOn.toISOString().slice(0, 10),
     sourceUrl: q.sourceUrl,
+    site: quoteSiteOf(q.sourceUrl)?.site ?? null,
     source: quoteSiteOf(q.sourceUrl)?.label ?? null,
     enteredBy: q.enteredBy ? q.enteredBy.displayName || q.enteredBy.email : null,
     cessionCents: cessionCents(q.coteCents),

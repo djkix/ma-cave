@@ -1,5 +1,5 @@
 import {
-  cessionCents, COTE_INVALID, createQuoteSchema, currentQuote, currentQuoteByWine, DATE_INVALID, idealwineSearchUrl, parisToday,
+  cessionCents, COTE_INVALID, hasBuyerFees, createQuoteSchema, currentQuote, currentQuoteByWine, DATE_INVALID, idealwineSearchUrl, parisToday,
   quoteSiteOf, quoteView, searchLinks, TRANSACTIONS_INVALID, URL_INVALID,
 } from './quote';
 
@@ -84,6 +84,15 @@ describe('quoteSiteOf', () => {
   });
 });
 
+describe('hasBuyerFees', () => {
+  it('cote iDealwine ou sans lien : frais acheteur ; Vivino, Wine-Searcher : non', () => {
+    expect(hasBuyerFees(null)).toBe(true);
+    expect(hasBuyerFees('https://www.idealwine.com/fr/x')).toBe(true);
+    expect(hasBuyerFees('https://www.vivino.com/w/1')).toBe(false);
+    expect(hasBuyerFees('https://www.wine-searcher.com/find/x')).toBe(false);
+  });
+});
+
 describe('searchLinks', () => {
   const wine = { producer: 'Château de Beaucastel', cuvee: 'Hommage à Jacques Perrin', vintage: 2016 };
   it('un lien de recherche par site, mêmes termes (sans millésime), dans l’ordre iDealwine, Wine-Searcher, Vivino', () => {
@@ -152,9 +161,9 @@ describe('cote courante et vue', () => {
       enteredBy: { displayName: null, email: 'proprietaire@example.com' },
     };
     expect(quoteView(row)).toEqual({
-      coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: null, source: null, enteredBy: 'proprietaire@example.com', cessionCents: 7328,
+      coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: null, site: null, source: null, enteredBy: 'proprietaire@example.com', cessionCents: 7328,
     });
-    expect(quoteView({ ...row, sourceUrl: 'https://www.vivino.com/w/1' }).source).toBe('Vivino');
+    expect(quoteView({ ...row, sourceUrl: 'https://www.vivino.com/w/1' })).toMatchObject({ site: 'vivino', source: 'Vivino' });
     expect(quoteView({ ...row, enteredBy: { displayName: 'djkix', email: 'f@x' } }).enteredBy).toBe('djkix');
     expect(quoteView({ ...row, enteredBy: null }).enteredBy).toBeNull();
   });

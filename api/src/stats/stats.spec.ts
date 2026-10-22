@@ -67,6 +67,19 @@ describe('computeStats — valeur à la cote', () => {
     expect(s.cessionValueCents).toBe(Math.round((6 * 8500 + 333) / 1.16));
   });
 
+  it('valeur de cession : cote / 1,16 pour une cote iDealwine ou sans lien seulement, la cote telle quelle pour Vivino ou Wine-Searcher', () => {
+    const wines = [wine('w1', { quantity: 6 }), wine('w2', { quantity: 2 }), wine('w3', { quantity: 1 }), wine('w4', { quantity: 1 })];
+    const quotes = [
+      { wineId: 'w1', coteCents: 8500, sourceUrl: 'https://www.idealwine.com/fr/x' },
+      { wineId: 'w2', coteCents: 3000, sourceUrl: 'https://www.vivino.com/w/1' },
+      { wineId: 'w3', coteCents: 333, sourceUrl: null },
+      { wineId: 'w4', coteCents: 1000, sourceUrl: 'https://www.wine-searcher.com/find/x' },
+    ];
+    const s = computeStats({ wines, movements: [], quotes }, NOW);
+    expect(s.quotedValueCents).toBe(6 * 8500 + 2 * 3000 + 333 + 1000);
+    expect(s.cessionValueCents).toBe(Math.round((6 * 8500 + 333) / 1.16) + 2 * 3000 + 1000);
+  });
+
   it("sans cote : aucune valeur, 0 référence cotée", () => {
     const s = computeStats({ wines: [wine('w1', { quantity: 3 })], movements: [] }, NOW);
     expect(s).toMatchObject({ quotedValueCents: null, cessionValueCents: null, quotedReferences: 0, quotableReferences: 1 });

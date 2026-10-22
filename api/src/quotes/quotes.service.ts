@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateQuoteInput, QUOTE_SELECT, QuoteView, quoteView } from './quote';
+import { CreateQuoteInput, QUOTE_SELECT, quoteSiteOf, QuoteView, quoteView } from './quote';
 
 /** Cotes saisies à la main : ajout seulement (l'historique est gardé). */
 @Injectable()
@@ -18,6 +18,8 @@ export class QuotesService {
         nTransactions: input.nTransactions ?? null,
         quotedOn: new Date(`${input.quotedOn}T00:00:00Z`),
         sourceUrl: input.sourceUrl ?? null,
+        // Site du lien ; sans lien, la valeur par défaut de la colonne (IDEALWINE).
+        source: quoteSiteOf(input.sourceUrl ?? null)?.dbSource,
         enteredById: userId,
       },
       select: QUOTE_SELECT,

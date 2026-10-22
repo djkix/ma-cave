@@ -183,7 +183,7 @@ export class CaveService {
         quote: current && quoteView(current),
         searchLinks: searchLinks(row, savedUrl),
         // Compatibilité (client encore en cache) : page iDealwine enregistrée, sinon leur recherche.
-        idealwineUrl: quoteSiteOf(savedUrl)?.site === 'idealwine' ? savedUrl! : idealwineSearchUrl(row),
+        idealwineUrl: savedUrl && quoteSiteOf(savedUrl)?.site === 'idealwine' ? savedUrl : idealwineSearchUrl(row),
         savedUrl,
       };
     }

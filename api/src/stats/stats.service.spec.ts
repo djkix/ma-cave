@@ -23,7 +23,7 @@ describe('StatsService', () => {
     );
     const stats = await s.compute('c1', 'OWNER', new Date('2026-10-15T12:00:00Z'));
     expect(stats).toMatchObject({ bottles: 2, purchaseValueCents: 6000, quotedValueCents: 17000, cessionValueCents: 14655, quotedReferences: 1, quotableReferences: 1 });
-    expect(quotes).toHaveBeenCalledWith({ where: { wine: { caveId: 'c1' } }, select: { wineId: true, coteCents: true, quotedOn: true, createdAt: true } });
+    expect(quotes).toHaveBeenCalledWith({ where: { wine: { caveId: 'c1' } }, select: { wineId: true, coteCents: true, quotedOn: true, createdAt: true, sourceUrl: true } });
     expect(stats.byRegion).toEqual([{ key: 'Rhône', bottles: 2, share: 1 }]);
     expect(stats.byApogee.find((a) => a.key === 'A_BOIRE')?.bottles).toBe(2);
     expect(stats).toHaveProperty('mostExpensive');

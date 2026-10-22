@@ -719,7 +719,9 @@ mieux notés. Pour un membre, la valeur au prix d'achat et « les plus chères �
 sont absentes : la page n'affiche que le reste. Pour le propriétaire
 seulement s'ajoute la **valeur à la cote** (stock × cote courante
 des vins en stock cotés) : « Valeur à la cote : X € sur N références cotées
-(sur M) », avec la valeur de cession estimée juste en dessous ; « — » et
+(sur M) », avec la valeur de cession estimée juste en dessous (cote / 1,16
+pour les cotes iDealwine ou sans lien, cote telle quelle pour Wine-Searcher et
+Vivino, qui n'ont pas de frais acheteur) ; « — » et
 « Pas encore de cote » quand aucun vin en stock n'est coté.
 
 **Cote, saisie à la main.** Sur la fiche d'un vin, le bloc *Cote*
@@ -736,7 +738,9 @@ euros, nombre de transactions (facultatif), date du relevé et, facultatif, le
 lien exact de la page consultée — une page `https` de l'un des trois sites
 exactement (hôte vérifié sur l'adresse analysée, sans port ni identifiants),
 sinon « Le lien doit être une page iDealwine, Wine-Searcher ou Vivino ». La
-**source** de la cote est déduite de ce lien, sans colonne en base : la fiche
+**source** de la cote est déduite de l'hôte de ce lien et enregistrée dans la
+colonne `source` existante (`IDEALWINE`, `WINE_SEARCHER` ou `VIVINO` ; sans
+lien, la valeur par défaut `IDEALWINE` ; aucune migration) : la fiche
 affiche la cote, son âge et sa source (« cote du 3 mars 2026, il y a 7 mois ·
 source Vivino » ; pas de lien, pas de source), un avertissement si le nombre
 de transactions est faible (moins de 5) ou si la cote a plus d'un an, et,
@@ -749,8 +753,8 @@ aucun moment : les clés de cote sont absentes de la fiche qu'il reçoit. Pour
 ajouter un site, il suffit d'une entrée dans la liste `QUOTE_SITES`
 (`api/src/quotes/quote.ts` : hôte, nom, recherche). API :
 `POST /api/wines/:id/quotes` (propriétaire seulement, la réponse porte
-`source`) ; `GET /api/wines/:id` ajoute, pour le propriétaire, `quote` (avec
-`source`), `searchLinks` (`[{ site, label, hint, url }]`, un par site),
+`site` et `source`) ; `GET /api/wines/:id` ajoute, pour le propriétaire, `quote` (avec
+`site` et `source`), `searchLinks` (`[{ site, label, hint, url }]`, un par site),
 `savedUrl` et `idealwineUrl` (ancien lien unique, gardé pour un client encore
 en cache).
 

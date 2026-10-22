@@ -137,7 +137,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Voir sur iDealwine** (enchères), **Wine-Searcher** (prix moyen chez les cavistes) et **Vivino** (prix boutique et note), recherche du vin pré-remplie
 - Source de la cote déduite du lien enregistré (« source Vivino »)
 - Âge de la cote, alerte si peu de transactions ou cote ancienne
-- **Valeur de cession estimée** (cote / 1,16) et **valeur à la cote** dans les Stats
+- **Valeur de cession estimée** (cote / 1,16, cotes iDealwine ou sans lien) et **valeur à la cote** dans les Stats
 - Invisible pour un membre en lecture seule
 
 ### 🗺️ Emplacements, zones et plans

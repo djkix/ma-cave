@@ -110,7 +110,7 @@ describeIfInfra('cote iDealwine (HTTP)', () => {
     it('propriétaire : 201, la cote créée, saisie par lui', async () => {
       const res = await ownerA.post(`/api/wines/${wineA}/quotes`).send({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page });
       expect(res.status).toBe(201);
-      expect(res.body).toEqual({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page, source: 'iDealwine', enteredBy: 'djkix', cessionCents: 7328 });
+      expect(res.body).toEqual({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page, site: 'idealwine', source: 'iDealwine', enteredBy: 'djkix', cessionCents: 7328 });
       const row = await prisma.priceQuote.findFirstOrThrow({ where: { wineId: wineA } });
       expect(row).toMatchObject({ source: 'IDEALWINE', enteredById: userIds[0] });
     });
@@ -118,7 +118,9 @@ describeIfInfra('cote iDealwine (HTTP)', () => {
     it('une cote plus ancienne saisie ensuite ne devient pas la cote courante', async () => {
       const res = await ownerA.post(`/api/wines/${wineA}/quotes`).send({ coteCents: 9900, quotedOn: '2025-01-01' });
       expect(res.status).toBe(201);
-      expect(res.body).toMatchObject({ nTransactions: null, sourceUrl: null });
+      expect(res.body).toMatchObject({ nTransactions: null, sourceUrl: null, source: null });
+      // Sans lien : la colonne garde sa valeur par défaut.
+      expect(await prisma.priceQuote.findFirstOrThrow({ where: { wineId: wineA, coteCents: 9900 } })).toMatchObject({ source: 'IDEALWINE' });
       const detail = await ownerA.get(`/api/wines/${wineA}`);
       expect(detail.body.quote).toMatchObject({ coteCents: 8500, quotedOn: '2026-03-03' });
       expect(detail.body.idealwineUrl).toBe(page);
@@ -128,9 +130,12 @@ describeIfInfra('cote iDealwine (HTTP)', () => {
       const vivino = 'https://www.vivino.com/FR/fr/chateau-cote-a/w/1';
       const res = await ownerA.post(`/api/wines/${wineA}/quotes`).send({ coteCents: 7000, quotedOn: '2024-01-01', sourceUrl: vivino });
       expect(res.status).toBe(201);
-      expect(res.body).toMatchObject({ sourceUrl: vivino, source: 'Vivino' });
+      expect(res.body).toMatchObject({ sourceUrl: vivino, site: 'vivino', source: 'Vivino' });
       const ws = await ownerA.post(`/api/wines/${wineA}/quotes`).send({ coteCents: 7100, quotedOn: '2024-01-01', sourceUrl: 'https://www.wine-searcher.com/find/chateau+cote+a' });
       expect(ws.body).toMatchObject({ source: 'Wine-Searcher' });
+      // Colonne `source` renseignée depuis l'hôte du lien.
+      const rows = await prisma.priceQuote.findMany({ where: { wineId: wineA, coteCents: { in: [7000, 7100] } }, orderBy: { coteCents: 'asc' } });
+      expect(rows.map((r) => r.source)).toEqual(['VIVINO', 'WINE_SEARCHER']);
     });
 
     it.each([

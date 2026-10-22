@@ -32,7 +32,7 @@ export class StatsService {
         select: { id: true, wineId: true, delta: true, type: true, occurredAt: true, priceUnitCents: true, reversesId: true },
       }),
       role === 'OWNER'
-        ? this.prisma.priceQuote.findMany({ where: { wine: { caveId } }, select: { wineId: true, coteCents: true, quotedOn: true, createdAt: true } })
+        ? this.prisma.priceQuote.findMany({ where: { wine: { caveId } }, select: { wineId: true, coteCents: true, quotedOn: true, createdAt: true, sourceUrl: true } })
         : [],
     ]);
     const year = now.getFullYear();

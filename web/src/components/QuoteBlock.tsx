@@ -74,7 +74,7 @@ export function QuoteBlock({ wineId, quote, searchLinks, savedUrl }: {
         <>
           <p style={{ margin: 'var(--space-xs) 0' }}>{quoteLine(quote, today)}</p>
           {/* Frais acheteur d'enchères : la valeur de cession n'a de sens que pour une cote iDealwine (ou de source inconnue). */}
-          {(quote.source == null || quote.source === 'iDealwine') && (
+          {(quote.site == null || quote.site === 'idealwine') && (
             <p className="list__meta" style={{ margin: 0 }}>
               {`Valeur de cession estimée : ${formatEurosRounded(quote.cessionCents)} ${CESSION_NOTE}`}
             </p>

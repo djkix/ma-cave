@@ -94,7 +94,7 @@ describe('CaveService.detail', () => {
         quote(8500, '2026-03-03', '2026-03-04T00:00:00Z', page),
       ]).detail('c1', 'w19', 'OWNER');
       expect(r.quote).toEqual({
-        coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page, source: 'iDealwine', enteredBy: 'proprietaire@example.com', cessionCents: 7328,
+        coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page, site: 'idealwine', source: 'iDealwine', enteredBy: 'proprietaire@example.com', cessionCents: 7328,
       });
       expect(r.idealwineUrl).toBe(page);
       expect(r.savedUrl).toBe(page);
@@ -121,7 +121,7 @@ describe('CaveService.detail', () => {
     it('page Vivino enregistrée : lien Vivino vers la page, source « Vivino », idealwineUrl reste la recherche iDealwine', async () => {
       const page = 'https://www.vivino.com/FR/fr/domaine-tempier/w/1';
       const r = await service(null, [tempier19], undefined, null, [quote(8500, '2026-03-03', '2026-03-04T00:00:00Z', page)]).detail('c1', 'w19', 'OWNER');
-      expect(r.quote).toMatchObject({ source: 'Vivino', sourceUrl: page });
+      expect(r.quote).toMatchObject({ site: 'vivino', source: 'Vivino', sourceUrl: page });
       expect(r.savedUrl).toBe(page);
       expect(r.idealwineUrl).toBe(search);
       expect(r.searchLinks?.map((l) => [l.label, l.url])).toEqual([

@@ -1,5 +1,5 @@
 import { Apogee } from '../apogee/apogee';
-import { cessionCents } from '../quotes/quote';
+import { cessionCents, hasBuyerFees } from '../quotes/quote';
 
 /**
  * Statistiques de la cave, calculées à la lecture. Fonction pure : le service
@@ -36,8 +36,8 @@ export interface StatsMovement {
   reversesId: string | null;
 }
 
-/** Cote courante d'un vin (saisie à la main). */
-export interface StatsQuote { wineId: string; coteCents: number }
+/** Cote courante d'un vin (saisie à la main) ; `sourceUrl` dit si elle inclut des frais acheteur. */
+export interface StatsQuote { wineId: string; coteCents: number; sourceUrl?: string | null }
 
 export interface Share { key: string; bottles: number; share: number }
 export interface MonthFlow { month: string; in: number; out: number }
@@ -140,9 +140,13 @@ export function computeStats(input: { wines: StatsWine[]; movements: StatsMoveme
   const qty = (w: StatsWine) => w.quantity;
   const bottles = inStock.reduce((s, w) => s + w.quantity, 0);
   const priced = inStock.filter((w) => lastPrice.has(w.id));
-  const cote = new Map((input.quotes ?? []).map((q) => [q.wineId, q.coteCents]));
-  const quoted = inStock.filter((w) => cote.has(w.id));
-  const quotedValueCents = quoted.length ? quoted.reduce((s, w) => s + w.quantity * cote.get(w.id)!, 0) : null;
+  const quoteOf = new Map((input.quotes ?? []).map((q) => [q.wineId, q]));
+  const quoted = inStock.filter((w) => quoteOf.has(w.id));
+  const valueOf = (ws: StatsWine[]) => ws.reduce((s, w) => s + w.quantity * quoteOf.get(w.id)!.coteCents, 0);
+  const quotedValueCents = quoted.length ? valueOf(quoted) : null;
+  // Cession : frais acheteur retirés des seules cotes d'enchères (iDealwine ou sans lien), comme sur la fiche.
+  const withFees = quoted.filter((w) => hasBuyerFees(quoteOf.get(w.id)!.sourceUrl ?? null));
+  const cessionValueCents = quotedValueCents == null ? null : cessionCents(valueOf(withFees)) + quotedValueCents - valueOf(withFees);
 
   const apogeeGroups = group(inStock, (w) => w.apogee.status ?? 'SANS_ESTIMATION', qty);
 
@@ -171,7 +175,7 @@ export function computeStats(input: { wines: StatsWine[]; movements: StatsMoveme
     pricedReferences: priced.length,
     purchaseValueCents: priced.length ? priced.reduce((s, w) => s + w.quantity * lastPrice.get(w.id)!, 0) : null,
     quotedValueCents,
-    cessionValueCents: quotedValueCents == null ? null : cessionCents(quotedValueCents),
+    cessionValueCents,
     quotedReferences: quoted.length,
     quotableReferences: inStock.length,
     byColor: shares(group(inStock, (w) => w.color, qty), bottles, biggestFirst),

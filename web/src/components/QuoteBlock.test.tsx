@@ -8,7 +8,7 @@ const SEARCH = 'https://www.idealwine.com/fr/acheter-du-vin/recherche-domaine%20
 const WS = 'https://www.wine-searcher.com/find/domaine+tempier+la+tourtine';
 const VIVINO = 'https://www.vivino.com/search/wines?q=domaine%20tempier%20la%20tourtine';
 const PAGE = 'https://www.idealwine.com/fr/acheter-vin/tempier.jsp';
-const quote: api.Quote = { coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: PAGE, source: 'iDealwine', enteredBy: 'djkix', cessionCents: 7328 };
+const quote: api.Quote = { coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: PAGE, site: 'idealwine', source: 'iDealwine', enteredBy: 'djkix', cessionCents: 7328 };
 const links = (idealwine = SEARCH, vivino = VIVINO): api.SearchLink[] => [
   { site: 'idealwine', label: 'iDealwine', hint: 'enchères', url: idealwine },
   { site: 'wine-searcher', label: 'Wine-Searcher', hint: 'prix moyen chez les cavistes', url: WS },
@@ -61,12 +61,12 @@ it('avec cote : la ligne et sa source, la valeur de cession et sa note, « Voir 
 
 it('cote Vivino : source affichée, pas de valeur de cession (frais d’enchères sans objet) ; sans lien : valeur de cession', () => {
   const page = 'https://www.vivino.com/FR/fr/tempier/w/1';
-  mount({ ...quote, sourceUrl: page, source: 'Vivino' }, links(SEARCH, page), page);
+  mount({ ...quote, sourceUrl: page, site: 'vivino', source: 'Vivino' }, links(SEARCH, page), page);
   expect(screen.getByText('85 € — 12 transactions — cote du 3 mars 2026, il y a 7 mois · source Vivino')).toBeInTheDocument();
   expect(screen.queryByText(/Valeur de cession/)).not.toBeInTheDocument();
   expectExternal('Voir sur Vivino', page);
   cleanup();
-  mount({ ...quote, sourceUrl: null, source: null }, links(), null);
+  mount({ ...quote, sourceUrl: null, site: null, source: null }, links(), null);
   expect(screen.getByText('85 € — 12 transactions — cote du 3 mars 2026, il y a 7 mois')).toBeInTheDocument();
   expect(screen.getByText(/^Valeur de cession estimée : 73 €/)).toBeInTheDocument();
 });
@@ -96,7 +96,7 @@ it('saisit une cote : euros en centimes, date du jour par défaut, lien vide qua
 it('« Mettre à jour » pré-remplit le lien enregistré, même venu d’une cote plus ancienne', async () => {
   const create = vi.spyOn(api, 'createQuote').mockResolvedValue(quote);
   // Cote courante sans lien : l'api fournit celui d'une cote plus ancienne (`savedUrl`).
-  mount({ ...quote, sourceUrl: null, source: null }, links(PAGE), PAGE);
+  mount({ ...quote, sourceUrl: null, site: null, source: null }, links(PAGE), PAGE);
   await userEvent.click(screen.getByRole('button', { name: 'Mettre à jour' }));
   expect(screen.getByLabelText('Lien de la page (facultatif)')).toHaveValue(PAGE);
   expect(screen.getByLabelText('Cote en euros')).toHaveValue('');
@@ -141,7 +141,7 @@ it('« Abandonner » referme le formulaire', async () => {
 });
 
 it('cote avec lien de recherche seulement : rien à pré-remplir', async () => {
-  mount({ ...quote, sourceUrl: null, source: null }, links(), null);
+  mount({ ...quote, sourceUrl: null, site: null, source: null }, links(), null);
   await userEvent.click(screen.getByRole('button', { name: 'Mettre à jour' }));
   expect(screen.getByLabelText('Lien de la page (facultatif)')).toHaveValue('');
 });

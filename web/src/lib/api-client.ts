@@ -377,10 +377,10 @@ export const getWine = (id: string) => apiFetch<WineDetail>(`/wines/${id}`);
 /** Site où consulter une cote ; `hint` : ce qu'il donne (« enchères »). */
 export interface SearchLink { site: string; label: string; hint: string; url: string }
 
-/** Cote saisie à la main ; `source` : site déduit du lien (null sans lien) ; `cessionCents` : cote hors frais acheteur d'environ 16 % (cote / 1,16). */
+/** Cote saisie à la main ; `site` (« vivino ») et `source` (« Vivino ») : site déduit du lien (null sans lien) ; `cessionCents` : cote hors frais acheteur d'environ 16 % (cote / 1,16). */
 export interface Quote {
   coteCents: number; nTransactions: number | null; /** « AAAA-MM-JJ » */ quotedOn: string; sourceUrl: string | null;
-  source: string | null; enteredBy: string | null; cessionCents: number;
+  site: string | null; source: string | null; enteredBy: string | null; cessionCents: number;
 }
 export interface CreateQuoteInput { coteCents: number; nTransactions: number | null; quotedOn: string; sourceUrl: string | null }
 export const createQuote = (wineId: string, input: CreateQuoteInput) =>
