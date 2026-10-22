@@ -28,11 +28,17 @@ function mount(props: { title?: string; back?: string } = {}, path = '/') {
   return qc;
 }
 
-it('mène à « Mon compte », sans afficher la version dans la barre de titre', () => {
-  mount({ title: 'Revue groupée', back: '/entree' });
+it('mène aux Réglages, sans afficher la version hors des Réglages', () => {
+  mount({ title: 'Revue groupée', back: '/entree' }, '/entree');
   expect(screen.getByRole('link', { name: 'Retour' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Mon compte' })).toHaveAttribute('href', '/compte');
+  expect(screen.getByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/compte');
   expect(screen.queryByLabelText(`Version ${APP_VERSION}`)).not.toBeInTheDocument();
+});
+
+it.each(['/compte', '/compte/moi', '/ma-cave', '/admin/comptes'])('affiche la version à la place du lien sur %s', (path) => {
+  mount({ title: 'Réglages' }, path);
+  expect(screen.getByLabelText(`Version ${APP_VERSION}`)).toHaveTextContent(`v${APP_VERSION}`);
+  expect(screen.queryByRole('link', { name: 'Réglages' })).not.toBeInTheDocument();
 });
 
 it('annonce « dev » quand aucune version n’a été injectée à la construction', () => {

@@ -221,7 +221,7 @@ describe('recherche d’image depuis la fiche', () => {
   });
 
   it.each([
-    'Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.',
+    'Quota Gemini du jour atteint (20 requêtes) : reprise jeudi à 09:00.',
     'Limite de 5 requêtes par minute atteinte : reprise à 14:03.',
     'Quota Gemini dépassé chez Google : reprise à 14:40.',
   ])('limite de débit (503) : « %s »', async (message) => {
