@@ -34,11 +34,11 @@ it('limite de débit atteinte : le texte de la limite et l’heure de reprise', 
   vi.spyOn(api, 'getPhotoQueueStatus').mockResolvedValue({
     waiting: 3,
     oldestWaitingAt: '2026-09-21T10:00:00Z',
-    lastReason: 'Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.',
+    lastReason: 'Quota Gemini du jour atteint (20 requêtes) : reprise jeudi à 09:00.',
   });
   mount();
   expect(await screen.findByText(/3 photos en attente d’analyse/)).toBeInTheDocument();
-  expect(screen.getByText('Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.')).toBeInTheDocument();
+  expect(screen.getByText('Quota Gemini du jour atteint (20 requêtes) : reprise jeudi à 09:00.')).toBeInTheDocument();
 });
 
 it('accorde le singulier et se passe de motif quand il n’y en a pas', async () => {

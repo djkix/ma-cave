@@ -353,7 +353,7 @@ describeIfDb('planAnalysisJobState (file réelle)', () => {
       // Heure affichée arrondie à la minute supérieure (jamais plus tôt que la vraie).
       const hhmm = new Date(Math.ceil(until.getTime() / 60_000) * 60_000).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
       expect(await planAnalysisJobState(queue, d)).toMatchObject({
-        waiting: 'QUOTA', pauseUntil: until.toISOString(), quotaKind: 'MINUTE', message: expect.stringMatching(new RegExp(`^Limite de 5 requêtes par minute atteinte : reprise (demain )?à ${hhmm}\\.$`)),
+        waiting: 'QUOTA', pauseUntil: until.toISOString(), quotaKind: 'MINUTE', message: expect.stringMatching(new RegExp(`^Limite de 5 requêtes par minute atteinte : reprise ([a-zé]+ )?à ${hhmm}\\.$`)),
       });
     } finally {
       await worker.close();

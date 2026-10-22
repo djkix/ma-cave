@@ -547,8 +547,9 @@ tâche est simplement **reportée jusqu'à l'heure de reprise** (une seconde
 après que la plus ancienne requête, ou assez de jetons, sont sortis de la
 fenêtre de 60 s ; ou minuit du Pacifique) puis repart seule — photos d'entrée, accords et
 descriptifs sans consommer de tentative, analyses des plans à l'heure dite. Les
-textes : « Quota Gemini du jour atteint (20 requêtes) : reprise demain à
-09:00. » (« aujourd'hui à » si c'est le jour même), « Limite de 5 requêtes par
+textes : « Quota Gemini du jour atteint (20 requêtes) : reprise jeudi à
+09:00. » (« aujourd'hui à » si c'est le jour même ; le jour est nommé plutôt que
+« demain », qui deviendrait faux une fois minuit passé), « Limite de 5 requêtes par
 minute atteinte : reprise à 14:03. », « Limite de jetons par minute atteinte :
 reprise à 14:03. » (heures de Paris). Ils s'affichent dans le bandeau des photos
 en attente d'analyse, dans le bandeau d'analyse du plan, dans le bandeau de la
@@ -598,9 +599,11 @@ continue de fonctionner. Une fois l'image choisie, la fiche affiche « Image : {
 minute. API : `POST /api/wines/:id/image-search`, `GET
 /api/image-candidates/:id`, `POST`/`DELETE /api/wines/:id/reference-image`.
 
-**Mon compte.** L'icône en haut à droite de chaque écran ouvre « Mon compte »,
-un **hub** ouvert à tout compte connecté, avec le profil (initiales, nom,
-e-mail) puis une carte par écran, chacune avec son résumé :
+**Réglages.** L'onglet *Réglages* de la barre du bas (ou l'icône en haut à
+droite des autres écrans) ouvre les Réglages (`/compte`), un **hub** ouvert à tout compte connecté, avec le profil (initiales, nom,
+e-mail) puis une carte par écran, chacune avec son résumé. Dans les Réglages et
+leurs écrans (Moi, Ma cave, Application, À propos), la version de l'application
+(« v2.25.0 ») remplace l'icône en haut à droite :
 
 - **Moi** (`/compte/moi`) : **mes caves** (la sienne et celles où l'on est
   invité, avec « Afficher » pour en changer), **installer l'application** sur le

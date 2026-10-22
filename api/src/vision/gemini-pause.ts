@@ -24,6 +24,7 @@ export const QUOTA_TIME_ZONE = 'America/Los_Angeles';
 
 const parisTime = new Intl.DateTimeFormat('fr-FR', { timeZone: STATS_TIME_ZONE, hour: '2-digit', minute: '2-digit' });
 const parisDay = new Intl.DateTimeFormat('en-CA', { timeZone: STATS_TIME_ZONE });
+const parisWeekday = new Intl.DateTimeFormat('fr-FR', { timeZone: STATS_TIME_ZONE, weekday: 'long' });
 const pacificDayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: QUOTA_TIME_ZONE });
 const pacificWall = new Intl.DateTimeFormat('en-US', {
   timeZone: QUOTA_TIME_ZONE, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric',
@@ -52,12 +53,15 @@ export function nextPacificMidnight(now: Date): Date {
   return new Date(target - (pacificWallAsUtc(probe) - probe));
 }
 
-/** « à 14:04 » (12:03:31 UTC), « aujourd'hui à 09:00 » (quota du jour) ou « demain à 09:00 », heure de Paris. */
+/**
+ * « à 14:04 » (12:03:31 UTC), « aujourd'hui à 09:00 » (quota du jour) ou « jeudi à 09:00 », heure de Paris.
+ * Le jour est nommé, pas « demain » : le message est stocké sur la photo et relu après minuit.
+ */
 function resumeAt(until: Date, now: Date, sameDayWord: boolean): string {
   // Arrondie à la minute supérieure s'il y a des secondes : l'heure affichée n'est jamais plus tôt que la vraie.
   const shown = new Date(Math.ceil(until.getTime() / 60_000) * 60_000);
   const hour = parisTime.format(shown);
-  if (parisDay.format(shown) !== parisDay.format(now)) return `demain à ${hour}`;
+  if (parisDay.format(shown) !== parisDay.format(now)) return `${parisWeekday.format(shown)} à ${hour}`;
   return sameDayWord ? `aujourd'hui à ${hour}` : `à ${hour}`;
 }
 

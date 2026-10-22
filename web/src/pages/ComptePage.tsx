@@ -55,14 +55,14 @@ function useAdminSummary(enabled: boolean): ReactNode {
   return <span className="badge badge--warn">{count(regs.data.length, 'inscription')} en attente</span>;
 }
 
-/** Hub « Mon compte » : profil, puis une carte par écran de réglage permis à ce compte. */
+/** Hub « Réglages » (onglet du bas) : profil, puis une carte par écran de réglage permis à ce compte. */
 export function ComptePage() {
   const { me, caves, isOwner, isAdmin } = useCurrentCave();
   const caveText = useCaveSummary(isOwner);
   const adminText = useAdminSummary(isAdmin);
   return (
     <>
-      <TopBar title="Mon compte" back="/" />
+      <TopBar title="Réglages" />
       <main className="page">
         {me && (
           <section className="profile">
