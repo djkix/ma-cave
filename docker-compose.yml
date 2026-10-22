@@ -3,8 +3,12 @@ services:
     image: ghcr.io/djkix/ma-cave-web:${IMAGE_TAG:-latest}
     build: ./web
     restart: unless-stopped
+    # Publié sur 127.0.0.1 seulement par défaut : le nginx de ce conteneur relaie
+    # X-Forwarded-For et X-Forwarded-Proto, il ne doit être joint que par NPM.
+    # NPM sur une autre machine : WEB_BIND = adresse de cette machine sur le
+    # réseau local (voir .env.example).
     ports:
-      - "${WEB_PORT:-3100}:80"
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3100}:80"
     depends_on:
       - api
     networks: [internal]
