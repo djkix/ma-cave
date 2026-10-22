@@ -43,19 +43,30 @@ describe('MembersService.add', () => {
     expect(prisma.caveMember.create).not.toHaveBeenCalled();
   });
 
-  it('compte en attente : passé ACTIVE par une mise à jour conditionnelle (PENDING seulement)', async () => {
-    const prisma = fakePrisma({ user: { id: 'u1', email: 'x@example.test', displayName: 'X', status: 'PENDING' } });
-    const view = await new MembersService(prisma).add('c1', 'x@example.test');
-    expect(prisma.appUser.updateMany).toHaveBeenCalledWith({ where: { id: 'u1', status: 'PENDING' }, data: { status: 'ACTIVE' } });
-    expect(prisma.caveMember.create).toHaveBeenCalledWith({ data: { caveId: 'c1', userId: 'u1', role: 'VIEWER' } });
-    expect(view).toEqual({ id: 'm1', email: 'x@example.test', displayName: 'X', role: 'VIEWER', pending: false });
+  it.each(['ACTIVE', 'PENDING', 'BLOCKED'])(
+    'compte existant (%s) : invitation par adresse, sans nom affiché ni changement de statut',
+    async (status) => {
+      const prisma = fakePrisma({ user: { id: 'u1', email: 'x@example.test', displayName: 'Nom réel', status } });
+      const view = await new MembersService(prisma).add('c1', 'x@example.test');
+      expect(prisma.appUser.updateMany).not.toHaveBeenCalled();
+      expect(prisma.caveMember.create).toHaveBeenCalledWith({ data: { caveId: 'c1', invitedEmail: 'x@example.test', role: 'VIEWER' } });
+      expect(view).toEqual({ id: 'm1', email: 'x@example.test', displayName: null, role: 'VIEWER', pending: true });
+    },
+  );
+
+  it('même réponse avec ou sans compte : rien ne révèle qu’une adresse a un compte', async () => {
+    const withAccount = await new MembersService(fakePrisma({ user: { id: 'u1' } })).add('c1', 'x@example.test');
+    const without = await new MembersService(fakePrisma()).add('c1', 'x@example.test');
+    expect(withAccount).toEqual(without);
   });
 
-  it('compte bloqué : rattaché, statut inchangé', async () => {
-    const prisma = fakePrisma({ user: { id: 'u1', email: 'x@example.test', displayName: null, status: 'BLOCKED' } });
-    await new MembersService(prisma).add('c1', 'x@example.test');
-    expect(prisma.appUser.updateMany).not.toHaveBeenCalled();
-    expect(prisma.caveMember.create).toHaveBeenCalled();
+  it('déjà membre par son compte : 409, cherché par compte et par adresse', async () => {
+    const prisma = fakePrisma({ user: { id: 'u1' }, existing: { id: 'm0' } });
+    await expect(new MembersService(prisma).add('c1', 'x@example.test')).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.caveMember.findFirst).toHaveBeenCalledWith({
+      where: { caveId: 'c1', OR: [{ invitedEmail: 'x@example.test' }, { userId: 'u1' }] },
+      select: { id: true },
+    });
   });
 });
 

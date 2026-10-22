@@ -144,32 +144,44 @@ describeIfInfra('membres de la cave et part de budget (HTTP)', () => {
       }
     });
 
-    it('compte existant : rattaché directement comme VIEWER', async () => {
+    it('compte existant : invitation en attente, sans nom affiché, acceptée quand il ouvre l’application', async () => {
       const res = await ownerA.post('/api/caves/current/members').send({ email: uOwnerB.email });
       expect(res.status).toBe(201);
-      expect(res.body).toEqual({ id: expect.any(String), email: uOwnerB.email, displayName: uOwnerB.displayName, role: 'VIEWER', pending: false });
+      // Même réponse que pour une adresse sans compte : ni nom, ni existence du compte révélés.
+      expect(res.body).toEqual({ id: expect.any(String), email: uOwnerB.email, displayName: null, role: 'VIEWER', pending: true });
       const row = await prisma.caveMember.findUniqueOrThrow({ where: { id: res.body.id } });
-      expect(row).toMatchObject({ caveId: caveA, userId: uOwnerB.id, invitedEmail: null });
-      // Le propriétaire de B voit maintenant aussi la cave A, en lecture.
+      expect(row).toMatchObject({ caveId: caveA, userId: null, invitedEmail: uOwnerB.email });
+      const before = await ownerA.get('/api/caves/current/members');
+      expect(before.body).toContainEqual({ id: res.body.id, email: uOwnerB.email, displayName: null, role: 'VIEWER', pending: true });
+      // Le propriétaire de B ouvre l'application : l'invitation est acceptée, il voit la cave A en lecture.
       const me = await ownerB.get('/api/auth/me');
       expect(me.body.caves).toContainEqual({ id: caveA, name: expect.any(String), role: 'VIEWER' });
+      expect(await prisma.caveMember.findUniqueOrThrow({ where: { id: res.body.id } })).toMatchObject({ userId: uOwnerB.id, invitedEmail: null });
+      const after = await ownerA.get('/api/caves/current/members');
+      expect(after.body).toContainEqual({ id: res.body.id, email: uOwnerB.email, displayName: uOwnerB.displayName, role: 'VIEWER', pending: false });
       await prisma.caveMember.delete({ where: { id: res.body.id } });
     });
 
-    it('compte en attente rattaché : il devient actif (l’invitation suffit)', async () => {
+    it('compte en attente invité : il reste en attente, et l’invitation aussi', async () => {
       const pending = await prisma.appUser.create({ data: { email: email('pending'), displayName: 'En attente', status: 'PENDING' } });
       userIds.push(pending.id);
       const res = await ownerA.post('/api/caves/current/members').send({ email: email('pending') });
       expect(res.status).toBe(201);
-      expect(res.body.pending).toBe(false);
-      expect((await prisma.appUser.findUniqueOrThrow({ where: { id: pending.id } })).status).toBe('ACTIVE');
+      expect(res.body).toEqual({ id: expect.any(String), email: email('pending'), displayName: null, role: 'VIEWER', pending: true });
+      const agent = supertest.agent(app.getHttpServer());
+      expect((await agent.get(`/__test/login?id=${pending.id}`)).status).toBe(204);
+      const me = await agent.get('/api/auth/me');
+      expect(me.body).toMatchObject({ status: 'PENDING', caves: [] });
+      expect((await prisma.appUser.findUniqueOrThrow({ where: { id: pending.id } })).status).toBe('PENDING');
+      expect(await prisma.caveMember.findUniqueOrThrow({ where: { id: res.body.id } })).toMatchObject({ userId: null, invitedEmail: email('pending') });
     });
 
-    it('compte bloqué rattaché : il reste bloqué', async () => {
+    it('compte bloqué invité : il reste bloqué', async () => {
       const blocked = await prisma.appUser.create({ data: { email: email('blocked'), status: 'BLOCKED' } });
       userIds.push(blocked.id);
       const res = await ownerA.post('/api/caves/current/members').send({ email: email('blocked') });
       expect(res.status).toBe(201);
+      expect(res.body.pending).toBe(true);
       expect((await prisma.appUser.findUniqueOrThrow({ where: { id: blocked.id } })).status).toBe('BLOCKED');
     });
 
