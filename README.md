@@ -47,7 +47,8 @@
 [Déploiement Docker](#déploiement-docker) ·
 [Dockge](#installation-via-dockge) ·
 [Variables d'environnement](#variables-denvironnement) ·
-[Guide détaillé](docs/guide-detaille.md)
+[Guide détaillé](docs/guide-detaille.md) ·
+[Approche IA (Gemini)](docs/approche-ia-gemini.md)
 
 </div>
 
