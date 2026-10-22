@@ -351,7 +351,7 @@ Le pas à pas complet est dans le [guide détaillé](docs/guide-detaille.md#dép
 2. Dans Dockge : **+ Compose**, nommer la stack `ma-cave` (rangée dans `/opt/stacks/ma-cave/`)
 3. Coller le YAML ci-dessous
 4. Coller le `.env` rempli dans le panneau des variables
-5. **Images** : les paquets GHCR sont privés par défaut. S'authentifier (`echo <PAT> | docker login ghcr.io -u djkix --password-stdin`, jeton `read:packages`), ou construire les images depuis le dépôt cloné (`docker compose build`)
+5. **Images** : `ghcr.io/djkix/ma-cave-api` et `ma-cave-web` sont publiques, aucune authentification n'est nécessaire
 6. **Deploy**
 
 ```yaml
