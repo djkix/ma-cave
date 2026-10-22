@@ -536,16 +536,19 @@ l'administrateur (403 sinon).
 **Limites de débit Gemini.** L'application reste toujours sous le quota de la
 clé Gemini (niveau sans frais) au lieu d'attendre le refus de Google : 5
 requêtes par minute, 250 000 jetons par minute et 20 requêtes par jour par
-défaut, partagées entre tous les usages, l'api et le worker, premier arrivé,
-premier servi. Elles se règlent dans *Administration › Coûts de l’IA*, carte
-**Modèle de l’IA** : champs « Requêtes par minute », « Jetons par minute »,
+défaut **et par modèle** (Google compte modèle par modèle), partagées entre tous
+les usages, l'api et le worker, premier arrivé, premier servi. Celles du modèle
+choisi se règlent dans *Administration › Coûts de l’IA*, carte **Modèle de
+l’IA**, sous le titre « Limites de gemini-… » : champs « Requêtes par minute », « Jetons par minute »,
 « Requêtes par jour » (entiers positifs, sinon 400 « Limites invalides : entiers
 positifs attendus »), bouton **Enregistrer les limites** (« Limites
 enregistrées : elles s’appliquent dès le prochain appel. » ; au plus 30 s plus
 tard pour l'autre processus), et la ligne « Aujourd’hui : 7 / 20 requêtes ·
 Cette minute : 1 / 5 requêtes, 2 700 / 250 000 jetons », relue toutes les 30 s.
-Les réglages sont dans `app_setting` (`gemini_rpm`, `gemini_tpm`,
-`gemini_rpd`), les compteurs dans Redis : requêtes et jetons des **60 dernières
+Les réglages sont dans `app_setting`, par modèle (`gemini_rpm:<modèle>`,
+`gemini_tpm:<modèle>`, `gemini_rpd:<modèle>`) ; à défaut, les anciennes clés
+communes `gemini_rpm`, `gemini_tpm`, `gemini_rpd` si elles existent, puis les
+valeurs par défaut. Les compteurs sont dans Redis, par modèle : requêtes et jetons des **60 dernières
 secondes** (fenêtre glissante, comme Google : deux appels à 59 s d'écart
 comptent dans la même minute), requêtes du jour (gardées 26 h). Le jour est celui du Pacifique :
 comme Google, le compteur journalier repart de zéro à **minuit heure du
@@ -570,9 +573,36 @@ carte *Consommation Gemini* (`GET /api/admin/gemini-usage` : `pause` porte
 texte) ; une analyse de sortie échoue tout de suite avec ce texte, comme pendant
 une pause. Redis injoignable : l'appel part quand même, et l'Administration
 affiche des compteurs à zéro au lieu d'une erreur. API : `GET
-/api/admin/gemini-quota` → `{ minute: { requests, tokens }, day: { requests },
-limits: { rpm, tpm, rpd }, dayResetsAt }` ; `PUT /api/admin/gemini-quota` `{ rpm,
-tpm, rpd }` → la même réponse ; réservées à l'administrateur (403 sinon).
+/api/admin/gemini-quota` → `{ model, minute: { requests, tokens }, day: {
+requests }, limits: { rpm, tpm, rpd }, dayResetsAt, models: [{ model, requests,
+rpd, exhaustedUntil }] }` (compteurs et limites du modèle choisi, puis la liste
+de bascule) ; `PUT /api/admin/gemini-quota` `{ rpm, tpm, rpd }` règle les
+limites du modèle choisi → la même réponse ; réservées à l'administrateur (403
+sinon).
+
+**Bascule automatique de modèle.** Quand le quota du jour du modèle choisi est
+atteint, l'application passe seule au modèle suivant, sans rien faire à la
+main. La liste de bascule : le modèle choisi d'abord, puis les modèles stables
+de génération que Google propose, de la forme `gemini-<version>-flash` ou
+`gemini-<version>-flash-lite` sans suffixe (ni preview, ni exp, tts, image,
+live, audio…), du plus récent au plus ancien, Flash avant Flash-Lite à version
+égale ; jamais de Pro. Liste de Google indisponible : le modèle choisi seul.
+Pour chaque appel, le premier modèle dont le quota du jour n'est pas atteint
+sert : refus local du jour → modèle suivant, rien ne part ; 429 de Google qui
+porte sur un quota journalier (`PerDay`, « per day ») → l'appel refusé est noté
+au journal, le modèle est marqué **épuisé jusqu'au prochain minuit du
+Pacifique** (marque Redis partagée par l'api et le worker), **sans pause
+commune**, et le modèle suivant est essayé aussitôt dans le même appel. Les
+limites à la minute (requêtes, jetons), les 503 et les autres 429 gardent leur
+comportement : attente ou pause commune, sans bascule. Tous les modèles épuisés
+pour la journée : le même refus qu'avant, « Quota Gemini du jour atteint… »,
+reprise au prochain minuit du Pacifique. Le journal `gemini_call` note le
+modèle réellement employé. La carte **Modèle de l’IA** montre, sous les
+limites, « Quand le quota du jour d’un modèle est atteint, l’application passe
+seule au suivant. » et une ligne par modèle de la liste : « gemini-… : 7 / 20
+requêtes aujourd’hui », avec le badge « épuisé jusqu’à 09:00 » s'il l'est. Les
+compteurs d'avant ce changement (communs à tous les modèles) ne sont pas
+repris : le jour du déploiement, un 429 journalier de Google fait la bascule.
 
 **Photos plus nettes.** Une version d'affichage est fabriquée par le serveur,
 sans aucun coût supplémentaire : la lecture Gemini d'une photo renvoie déjà le

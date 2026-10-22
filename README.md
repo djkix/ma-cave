@@ -95,8 +95,8 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Analyse **différée, jamais bloquante** : une photo reçue n'est jamais perdue
 - Service saturé, quota ou clé invalide : la photo **attend et repart seule**
 - **Pause commune** après un refus de Google (503, 429), pour l'api et le worker
-- **Limites de débit** respectées avant l'appel (5 req/min, 250 000 jetons/min, 20 req/jour par défaut)
-- **Un seul modèle** Flash ou Lite, choisi dans l'Administration
+- **Limites de débit par modèle**, comme Google, respectées avant l'appel (5 req/min, 250 000 jetons/min, 20 req/jour par défaut)
+- **Un modèle** Flash ou Lite choisi dans l'Administration ; quand son **quota du jour** est atteint, l'application **bascule seule** sur un autre Flash ou Flash-Lite stable
 - **Photos plus nettes** : recadrage sur l'étiquette, sans appel supplémentaire
 
 ### 📤 Sortie
