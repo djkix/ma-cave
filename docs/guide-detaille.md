@@ -1132,6 +1132,9 @@ par casier, rangée par rangée (C1…C48), et non plus « rangée + colonne » 
 les zones à grille existantes n'ont ni lettre ni position et se lisent avec la
 lettre A. Supprimer ces zones (*Réglages → Ma cave*), puis relancer l'analyse du
 plan et accepter de nouveau les propositions, qui gardent leurs cases sur le plan.
+Les bouteilles rangées dans une zone supprimée passent « sans emplacement » : les
+noter avant (ou le faire tant que les zones sont presque vides), puis les ranger
+de nouveau dans leur case.
 
 **Retour arrière vers une image 2.26.x** (sans restaurer la sauvegarde) : les
 colonnes `cell_prefix` et `cell_boxes` sont ignorées et les codes sont lus comme

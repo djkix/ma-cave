@@ -52,8 +52,8 @@ export function CellNamesEditor({ zone, grid, onDone }: { zone: Zone; grid: { ro
     setError(null);
     try {
       await updateZone(zone.id, { cellNames: cleanCellNames(names, grid, prefix) });
-      // Zones et libellés « Nom (code) » (emplacements, fiches, cave, journal) suivent.
-      void qc.invalidateQueries({ predicate: (q) => ['zones', 'locations', 'wine', 'cave', 'movements'].includes(String(q.queryKey[0])) });
+      // Zones, plans (cases nommées sur le plan et la vignette) et libellés « Nom (code) » (emplacements, fiches, cave, journal) suivent.
+      void qc.invalidateQueries({ predicate: (q) => ['zones', 'plans', 'locations', 'wine', 'cave', 'movements'].includes(String(q.queryKey[0])) });
       onDone();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Action impossible');
