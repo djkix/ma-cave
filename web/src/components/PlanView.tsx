@@ -23,11 +23,15 @@ const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRigh
  *
  * `suggestions` (avec `onSuggestionClick`) : zones proposées par l'analyse du
  * plan, cadres en pointillés qui sont des boutons ; un toucher dans un cadre
- * ouvre la proposition et ne compte pas comme un toucher sur le plan.
+ * ouvre la proposition et ne compte pas comme un toucher sur le plan. Étiquette :
+ * cases repérées (`cellCount`), ou lignes × colonnes pour une proposition
+ * d'avant. `openSuggestionId` : proposition ouverte, dont les cases repérées
+ * sont dessinées (cadre fin, point au centre et nom « B3 »), sans être
+ * cliquables ni lues par les lecteurs d'écran.
  */
-export function PlanView({ src, plan, markers, highlightZoneId, pending, suggestions = [], onPlanClick, onMarkerClick, onSuggestionClick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
+export function PlanView({ src, plan, markers, highlightZoneId, pending, suggestions = [], openSuggestionId, onPlanClick, onMarkerClick, onSuggestionClick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
   src: string; plan: Pick<CavePlan, 'width' | 'height'>; markers: PlanMarker[]; highlightZoneId?: string | null; pending?: { x: number; y: number } | null;
-  suggestions?: PlanSuggestion[]; onSuggestionClick?: (id: string) => void;
+  suggestions?: PlanSuggestion[]; openSuggestionId?: string | null; onSuggestionClick?: (id: string) => void;
   onPlanClick?: (x: number, y: number) => void; onMarkerClick?: (zoneId: string) => void;
   onPendingMove?: (x: number, y: number) => void; onCancel?: () => void; planRef?: Ref<HTMLSpanElement>; maxWidth?: number; alt?: string;
 }) {
@@ -49,19 +53,29 @@ export function PlanView({ src, plan, markers, highlightZoneId, pending, suggest
     } else return;
     e.preventDefault();
   }
+  const openCells = (onSuggestionClick && suggestions.find((s) => s.id === openSuggestionId)?.cells) || [];
   return (
     // Placement au toucher (souris ou doigt) ou au clavier ; les repères restent des boutons.
     // span (affiché en bloc) : le petit plan d'« À boire » vit dans un bouton, qui n'admet pas de div.
     <span ref={planRef} className={`plan-view${onPlanClick ? ' plan-view--placing' : ''}`} style={{ aspectRatio: `${plan.width} / ${plan.height}`, maxWidth }} onClick={click}
       {...(onPlanClick && { tabIndex: 0, role: 'group', 'aria-label': `${alt}. Entrée pour poser un repère, flèches pour le déplacer, Échap pour annuler.`, onKeyDown: key })}>
       <img className="plan-view__image" src={src} alt={alt} width={plan.width} height={plan.height} decoding="async" />
-      {onSuggestionClick && suggestions.map(({ id, name, box: [x0, y0, x1, y1], rows, cols }) => (
+      {onSuggestionClick && suggestions.map(({ id, name, box: [x0, y0, x1, y1], rows, cols, cellCount = rows * cols }) => (
         <button key={id} type="button" className="plan-view__suggestion" aria-label={`Proposition ${name}`}
           style={{ left: pct(x0), top: pct(y0), width: pct(x1 - x0), height: pct(y1 - y0) }}
           onClick={(e) => { e.stopPropagation(); onSuggestionClick(id); }}>
-          <span className="plan-view__suggestion-label">{`${name} · ${rows * cols} case${rows * cols > 1 ? 's' : ''}`}</span>
+          <span className="plan-view__suggestion-label">{`${name} · ${cellCount} case${cellCount > 1 ? 's' : ''}`}</span>
         </button>
       ))}
+      {openCells.length > 0 && (
+        <span className="plan-view__cells" aria-hidden="true">
+          {openCells.map(({ box: [x0, y0, x1, y1], name }, i) => (
+            <span key={i} className="plan-view__cell" aria-hidden="true" style={{ left: pct(x0), top: pct(y0), width: pct(x1 - x0), height: pct(y1 - y0) }}>
+              {name && <span className="plan-view__cell-name">{name}</span>}
+            </span>
+          ))}
+        </span>
+      )}
       {[...markers, ...(pending ? [{ zoneId: '', name: 'Nouveau repère', number: 0, ...pending }] : [])].map((m) => {
         const highlighted = m.zoneId === '' || m.zoneId === highlightZoneId;
         const props = {
