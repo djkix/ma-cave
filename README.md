@@ -143,6 +143,8 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 
 ### 🗺️ Emplacements, zones et plans
 - Emplacement = **zone · casier · position** ; **Ranger / déplacer** depuis la fiche
+- **Emplacement au doigt** : à l'entrée, au déplacement et à la correction du stock, on touche sur la photo du plan la case où est la bouteille (un onglet par plan, cases repérées par l'IA) ; la case s'allume et le nombre de bouteilles déjà rangées s'affiche
+- **Saisir à la main** reste disponible pour une zone sans plan ou une case non repérée
 - **Zones** : nom, indication, photo, ordre ; archivées si elles ont servi
 - **Jusqu'à 20 plans** par cave, **repères numérotés** des zones
 - **Propositions de zones** : Gemini repère les casiers sur la photo du plan
