@@ -9,6 +9,14 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.29.0](https://github.com/djkix/ma-cave/compare/v2.28.0...v2.29.0) (2026-10-22)
+
+
+### Fonctionnalités
+
+* **api:** quotas Gemini par modèle et bascule automatique au quota du jour ([bbd98ee](https://github.com/djkix/ma-cave/commit/bbd98ee6e16299de8ee90eacf35d9bdafff2e687))
+* **web:** limites du modèle choisi et liste de bascule dans l'Administration ([babcb61](https://github.com/djkix/ma-cave/commit/babcb610053e771ef8cfbc33cfc20b1018c543c2))
+
 ## [2.28.0](https://github.com/djkix/ma-cave/compare/v2.27.0...v2.28.0) (2026-10-22)
 
 ### Résumé
