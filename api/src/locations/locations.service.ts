@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ZONE_ARCHIVED_TAKEN, ZONE_NOT_FOUND } from '../zones/zone';
 import {
-  LocatedParts, LOCATION_NOT_FOUND, LocationInput, labelOf, normalizeLocation, NOT_ENOUGH_AT_LOCATION, Place, placesOf,
+  cellCodeOf, LocatedParts, LOCATION_NOT_FOUND, LocationInput, labelOf, normalizeLocation, NOT_ENOUGH_AT_LOCATION, Place, placesOf,
 } from './location';
 
 /** Client Prisma ordinaire ou client d'une transaction interactive. */
@@ -13,11 +13,17 @@ export type Db = PrismaService | Prisma.TransactionClient;
 /** `lastUsed` : emplacement de la dernière entrée rangée de la cave (pré-remplit l'entrée suivante), un seul au plus. */
 export interface LocationView extends LocatedParts { label: string; lastUsed: boolean }
 
-/** Somme des mouvements d'un vin à un endroit ; `zone` : nom de la zone (relation), `zoneId` : son id. */
-interface Group { locationId: string | null; zoneId: string | null; zone: string | null; casier: string | null; position: string | null; quantity: number }
+/** Somme des mouvements d'un vin à un endroit ; `zone` : nom de la zone (relation), `zoneId` : son id, `cellNames` : noms de ses cases. */
+interface Group {
+  locationId: string | null; zoneId: string | null; zone: string | null; casier: string | null; position: string | null;
+  cellNames: Record<string, string> | null; quantity: number;
+}
 
 /** Colonnes d'un emplacement et de sa zone, pour les requêtes qui joignent `location l` et `cave_zone z`. */
-const PARTS = Prisma.sql`l.zone_id AS "zoneId", z.name AS zone, l.casier, l.position`;
+const PARTS = Prisma.sql`l.zone_id AS "zoneId", z.name AS zone, l.casier, l.position, z.cell_names AS "cellNames"`;
+
+/** Zone d'une saisie : son id et les noms de ses cases (un nom saisi dans « casier » devient son code). */
+interface ZoneRef { id: string; cellNames: Record<string, string> }
 
 /** Stock d'un endroit (id null = « Sans emplacement ») selon la même règle que placesOf, négatif compris. */
 function rawStockAt(groups: Group[], id: string | null): number {
@@ -48,7 +54,7 @@ export class LocationsService {
       this.lastIn(caveId),
     ]);
     return rows
-      .map((l) => ({ ...l, label: labelOf(l), lastUsed: l.id === last?.id }))
+      .map(({ cellNames, ...l }) => ({ ...l, label: labelOf({ ...l, cellNames }), lastUsed: l.id === last?.id }))
       .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
   }
 
@@ -60,13 +66,15 @@ export class LocationsService {
    * position en minuscules) : deux saisies simultanées du même emplacement
    * obtiennent la même ligne, sans violation d'unicité (P2002) à rattraper —
    * utilisable aussi dans une transaction, qu'une violation interromprait.
+   * Un nom de case de la zone saisi dans « casier » est enregistré sous son code.
    */
   async resolve(caveId: string, input: LocationInput, db: Db = this.prisma): Promise<Location> {
     const n = normalizeLocation(input);
-    const zoneId = n.zoneId ? await this.lockZone(caveId, n.zoneId, db) : n.zoneName ? await this.zoneNamed(caveId, n.zoneName, db) : null;
+    const zone = n.zoneId ? await this.lockZone(caveId, n.zoneId, db) : n.zoneName ? await this.zoneNamed(caveId, n.zoneName, db) : null;
+    const casier = zone ? cellCodeOf(n.casier, zone.cellNames) : n.casier;
     const [row] = await db.$queryRaw<Location[]>`
       INSERT INTO location (id, cave_id, zone_id, casier, position)
-      VALUES (${randomUUID()}, ${caveId}, ${zoneId}, ${n.casier}, ${n.position})
+      VALUES (${randomUUID()}, ${caveId}, ${zone?.id ?? null}, ${casier}, ${n.position})
       ON CONFLICT (cave_id, (COALESCE(zone_id, '')), (lower(COALESCE(casier, ''))), (lower(COALESCE(position, ''))))
       DO UPDATE SET cave_id = EXCLUDED.cave_id
       RETURNING id, cave_id AS "caveId", zone_id AS "zoneId", casier, position, created_at AS "createdAt"`;
@@ -109,12 +117,12 @@ export class LocationsService {
     }
   }
 
-  /** Zone non archivée de la cave, verrouillée en partage jusqu'à la fin de la transaction ; sinon 404. */
-  private async lockZone(caveId: string, zoneId: string, db: Db): Promise<string> {
-    const rows = await db.$queryRaw<{ id: string }[]>`
-      SELECT id FROM cave_zone WHERE id = ${zoneId} AND cave_id = ${caveId} AND archived_at IS NULL FOR SHARE`;
+  /** Zone non archivée de la cave (id, noms des cases), verrouillée en partage jusqu'à la fin de la transaction ; sinon 404. */
+  private async lockZone(caveId: string, zoneId: string, db: Db): Promise<ZoneRef> {
+    const rows = await db.$queryRaw<ZoneRef[]>`
+      SELECT id, cell_names AS "cellNames" FROM cave_zone WHERE id = ${zoneId} AND cave_id = ${caveId} AND archived_at IS NULL FOR SHARE`;
     if (rows.length === 0) throw new NotFoundException(ZONE_NOT_FOUND);
-    return rows[0].id;
+    return rows[0];
   }
 
   /**
@@ -123,15 +131,15 @@ export class LocationsService {
    * CONFLICT sur l'index cave_zone_cave_id_name_key : deux saisies simultanées
    * du même nom obtiennent la même zone.
    */
-  private async zoneNamed(caveId: string, name: string, db: Db): Promise<string> {
-    const [row] = await db.$queryRaw<{ id: string }[]>`
+  private async zoneNamed(caveId: string, name: string, db: Db): Promise<ZoneRef> {
+    const [row] = await db.$queryRaw<ZoneRef[]>`
       INSERT INTO cave_zone (id, cave_id, name, sort_order)
       VALUES (${randomUUID()}, ${caveId}, ${name},
               (SELECT COALESCE(MAX(sort_order) + 1, 0) FROM cave_zone WHERE cave_id = ${caveId} AND archived_at IS NULL))
       ON CONFLICT (cave_id, (lower(name))) WHERE archived_at IS NULL
       DO UPDATE SET name = cave_zone.name
-      RETURNING id`;
-    return row.id;
+      RETURNING id, cell_names AS "cellNames"`;
+    return row;
   }
 
   /** Emplacement de la cave ; celui d'une autre cave est « introuvable », comme un identifiant inconnu. */
@@ -149,7 +157,7 @@ export class LocationsService {
       LEFT JOIN location l ON l.id = m.location_id
       LEFT JOIN cave_zone z ON z.id = l.zone_id
       WHERE m.wine_id = ${wineId} AND w.cave_id = ${caveId}
-      GROUP BY m.location_id, l.zone_id, z.name, l.casier, l.position`;
+      GROUP BY m.location_id, l.zone_id, z.name, z.cell_names, l.casier, l.position`;
   }
 
   /** Endroits du vin et leur quantité (> 0) : emplacements par libellé, « Sans emplacement » en dernier. */
@@ -167,7 +175,7 @@ export class LocationsService {
       LEFT JOIN location l ON l.id = m.location_id
       LEFT JOIN cave_zone z ON z.id = l.zone_id
       WHERE w.cave_id = ${caveId} AND m.wine_id IN (${Prisma.join(wineIds)})
-      GROUP BY m.wine_id, m.location_id, l.zone_id, z.name, l.casier, l.position`;
+      GROUP BY m.wine_id, m.location_id, l.zone_id, z.name, z.cell_names, l.casier, l.position`;
     const byWine = new Map<string, Group[]>();
     for (const r of rows) byWine.set(r.wineId, [...(byWine.get(r.wineId) ?? []), r]);
     return new Map([...byWine].map(([id, groups]) => [id, placesOf(groups.map(toPlaceGroup))]));
@@ -260,7 +268,7 @@ export class LocationsService {
 
 function toPlaceGroup(g: Group) {
   return {
-    location: g.locationId == null ? null : { id: g.locationId, zoneId: g.zoneId, zone: g.zone, casier: g.casier, position: g.position },
+    location: g.locationId == null ? null : { id: g.locationId, zoneId: g.zoneId, zone: g.zone, casier: g.casier, position: g.position, cellNames: g.cellNames },
     quantity: Number(g.quantity),
   };
 }

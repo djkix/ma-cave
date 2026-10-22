@@ -1,5 +1,6 @@
 import { QueryClient, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
+import { casierLabel } from './grid';
 import { CavePlan, getLocations, getPlans, getZones, Location, LocationInput, Zone } from './api-client';
 
 /** Plan rendu par l'api (relance de l'analyse : en attente) mis en cache à la place de l'ancien ; le bandeau repasse en cours. */
@@ -27,10 +28,11 @@ export function zoneNameOf(zoneId: string | null, zones: Zone[] | undefined, loc
   return zones?.find((z) => z.id === zoneId)?.name ?? locations.find((l) => l.zoneId === zoneId)?.zone ?? null;
 }
 
-/** Libellé d'une saisie, au format de l'api (« Cave 2 / B / 3 ») : la zone par son nom. */
+/** Libellé d'une saisie, au format de l'api (« Cave 2 / Champagnes (B3) / 3 ») : la zone par son nom, une case nommée par « Nom (code) ». */
 export function inputLabel(value: LocationInput, zones: Zone[] | undefined, locations: Location[] = []): string {
   const zone = zoneNameOf(value.zoneId, zones, locations);
-  return [zone, value.casier, value.position].map((v) => v?.trim()).filter(Boolean).join(' / ') || NO_LOCATION;
+  const names = zones?.find((z) => z.id === value.zoneId)?.cellNames;
+  return [zone, casierLabel(value.casier, names), value.position].map((v) => v?.trim()).filter(Boolean).join(' / ') || NO_LOCATION;
 }
 
 /** Casiers et positions déjà saisis dans la cave, sans doublon, pour les suggestions (`<datalist>`). */
