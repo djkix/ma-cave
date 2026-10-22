@@ -4,6 +4,9 @@ on:
     branches: [main]
   pull_request:
 
+# Le jeton n'a besoin que de lire le dépôt.
+permissions: { contents: read }
+
 jobs:
   api:
     runs-on: ubuntu-latest
@@ -26,8 +29,8 @@ jobs:
       ADMIN_EMAILS: ci@example.com
     defaults: { run: { working-directory: api } }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22, cache: npm, cache-dependency-path: api/package-lock.json }
       - run: npm ci
       - run: npx prisma migrate deploy
@@ -43,8 +46,8 @@ jobs:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: web } }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
       - run: npm ci
       - run: npm run lint
@@ -61,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Stack autonome — sauvegarde réelle sans aucun fichier du dépôt
         run: |
           stack="$RUNNER_TEMP/stack"
