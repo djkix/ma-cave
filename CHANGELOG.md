@@ -11,6 +11,29 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.30.0](https://github.com/djkix/ma-cave/compare/v2.29.0...v2.30.0) (2026-10-22)
 
+### Résumé
+
+**Correctifs de sécurité.** sharp 0.35.5 et plafond de 40 Mpx par image ;
+NestJS 11 et multer 2.5 ; en-têtes de sécurité HTTP (CSP, cadres, nosniff,
+Referrer, Permissions) ; api et worker sous le compte `node` (le volume des
+photos est repris seul au premier démarrage) ; deux proxys de confiance
+(`TRUST_PROXY_HOPS=2`) ; invitation qui ne révèle plus si un compte existe ;
+actions GitHub épinglées. **Le port web n'est plus publié que sur
+`127.0.0.1`** : si Nginx Proxy Manager vise l'adresse réseau de la VM, ajouter
+`WEB_BIND=<IP de la VM>` au `.env` **avant** la mise à jour (voir « Passage à
+la 2.30.0 » dans `docs/guide-detaille.md`).
+
+**Modèle Gemini automatique.** Plus de sélecteur : l'application prend le
+modèle Flash ou Flash-Lite stable le plus récent dont le quota du jour n'est
+pas atteint, puis le suivant. *Administration › Modèle Gemini (automatique)*
+montre le modèle en cours et, pour chaque modèle, ses requêtes du jour et ses
+limites réglables ; la consommation reste tracée par modèle. Les variantes
+spécialisées (tts, image…), qui refusent une image, ne sont plus jamais
+employées. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
