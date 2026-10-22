@@ -1202,8 +1202,9 @@ vont de la plus récente à la plus ancienne.
 Aucune migration de base. Trois points à vérifier **avant** `docker compose up -d` :
 
 1. **Port publié** : le `docker-compose.yml` ne publie plus le port web que sur
-   `WEB_BIND` (`127.0.0.1` par défaut). **Si NPM tourne sur une autre machine**,
-   ajouter au `.env` l'adresse de la VM sur le réseau local, sinon le site
+   `WEB_BIND` (`127.0.0.1` par défaut). **Si NPM joint Ma Cave par l'adresse
+   réseau de la VM** (*Forward Hostname* = une IP du réseau local, même quand NPM
+   tourne sur la même machine), ajouter cette adresse au `.env`, sinon le site
    devient injoignable (502 côté NPM) :
 
    ```bash
