@@ -11,6 +11,13 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.26.0](https://github.com/djkix/ma-cave/compare/v2.25.0...v2.26.0) (2026-10-22)
 
+### Résumé
+
+**Plus d'icône du compte en haut à droite** : l'onglet *Réglages* du bas y mène déjà.
+Elle reste pour un compte sans cave, qui n'a pas de barre du bas. Le README décrit aussi
+le **passage à la stack `ma-cave` depuis Dockhand**, sans terminal, en reprenant les
+volumes de `cave-a-vin` tels quels. Aucune migration.
+
 
 ### Fonctionnalités
 
