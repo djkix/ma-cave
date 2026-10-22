@@ -167,8 +167,11 @@ colonnes »), puis *Accepter*
 (retire la proposition). Tant que la feuille est ouverte, chaque case repérée
 est dessinée sur le plan : cadre fin, **point au centre et nom de la case**
 (« B3 », le nom même qu'on choisira en rangeant une bouteille dans la zone
-acceptée ; nom masqué quand la case fait moins de 24 px de large, point seul),
-ni cliquable ni lu par les lecteurs d'écran. Le propriétaire seul accepte ou rejette ; un nom déjà
+acceptée ; nom masqué quand la case fait moins de 24 px de large, point seul).
+La feuille reprend ce plan : chaque point y est un bouton « Case B3 » (cible de
+44 px) qui ouvre un petit champ « Nom de la case B3 » (*Enregistrer* /
+*Annuler*) ; le point affiche alors le nom donné, et les noms partent avec
+*Accepter* (voir « Noms des cases » ci-dessous). Le propriétaire seul accepte ou rejette ; un nom déjà
 pris est refusé (« Une zone porte déjà ce nom »). Les cases se nomment en
 lignes × colonnes : A1, A2… pour la première ligne, B1, B2… pour la deuxième
 (1 à 26 lignes, 1 à 30 colonnes ; les cases sont calculées, jamais stockées).
@@ -181,7 +184,30 @@ la fiche vin) : sous le champ *Casier*, une grille de cases à toucher (48 px
 minimum, défilement horizontal si elle est large) ; une case occupée affiche le
 nombre de bouteilles qu'elle contient, la case choisie est mise en avant et
 remplit *Casier*, dont la liste de suggestions propose aussi les cases. La saisie
-libre reste possible ; une zone sans grille ne change pas. Dans *Coûts de l’IA*,
+libre reste possible ; une zone sans grille ne change pas.
+
+**Noms des cases.** Chaque case garde son code (A1, B3…), qui reste la valeur
+enregistrée dans *Casier* ; on peut lui donner en plus un nom libre
+(« Champagnes », 40 caractères au plus), simple libellé d'affichage qui ne
+déplace aucune bouteille. Les noms se donnent dans la feuille *Proposition*
+(toucher un point), dans *Modifier la zone* (section « Noms des cases » : un
+champ facultatif par case, le code en placeholder) ou sous la grille de
+rangement (*Renommer les cases*, propriétaire seulement). Partout, un
+emplacement s'affiche alors **« Nom (code) »** : « Cave / Champagnes (B3) / 2 »
+sur la fiche vin, *À boire*, le journal, « D'où sort-elle ? » et l'export Excel
+(sans nom : « B3 »). La grille de rangement montre le nom et le petit code ;
+*Casier* propose noms et codes, et **saisir le nom** (casse ignorée) range dans
+la case : l'api enregistre le code, « Champagnes » et « B3 » sont donc le même
+emplacement. Règles : un nom vide retire le nom ; deux cases d'une même zone ne
+portent pas le même nom (casse ignorée), ni un nom égal au code d'une autre case
+(« Ce nom est déjà pris dans cette zone ») ; une case hors de la grille est
+refusée (« Case inconnue dans cette zone ») ; réduire la grille supprime les
+noms des cases disparues. API : `cellNames` (`{ "B3": "Champagnes" }`) dans
+chaque zone, accepté (remplacement complet) par `PATCH
+/api/caves/current/zones/:id` et par `POST
+/api/caves/current/plans/:id/suggestions/:sid/accept`.
+
+Dans *Coûts de l’IA*,
 le nouvel usage s'affiche sous « Analyse du plan » (barres, légende, détail).
 API : `GET /api/caves/current/plans` renvoie en plus, par plan, `analysis`
 (`NONE`, `PENDING`, `DONE`, `FAILED`) et `suggestions` (`{ id, kind, name, box,
@@ -1099,6 +1125,25 @@ Si les images sont construites localement, remplacer `docker compose pull` par
 `docker compose build`. Pour figer une version plutôt que suivre `latest`,
 fusionner la demande de version proposée par release-please puis renseigner
 `IMAGE_TAG=<version>` dans le `.env`.
+
+### Passage à la 2.24.0 (noms des cases)
+
+Une migration, **additive** et appliquée toute seule au démarrage de l'api,
+sans rien modifier ni supprimer : `20261024000000_noms_cases` ajoute aux zones
+`cave_zone` la colonne `cell_names` (JSONB, `{}` par défaut : aucune case
+nommée ; un objet JSON, vérifié par la contrainte `cave_zone_cell_names_check`).
+Les emplacements existants ne changent pas. Aucune sauvegarde particulière
+n'est nécessaire ; par précaution, sauvegarder comme d'habitude avant la mise à
+jour :
+
+```bash
+cd /opt/stacks/ma-cave && docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' | gzip > backups/cave-avant-2.24.0.sql.gz
+```
+
+**Retour arrière vers une image 2.23.x** (sans restaurer la sauvegarde) : la
+colonne `cell_names` est ignorée, les cases s'affichent de nouveau par leur
+code ; les bouteilles rangées en saisissant un nom sont sous le code, donc
+toujours au bon endroit.
 
 ### Passage à la 2.19.0 (modèle de l'IA dans l'Administration)
 
