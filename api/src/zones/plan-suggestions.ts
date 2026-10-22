@@ -36,8 +36,10 @@ export function validBlocks(raw: unknown): RawBlock[] {
     if (!Array.isArray(box) || box.length !== 4 || !box.every(isFraction)) continue;
     const [x0, y0, x1, y1] = box as number[];
     if (x0 >= x1 || y0 >= y1) continue;
-    // Cases repérées : construites par `unitsToBlocks`, gardées telles quelles.
-    const detected = Number.isInteger(cellCount) && Array.isArray(cells) ? { cellCount: cellCount as number, cells: (cells as DetectedCell[]).slice(0, MAX_CELLS) } : {};
+    // Cases repérées (construites par `unitsToBlocks`) : celles dont le cadre est valide, 200 au plus.
+    const okBox = (v: unknown) => Array.isArray(v) && v.length === 4 && v.every(isFraction) && v[0] < v[2] && v[1] < v[3];
+    const detected = Number.isInteger(cellCount) && Array.isArray(cells)
+      ? { cellCount: cellCount as number, cells: (cells as DetectedCell[]).filter((c) => okBox(c?.box)).slice(0, MAX_CELLS) } : {};
     blocks.push({ kind: kind as SuggestionKind, box: [x0, y0, x1, y1], rows, cols, ...detected });
   }
   return blocks.slice(0, MAX_BLOCKS);
@@ -58,55 +60,118 @@ const overlap = (a: Box, b: Box, axis: 0 | 1) => Math.max(0, Math.min(a[axis + 2
 const aligned = (a: Box, b: Box, axis: 0 | 1) => overlap(a, b, axis) >= Math.min(a[axis + 2] - a[axis], b[axis + 2] - b[axis]) / 2;
 const center = (b: Box, axis: 0 | 1) => (b[axis] + b[axis + 2]) / 2;
 
+/** Part de b alignée avec a sur l'axe, rapportée au plus petit des deux (1 : l'un contient l'autre). */
+const ratio = (a: Box, b: Box, axis: 0 | 1) => overlap(a, b, axis) / Math.min(a[axis + 2] - a[axis], b[axis + 2] - b[axis]);
+
 /**
- * Voisin suivant de chaque case le long de l'axe (0 : à droite, dans la même
- * rangée ; 1 : en dessous, dans la même colonne) : case alignée avec elle sur
- * l'autre axe, presque pas sur celui-ci, la plus proche ; à égalité, la mieux
- * alignée. -1 : aucune.
+ * Liens entre voisines le long de l'axe (0 : à droite, dans la même rangée ;
+ * 1 : en dessous, dans la même colonne). Candidates d'une case : alignées avec
+ * elle sur l'autre axe, presque pas sur celui-ci, à moins de leurs deux
+ * tailles l'une de l'autre (une ou deux cases oubliées entre elles au plus),
+ * de la plus proche à la plus lointaine (à égalité, la mieux alignée, puis la
+ * plus haute ou à gauche : une case haute de deux rangées rejoint celle du
+ * haut). Une case n'a qu'une précédente : quand deux cases visent la même, la
+ * plus proche (puis la mieux alignée) la garde et l'autre passe à sa candidate
+ * suivante (appariement stable). Ainsi une case oubliée ne fait pas viser à sa
+ * voisine une case d'une autre rangée, déjà prise par la bonne.
+ * `next[i]` : voisine suivante de la case i, -1 si aucune. `spans` : une case
+ * est la plus proche candidate de deux cases côte à côte (une case large sous
+ * deux colonnes) : les lignes de cet axe ne décrivent pas une grille.
  */
-function nextCells(boxes: Box[], axis: 0 | 1): number[] {
+function links(boxes: Box[], axis: 0 | 1): { next: number[]; spans: boolean } {
   const other = (1 - axis) as 0 | 1;
-  return boxes.map((a) => {
-    let best = -1;
-    boxes.forEach((b, j) => {
-      if (center(b, axis) <= center(a, axis) || !aligned(a, b, other) || aligned(a, b, axis)) return;
-      const o = best < 0 ? null : boxes[best];
-      if (!o || b[axis] < o[axis] || (b[axis] === o[axis] && overlap(a, b, other) > overlap(a, o, other))) best = j;
-    });
-    return best;
-  });
+  const candidates = boxes.map((a) => boxes.map((_, j) => j)
+    .filter((j) => center(boxes[j], axis) > center(a, axis) && aligned(a, boxes[j], other) && !aligned(a, boxes[j], axis)
+      && boxes[j][axis] - a[axis + 2] <= a[axis + 2] - a[axis] + boxes[j][axis + 2] - boxes[j][axis])
+    .sort((i, j) => boxes[i][axis] - boxes[j][axis] || ratio(a, boxes[j], other) - ratio(a, boxes[i], other) || center(boxes[i], other) - center(boxes[j], other)));
+  const spans = boxes.some((_, i) => boxes.some((_, k) => k > i && candidates[i][0] !== undefined && candidates[i][0] === candidates[k][0]
+    && aligned(boxes[i], boxes[k], axis) && !aligned(boxes[i], boxes[k], other)));
+  // Préférée par b : la précédente la plus proche (un quart de b près), puis la mieux alignée. Sur un mur très incliné, une
+  // case du premier plan d'une rangée basse peut viser, loin vers le fond, une case de la rangée du dessus : la vraie voisine la garde.
+  const gap = (a: Box, b: Box) => b[axis] - a[axis + 2];
+  const closer = (a: Box, rival: Box, b: Box) => {
+    const d = gap(a, b) - gap(rival, b), tolerance = (b[axis + 2] - b[axis]) / 4;
+    return d < -tolerance || (Math.abs(d) <= tolerance && ratio(a, b, other) > ratio(rival, b, other));
+  };
+  const next = boxes.map(() => -1), prev = boxes.map(() => -1), tried = boxes.map(() => 0);
+  const queue = boxes.map((_, i) => i);
+  while (queue.length) {
+    const i = queue.pop()!;
+    while (tried[i] < candidates[i].length) {
+      const j = candidates[i][tried[i]++], rival = prev[j];
+      if (rival >= 0 && !closer(boxes[i], boxes[rival], boxes[j])) continue;
+      if (rival >= 0) { next[rival] = -1; queue.push(rival); }
+      prev[j] = i; next[i] = j;
+      break;
+    }
+  }
+  return { next, spans };
 }
 
 /**
- * Lignes (rangées si l'axe est 0, colonnes si 1) : les cases reliées à leur
- * voisin suivant forment une ligne (union-find). Les lignes sont incohérentes
- * si l'une contient deux cases qui se chevauchent le long de son axe (une case
- * large sous deux colonnes relie ces deux colonnes) : `count` vaut alors 0 et
- * `index` null. Sinon `index[i]` : rang de la ligne de la case i, lignes
- * triées par position moyenne (rangées de haut en bas, colonnes de gauche à droite).
+ * Lignes (rangées si l'axe est 0, colonnes si 1) : cases reliées par `next`
+ * (union-find), ordonnées par voisinage sur l'autre axe (`across` : une
+ * rangée vient avant celle où ses cases ont leur voisine du dessous ; position
+ * moyenne seulement pour départager), pour qu'une rangée partielle, loin de
+ * sa place moyenne sur un mur pris de biais, garde son rang. Incohérentes
+ * (`coherent` faux) si une ligne contient deux cases qui se chevauchent le
+ * long de son axe, si `spans`, ou s'il y a plus de lignes que de cases dans la
+ * plus longue suite de l'autre axe ; `count` est alors cette plus longue suite
+ * (le plus de cases empilées pour les rangées, côte à côte pour les colonnes).
  */
-function lines(boxes: Box[], axis: 0 | 1): { count: number; index: (number | null)[] } {
+function lines(boxes: Box[], axis: 0 | 1, own: { next: number[]; spans: boolean }, across: number[]): { groups: number[][]; coherent: boolean; count: number } {
   const parent = boxes.map((_, i) => i);
   const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
-  nextCells(boxes, axis).forEach((j, i) => { if (j >= 0) parent[find(i)] = find(j); });
-  const groups = new Map<number, number[]>();
-  boxes.forEach((_, i) => groups.set(find(i), [...(groups.get(find(i)) ?? []), i]));
+  own.next.forEach((j, i) => { if (j >= 0) parent[find(i)] = find(j); });
+  const byRoot = new Map<number, number[]>();
+  boxes.forEach((_, i) => byRoot.set(find(i), [...(byRoot.get(find(i)) ?? []), i]));
+  let left = [...byRoot.values()];
   const other = (1 - axis) as 0 | 1;
-  const coherent = [...groups.values()].every((g) => g.every((i) => g.every((j) => i === j || !aligned(boxes[i], boxes[j], axis))));
-  if (!coherent) return { count: 0, index: boxes.map(() => null) };
   const mean = (g: number[]) => g.reduce((s, i) => s + center(boxes[i], other), 0) / g.length;
-  const sorted = [...groups.values()].sort((g, h) => mean(g) - mean(h));
-  const index: number[] = [];
-  sorted.forEach((g, k) => g.forEach((i) => (index[i] = k)));
-  return { count: sorted.length, index };
+  // Tri topologique : à chaque pas, la ligne sans précédente restante la plus haute (ou à gauche) ; en cas de cycle, la plus haute.
+  const groups: number[][] = [];
+  while (left.length) {
+    const roots = new Set(left.map((g) => find(g[0])));
+    const before = new Set(left.flatMap((g) => g.map((i) => across[i]).filter((j) => j >= 0 && find(j) !== find(g[0]) && roots.has(find(j))).map(find)));
+    const free = left.filter((g) => !before.has(find(g[0])));
+    const pick = (free.length ? free : left).reduce((a, b) => (mean(b) < mean(a) ? b : a));
+    groups.push(pick);
+    left = left.filter((g) => g !== pick);
+  }
+  // Plus de lignes que de cases dans la plus longue suite de l'autre axe : des lignes se sont coupées (cadres très bruités).
+  const most = longestChain(boxes, across, other);
+  const coherent = !own.spans && groups.length <= most && groups.every((g) => g.every((i) => g.every((j) => i === j || !aligned(boxes[i], boxes[j], axis))));
+  return { groups, coherent, count: coherent ? groups.length : most };
 }
 
-/** Plus longue suite de cases voisines le long de l'axe (cases côte à côte si 0, empilées si 1). */
-function longestChain(boxes: Box[], axis: 0 | 1): number {
-  const next = nextCells(boxes, axis);
+/**
+ * Plus longue suite de cases reliées par `next` le long de l'axe, en comptant
+ * les cases oubliées sur un lien qui en saute (écart arrondi en tailles de case).
+ */
+function longestChain(boxes: Box[], next: number[], axis: 0 | 1): number {
+  const size = (b: Box) => b[axis + 2] - b[axis];
+  const skipped = (a: Box, b: Box) => Math.max(0, Math.round((2 * (b[axis] - a[axis + 2])) / (size(a) + size(b))));
   const len: number[] = [];
-  const chain = (i: number): number => (len[i] ??= next[i] < 0 ? 1 : 1 + chain(next[i]));
-  return Math.max(...boxes.map((_, i) => chain(i)));
+  const chain = (i: number): number => (len[i] ??= next[i] < 0 ? 1 : 1 + skipped(boxes[i], boxes[next[i]]) + chain(next[i]));
+  return Math.max(...next.map((_, i) => chain(i)));
+}
+
+/**
+ * Rang de chaque case sur un axe : celui de sa ligne si les lignes de l'axe
+ * sont cohérentes ; sinon, si les lignes de l'autre axe le sont, son rang dans
+ * sa ligne de l'autre axe quand celle-ci compte exactement `count` cases
+ * (rangée complète pour une colonne, colonne complète pour une rangée) ; null ailleurs.
+ */
+type Lines = ReturnType<typeof lines>;
+function ranks(boxes: Box[], own: Lines, cross: Lines, axis: 0 | 1, count: number): (number | null)[] {
+  const rank: (number | null)[] = boxes.map(() => null);
+  if (own.coherent) own.groups.forEach((g, k) => g.forEach((i) => (rank[i] = k)));
+  else if (cross.coherent) {
+    for (const g of cross.groups.filter((h) => h.length === count)) {
+      [...g].sort((i, j) => center(boxes[i], axis) - center(boxes[j], axis)).forEach((i, k) => (rank[i] = k));
+    }
+  }
+  return rank;
 }
 
 /**
@@ -115,13 +180,15 @@ function longestChain(boxes: Box[], axis: 0 | 1): number {
  * voisinage et non sur des coordonnées globales, pour résister à la
  * perspective (une même tablette peut descendre de plus d'une case d'un bout à
  * l'autre du mur). Chaque case est reliée à sa voisine de droite (chevauchement
- * vertical d'au moins la moitié de la moins haute) et à celle du dessous ;
- * rangées = nombre de lignes de cases reliées de gauche à droite, colonnes =
- * nombre de lignes reliées de haut en bas. Une case oubliée ne coupe pas sa
- * ligne (le voisin suivant est cherché plus loin). Si les lignes d'un axe sont
- * incohérentes (une case haute ou large qui relie deux rangées ou deux
- * colonnes), le compte de cet axe passe au plus grand nombre de cases empilées
- * (rangées) ou côte à côte (colonnes), et les cases n'ont pas de nom.
+ * vertical d'au moins la moitié de la moins haute) et à celle du dessous, une
+ * seule précédente par case (`links`) ; rangées = nombre de lignes de cases
+ * reliées de gauche à droite, colonnes = nombre de lignes reliées de haut en
+ * bas. Une case oubliée ne coupe pas sa ligne (la voisine suivante est
+ * cherchée plus loin). Si les lignes d'un axe sont incohérentes (une case
+ * large sous deux colonnes, cadres trop bruités), le compte de cet axe passe au plus grand nombre
+ * de cases côte à côte (colonnes) ou empilées (rangées), et le rang des cases
+ * sur cet axe est celui qu'elles ont dans une ligne complète de l'autre axe
+ * (`ranks`). Une case haute de deux rangées prend le nom de celle du haut.
  * `cellCount` : cases valides ; `cells` : leurs 200 premières, nommées comme
  * la grille de la zone (« A1 », « B3 ») quand rangée et colonne sont connues.
  * Unité de moins de 2 cases valides ou de type inconnu ignorée. Le reste est
@@ -135,15 +202,16 @@ export function unitsToBlocks(units: unknown): RawBlock[] {
     if (typeof kind !== 'string' || !(kind in LABELS) || !Array.isArray(cells)) continue;
     const boxes = cells.map(cellBox).filter((b): b is Box => b !== null);
     if (boxes.length < 2) continue;
-    const r = lines(boxes, 0), c = lines(boxes, 1);
-    const rows = Math.min(GRID_MAX_ROWS, r.count || longestChain(boxes, 1));
-    const cols = Math.min(GRID_MAX_COLS, c.count || longestChain(boxes, 0));
+    const right = links(boxes, 0), down = links(boxes, 1);
+    const r = lines(boxes, 0, right, down.next), c = lines(boxes, 1, down, right.next);
+    const rows = Math.min(GRID_MAX_ROWS, r.count), cols = Math.min(GRID_MAX_COLS, c.count);
+    const rowOf = ranks(boxes, r, c, 1, rows), colOf = ranks(boxes, c, r, 0, cols);
     blocks.push({
       kind: kind as SuggestionKind,
       box: [Math.min(...boxes.map((b) => b[0])), Math.min(...boxes.map((b) => b[1])), Math.max(...boxes.map((b) => b[2])), Math.max(...boxes.map((b) => b[3]))],
       rows, cols, cellCount: boxes.length,
       cells: boxes.slice(0, MAX_CELLS).map((box, i) => {
-        const row = r.index[i], col = c.index[i];
+        const row = rowOf[i], col = colOf[i];
         const known = row !== null && col !== null && row < rows && col < cols;
         return { box, row, col, name: known ? `${String.fromCharCode(65 + row)}${col + 1}` : null };
       }),
