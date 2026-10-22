@@ -270,6 +270,7 @@ describe('zones', () => {
     await userEvent.clear(sheet.getByLabelText('Lettre des cases'));
     await userEvent.type(sheet.getByLabelText('Lettre des cases'), '1');
     expect(sheet.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
+    expect(sheet.getByLabelText('Lettre des cases')).toHaveAccessibleDescription('Une lettre de A à Z.');
     await userEvent.click(sheet.getByRole('button', { name: 'Annuler' }));
     // « A » est prise par Cave 1 : la première lettre libre.
     await userEvent.click(zoneRow('Cellier A').getByRole('button', { name: 'Modifier' }));

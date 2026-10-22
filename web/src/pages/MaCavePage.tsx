@@ -157,7 +157,8 @@ function ZoneForm({ label, initial, takenPrefixes = [], submitLabel, busy, onSub
         <>
           <label className="field__label" htmlFor={`${idPrefix}-letter`}>Lettre des cases</label>
           <input id={`${idPrefix}-letter`} value={letter} maxLength={1} autoCapitalize="characters" autoComplete="off" aria-invalid={!validLetter}
-            onChange={(e) => changeLetter(e.target.value)} />
+            aria-describedby={validLetter ? undefined : `${idPrefix}-letter-error`} onChange={(e) => changeLetter(e.target.value)} />
+          {!validLetter && <p id={`${idPrefix}-letter-error`} className="text-error" style={{ margin: 0 }}>Une lettre de A à Z.</p>}
           <CellNamesFields grid={grid} prefix={prefix || 'A'} names={names} onChange={setNames} />
         </>
       )}
