@@ -9,6 +9,18 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.25.0](https://github.com/djkix/ma-cave/compare/v2.24.0...v2.25.0) (2026-10-22)
+
+
+### Fonctionnalités
+
+* **web:** onglet Réglages dans la barre du bas, version en haut à droite des Réglages ([b271eae](https://github.com/djkix/ma-cave/commit/b271eaee9393b4fd1f0af1c044c77c8a778cde80))
+
+
+### Corrections
+
+* **api:** heure de reprise avec le jour nommé (« jeudi à 09:00 ») plutôt que « demain », faux une fois minuit passé ([f68f02c](https://github.com/djkix/ma-cave/commit/f68f02cdda2c925d2c509bd34cf7992b20d78d73))
+
 ## [2.24.0](https://github.com/djkix/ma-cave/compare/v2.23.0...v2.24.0) (2026-10-22)
 
 ### Résumé
