@@ -91,9 +91,11 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
     const plan = await planOf(job.planId);
     expect(plan.analysisStatus).toBe('DONE');
     expect(plan.suggestions).toEqual([
-      { id: expect.any(String), kind: 'CASIER', name: 'Casier B', box: [0.1, 0.2, 0.4, 0.9], rows: 6, cols: 4 },
-      { id: expect.any(String), kind: 'ETAGERE', name: 'Étagère C', box: [0.5, 0, 0.9, 0.4], rows: 2, cols: 3 },
+      { id: expect.any(String), kind: 'CASIER', name: 'Casier B', box: [0.1, 0.2, 0.4, 0.9], rows: 6, cols: 4, cellCount: 24, cells: expect.any(Array) },
+      { id: expect.any(String), kind: 'ETAGERE', name: 'Étagère C', box: [0.5, 0, 0.9, 0.4], rows: 2, cols: 3, cellCount: 6, cells: expect.any(Array) },
     ]);
+    // Cases repérées enregistrées avec leur nom dans la grille.
+    expect((plan.suggestions as { cells: { name: string }[] }[])[0].cells.map((c) => c.name)).toEqual(expect.arrayContaining(['A1', 'F4']));
     expect((await prisma.imageSearchCost.findMany({ where: { caveId } })).map((c) => c.costCents)).toEqual([3]);
   });
 
@@ -116,7 +118,7 @@ describeIfDb('PlanAnalysisProcessor (base réelle)', () => {
     await processor.process(job);
     const plan = await planOf(job.planId);
     expect(plan.analysisStatus).toBe('DONE');
-    expect(plan.suggestions).toEqual([{ id: expect.any(String), kind: 'AUTRE', name: 'Rangement A', box: [0.2, 0.2, 0.3, 0.3], rows: 1, cols: 2 }]);
+    expect(plan.suggestions).toEqual([{ id: expect.any(String), kind: 'AUTRE', name: 'Rangement A', box: [0.2, 0.2, 0.3, 0.3], rows: 1, cols: 2, cellCount: 2, cells: expect.any(Array) }]);
   });
 
   it('réponse inexploitable (pas de liste de meubles) : FAILED, coût imputé', async () => {

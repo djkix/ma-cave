@@ -70,11 +70,11 @@ describe('unitsToBlocks', () => {
 
   it('grille régulière 4 × 4 : 4 rangées, 4 colonnes, cadre = union des cases', () => {
     expect(unitsToBlocks({ length: 1 })).toEqual([]);
-    expect(unitsToBlocks([{ kind: 'CASIER', cells: grid(100, 200, 4, 4) }])).toEqual([{ kind: 'CASIER', box: [0.1, 0.2, 0.5, 0.6], rows: 4, cols: 4 }]);
+    expect(unitsToBlocks([{ kind: 'CASIER', cells: grid(100, 200, 4, 4) }])).toMatchObject([{ kind: 'CASIER', box: [0.1, 0.2, 0.5, 0.6], rows: 4, cols: 4 }]);
   });
 
   it('2 colonnes × 4 rangées : rows 4, cols 2', () => {
-    expect(unitsToBlocks([{ kind: 'ETAGERE', cells: grid(0, 0, 2, 4) }])).toEqual([{ kind: 'ETAGERE', box: [0, 0, 0.2, 0.4], rows: 4, cols: 2 }]);
+    expect(unitsToBlocks([{ kind: 'ETAGERE', cells: grid(0, 0, 2, 4) }])).toMatchObject([{ kind: 'ETAGERE', box: [0, 0, 0.2, 0.4], rows: 4, cols: 2 }]);
   });
 
   it('meuble irrégulier : 2 cases larges en haut, 4 en dessous sur 2 colonnes décalées → 6 cases, rows 3, cols 2', () => {
@@ -83,7 +83,7 @@ describe('unitsToBlocks', () => {
       cell(200, 100, 400, 500), cell(200, 500, 400, 900),
       cell(400, 100, 600, 500), cell(400, 500, 600, 900),
     ];
-    expect(unitsToBlocks([{ kind: 'CASIER', cells }])).toEqual([{ kind: 'CASIER', box: [0, 0, 1, 0.6], rows: 3, cols: 2 }]);
+    expect(unitsToBlocks([{ kind: 'CASIER', cells }])).toMatchObject([{ kind: 'CASIER', box: [0, 0, 1, 0.6], rows: 3, cols: 2 }]);
   });
 
   it('légère inclinaison : centres d’une même rangée décalés de 10 % de la hauteur de case, même nombre de rangées', () => {
@@ -124,7 +124,7 @@ describe('unitsToBlocks', () => {
       { kind: 'CAVE', cells: grid(0, 0, 2, 2) },
       { kind: 'AUTRE' },
       null,
-    ])).toEqual([{ kind: 'CASIER', box: [0, 0, 0.2, 0.1], rows: 1, cols: 2 }]);
+    ])).toMatchObject([{ kind: 'CASIER', box: [0, 0, 0.2, 0.1], rows: 1, cols: 2, cellCount: 2 }]);
   });
 
   it('grilles bornées à 26 rangées et 30 colonnes', () => {
@@ -136,10 +136,115 @@ describe('unitsToBlocks', () => {
       { kind: 'CASIER', cells: grid(0, 100, 4, 4) },
       { kind: 'CASIER', cells: grid(400, 100, 2, 4) },
       { kind: 'CASIER', cells: [...grid(600, 100, 2, 2), ...grid(600, 300, 1, 2, 200)] },
-    ])).toEqual([
+    ])).toMatchObject([
       { kind: 'CASIER', box: [0, 0.1, 0.4, 0.5], rows: 4, cols: 4 },
       { kind: 'CASIER', box: [0.4, 0.1, 0.6, 0.5], rows: 4, cols: 2 },
       { kind: 'CASIER', box: [0.6, 0.1, 0.8, 0.5], rows: 4, cols: 2 },
     ]);
+  });
+
+  /**
+   * Mur de 12 colonnes × 4 rangées en forte perspective horizontale : colonnes
+   * verticales de 250 à 50 de large (en proportion, sur 950 millièmes), mur
+   * haut de 800 au premier plan et de 160 au fond, tablettes qui descendent
+   * vers le fond (celle du haut passe de 50 à 520 : bien plus qu'une hauteur de
+   * case). Chaque case est un trapèze dont on prend le cadre. `vertical` : axes
+   * échangés, 4 rangées horizontales de hauteurs décroissantes (250 à 175) et
+   * 12 colonnes inclinées qui se resserrent vers le bas (rapport 0,7 : sur 4
+   * rangées, un rapport de 5 décalerait les colonnes du bord de deux cases
+   * d'une tablette à l'autre, illisible même à l'œil). `angle` : rotation en
+   * degrés autour du centre ; `missing` : cases [rangée, colonne] oubliées.
+   * Cases rendues colonne par colonne (rangée par rangée si `vertical`).
+   */
+  const wall = ({ vertical = false, angle = 0, missing = [] as [number, number][] } = {}) => {
+    const [along, across, far, drop] = vertical ? [4, 12, 0.7, 0] : [12, 4, 0.2, 150];
+    const raw = Array.from({ length: along }, (_, i) => 250 * (1 - ((1 - far) * i) / (along - 1)));
+    const k = 950 / raw.reduce((a, b) => a + b);
+    const height = (x: number) => 800 - ((x - 20) / 950) * 800 * (1 - far);
+    const mid = (x: number) => 450 + ((x - 20) / 950) * drop;
+    const shelf = (r: number, x: number) => mid(x) + (r / across - 0.5) * height(x);
+    const t = (angle * Math.PI) / 180;
+    const place = ([x, y]: [number, number]): [number, number] => {
+      const [u, v] = vertical ? [y, x] : [x, y];
+      return [500 + (u - 500) * Math.cos(t) - (v - 500) * Math.sin(t), 500 + (u - 500) * Math.sin(t) + (v - 500) * Math.cos(t)];
+    };
+    const cells = [];
+    let x = 20;
+    for (let l = 0; l < along; l++) {
+      const x1 = x + raw[l] * k;
+      for (let a = 0; a < across; a++) {
+        const [row, col] = vertical ? [l, a] : [a, l];
+        if (missing.some(([mr, mc]) => mr === row && mc === col)) continue;
+        const pts = ([[x, shelf(a, x)], [x1, shelf(a, x1)], [x, shelf(a + 1, x)], [x1, shelf(a + 1, x1)]] as [number, number][]).map(place);
+        const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+        const [y0, x0, y1, xx1] = [Math.min(...ys), Math.min(...xs), Math.max(...ys), Math.max(...xs)].map((v) => Math.round(Math.min(1000, Math.max(0, v))));
+        cells.push(cell(y0, x0, y1, xx1));
+      }
+      x = x1;
+    }
+    return cells;
+  };
+  const names = (rows: number, cols: number) =>
+    Array.from({ length: rows * cols }, (_, i) => `${String.fromCharCode(65 + Math.floor(i / cols))}${(i % cols) + 1}`);
+
+  it('mur 12 × 4 en forte perspective horizontale : 4 rangées, 12 colonnes, 48 cases', () => {
+    const [b] = unitsToBlocks([{ kind: 'CASIER', cells: wall() }]);
+    expect(b).toMatchObject({ rows: 4, cols: 12, cellCount: 48 });
+    expect(b.cells).toHaveLength(48);
+  });
+
+  it('cases nommées rangée par rangée depuis la topologie : A1 en haut à gauche, D12 en bas à droite', () => {
+    const [b] = unitsToBlocks([{ kind: 'CASIER', cells: wall() }]);
+    // Le mur est rendu colonne par colonne : noms triés pour les comparer à la grille.
+    expect(b.cells!.map((c) => c.name).sort()).toEqual(names(4, 12).sort());
+    expect(b.cells![0]).toMatchObject({ row: 0, col: 0, name: 'A1' });
+    expect(b.cells![1]).toMatchObject({ row: 1, col: 0, name: 'B1' });
+    expect(b.cells![47]).toMatchObject({ row: 3, col: 11, name: 'D12' });
+    expect(b.cells![0].box).toEqual(wall()[0].box_2d.map((v, i, a) => a[[1, 0, 3, 2][i]] / 1000));
+  });
+
+  it('le même mur en perspective verticale (rangées horizontales, colonnes inclinées) : 4 rangées, 12 colonnes', () => {
+    const [b] = unitsToBlocks([{ kind: 'CASIER', cells: wall({ vertical: true }) }]);
+    expect(b).toMatchObject({ rows: 4, cols: 12, cellCount: 48 });
+    expect(b.cells!.map((c) => c.name)).toEqual(names(4, 12));
+  });
+
+  it('perspective et légère rotation : 4 rangées, 12 colonnes', () => {
+    for (const angle of [3, -3]) {
+      expect(unitsToBlocks([{ kind: 'CASIER', cells: wall({ angle }) }])).toMatchObject([{ rows: 4, cols: 12, cellCount: 48 }]);
+      expect(unitsToBlocks([{ kind: 'CASIER', cells: wall({ vertical: true, angle }) }])).toMatchObject([{ rows: 4, cols: 12, cellCount: 48 }]);
+    }
+  });
+
+  it('3 cases oubliées sur 48 : grille 4 × 12, 45 cases ; leurs noms manquent sans décaler les autres', () => {
+    const [b] = unitsToBlocks([{ kind: 'CASIER', cells: wall({ missing: [[0, 5], [2, 0], [3, 11]] }) }]);
+    expect(b).toMatchObject({ rows: 4, cols: 12, cellCount: 45 });
+    expect(b.cells!.map((c) => c.name).sort()).toEqual(names(4, 12).filter((n) => !['A6', 'C1', 'D12'].includes(n)).sort());
+  });
+
+  it('casier irrégulier en perspective : 2 colonnes de cases hautes de 2 rangées à côté d’une colonne de 4, plus petite et plus bas → 4 rangées', () => {
+    const cells = [...grid(0, 100, 2, 2, 150, 300), cell(250, 300, 330, 400), cell(330, 300, 410, 400), cell(410, 300, 490, 400), cell(490, 300, 570, 400)];
+    expect(unitsToBlocks([{ kind: 'CASIER', cells }])).toMatchObject([{ rows: 4, cols: 3, cellCount: 8 }]);
+  });
+
+  it('au plus 200 cases gardées ; rangée ou colonne indéterminée : nom absent, cadre gardé', () => {
+    const [big] = unitsToBlocks([{ kind: 'CASIER', cells: grid(0, 0, 30, 10, 30, 90) }]);
+    expect(big).toMatchObject({ cellCount: 300 });
+    expect(big.cells).toHaveLength(200);
+    // Deux cases en haut, une case large dessous : colonnes incohérentes (une case sous deux colonnes).
+    const [odd] = unitsToBlocks([{ kind: 'CASIER', cells: [...grid(0, 0, 2, 1), cell(100, 0, 200, 200)] }]);
+    expect(odd).toMatchObject({ rows: 2, cols: 2, cellCount: 3 });
+    expect(odd.cells).toEqual([
+      { box: [0, 0, 0.1, 0.1], row: 0, col: null, name: null },
+      { box: [0.1, 0, 0.2, 0.1], row: 0, col: null, name: null },
+      { box: [0, 0.1, 0.2, 0.2], row: 1, col: null, name: null },
+    ]);
+  });
+});
+
+describe('validBlocks : cases repérées', () => {
+  it('garde cellCount et cells des blocs issus de unitsToBlocks', () => {
+    const b: RawBlock = { kind: 'CASIER', box: [0, 0, 0.1, 0.1], rows: 1, cols: 1, cellCount: 1, cells: [{ box: [0, 0, 0.1, 0.1], row: 0, col: 0, name: 'A1' }] };
+    expect(validBlocks([b])).toEqual([b]);
   });
 });
