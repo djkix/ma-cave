@@ -377,6 +377,45 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       expect(removed.body).toMatchObject({ marker: null, cellBoxes: {} });
     });
 
+    it('PATCH cellBoxes remplace les positions (codes en majuscules) ; le plan les rend ; le membre ne les change pas', async () => {
+      const p = await newPlan('Ajuster');
+      const z = await newZone(`Ajuster ${run}`);
+      await patch(z.id, { grid: { rows: 2, cols: 3 }, cellPrefix: 'J' });
+      await ownerA.put(`/api/caves/current/zones/${z.id}/marker`).send({ planId: p, x: 0.5, y: 0.5 });
+      await setBoxes(z.id, { J1: box(1), J2: box(2) });
+      const res = await patch(z.id, { cellBoxes: { j2: [0.1, 0.1, 0.2, 0.3], J6: [0.5, 0.5, 0.6, 0.6] } });
+      expect(res.status).toBe(200);
+      expect(res.body.cellBoxes).toEqual({ J2: [0.1, 0.1, 0.2, 0.3], J6: [0.5, 0.5, 0.6, 0.6] });
+      expect((await ownerA.get('/api/caves/current/plans')).body.markers.find((m: { zoneId: string }) => m.zoneId === z.id).cellBoxes).toEqual(res.body.cellBoxes);
+      expectStatus(await patch(z.id, { cellBoxes: {} }, viewerA), 403, 'Lecture seule');
+      expect((await zoneIn(z.id)).cellBoxes).toEqual(res.body.cellBoxes);
+    });
+
+    it('PATCH cellBoxes : 400 pour une case inconnue, un cadre invalide, une zone sans grille ou sans repère ; rien ne change', async () => {
+      const p = await newPlan('Ajuster refus');
+      const z = await newZone(`Ajuster refus ${run}`);
+      expectStatus(await patch(z.id, { cellBoxes: {} }), 400, 'Cette zone n\'a pas de grille de cases');
+      await patch(z.id, { grid: { rows: 1, cols: 2 } });
+      expectStatus(await patch(z.id, { cellBoxes: {} }), 400, 'Cette zone n\'a pas de repère sur un plan');
+      await ownerA.put(`/api/caves/current/zones/${z.id}/marker`).send({ planId: p, x: 0.5, y: 0.5 });
+      const prefix = (await zoneIn(z.id)).cellPrefix;
+      await setBoxes(z.id, { [`${prefix}1`]: box(1) });
+      expectStatus(await patch(z.id, { cellBoxes: { [`${prefix}3`]: box(3) } }), 400, 'Case inconnue dans cette zone');
+      expectStatus(await patch(z.id, { cellBoxes: { [`${prefix}1`]: [0.5, 0, 0.4, 1] } }), 400, 'Positions des cases invalides');
+      expect((await zoneIn(z.id)).cellBoxes).toEqual({ [`${prefix}1`]: box(1) });
+    });
+
+    it('PATCH cellBoxes avec une nouvelle grille ou une nouvelle lettre : les positions données valent pour le résultat', async () => {
+      const p = await newPlan('Ajuster grille');
+      const z = await newZone(`Ajuster grille ${run}`);
+      await patch(z.id, { grid: { rows: 1, cols: 2 }, cellPrefix: 'V' });
+      await ownerA.put(`/api/caves/current/zones/${z.id}/marker`).send({ planId: p, x: 0.5, y: 0.5 });
+      expect((await patch(z.id, { grid: { rows: 2, cols: 2 }, cellBoxes: { V4: box(4) } })).body).toMatchObject({ grid: { rows: 2, cols: 2 }, cellBoxes: { V4: box(4) } });
+      expect((await patch(z.id, { cellPrefix: 'W', cellBoxes: { W3: box(3) } })).body).toMatchObject({ cellPrefix: 'W', cellBoxes: { W3: box(3) } });
+      expectStatus(await patch(z.id, { cellPrefix: 'X', cellBoxes: { W3: box(3) } }), 400, 'Case inconnue dans cette zone');
+      expect(await zoneIn(z.id)).toMatchObject({ cellPrefix: 'W', cellBoxes: { W3: box(3) } });
+    });
+
     it('PATCH cellPrefix qui n’est pas une lettre : 400', async () => {
       const z = await newZone(`Lettre invalide ${run}`);
       for (const cellPrefix of ['CC', '1', 'É', '', 3]) {

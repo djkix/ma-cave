@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import {
-  acceptSuggestionSchema, cellNamesFor, CELL_NAME_TAKEN, gridCodes, INVALID_CELL_PREFIX, keptCellNames, renamePrefix, suggestPrefix, UNKNOWN_CELL, updateZoneSchema,
+  acceptSuggestionSchema, cellBoxesFor, cellNamesFor, CELL_NAME_TAKEN, gridCodes, INVALID_CELL_PREFIX, INVALID_CELL_BOXES, keptCellNames, renamePrefix, suggestPrefix, UNKNOWN_CELL, updateZoneSchema,
 } from './zone';
 
 const grid = { rows: 3, cols: 4 };
@@ -104,5 +104,21 @@ describe('cellPrefix (updateZoneSchema, acceptSuggestionSchema)', () => {
     }
     const r = acceptSuggestionSchema.safeParse({ name: 'Casier C', rows: 2, cols: 3, cellPrefix: 'CC' });
     expect(r.success || r.error.issues[0].message).toBe(INVALID_CELL_PREFIX);
+  });
+});
+
+describe('cellBoxesFor et updateZoneSchema (cellBoxes)', () => {
+  it('codes en majuscules ; case hors de la grille ou d’une autre lettre : 400 « Case inconnue dans cette zone »', () => {
+    expect(cellBoxesFor({ a1: [0.1, 0.2, 0.3, 0.4], A12: [0, 0, 1, 1] }, grid, 'A')).toEqual({ A1: [0.1, 0.2, 0.3, 0.4], A12: [0, 0, 1, 1] });
+    fails(() => cellBoxesFor({ A13: [0, 0, 1, 1] }, grid, 'A'), UNKNOWN_CELL);
+    fails(() => cellBoxesFor({ B1: [0, 0, 1, 1] }, grid, 'A'), UNKNOWN_CELL);
+  });
+
+  it('un objet { code: [x0, y0, x1, y1] } en fractions, x0 < x1 et y0 < y1 ; sinon « Positions des cases invalides »', () => {
+    expect(updateZoneSchema.parse({ cellBoxes: { A1: [0, 0.5, 0.25, 1] } }).cellBoxes).toEqual({ A1: [0, 0.5, 0.25, 1] });
+    for (const cellBoxes of [['A1'], { A1: [0, 0, 1] }, { A1: [0, 0, 1, 1.2] }, { A1: [0.5, 0, 0.5, 1] }, { A1: [0, 0.6, 1, 0.4] }, { A1: ['0', 0, 1, 1] }]) {
+      const r = updateZoneSchema.safeParse({ cellBoxes });
+      expect(r.success || r.error.issues[0].message).toBe(INVALID_CELL_BOXES);
+    }
   });
 });
