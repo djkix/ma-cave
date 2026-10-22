@@ -1,8 +1,26 @@
-import { casierLabel, cellCodeOf, cellNames, cleanCellNames } from './grid';
+import { casierLabel, cellCode, cellCodeOf, cellNames, cellsPreview, cleanCellNames, renamePrefix, suggestPrefix } from './grid';
 
-it('cases ligne par ligne : lettre de ligne puis numéro de colonne', () => {
-  expect(cellNames(2, 3)).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3']);
-  expect(cellNames(26, 30).at(-1)).toBe('Z30');
+it('cases rangée par rangée : lettre du casier puis numéro de 1 à rangées × colonnes', () => {
+  expect(cellNames(2, 3, 'C')).toEqual(['C1', 'C2', 'C3', 'C4', 'C5', 'C6']);
+  expect(cellNames(26, 30, 'A').at(-1)).toBe('A780');
+  expect(cellCode('C', 1, 0, 12)).toBe('C13');
+});
+
+it('cellsPreview : « Cases C1 à C48 », « Case B1 » pour une seule', () => {
+  expect(cellsPreview(4, 12, 'C')).toBe('Cases C1 à C48');
+  expect(cellsPreview(1, 1, 'B')).toBe('Case B1');
+});
+
+it('suggestPrefix : lettre finale du nom si libre, sinon la première libre ; aucune : null', () => {
+  expect(suggestPrefix('Casier c', [])).toBe('C');
+  expect(suggestPrefix('Casier C', ['C'])).toBe('A');
+  expect(suggestPrefix('Cellier', ['A', 'B'])).toBe('C');
+  expect(suggestPrefix('Cellier', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''))).toBeNull();
+});
+
+it('renamePrefix : les codes de l’ancienne lettre passent à la nouvelle, le reste est gardé', () => {
+  expect(renamePrefix({ A1: 'x', B3: 'z' }, 'A', 'C')).toEqual({ C1: 'x', B3: 'z' });
+  expect(renamePrefix({ A12: 'x', AB1: 'y' }, 'A', 'D')).toEqual({ D12: 'x', AB1: 'y' });
 });
 
 describe('noms des cases', () => {
@@ -25,6 +43,7 @@ describe('noms des cases', () => {
   });
 
   it('cleanCellNames : noms sans espaces autour, vides retirés, seulement les cases de la grille', () => {
-    expect(cleanCellNames({ A1: ' Bordeaux ', A2: '  ', C1: 'Hors grille', B2: 'Loire' }, { rows: 2, cols: 2 })).toEqual({ A1: 'Bordeaux', B2: 'Loire' });
+    expect(cleanCellNames({ A1: ' Bordeaux ', A2: '  ', A5: 'Hors grille', A4: 'Loire' }, { rows: 2, cols: 2 }, 'A')).toEqual({ A1: 'Bordeaux', A4: 'Loire' });
+    expect(cleanCellNames({ C1: ' x ', A1: 'y' }, { rows: 1, cols: 2 }, 'C')).toEqual({ C1: 'x' });
   });
 });

@@ -16,7 +16,7 @@ import {
   acceptSuggestion, CavePlan, createPlan, createZone, deletePlan, deleteZone, exportUrl, getMembers, inviteMember, MemberView, planImageUrl, PlanSuggestion, rejectSuggestion,
   removeMember, removeZoneMarker, removeZonePhoto, renameCave, renamePlan, relaunchAnalysis, reorderZones, replacePlanImage, setZoneMarker, updateZone, uploadZonePhoto, Zone,
 } from '../lib/api-client';
-import { type CellNameMap, cellsPreview, cleanCellNames, GRID_MAX_COLS, GRID_MAX_ROWS, parseGrid } from '../lib/grid';
+import { type CellNameMap, cellCode, cellsPreview, cleanCellNames, GRID_MAX_COLS, GRID_MAX_ROWS, parseGrid, renamePrefix, suggestPrefix } from '../lib/grid';
 import { replacePlanInCache, usePlans, useZones } from '../lib/locations';
 import { shrinkPhoto } from '../lib/shrink-photo';
 import { useCurrentCave } from '../lib/use-current-cave';
@@ -91,9 +91,9 @@ function MemberRow({ member, busy, onRemove }: { member: MemberView; busy: boole
 const ZONE_NAME_MAX = 40;
 const INDICATION_MAX = 300;
 
-/** Lignes et colonnes d'une grille de cases (saisies en texte), et l'aperçu des cases quand elles sont valides. */
-function GridFields({ idPrefix, rows, cols, setRows, setCols }: {
-  idPrefix: string; rows: string; cols: string; setRows: (v: string) => void; setCols: (v: string) => void;
+/** Lignes et colonnes d'une grille de cases (saisies en texte), et l'aperçu des cases (lettre `prefix`) quand elles sont valides. */
+function GridFields({ idPrefix, prefix, rows, cols, setRows, setCols }: {
+  idPrefix: string; prefix: string; rows: string; cols: string; setRows: (v: string) => void; setCols: (v: string) => void;
 }) {
   const grid = parseGrid(rows, cols);
   return (
@@ -102,7 +102,7 @@ function GridFields({ idPrefix, rows, cols, setRows, setCols }: {
       <input id={`${idPrefix}-rows`} type="number" inputMode="numeric" min={1} max={GRID_MAX_ROWS} value={rows} onChange={(e) => setRows(e.target.value)} />
       <label className="field__label" htmlFor={`${idPrefix}-cols`}>Colonnes</label>
       <input id={`${idPrefix}-cols`} type="number" inputMode="numeric" min={1} max={GRID_MAX_COLS} value={cols} onChange={(e) => setCols(e.target.value)} />
-      {grid && <p className="list__meta" style={{ margin: 0 }}>{cellsPreview(grid.rows, grid.cols)}</p>}
+      {grid && <p className="list__meta" style={{ margin: 0 }}>{cellsPreview(grid.rows, grid.cols, prefix)}</p>}
     </>
   );
 }
@@ -110,24 +110,39 @@ function GridFields({ idPrefix, rows, cols, setRows, setCols }: {
 /**
  * Nom et indication d'une zone : ceux de l'ajout et de « Modifier ». « Modifier »
  * (`onCancel`) ajoute la grille : Lignes et Colonnes, vides = pas de grille ; avec
- * une grille, « Noms des cases » (envoyés en entier, seulement ceux des cases de la grille).
+ * une grille, « Lettre des cases » (préremplie avec celle de la zone, sinon comme
+ * l'api la choisirait parmi les lettres libres, hors `takenPrefixes`) et « Noms des
+ * cases » (envoyés en entier, seulement ceux des cases de la grille). Changer la
+ * lettre renomme les noms saisis (C5 → D5).
  */
-function ZoneForm({ label, initial, submitLabel, busy, onSubmit, onCancel, idPrefix }: {
-  label: string; initial: { name: string; indication: string; grid?: Zone['grid']; cellNames?: CellNameMap }; submitLabel: string; busy: boolean;
-  onSubmit: (v: { name: string; indication: string | null; grid?: Zone['grid']; cellNames?: CellNameMap }) => void; onCancel?: () => void; idPrefix: string;
+function ZoneForm({ label, initial, takenPrefixes = [], submitLabel, busy, onSubmit, onCancel, idPrefix }: {
+  label: string; initial: { name: string; indication: string; grid?: Zone['grid']; cellPrefix?: string | null; cellNames?: CellNameMap }; takenPrefixes?: string[];
+  submitLabel: string; busy: boolean;
+  onSubmit: (v: { name: string; indication: string | null; grid?: Zone['grid']; cellPrefix?: string; cellNames?: CellNameMap }) => void; onCancel?: () => void; idPrefix: string;
 }) {
   const [name, setName] = useState(initial.name);
   const [indication, setIndication] = useState(initial.indication);
   const [rows, setRows] = useState(initial.grid ? String(initial.grid.rows) : '');
   const [cols, setCols] = useState(initial.grid ? String(initial.grid.cols) : '');
+  const [letter, setLetter] = useState(() => initial.cellPrefix ?? suggestPrefix(initial.name, takenPrefixes) ?? '');
+  // Dernière lettre valide : celle des clés de `names`, et de l'aperçu pendant la saisie d'une autre.
+  const [prefix, setPrefix] = useState(letter);
   const [names, setNames] = useState<CellNameMap>(initial.cellNames ?? {});
   // undefined : une seule dimension, ou hors bornes ; on n'enregistre pas.
   const grid = parseGrid(rows, cols);
+  const validLetter = /^[A-Z]$/.test(letter);
+  function changeLetter(value: string) {
+    const next = value.toUpperCase();
+    setLetter(next);
+    if (!/^[A-Z]$/.test(next) || next === prefix) return;
+    if (prefix) setNames(renamePrefix(names, prefix, next));
+    setPrefix(next);
+  }
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim() || grid === undefined) return;
-    // Sans grille, pas de noms : l'api efface ceux de la grille retirée.
-    const zoneGrid = onCancel && (grid ? { grid, cellNames: cleanCellNames(names, grid) } : { grid });
+    if (!name.trim() || grid === undefined || (onCancel && grid && !validLetter)) return;
+    // Sans grille, ni lettre ni noms : l'api efface ceux de la grille retirée.
+    const zoneGrid = onCancel && (grid ? { grid, cellPrefix: letter, cellNames: cleanCellNames(names, grid, letter) } : { grid });
     onSubmit({ name: name.trim(), indication: indication.trim() || null, ...zoneGrid });
   }
   return (
@@ -137,16 +152,26 @@ function ZoneForm({ label, initial, submitLabel, busy, onSubmit, onCancel, idPre
       <label className="field__label" htmlFor={`${idPrefix}-indication`}>{onCancel ? 'Indication' : 'Indication de la nouvelle zone'}</label>
       <textarea id={`${idPrefix}-indication`} value={indication} maxLength={INDICATION_MAX} rows={2}
         placeholder="à gauche en entrant, au fond derrière l’escalier" onChange={(e) => setIndication(e.target.value)} />
-      {onCancel && <GridFields idPrefix={idPrefix} rows={rows} cols={cols} setRows={setRows} setCols={setCols} />}
-      {onCancel && grid && <CellNamesFields grid={grid} names={names} onChange={setNames} />}
-      <button type="submit" className={onCancel ? 'btn btn--dark' : 'btn btn--primary'} disabled={!name.trim() || grid === undefined || busy}>{submitLabel}</button>
+      {onCancel && <GridFields idPrefix={idPrefix} prefix={prefix || 'A'} rows={rows} cols={cols} setRows={setRows} setCols={setCols} />}
+      {onCancel && grid && (
+        <>
+          <label className="field__label" htmlFor={`${idPrefix}-letter`}>Lettre des cases</label>
+          <input id={`${idPrefix}-letter`} value={letter} maxLength={1} autoCapitalize="characters" autoComplete="off" aria-invalid={!validLetter}
+            onChange={(e) => changeLetter(e.target.value)} />
+          <CellNamesFields grid={grid} prefix={prefix || 'A'} names={names} onChange={setNames} />
+        </>
+      )}
+      <button type="submit" className={onCancel ? 'btn btn--dark' : 'btn btn--primary'}
+        disabled={!name.trim() || grid === undefined || (!!onCancel && !!grid && !validLetter) || busy}>{submitLabel}</button>
       {onCancel && <Button variant="link" onClick={onCancel}>Annuler</Button>}
     </form>
   );
 }
 
-function ZoneRow({ zone, index, count, busy, error, photoVersion, onMove, onAction, onPhotoChanged, onEdit }: {
+function ZoneRow({ zone, index, count, busy, error, photoVersion, takenPrefixes, onMove, onAction, onPhotoChanged, onEdit }: {
   zone: Zone; index: number; count: number; busy: boolean; photoVersion?: number;
+  /** Lettres des cases des autres zones : la lettre proposée n'en fait pas partie. */
+  takenPrefixes: string[];
   /** Refus de l'api, repris dans la feuille « Modifier » qui masque la carte. */
   error: string | null;
   onMove: (delta: -1 | 1) => void; onPhotoChanged: () => void;
@@ -184,7 +209,8 @@ function ZoneRow({ zone, index, count, busy, error, photoVersion, onMove, onActi
         <Button variant="link" disabled={busy} onClick={confirmDelete}>Supprimer</Button>
       </div>
       <BottomSheet open={editing} title={`Modifier ${zone.name}`} onClose={() => setEditing(false)}>
-        <ZoneForm label={`Modifier ${zone.name}`} idPrefix={id} initial={{ name: zone.name, indication: zone.indication ?? '', grid: zone.grid, cellNames: zone.cellNames }} submitLabel="Enregistrer" busy={busy}
+        <ZoneForm label={`Modifier ${zone.name}`} idPrefix={id} initial={{ name: zone.name, indication: zone.indication ?? '', grid: zone.grid, cellPrefix: zone.cellPrefix, cellNames: zone.cellNames }}
+          takenPrefixes={takenPrefixes} submitLabel="Enregistrer" busy={busy}
           onSubmit={(v) => onAction(() => updateZone(zone.id, v), () => setEditing(false))} onCancel={() => setEditing(false)} />
         {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
       </BottomSheet>
@@ -249,6 +275,7 @@ function ZonesCard() {
         <ul className="zone-list">
           {list.map((z, i) => (
             <ZoneRow key={z.id} zone={z} index={i} count={list.length} busy={busy} error={error} photoVersion={versions[z.id]}
+              takenPrefixes={list.flatMap((o) => (o.id !== z.id && o.cellPrefix ? [o.cellPrefix] : []))}
               onEdit={() => setError(null)} onMove={(d) => move(i, d)} onAction={(run, after) => void act(run, after)}
               onPhotoChanged={() => setVersions((v) => ({ ...v, [z.id]: Date.now() }))} />
           ))}
@@ -282,9 +309,9 @@ const pct = (v: number) => `${+(v * 100).toFixed(2)}%`;
  * reste de la page est inerte sous elle), recadré sur la proposition pour des cases
  * aussi grandes que possible ; toucher un point met le focus sur le champ de sa case.
  */
-function ProposalForm({ suggestion, plan, idPrefix, busy, onAccept, onReject }: {
-  suggestion: PlanSuggestion; plan: CavePlan; idPrefix: string; busy: boolean;
-  onAccept: (v: { name: string; rows: number; cols: number; cellNames: CellNameMap }) => void; onReject: () => void;
+function ProposalForm({ suggestion, plan, takenPrefixes, idPrefix, busy, onAccept, onReject }: {
+  suggestion: PlanSuggestion; plan: CavePlan; takenPrefixes: string[]; idPrefix: string; busy: boolean;
+  onAccept: (v: { name: string; rows: number; cols: number; cellNames: CellNameMap; cellPrefix?: string }) => void; onReject: () => void;
 }) {
   const [name, setName] = useState(suggestion.name);
   const [rows, setRows] = useState(String(suggestion.rows));
@@ -292,9 +319,19 @@ function ProposalForm({ suggestion, plan, idPrefix, busy, onAccept, onReject }: 
   const [names, setNames] = useState<CellNameMap>({});
   const grid = parseGrid(rows, cols);
   const [x0, y0, x1, y1] = suggestion.box;
+  // Lettre enregistrée avec la proposition ; d'avant la 2.27 (sans lettre), celle que l'api choisira.
+  const prefix = suggestion.cellPrefix ?? suggestPrefix(name, takenPrefixes) ?? 'A';
+  // Points nommés d'après leur rangée et leur colonne dans la grille saisie, comme à l'acceptation.
+  const shown = {
+    ...suggestion,
+    cells: suggestion.cells?.map((c) => ({
+      ...c, name: grid && c.row !== null && c.col !== null && c.row < grid.rows && c.col < grid.cols ? cellCode(prefix, c.row, c.col, grid.cols) : null,
+    })),
+  };
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (name.trim() && grid) onAccept({ name: name.trim(), ...grid, cellNames: cleanCellNames(names, grid) });
+    // Sans lettre enregistrée, rien n'est envoyé : l'api la choisit (et refuse s'il n'y en a plus).
+    if (name.trim() && grid) onAccept({ name: name.trim(), ...grid, cellNames: cleanCellNames(names, grid, prefix), ...(suggestion.cellPrefix ? { cellPrefix: suggestion.cellPrefix } : {}) });
   }
   return (
     <form className="zone-form" onSubmit={submit}>
@@ -306,16 +343,16 @@ function ProposalForm({ suggestion, plan, idPrefix, busy, onAccept, onReject }: 
           width: `min(100%, calc(50vh * ${((x1 - x0) * plan.width) / ((y1 - y0) * plan.height)}))`,
         }}>
           <div className="plan-crop__inner" style={{ width: pct(1 / (x1 - x0)), left: pct(-x0 / (x1 - x0)), top: pct(-y0 / (y1 - y0)) }}>
-            <PlanView src={planImageUrl(plan.id, plan.updatedAt)} plan={plan} markers={[]} suggestions={[suggestion]} openSuggestionId={suggestion.id}
+            <PlanView src={planImageUrl(plan.id, plan.updatedAt)} plan={plan} markers={[]} suggestions={[shown]} openSuggestionId={suggestion.id}
               cellNames={names} onCellClick={(code) => document.getElementById(`${idPrefix}-cell-${code}`)?.focus()} />
           </div>
         </div>
       )}
       <label className="field__label" htmlFor={`${idPrefix}-name`}>Nom</label>
       <input id={`${idPrefix}-name`} value={name} maxLength={ZONE_NAME_MAX} autoComplete="off" onChange={(e) => setName(e.target.value)} />
-      <GridFields idPrefix={idPrefix} rows={rows} cols={cols} setRows={setRows} setCols={setCols} />
+      <GridFields idPrefix={idPrefix} prefix={prefix} rows={rows} cols={cols} setRows={setRows} setCols={setCols} />
       {suggestion.cellCount !== undefined && <p className="list__meta" style={{ margin: 0 }}>{detectedSummary(suggestion.cellCount, suggestion.rows, suggestion.cols)}</p>}
-      {grid && <CellNamesFields grid={grid} names={names} onChange={setNames} idPrefix={`${idPrefix}-cell`} />}
+      {grid && <CellNamesFields grid={grid} prefix={prefix} names={names} onChange={setNames} idPrefix={`${idPrefix}-cell`} />}
       <button type="submit" className="btn btn--primary" disabled={!name.trim() || !grid || busy}>Accepter</button>
       <Button variant="link" disabled={busy} onClick={onReject}>Rejeter</Button>
     </form>
@@ -577,7 +614,7 @@ function PlanCard() {
           </BottomSheet>
           <BottomSheet open={!!proposal} title="Proposition" onClose={() => setProposalId(null)}>
             {proposal && (
-              <ProposalForm key={proposal.id} suggestion={proposal} plan={plan} idPrefix={`${inputId}-proposal`} busy={busy}
+              <ProposalForm key={proposal.id} suggestion={proposal} plan={plan} takenPrefixes={list.flatMap((z) => (z.cellPrefix ? [z.cellPrefix] : []))} idPrefix={`${inputId}-proposal`} busy={busy}
                 onAccept={(v) => void act(async () => { await acceptSuggestion(plan.id, proposal.id, v); setProposalId(null); }, `Zone « ${v.name} » ajoutée.`)}
                 onReject={() => void act(async () => { await rejectSuggestion(plan.id, proposal.id); setProposalId(null); })} />
             )}

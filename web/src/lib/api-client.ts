@@ -144,7 +144,8 @@ export interface LocationInput { zoneId: string | null; casier: string | null; p
  */
 export interface Location extends LocationInput { id: string; zone: string | null; label: string; lastUsed: boolean }
 /** Un endroit où se trouve un vin : un emplacement, ou « Sans emplacement » (id null) ; `zoneId` : sa zone (indication, photo). */
-export interface Place { id: string | null; label: string; quantity: number; zoneId?: string | null }
+/** `casier` : tel qu'enregistré (« C15 », la case sur le plan) ; absent d'une api d'avant la 2.27. */
+export interface Place { id: string | null; label: string; quantity: number; zoneId?: string | null; casier?: string | null }
 export const getLocations = () => apiFetch<Location[]>('/locations');
 
 /**
@@ -153,16 +154,20 @@ export const getLocations = () => apiFetch<Location[]>('/locations');
  */
 export interface Zone {
   id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; marker: { planId: string; x: number; y: number } | null;
-  /** Grille de cases (lignes A…, colonnes 1…), null sans grille. */
+  /** Grille de cases (codes C1…C48 rangée par rangée), null sans grille. */
   grid: { rows: number; cols: number } | null;
-  /** Noms d'affichage des cases ({ « B3 »: « Champagnes » }) ; absent d'une api d'avant la 2.24. */
+  /** Lettre des codes des cases (« C »), null sans grille ou pour une zone à grille d'avant la 2.27 (codes lus avec « A ») ; absent d'une api d'avant la 2.27. */
+  cellPrefix?: string | null;
+  /** Noms d'affichage des cases ({ « C15 »: « Champagnes » }) ; absent d'une api d'avant la 2.24. */
   cellNames?: Record<string, string>;
+  /** Positions des cases sur le plan du repère ({ « C15 »: [x0, y0, x1, y1] } en fractions de l'image) ; absent d'une api d'avant la 2.27. */
+  cellBoxes?: Record<string, [number, number, number, number]>;
 }
 export const getZones = () => apiFetch<Zone[]>('/caves/current/zones');
 export const createZone = (input: { name: string; indication?: string | null }) =>
   apiFetch<Zone>('/caves/current/zones', { method: 'POST', body: JSON.stringify(input) });
 /** `cellNames` : remplacement complet des noms des cases (codes de la grille). */
-export const updateZone = (id: string, patch: { name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null; cellNames?: Record<string, string> }) =>
+export const updateZone = (id: string, patch: { name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null; cellNames?: Record<string, string>; cellPrefix?: string }) =>
   apiFetch<Zone>(`/caves/current/zones/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 /** Bouteilles en stock par case (valeur de « casier », en majuscules) dans la zone. */
 export const getZoneCells = (zoneId: string) => apiFetch<{ casier: string; quantity: number }[]>(`/caves/current/zones/${zoneId}/cells`);
@@ -183,10 +188,13 @@ export const removeZonePhoto = (id: string) => apiFetch<Zone>(`/caves/current/zo
 /** Zone proposée par l'analyse du plan : `box` = [x0, y0, x1, y1] en fractions de l'image. */
 /** Case repérée sur la photo : cadre en fractions, rangée et colonne (0 = haut, gauche), nom dans la grille (« B3 ») ; null si indéterminé. */
 export interface DetectedCell { box: [number, number, number, number]; row: number | null; col: number | null; name: string | null }
-/** Proposition de zone. `cellCount` et `cells` (cases repérées) : absents des propositions d'avant la 2.23. */
+/**
+ * Proposition de zone. `cellCount` et `cells` (cases repérées) : absents des propositions d'avant la 2.23 ;
+ * `cellPrefix` : lettre des codes de ses cases (null au-delà de Z), absente des propositions d'avant la 2.27.
+ */
 export interface PlanSuggestion {
   id: string; kind: 'CASIER' | 'ETAGERE' | 'AUTRE'; name: string; box: [number, number, number, number]; rows: number; cols: number;
-  cellCount?: number; cells?: DetectedCell[];
+  cellCount?: number; cells?: DetectedCell[]; cellPrefix?: string | null;
 }
 /**
  * Détail de l'analyse (`since` = date de la demande : envoi, remplacement ou relance ; dates ISO) :
@@ -208,8 +216,14 @@ export interface CavePlan {
   id: string; name: string; width: number; height: number; updatedAt: string;
   analysis: 'NONE' | 'PENDING' | 'DONE' | 'FAILED'; suggestions: PlanSuggestion[]; analysisInfo: PlanAnalysisInfo;
 }
-/** Repère d'une zone sur un plan ; `number` : son rang sur ce plan. */
-export interface PlanMarker { zoneId: string; planId: string; name: string; number: number; x: number; y: number }
+/**
+ * Repère d'une zone sur un plan ; `number` : son rang sur ce plan. `cellBoxes` et `cellNames` : positions et noms
+ * des cases de la zone sur ce plan ({} sans case) ; absents d'une api d'avant la 2.27.
+ */
+export interface PlanMarker {
+  zoneId: string; planId: string; name: string; number: number; x: number; y: number;
+  cellBoxes?: Record<string, [number, number, number, number]>; cellNames?: Record<string, string>;
+}
 /** Plans de la cave courante (ordre de création) et repères des zones ; lisibles par un membre. */
 export const getPlans = () => apiFetch<{ plans: CavePlan[]; markers: PlanMarker[] }>('/caves/current/plans');
 function planForm(file: File | Blob, name?: string) {
@@ -230,7 +244,7 @@ export const relaunchAnalysis = (id: string) => apiFetch<CavePlan>(`/caves/curre
 export const deletePlan = (id: string) => apiFetch<void>(`/caves/current/plans/${id}`, { method: 'DELETE' });
 /** Crée la zone proposée (nom, grille), avec son repère au centre du cadre ; la proposition disparaît. */
 /** `cellNames` : noms donnés aux cases repérées avant d'accepter. */
-export const acceptSuggestion = (planId: string, sid: string, input: { name: string; rows: number; cols: number; cellNames?: Record<string, string> }) =>
+export const acceptSuggestion = (planId: string, sid: string, input: { name: string; rows: number; cols: number; cellNames?: Record<string, string>; cellPrefix?: string }) =>
   apiFetch<Zone>(`/caves/current/plans/${planId}/suggestions/${sid}/accept`, { method: 'POST', body: JSON.stringify(input) });
 export const rejectSuggestion = (planId: string, sid: string) =>
   apiFetch<void>(`/caves/current/plans/${planId}/suggestions/${sid}`, { method: 'DELETE' });
