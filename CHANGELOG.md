@@ -11,6 +11,24 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.27.0](https://github.com/djkix/ma-cave/compare/v2.26.0...v2.27.0) (2026-10-22)
 
+### Résumé
+
+**Cases numérotées par casier.** Chaque zone à grille a une **lettre** (A à Z,
+modifiable dans « Lettre des cases ») et ses cases sont numérotées rangée par
+rangée : C1, C2… C48, au lieu de « rangée + colonne » (B3). Les cases d'une
+zone acceptée **restent sur le plan**, et la fiche vin montre une **vignette
+du plan recadrée sur la case** de la bouteille. Renommer des cases met à jour
+le plan et la vignette tout de suite.
+
+**Migration additive** (`cases_visuelles`), appliquée au démarrage. Après la
+mise à jour, les zones à grille existantes n'ont ni lettre ni position :
+noter leurs bouteilles, supprimer ces zones, relancer l'analyse du plan et
+accepter de nouveau les propositions. Voir « Passage à la 2.27.0 » dans
+`docs/guide-detaille.md`.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 

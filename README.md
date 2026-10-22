@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.26.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.27.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -781,6 +781,15 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.27.0 — 22 octobre 2026
+
+Publiée ([v2.27.0](https://github.com/djkix/ma-cave/releases/tag/v2.27.0)),
+images `ghcr.io/djkix/ma-cave-api:2.27.0` et `-web:2.27.0`.
+
+**Cases numérotées par casier** (C1…C48, lettre modifiable), cases gardées sur
+le plan, vignette du plan recadrée sur la case dans la fiche vin. Migration
+additive ; zones à grille existantes à recréer (voir le guide détaillé).
+
 ### 2.26.0 — 22 octobre 2026
 
 Publiée ([v2.26.0](https://github.com/djkix/ma-cave/releases/tag/v2.26.0)),
@@ -856,6 +865,10 @@ images `ghcr.io/djkix/ma-cave-api:2.18.1` et `-web:2.18.1`.
 **Gemini Flash ou Lite seulement** : un modèle Pro est refusé au démarrage,
 tarif Pro retiré.
 
+
+<details>
+<summary><strong>Versions antérieures</strong> (2.18.0 → 1.0.0)</summary>
+
 ### 2.18.0 — 21 octobre 2026
 
 Publiée ([v2.18.0](https://github.com/djkix/ma-cave/releases/tag/v2.18.0)),
@@ -864,8 +877,6 @@ images `ghcr.io/djkix/ma-cave-api:2.18.0` et `-web:2.18.0`.
 **Détection case par case**, regroupée par meuble ; *Relancer l'analyse* dans
 le menu ⋯ du plan ; variable `GEMINI_PLAN_MODEL`. Aucune migration.
 
-<details>
-<summary><strong>Versions antérieures</strong> (2.17.1 → 1.0.0)</summary>
 
 ### 2.17.1 — 21 octobre 2026
 
