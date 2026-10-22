@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.31.0](https://github.com/djkix/ma-cave/compare/v2.30.0...v2.31.0) (2026-10-22)
+
+
+### Fonctionnalités
+
+* **web:** choisir l'emplacement en touchant la case sur la photo du plan ([11d3874](https://github.com/djkix/ma-cave/commit/11d3874b2f7f518596f05309ab5b512c9e7da74e))
+
 ## [2.30.0](https://github.com/djkix/ma-cave/compare/v2.29.0...v2.30.0) (2026-10-22)
 
 ### Résumé
