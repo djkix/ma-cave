@@ -6,29 +6,20 @@ import { GeminiModelSection } from './GeminiModelSection';
 
 afterEach(() => vi.restoreAllMocks());
 
-const view = (over: Partial<api.GeminiModelView> = {}): api.GeminiModelView => ({
-  model: 'gemini-3.5-flash',
-  source: 'ADMIN',
-  models: ['gemini-3.5-flash', 'gemini-3.5-flash-lite'],
+const LIMITS = { rpm: 5, tpm: 250000, rpd: 20 };
+const quota = (over: Partial<api.GeminiQuotaUsage> = {}): api.GeminiQuotaUsage => ({
+  current: 'gemini-3.5-flash-lite',
+  minute: { requests: 1, tokens: 2700 },
+  dayResetsAt: '2026-10-22T07:00:00.000Z',
+  models: [
+    { model: 'gemini-3.5-flash', requests: 20, limits: LIMITS, exhaustedUntil: '2026-10-22T07:00:00.000Z' },
+    { model: 'gemini-3.5-flash-lite', requests: 7, limits: { rpm: 10, tpm: 250000, rpd: 1000 }, exhaustedUntil: null },
+  ],
   error: null,
   ...over,
 });
 
-const quota = (over: Partial<api.GeminiQuotaUsage> = {}): api.GeminiQuotaUsage => ({
-  model: 'gemini-3.5-flash',
-  minute: { requests: 1, tokens: 2700 },
-  day: { requests: 7 },
-  limits: { rpm: 5, tpm: 250000, rpd: 20 },
-  dayResetsAt: '2026-10-22T07:00:00.000Z',
-  models: [
-    { model: 'gemini-3.5-flash', requests: 7, rpd: 20, exhaustedUntil: null },
-    { model: 'gemini-3.5-flash-lite', requests: 20, rpd: 20, exhaustedUntil: '2026-10-22T07:00:00.000Z' },
-  ],
-  ...over,
-});
-
-const mount = (v: api.GeminiModelView, q = quota()) => {
-  vi.spyOn(api, 'getGeminiModel').mockResolvedValue(v);
+const mount = (q = quota()) => {
   vi.spyOn(api, 'getGeminiQuota').mockResolvedValue(q);
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -36,108 +27,68 @@ const mount = (v: api.GeminiModelView, q = quota()) => {
     </QueryClientProvider>,
   );
 };
+const text = (el: Element | null) => el?.textContent?.replace(/\s/g, ' ');
 
-it('titre, usages, liste des modèles proposés, modèle en vigueur sélectionné', async () => {
-  mount(view());
-  expect(screen.getByRole('heading', { name: 'Modèle de l’IA' })).toBeInTheDocument();
-  expect(screen.getByText('Sert à la lecture des étiquettes, aux accords, aux descriptifs, à la recherche d’image et à l’analyse des plans.')).toBeInTheDocument();
-  const select = await screen.findByLabelText('Modèle');
-  await waitFor(() => expect(select).toHaveValue('gemini-3.5-flash'));
-  expect([...(select as HTMLSelectElement).options].map((o) => o.value)).toEqual(['gemini-3.5-flash', 'gemini-3.5-flash-lite']);
-  expect(screen.queryByText(/Valeur du serveur/)).not.toBeInTheDocument();
+it('titre, règle du choix automatique, modèle en cours en évidence, aucun sélecteur de modèle', async () => {
+  mount();
+  expect(screen.getByRole('heading', { name: 'Modèle Gemini (automatique)' })).toBeInTheDocument();
+  expect(screen.getByText('L’application choisit seule le modèle : le plus récent dont le quota du jour n’est pas atteint, puis le suivant.')).toBeInTheDocument();
+  expect((await screen.findByText('gemini-3.5-flash-lite', { selector: 'strong' })).tagName).toBe('STRONG');
+  expect(screen.getByText((_, el) => el?.tagName === 'SPAN' && text(el) === 'Cette minute : 1 / 10 requêtes, 2 700 / 250 000 jetons')).toBeInTheDocument();
+  expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
-it('source ENV : mention de la valeur du serveur', async () => {
-  mount(view({ source: 'ENV' }));
-  expect(await screen.findByText('Valeur du serveur (.env) tant qu’aucun modèle n’est choisi ici.')).toBeInTheDocument();
+it('modèles dans l’ordre d’emploi : requêtes du jour, épuisé signalé', async () => {
+  mount();
+  await screen.findByRole('group', { name: 'Modèles, dans l’ordre d’emploi' });
+  expect(screen.getAllByRole('listitem').map(text)).toEqual([
+    'gemini-3.5-flash : 20 / 20 requêtes aujourd’hui épuisé jusqu’à 09:00',
+    'gemini-3.5-flash-lite : 7 / 1 000 requêtes aujourd’hui',
+  ]);
 });
 
-it('« Enregistrer » désactivé tant que rien ne change, puis enregistre et confirme', async () => {
-  mount(view());
-  const put = vi.spyOn(api, 'putGeminiModel').mockResolvedValue({ model: 'gemini-3.5-flash-lite', source: 'ADMIN' });
-  const select = await screen.findByLabelText('Modèle');
-  const save = screen.getByRole('button', { name: 'Enregistrer' });
-  await waitFor(() => expect(select).toHaveValue('gemini-3.5-flash'));
-  expect(save).toBeDisabled();
-  await userEvent.selectOptions(select, 'gemini-3.5-flash-lite');
-  expect(save).toBeEnabled();
-  await userEvent.click(save);
-  expect(put).toHaveBeenCalledWith('gemini-3.5-flash-lite');
-  expect(await screen.findByRole('status')).toHaveTextContent('Modèle enregistré : il sert dès le prochain appel.');
-  expect(save).toBeDisabled();
-  expect(screen.queryByText(/Valeur du serveur/)).not.toBeInTheDocument();
-});
-
-it('modèle en vigueur absent de la liste de Google : proposé quand même', async () => {
-  mount(view({ model: 'gemini-2.0-flash', models: ['gemini-3.5-flash'] }));
-  const select = (await screen.findByLabelText('Modèle')) as HTMLSelectElement;
-  await waitFor(() => expect(select).toHaveValue('gemini-2.0-flash'));
-  expect([...select.options].map((o) => o.value)).toEqual(['gemini-2.0-flash', 'gemini-3.5-flash']);
-});
-
-it('liste indisponible : l’erreur de l’api en clair, le modèle courant reste enregistrable', async () => {
-  mount(view({ source: 'ENV', models: ['gemini-3.5-flash'], error: 'Liste des modèles indisponible : Google a répondu 503' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Liste des modèles indisponible : Google a répondu 503');
-  const put = vi.spyOn(api, 'putGeminiModel').mockResolvedValue({ model: 'gemini-3.5-flash', source: 'ADMIN' });
-  const save = screen.getByRole('button', { name: 'Enregistrer' });
-  // Valeur du .env : la choisir ici l'enregistre comme choix de l'Administration.
-  expect(save).toBeEnabled();
-  await userEvent.click(save);
-  expect(put).toHaveBeenCalledWith('gemini-3.5-flash');
-});
-
-it('400 de l’api : message affiché tel quel', async () => {
-  mount(view());
-  vi.spyOn(api, 'putGeminiModel').mockRejectedValue(new api.ApiError(400, 'Modèle inconnu de Google'));
-  const select = await screen.findByLabelText('Modèle');
-  await waitFor(() => expect(select).toHaveValue('gemini-3.5-flash'));
-  await userEvent.selectOptions(select, 'gemini-3.5-flash-lite');
-  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Modèle inconnu de Google');
-});
-
-it('limites de débit : trois champs préremplis et la ligne d’utilisation (nombres à la française)', async () => {
-  mount(view());
-  await waitFor(() => expect(screen.getByLabelText('Requêtes par minute')).toHaveValue(5));
-  expect(screen.getByLabelText('Jetons par minute')).toHaveValue(250000);
+it('limites du modèle en cours par défaut, puis du modèle sélectionné dans la liste', async () => {
+  mount();
+  expect(await screen.findByRole('heading', { name: 'Limites de gemini-3.5-flash-lite' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Requêtes par minute')).toHaveValue(10);
+  expect(screen.getByLabelText('Requêtes par jour')).toHaveValue(1000);
+  await userEvent.click(screen.getByRole('radio', { name: /^gemini-3\.5-flash :/ }));
+  expect(screen.getByRole('heading', { name: 'Limites de gemini-3.5-flash' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Requêtes par minute')).toHaveValue(5);
   expect(screen.getByLabelText('Requêtes par jour')).toHaveValue(20);
-  const line = 'Aujourd’hui : 7 / 20 requêtes · Cette minute : 1 / 5 requêtes, 2 700 / 250 000 jetons';
-  expect(screen.getByText((_, el) => el?.tagName === 'P' && el.textContent?.replace(/\s/g, ' ') === line)).toBeInTheDocument();
 });
 
-it('« Enregistrer les limites » : envoie les trois valeurs et confirme', async () => {
-  mount(view());
-  const put = vi.spyOn(api, 'putGeminiQuota').mockResolvedValue(quota({ limits: { rpm: 10, tpm: 250000, rpd: 500 } }));
-  const rpm = await screen.findByLabelText('Requêtes par minute');
-  await waitFor(() => expect(rpm).toHaveValue(5));
-  await userEvent.clear(rpm);
-  await userEvent.type(rpm, '10');
-  await userEvent.clear(screen.getByLabelText('Requêtes par jour'));
-  await userEvent.type(screen.getByLabelText('Requêtes par jour'), '500');
+it('« Enregistrer les limites » : envoie le modèle sélectionné et les trois valeurs, puis confirme', async () => {
+  mount();
+  const put = vi.spyOn(api, 'putGeminiQuota').mockResolvedValue(quota());
+  await userEvent.click(await screen.findByRole('radio', { name: /^gemini-3\.5-flash :/ }));
+  const rpd = screen.getByLabelText('Requêtes par jour');
+  await userEvent.clear(rpd);
+  await userEvent.type(rpd, '500');
   await userEvent.click(screen.getByRole('button', { name: 'Enregistrer les limites' }));
-  expect(put).toHaveBeenCalledWith({ rpm: 10, tpm: 250000, rpd: 500 });
+  expect(put).toHaveBeenCalledWith('gemini-3.5-flash', { rpm: 5, tpm: 250000, rpd: 500 });
   expect(await screen.findByRole('status')).toHaveTextContent('Limites enregistrées : elles s’appliquent dès le prochain appel.');
 });
 
 it('limites refusées par l’api : son message tel quel', async () => {
-  mount(view());
+  mount();
   vi.spyOn(api, 'putGeminiQuota').mockRejectedValue(new Error('Limites invalides : entiers positifs attendus'));
   const rpm = await screen.findByLabelText('Requêtes par minute');
-  await waitFor(() => expect(rpm).toHaveValue(5));
   await userEvent.clear(rpm);
   await userEvent.type(rpm, '0');
   await userEvent.click(screen.getByRole('button', { name: 'Enregistrer les limites' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Limites invalides : entiers positifs attendus');
 });
 
-it('limites du modèle choisi, requêtes du jour de chaque modèle de la liste de bascule, modèle épuisé signalé', async () => {
-  mount(view());
-  expect(await screen.findByRole('heading', { name: 'Limites de gemini-3.5-flash' })).toBeInTheDocument();
-  expect(screen.getByText('Quand le quota du jour d’un modèle est atteint, l’application passe seule au suivant.')).toBeInTheDocument();
-  const items = screen.getAllByRole('listitem').map((li) => li.textContent?.replace(/\s/g, ' '));
-  expect(items).toEqual([
-    'gemini-3.5-flash : 7 / 20 requêtes aujourd’hui',
-    'gemini-3.5-flash-lite : 20 / 20 requêtes aujourd’hui épuisé jusqu’à 09:00',
-  ]);
+it('tous les modèles épuisés : heure de reprise, limites du premier', async () => {
+  mount(quota({ current: null, models: [{ model: 'gemini-3.5-flash', requests: 20, limits: LIMITS, exhaustedUntil: '2026-10-22T07:00:00.000Z' }] }));
+  expect(await screen.findByText('Tous les modèles ont atteint leur quota du jour : reprise à 09:00.')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Limites de gemini-3.5-flash' })).toBeInTheDocument();
+});
+
+it('liste de Google indisponible : l’erreur de l’api en clair', async () => {
+  mount(quota({ error: 'Liste des modèles indisponible : Google a répondu 503' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Liste des modèles indisponible : Google a répondu 503');
+  await waitFor(() => expect(screen.getByLabelText('Requêtes par minute')).toHaveValue(10));
 });

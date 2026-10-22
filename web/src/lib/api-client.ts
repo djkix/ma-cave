@@ -102,31 +102,25 @@ export interface GeminiUsage {
 }
 export const getGeminiUsage = (days: number) => apiFetch<GeminiUsage>(`/admin/gemini-usage?days=${days}`);
 
-/** Modèle Gemini de tous les usages : choisi dans l'Administration (ADMIN) ou valeur du .env (ENV). */
-export interface GeminiModelChoice { model: string; source: 'ADMIN' | 'ENV' }
-/** `models` : modèles Flash ou Lite proposés par Google ; `error` : liste indisponible (le modèle en vigueur seul). */
-export interface GeminiModelView extends GeminiModelChoice { models: string[]; error: string | null }
-export const getGeminiModel = () => apiFetch<GeminiModelView>('/admin/gemini-model');
-export const putGeminiModel = (model: string) =>
-  apiFetch<GeminiModelChoice>('/admin/gemini-model', { method: 'PUT', body: JSON.stringify({ model }) });
-
 /** Limites de débit Gemini : requêtes par minute, jetons par minute, requêtes par jour. */
 export interface GeminiLimits { rpm: number; tpm: number; rpd: number }
-/** Utilisation en cours ; `dayResetsAt` : prochain minuit du Pacifique (ISO). */
-/** Requêtes du jour d'un modèle de la liste de bascule ; `exhaustedUntil` : quota du jour atteint, jusqu'à quand. */
-export interface GeminiModelDayUsage { model: string; requests: number; rpd: number; exhaustedUntil: string | null }
-/** Compteurs et limites du modèle choisi (`model`), et liste de bascule (`models`, dans l'ordre d'emploi). */
+/** Requêtes du jour et limites d'un modèle ; `exhaustedUntil` : quota du jour atteint, jusqu'à quand. */
+export interface GeminiModelDayUsage { model: string; requests: number; limits: GeminiLimits; exhaustedUntil: string | null }
+/**
+ * Modèles choisis seuls par l'api : `current`, le premier dont le quota du jour n'est pas atteint (null : tous épuisés) ;
+ * `minute` : ses 60 dernières secondes ; `models` dans l'ordre d'emploi ; `dayResetsAt` : prochain minuit du Pacifique (ISO) ;
+ * `error` : liste de Google indisponible (modèle du .env seul).
+ */
 export interface GeminiQuotaUsage {
-  model: string;
+  current: string | null;
   minute: { requests: number; tokens: number };
-  day: { requests: number };
-  limits: GeminiLimits;
   dayResetsAt: string;
   models: GeminiModelDayUsage[];
+  error: string | null;
 }
 export const getGeminiQuota = () => apiFetch<GeminiQuotaUsage>('/admin/gemini-quota');
-export const putGeminiQuota = (limits: GeminiLimits) =>
-  apiFetch<GeminiQuotaUsage>('/admin/gemini-quota', { method: 'PUT', body: JSON.stringify(limits) });
+export const putGeminiQuota = (model: string, limits: GeminiLimits) =>
+  apiFetch<GeminiQuotaUsage>('/admin/gemini-quota', { method: 'PUT', body: JSON.stringify({ model, ...limits }) });
 
 /** Membre de la cave courante ; `pending` = invitation pas encore rattachée à un compte. */
 export interface MemberView { id: string; email: string; displayName: string | null; role: CaveRole; pending: boolean }

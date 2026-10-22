@@ -10,7 +10,7 @@ type Failed = Extract<PlanAnalysisInfo, { failedReason: unknown }>;
 
 const REASONS: Record<Failed['failedReason'], string> = {
   GEMINI: 'L’IA n’a pas répondu après plusieurs essais.',
-  REFUS: 'L’IA a refusé la demande. Réessayez, ou choisissez un autre modèle dans l’Administration.',
+  REFUS: 'L’IA a refusé la demande. Réessayez plus tard.',
   BUDGET: 'Le budget de l’IA est épuisé.',
   IMAGE: 'La photo du plan est introuvable : remplacez-la.',
   ILLISIBLE: 'L’IA n’a pas su lire cette photo : essayez une photo plus nette, prise de face.',
