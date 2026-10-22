@@ -9,6 +9,19 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.23.0](https://github.com/djkix/ma-cave/compare/v2.22.0...v2.23.0) (2026-10-22)
+
+
+### Fonctionnalités
+
+* **web:** cases repérées nommées sur le plan quand une proposition est ouverte ([b2c6ab1](https://github.com/djkix/ma-cave/commit/b2c6ab134045706a92b53ca77794a450253e373d))
+
+
+### Corrections
+
+* **api:** grille des propositions comptée par voisinage, robuste à la perspective ([feb1f4d](https://github.com/djkix/ma-cave/commit/feb1f4d5cd3e0e650de8e4017102f06539ccd7c2))
+* **api:** noms des cases repérées robustes aux cases oubliées et au bruit ([963e5e2](https://github.com/djkix/ma-cave/commit/963e5e2ac744e73394fd1fa31c66cf53ee630471))
+
 ## [2.22.0](https://github.com/djkix/ma-cave/compare/v2.21.0...v2.22.0) (2026-10-21)
 
 ### Résumé
