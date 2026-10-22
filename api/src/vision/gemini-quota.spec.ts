@@ -31,10 +31,10 @@ describe('textes des quotas (heure de Paris)', () => {
   it('minute, jetons, jour, Google', () => {
     expect(quotaMessage('QUOTA_MINUTE', new Date('2026-10-21T12:03:00Z'), 5, now)).toBe('Limite de 5 requêtes par minute atteinte : reprise à 14:03.');
     expect(quotaMessage('QUOTA_TOKENS', new Date('2026-10-21T12:03:00Z'), 250000, now)).toBe('Limite de jetons par minute atteinte : reprise à 14:03.');
-    expect(quotaMessage('QUOTA_JOUR', new Date('2026-10-22T07:00:00Z'), 20, now)).toBe('Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.');
+    expect(quotaMessage('QUOTA_JOUR', new Date('2026-10-22T07:00:00Z'), 20, now)).toBe('Quota Gemini du jour atteint (20 requêtes) : reprise jeudi à 09:00.');
     expect(quotaMessage('QUOTA_JOUR', new Date('2026-10-22T07:00:00Z'), 20, new Date('2026-10-22T05:00:00Z'))).toBe("Quota Gemini du jour atteint (20 requêtes) : reprise aujourd'hui à 09:00.");
     expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-21T12:40:00Z'), null, now)).toBe('Quota Gemini dépassé chez Google : reprise à 14:40.');
-    expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-22T07:00:00Z'), null, now)).toBe('Quota Gemini dépassé chez Google : reprise demain à 09:00.');
+    expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-22T07:00:00Z'), null, now)).toBe('Quota Gemini dépassé chez Google : reprise jeudi à 09:00.');
   });
 
   it('heure affichée jamais plus tôt que la vraie : arrondie à la minute supérieure s’il y a des secondes', () => {
@@ -43,7 +43,7 @@ describe('textes des quotas (heure de Paris)', () => {
     expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-21T12:40:37.200Z'), null, now)).toBe('Quota Gemini dépassé chez Google : reprise à 14:41.');
     // Minute pile : inchangée ; passage de minuit à Paris : le jour suit l'heure arrondie.
     expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-21T12:40:00Z'), null, now)).toBe('Quota Gemini dépassé chez Google : reprise à 14:40.');
-    expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-21T21:59:30Z'), null, new Date('2026-10-21T21:59:00Z'))).toBe('Quota Gemini dépassé chez Google : reprise demain à 00:00.');
+    expect(quotaMessage('QUOTA_GOOGLE', new Date('2026-10-21T21:59:30Z'), null, new Date('2026-10-21T21:59:00Z'))).toBe('Quota Gemini dépassé chez Google : reprise jeudi à 00:00.');
   });
 });
 
@@ -148,7 +148,7 @@ describe('GeminiQuotaService (Redis réel)', () => {
     const e = await quota.reserve(at(120)).catch((x: any) => x);
     expect(e.reason).toBe('QUOTA_JOUR');
     expect(e.until.toISOString()).toBe('2026-10-22T07:00:00.000Z');
-    expect(e.message).toBe('Quota Gemini du jour atteint (2 requêtes) : reprise demain à 09:00.');
+    expect(e.message).toBe('Quota Gemini du jour atteint (2 requêtes) : reprise jeudi à 09:00.');
     await expect(quota.reserve(new Date('2026-10-22T07:00:00Z'))).resolves.toBeUndefined();
   });
 
