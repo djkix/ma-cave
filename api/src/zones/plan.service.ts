@@ -171,7 +171,7 @@ export class PlanService {
   async acceptSuggestion(
     caveId: string, id: string, sid: string, input: { name: string; rows: number; cols: number; cellNames?: CellNames },
   ): Promise<ZoneView> {
-    const cellNames = cellNamesFor(input.cellNames ?? {}, { rows: input.rows, cols: input.cols });
+    const cellNames = cellNamesFor(input.cellNames ?? {}, { rows: input.rows, cols: input.cols }, null);
     return this.prisma.$transaction(async (tx) => {
       const { suggestions } = await this.lockOwn(tx, caveId, id);
       const s = suggestions.find((x) => x.id === sid);

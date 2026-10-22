@@ -417,14 +417,24 @@ model CaveZone {
   plan       CavePlan?  @relation(fields: [planId, caveId], references: [id, caveId], onDelete: NoAction, onUpdate: NoAction)
   planX      Float?     @map("plan_x")
   planY      Float?     @map("plan_y")
-  /// Grille de cases (cases calculées : ligne i → lettre A + i, colonne j → j + 1).
+  /// Grille de cases (codes calculés « <lettre><n> », rangée par rangée : rangée i,
+  /// colonne j → n = i × cols + j + 1).
   /// CHECK en migration (cave_zone_grid_check) : toutes deux nulles, ou 1 à 26
   /// lignes et 1 à 30 colonnes.
   gridRows   Int?       @map("grid_rows")
   gridCols   Int?       @map("grid_cols")
-  /// Noms d'affichage des cases : { code: nom } (« B3 » → « Champagnes »), {} sans nom.
+  /// Noms d'affichage des cases : { code: nom } (« C15 » → « Champagnes »), {} sans nom.
   /// CHECK en migration (cave_zone_cell_names_check) : un objet JSON.
   cellNames  Json       @default("{}") @map("cell_names")
+  /// Lettre des codes des cases (« C » → C1…C48), NULL sans grille (et pour une zone
+  /// à grille d'avant la 2.27, lue avec « A »). CHECK en migration
+  /// (cave_zone_cell_prefix_check) : NULL ou une majuscule A–Z ; unique parmi les
+  /// zones non archivées d'une cave (index partiel cave_zone_cave_id_cell_prefix_key).
+  cellPrefix String?    @map("cell_prefix")
+  /// Positions des cases sur le plan de la zone : { code: [x0, y0, x1, y1] } en
+  /// fractions de l'image, {} sans position. CHECK en migration
+  /// (cave_zone_cell_boxes_check) : un objet JSON.
+  cellBoxes  Json       @default("{}") @map("cell_boxes")
   archivedAt DateTime?  @map("archived_at")
   createdAt  DateTime   @default(now()) @map("created_at")
   locations  Location[]

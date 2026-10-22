@@ -504,7 +504,7 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       accepted.push(res.body.id);
       expect(res.body).toEqual({
         id: expect.any(String), name: 'Casier A', indication: null, hasPhoto: false, sortOrder: expect.any(Number),
-        marker: { planId: p2.id, x: 0.5, y: 0.75 }, grid: { rows: 5, cols: 4 }, cellNames: {},
+        marker: { planId: p2.id, x: 0.5, y: 0.75 }, grid: { rows: 5, cols: 4 }, cellPrefix: null, cellNames: {}, cellBoxes: {},
       });
       const listed = await zones();
       expect(listed[listed.length - 1]).toEqual(res.body);
@@ -526,12 +526,12 @@ describeIfInfra('plans de la cave (HTTP)', () => {
     });
 
     it('noms des cases donnés avant d’accepter : enregistrés avec la zone ; case hors grille ou nom pris : 400, la proposition reste', async () => {
-      expectStatus(await accept(s3.id, { name: 'Rangement C', rows: 1, cols: 1, cellNames: { B1: 'Loire' } }), 400, 'Case inconnue dans cette zone');
-      expectStatus(await accept(s3.id, { name: 'Rangement C', rows: 2, cols: 1, cellNames: { A1: 'b1' } }), 400, 'Ce nom est déjà pris dans cette zone');
+      expectStatus(await accept(s3.id, { name: 'Rangement C', rows: 1, cols: 1, cellNames: { A2: 'Loire' } }), 400, 'Case inconnue dans cette zone');
+      expectStatus(await accept(s3.id, { name: 'Rangement C', rows: 2, cols: 1, cellNames: { A1: 'a2' } }), 400, 'Ce nom est déjà pris dans cette zone');
       expect((await plan2()).suggestions).toEqual([s3]);
       await prisma.cavePlan.update({ where: { id: p2.id }, data: { suggestions: [s3, { ...s3, id: randomUUID() }] as object[] } });
       const [, copy] = (await plan2()).suggestions;
-      const res = await accept(copy.id, { name: 'Rangement D', rows: 2, cols: 2, cellNames: { a1: ' Loire ', B2: '' } });
+      const res = await accept(copy.id, { name: 'Rangement D', rows: 2, cols: 2, cellNames: { a1: ' Loire ', A4: '' } });
       expect(res.status).toBe(201);
       accepted.push(res.body.id);
       expect(res.body.cellNames).toEqual({ A1: 'Loire' });

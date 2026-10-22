@@ -105,8 +105,8 @@ export class ZonesService {
     const current = await this.findOwn(caveId, id);
     const grid = input.grid !== undefined ? input.grid : zoneView(current).grid;
     const cellNames: CellNames | undefined =
-      input.cellNames !== undefined ? cellNamesFor(input.cellNames, grid)
-        : input.grid !== undefined ? keptCellNames(zoneView(current).cellNames, grid) : undefined;
+      input.cellNames !== undefined ? cellNamesFor(input.cellNames, grid, current.cellPrefix)
+        : input.grid !== undefined ? keptCellNames(zoneView(current).cellNames, grid, current.cellPrefix) : undefined;
     try {
       // updateMany : la condition de cave et « non archivée » est vérifiée au moment de l'écriture.
       const { count } = await this.prisma.caveZone.updateMany({
