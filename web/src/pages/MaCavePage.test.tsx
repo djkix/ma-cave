@@ -1048,7 +1048,7 @@ describe('plan de la cave', () => {
       expect(e.getByText('1 case repérée sur la photo · grille proposée : 1 rangée × 5 colonnes')).toBeInTheDocument();
     });
 
-    it('feuille ouverte : toucher un point « Case A1 » ouvre « Nom de la case A1 » ; Enregistrer l’affiche, Annuler l’oublie ; Accepter envoie les noms', async () => {
+    it('feuille ouverte : plan recadré sur la proposition, liste « Noms des cases » de la grille saisie ; toucher un point met le focus sur son champ ; Accepter envoie les noms', async () => {
       const cells: api.DetectedCell[] = [
         { box: [0.1, 0.1, 0.25, 0.3], row: 0, col: 0, name: 'A1' },
         { box: [0.25, 0.1, 0.4, 0.3], row: 0, col: 1, name: 'A2' },
@@ -1062,21 +1062,25 @@ describe('plan de la cave', () => {
       await planCard().findByRole('button', { name: 'Proposition Casier A' });
       expect(planCard().queryByRole('button', { name: 'Case A1' })).not.toBeInTheDocument();
       const s = await openProposal('Casier A');
-      await userEvent.click(s.getByRole('button', { name: 'Case A1' }));
-      await userEvent.type(s.getByLabelText('Nom de la case A1'), ' Bordeaux ');
-      await userEvent.click(s.getByRole('button', { name: 'Enregistrer' }));
-      expect(s.queryByLabelText('Nom de la case A1')).not.toBeInTheDocument();
-      expect(s.getByText('Bordeaux')).toBeInTheDocument();
+      // Cadre [0.1, 0.1, 0.4, 0.5] : image agrandie 1/0.3, décalée de −0.1/0.3 et −0.1/0.4.
+      const crop = screen.getByRole('dialog', { name: 'Proposition' }).querySelector<HTMLElement>('.plan-crop__inner')!;
+      expect(crop.style.width).toBe('333.33%');
+      expect(crop.style.left).toBe('-33.33%');
+      expect(crop.style.top).toBe('-25%');
+      const names = within(s.getByRole('group', { name: 'Noms des cases' }));
+      expect(names.getAllByRole('textbox').map((i) => i.getAttribute('placeholder'))).toEqual(['A1', 'A2', 'B1', 'B2']);
       await userEvent.click(s.getByRole('button', { name: 'Case B1' }));
-      await userEvent.type(s.getByLabelText('Nom de la case B1'), 'Loire');
-      await userEvent.click(s.getByRole('button', { name: 'Annuler' }));
-      expect(s.queryByText('Loire')).not.toBeInTheDocument();
-      // Le nom donné se reprend et se change.
-      await userEvent.click(s.getByRole('button', { name: 'Case A1' }));
-      expect(s.getByLabelText('Nom de la case A1')).toHaveValue('Bordeaux');
-      await userEvent.click(s.getByRole('button', { name: 'Annuler' }));
+      expect(names.getByLabelText('Nom de la case B1')).toHaveFocus();
+      await userEvent.type(names.getByLabelText('Nom de la case A1'), ' Bordeaux ');
+      // Le point montre le nom donné, son nom accessible aussi.
+      expect(s.getByRole('button', { name: 'Case Bordeaux (A1)' })).toBeInTheDocument();
+      // Grille réduite à une ligne : la liste suit, les noms des cases disparues ne partent pas.
+      await userEvent.type(names.getByLabelText('Nom de la case B1'), 'Loire');
+      await userEvent.clear(s.getByLabelText('Lignes'));
+      await userEvent.type(s.getByLabelText('Lignes'), '1');
+      expect(within(s.getByRole('group', { name: 'Noms des cases' })).getAllByRole('textbox')).toHaveLength(2);
       await userEvent.click(s.getByRole('button', { name: 'Accepter' }));
-      await waitFor(() => expect(accept).toHaveBeenCalledWith('p1', 's1', { name: 'Casier A', rows: 2, cols: 2, cellNames: { A1: 'Bordeaux' } }));
+      await waitFor(() => expect(accept).toHaveBeenCalledWith('p1', 's1', { name: 'Casier A', rows: 1, cols: 2, cellNames: { A1: 'Bordeaux' } }));
     });
 
     it('proposition sans cases repérées (d’avant) : pas de phrase sur les cases repérées', async () => {

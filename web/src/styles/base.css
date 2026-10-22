@@ -371,6 +371,13 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 .cell-names { border: 0; margin: 0; padding: 0; min-width: 0; }
 .cell-names__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: var(--space-xs); }
 .cell-grid__code { font-size: 11px; opacity: .8; }
+/* Nom long coupé à l'affichage ; le nom accessible du bouton le garde entier. */
+.cell-grid__cell { max-width: 128px; overflow: hidden; }
+.cell-grid__name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Feuille « Proposition » : plan recadré sur la proposition (image agrandie et décalée, rognée au cadre). */
+.plan-crop { position: relative; margin: 0 auto; overflow: hidden; border-radius: var(--radius-lg); }
+.plan-crop__inner { position: absolute; }
+.plan-crop .plan-view { border-radius: 0; }
 
 /* Choix d'une photo (PhotoPicker) : bouton à la largeur de son texte, contenu centré en hauteur, nom du fichier à côté. */
 .photo-picker { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); min-width: 0; }
