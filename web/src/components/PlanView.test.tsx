@@ -116,6 +116,25 @@ it('proposition avec cases repérées : étiquette sur cellCount ; cases ouverte
   expect(container.querySelector('.plan-view__cell')).toBeNull();
 });
 
+it('feuille « Proposition » (`onCellClick`) : chaque case repérée et nommée devient un bouton « Case B3 » qui montre le nom donné', async () => {
+  const onCellClick = vi.fn();
+  const cells: api.DetectedCell[] = [
+    { box: [0.1, 0.2, 0.2, 0.4], row: 0, col: 0, name: 'A1' },
+    { box: [0.2, 0.2, 0.4, 0.4], row: 0, col: 1, name: 'A2' },
+    { box: [0.1, 0.4, 0.2, 0.8], row: null, col: null, name: null },
+  ];
+  const suggestions: api.PlanSuggestion[] = [{ id: 's1', kind: 'CASIER', name: 'Casier A', box: [0.1, 0.2, 0.4, 0.8], rows: 2, cols: 2, cellCount: 3, cells }];
+  const { container } = render(<PlanView src="/plan.jpg" plan={plan} markers={[]} suggestions={suggestions} openSuggestionId="s1"
+    cellNames={{ A2: 'Bordeaux' }} onCellClick={onCellClick} />);
+  // Le cadre n'est pas un bouton ici : seules les cases le sont.
+  expect(screen.queryByRole('button', { name: 'Proposition Casier A' })).not.toBeInTheDocument();
+  expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Case A1', 'Case A2']);
+  expect(container.querySelector('.plan-view__cells')).not.toHaveAttribute('aria-hidden');
+  expect([...container.querySelectorAll('.plan-view__cell')].map((c) => c.textContent)).toEqual(['A1', 'Bordeaux', '']);
+  await userEvent.click(screen.getByRole('button', { name: 'Case A2' }));
+  expect(onCellClick).toHaveBeenCalledWith('A2');
+});
+
 describe('au clavier', () => {
   const props = { src: '/plan.jpg', plan, markers };
   const focusPlan = () => {

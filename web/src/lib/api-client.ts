@@ -155,11 +155,14 @@ export interface Zone {
   id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; marker: { planId: string; x: number; y: number } | null;
   /** Grille de cases (lignes A…, colonnes 1…), null sans grille. */
   grid: { rows: number; cols: number } | null;
+  /** Noms d'affichage des cases ({ « B3 »: « Champagnes » }) ; absent d'une api d'avant la 2.24. */
+  cellNames?: Record<string, string>;
 }
 export const getZones = () => apiFetch<Zone[]>('/caves/current/zones');
 export const createZone = (input: { name: string; indication?: string | null }) =>
   apiFetch<Zone>('/caves/current/zones', { method: 'POST', body: JSON.stringify(input) });
-export const updateZone = (id: string, patch: { name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null }) =>
+/** `cellNames` : remplacement complet des noms des cases (codes de la grille). */
+export const updateZone = (id: string, patch: { name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null; cellNames?: Record<string, string> }) =>
   apiFetch<Zone>(`/caves/current/zones/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 /** Bouteilles en stock par case (valeur de « casier », en majuscules) dans la zone. */
 export const getZoneCells = (zoneId: string) => apiFetch<{ casier: string; quantity: number }[]>(`/caves/current/zones/${zoneId}/cells`);
@@ -226,7 +229,8 @@ export const relaunchAnalysis = (id: string) => apiFetch<CavePlan>(`/caves/curre
 /** Supprime le plan ; les zones et leurs bouteilles sont gardées. */
 export const deletePlan = (id: string) => apiFetch<void>(`/caves/current/plans/${id}`, { method: 'DELETE' });
 /** Crée la zone proposée (nom, grille), avec son repère au centre du cadre ; la proposition disparaît. */
-export const acceptSuggestion = (planId: string, sid: string, input: { name: string; rows: number; cols: number }) =>
+/** `cellNames` : noms donnés aux cases repérées avant d'accepter. */
+export const acceptSuggestion = (planId: string, sid: string, input: { name: string; rows: number; cols: number; cellNames?: Record<string, string> }) =>
   apiFetch<Zone>(`/caves/current/plans/${planId}/suggestions/${sid}/accept`, { method: 'POST', body: JSON.stringify(input) });
 export const rejectSuggestion = (planId: string, sid: string) =>
   apiFetch<void>(`/caves/current/plans/${planId}/suggestions/${sid}`, { method: 'DELETE' });
