@@ -310,8 +310,8 @@ propriétaire) et renomme la cave (1 à 80 caractères). Un membre voit la cave
 qui l'a invité : la liste et ses filtres, la recherche par plat, la fiche vin
 (apogée, note, accords, descriptif du domaine, **emplacements**) et les
 statistiques. Il voit les emplacements (section de la fiche, filtre de la
-cave), mais pas la cote : il ne voit **aucun prix d'achat ni aucune cote
-iDealwine** — les champs sont absents des réponses de l'API, pas seulement
+cave), mais pas la cote : il ne voit **aucun prix d'achat ni aucune
+cote** — les champs sont absents des réponses de l'API, pas seulement
 masqués : ni valeur au prix d'achat ou à la cote, ni classement « les plus
 chères » ou « valeur à la cote » dans les statistiques —, ni le journal, ni
 l'export Excel, ni « À confirmer », et il **n'écrit rien** : pas d'entrée, de
@@ -717,29 +717,42 @@ vins les plus bus sur 12 mois, les producteurs les plus présents, les
 bouteilles les plus chères au prix d'achat (propriétaire seulement) et les
 mieux notés. Pour un membre, la valeur au prix d'achat et « les plus chères »
 sont absentes : la page n'affiche que le reste. Pour le propriétaire
-seulement s'ajoute la **valeur à la cote** (stock × cote iDealwine courante
+seulement s'ajoute la **valeur à la cote** (stock × cote courante
 des vins en stock cotés) : « Valeur à la cote : X € sur N références cotées
 (sur M) », avec la valeur de cession estimée juste en dessous ; « — » et
 « Pas encore de cote » quand aucun vin en stock n'est coté.
 
-**Cote iDealwine, saisie à la main.** Sur la fiche d'un vin, le bloc *Cote
-iDealwine* (propriétaire seulement) propose un lien *Voir sur iDealwine* qui
-ouvre, dans un nouvel onglet, la page de recherche du vin sur
-`www.idealwine.com` — producteur et cuvée, mots séparés par des espaces, sans
-millésime ni guillemets (leur moteur n'en tient pas compte) — (ou, si une cote
-a déjà été saisie avec un lien, la page qui a servi) — **l'application ne contacte jamais iDealwine elle-même** (voir
-*Limites*). Le propriétaire reporte alors à la main la cote lue sur cette
-page : montant en euros, nombre de transactions (facultatif), date du relevé
-et, facultatif, le lien exact de la page consultée. La fiche affiche ensuite
-la cote, son âge (« cote du 3 mars 2026, il y a 7 mois »), un avertissement si
-le nombre de transactions est faible (moins de 5) ou si la cote a plus d'un
-an, et la **valeur de cession estimée** (`cote / 1,16`, arrondie à l'euro, «
-cote hors frais acheteur d'environ 16 % »). Chaque saisie remplace la
-précédente comme valeur courante ; l'historique est conservé en base,
-jamais écrasé. Un membre ne voit ce bloc à aucun moment : les clés de cote
-sont absentes de la fiche qu'il reçoit. API : `POST /api/wines/:id/quotes`
-(propriétaire seulement) ; `GET /api/wines/:id` ajoute, pour le propriétaire,
-`quote`, `idealwineUrl` et `savedUrl`.
+**Cote, saisie à la main.** Sur la fiche d'un vin, le bloc *Cote*
+(propriétaire seulement) propose trois liens, ouverts dans un nouvel onglet,
+vers la recherche du vin — producteur et cuvée, sans accents, sans millésime
+ni guillemets (les moteurs n'en tiennent pas compte) — sur trois sites :
+*Voir sur iDealwine* (enchères, `www.idealwine.com`), *Voir sur Wine-Searcher*
+(prix moyen chez les cavistes, `www.wine-searcher.com`) et *Voir sur Vivino*
+(prix boutique et note, `www.vivino.com`). Si une cote a déjà été saisie avec
+un lien, le lien de ce site ouvre la page qui a servi. **L'application ne
+contacte jamais ces sites elle-même** : elle n'offre que des liens (voir
+*Limites*). Le propriétaire reporte alors à la main la cote lue : montant en
+euros, nombre de transactions (facultatif), date du relevé et, facultatif, le
+lien exact de la page consultée — une page `https` de l'un des trois sites
+exactement (hôte vérifié sur l'adresse analysée, sans port ni identifiants),
+sinon « Le lien doit être une page iDealwine, Wine-Searcher ou Vivino ». La
+**source** de la cote est déduite de ce lien, sans colonne en base : la fiche
+affiche la cote, son âge et sa source (« cote du 3 mars 2026, il y a 7 mois ·
+source Vivino » ; pas de lien, pas de source), un avertissement si le nombre
+de transactions est faible (moins de 5) ou si la cote a plus d'un an, et,
+pour une cote iDealwine ou sans lien seulement, la **valeur de cession
+estimée** (`cote / 1,16`, arrondie à l'euro, « cote hors frais acheteur
+d'environ 16 % » : des frais d'enchères, sans objet pour un prix de caviste
+ou de boutique). Chaque saisie remplace la précédente comme valeur courante ;
+l'historique est conservé en base, jamais écrasé. Un membre ne voit ce bloc à
+aucun moment : les clés de cote sont absentes de la fiche qu'il reçoit. Pour
+ajouter un site, il suffit d'une entrée dans la liste `QUOTE_SITES`
+(`api/src/quotes/quote.ts` : hôte, nom, recherche). API :
+`POST /api/wines/:id/quotes` (propriétaire seulement, la réponse porte
+`source`) ; `GET /api/wines/:id` ajoute, pour le propriétaire, `quote` (avec
+`source`), `searchLinks` (`[{ site, label, hint, url }]`, un par site),
+`savedUrl` et `idealwineUrl` (ancien lien unique, gardé pour un client encore
+en cache).
 
 **Note de dégustation.** Sur la fiche d'un vin, le bloc *Ma note* permet au
 propriétaire de la cave de noter le vin **sur 20, par demi-point** (« 16,5 » ou
@@ -817,9 +830,9 @@ optionnel par couleur et la case *Seulement les vins à boire en priorité*
 *Confiance* après *Millésime*, puis *Note /20* après *Confiance* et *Accords*,
 puis *Emplacements* (répartition par emplacement, par exemple « Cave 2 / B /
 3 × 4 ; Sans emplacement × 2 », vide s'il n'y a pas de stock), et enfin *Cote
-iDealwine (€)*, *Date de la cote* et *Valeur à la cote (€)* (= cote ×
-quantité ; les trois cellules sont vides quand le vin n'a pas de cote) en
-dernières colonnes ; une ligne dont l'apogée est déjà passée est
+(€)*, *Date de la cote*, *Valeur à la cote (€)* (= cote × quantité) et
+*Source* (site du lien de la cote, vide sans lien ; les quatre cellules sont
+vides quand le vin n'a pas de cote) en dernières colonnes ; une ligne dont l'apogée est déjà passée est
 mise en évidence par une teinte d'alerte. La feuille `Mouvements` affiche
 `MOVE` dans la colonne *Type* pour un déplacement d'emplacement.
 
@@ -1529,9 +1542,10 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
   n'ont pas gardé leur fiche confirmée et ne comptent pas. Une entrée confirmée
   avant la fin de l'analyse est comparée à un formulaire vide : la lecture
   arrivée ensuite n'a pas été montrée.
-- **La cote iDealwine est saisie à la main, jamais relevée automatiquement** :
-  l'application ne contacte iDealwine à aucun moment, elle se contente d'un
-  lien vers la page à consulter. Les [conditions générales d'iDealwine](https://www.idealwine.com/en/corporate/conditions_generales)
+- **La cote est saisie à la main, jamais relevée automatiquement** :
+  l'application ne contacte iDealwine, Wine-Searcher ni Vivino à aucun moment,
+  elle se contente de liens vers les pages à consulter : leurs conditions
+  d'utilisation encadrent ou interdisent la collecte automatique. Les [conditions générales d'iDealwine](https://www.idealwine.com/en/corporate/conditions_generales)
   interdisent de copier leur base, cotes courantes et historiques comprises,
   sans autorisation préalable ; un relevé automatique (session authentifiée,
   lecture par sélecteurs CSS) aurait exigé cette autorisation, qui n'a pas été
