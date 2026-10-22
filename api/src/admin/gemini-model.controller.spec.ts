@@ -38,7 +38,7 @@ describe('AdminGeminiModelController', () => {
     'PUT %j : 400, seuls Flash ou Lite',
     async (body) => {
       const { controller, models } = setup({ models: ['gemini-3.5-pro'], error: null });
-      expect(await badRequest(controller.update(body))).toBe('Seuls les modèles Gemini Flash ou Lite sont acceptés');
+      expect(await badRequest(controller.update(body))).toBe('Seuls les modèles Gemini Flash ou Flash-Lite stables sont acceptés');
       expect(models.set).not.toHaveBeenCalled();
     },
   );

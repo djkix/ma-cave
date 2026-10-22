@@ -82,7 +82,7 @@ describe('GeminiModelService.set', () => {
 });
 
 describe('GeminiModelService.available', () => {
-  it('liste de Google : Flash ou Lite, jamais Pro, generateContent, sans « models/ », triée, toutes pages', async () => {
+  it('liste de Google : Flash ou Flash-Lite stables (ni Pro, ni tts, ni preview), generateContent, sans « models/ », triée, toutes pages', async () => {
     const fetch = googleList([
       {
         models: [
@@ -92,13 +92,15 @@ describe('GeminiModelService.available', () => {
           { name: 'models/text-embedding-004', methods: ['embedContent'] },
           { name: 'models/gemini-embedding-lite', methods: ['embedContent'] },
           { name: 'models/gemini flash<lite>' },
+          { name: 'models/gemini-3.8-flash-lite-tts' },
+          { name: 'models/gemini-3.5-flash-preview-09-2026' },
         ],
         next: 'p2',
       },
       { models: [{ name: 'models/gemini-2.0-flash-lite' }, { name: 'models/gemini-2.0-flash-light' }] },
     ]);
     const { service } = setup({ fetch });
-    await expect(service.available()).resolves.toEqual({ models: ['gemini-2.0-flash-light', 'gemini-2.0-flash-lite', 'gemini-3.5-flash'], error: null });
+    await expect(service.available()).resolves.toEqual({ models: ['gemini-2.0-flash-lite', 'gemini-3.5-flash'], error: null });
     expect(fetch).toHaveBeenCalledTimes(2);
     const [url, init] = fetch.mock.calls[1] as any;
     expect(String(url)).toMatch(/^https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\?/);

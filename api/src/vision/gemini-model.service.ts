@@ -20,6 +20,15 @@ export interface GeminiModelChoice {
 const STABLE = /^gemini-(\d+(?:\.\d+)*)-flash(-lite)?$/;
 
 /**
+ * Modèle de génération stable, Flash ou Flash-Lite, sans suffixe : écarte les
+ * variantes spécialisées (tts, image, live, audio…), qui refusent une image ou
+ * un texte en entrée, et les preview. Jamais de Pro.
+ */
+export function isStableModel(name: string): boolean {
+  return STABLE.test(name) && isLightModel(name);
+}
+
+/**
  * Liste de bascule : le modèle choisi d'abord, puis les modèles stables Flash
  * et Flash-Lite de Google, du plus récent au plus ancien, Flash avant
  * Flash-Lite à version égale. Jamais de Pro.
@@ -29,7 +38,7 @@ export function fallbackModels(chosen: string, available: string[]): string[] {
     const [, version, lite] = STABLE.exec(m)!;
     return { version: version.split('.').map(Number), lite: lite ? 1 : 0 };
   };
-  const others = available.filter((m) => m !== chosen && STABLE.test(m) && isLightModel(m));
+  const others = available.filter((m) => m !== chosen && isStableModel(m));
   others.sort((a, b) => {
     const [ra, rb] = [rank(a), rank(b)];
     for (let i = 0; i < Math.max(ra.version.length, rb.version.length); i++) {
@@ -82,9 +91,9 @@ export class GeminiModelService {
     let value: GeminiModelChoice;
     try {
       const [row] = await this.prisma.appSetting.findMany({ where: { key: { in: [GEMINI_MODEL_KEY] } } });
-      // Une valeur Pro glissée à la main en base n'est jamais employée.
-      if (row && !isLightModel(row.value)) this.log.error(`Modèle Gemini « ${row.value} » en base ignoré (Flash ou Lite seulement) : ${this.envModel} (.env) employé`);
-      value = row && isLightModel(row.value) ? { model: row.value, source: 'ADMIN' } : { model: this.envModel, source: 'ENV' };
+      // Une valeur Pro, ou une variante spécialisée (tts…) choisie avant le filtrage de la liste, n'est jamais employée.
+      if (row && !isStableModel(row.value)) this.log.error(`Modèle Gemini « ${row.value} » en base ignoré (Flash ou Flash-Lite stable seulement) : ${this.envModel} (.env) employé`);
+      value = row && isStableModel(row.value) ? { model: row.value, source: 'ADMIN' } : { model: this.envModel, source: 'ENV' };
     } catch (e) {
       this.log.error(`Modèle Gemini illisible, ${this.cached ? 'dernier modèle connu' : 'modèle du .env'} employé : ${messageOf(e)}`);
       return this.cached?.value ?? { model: this.envModel, source: 'ENV' };
@@ -138,7 +147,7 @@ export class GeminiModelService {
       const page = (await res.json()) as GoogleModelsPage;
       for (const m of page.models ?? []) {
         const name = (m.name ?? '').replace(/^models\//, '');
-        if (isLightModel(name) && m.supportedGenerationMethods?.includes('generateContent')) names.add(name);
+        if (isStableModel(name) && m.supportedGenerationMethods?.includes('generateContent')) names.add(name);
       }
       pageToken = page.nextPageToken ?? '';
     } while (pageToken);
