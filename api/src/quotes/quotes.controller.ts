@@ -8,7 +8,7 @@ import type { CaveAccess } from '../caves/cave-context.service';
 import { createQuoteSchema } from './quote';
 import { QuotesService } from './quotes.service';
 
-/** Cote iDealwine saisie à la main : un prix, réservé au propriétaire. */
+/** Cote saisie à la main : un prix, réservé au propriétaire. */
 @Controller('wines/:id/quotes')
 @UseGuards(AuthenticatedGuard, CaveAccessGuard)
 export class QuotesController {

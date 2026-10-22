@@ -139,9 +139,9 @@ export function WinePage() {
         <ApogeeBlock key={`apogee-${wine.id}`} wine={wine} readOnly={readOnly} />
         <RatingBlock key={`rating-${wine.id}`} wine={wine} readOnly={readOnly} />
         {/* Cote : un prix, propriétaire seulement ; un membre ne reçoit pas les clés et le bloc n'est pas monté. */}
-        {isOwner && detail.data.idealwineUrl !== undefined && (
+        {isOwner && detail.data.searchLinks !== undefined && (
           <QuoteBlock key={`quote-${wine.id}`} wineId={wine.id} quote={detail.data.quote ?? null}
-            idealwineUrl={detail.data.idealwineUrl} savedUrl={detail.data.savedUrl ?? null} />
+            searchLinks={detail.data.searchLinks} savedUrl={detail.data.savedUrl ?? null} />
         )}
 
         {places && places.length > 0 && <LocationsBlock key={`locations-${wine.id}`} wineId={wine.id} places={places} readOnly={readOnly} />}

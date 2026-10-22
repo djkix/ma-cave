@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { createQuote, Quote } from '../lib/api-client';
+import { createQuote, Quote, SearchLink } from '../lib/api-client';
 import {
   CESSION_NOTE, DATE_INVALID, formatEurosRounded, parisToday, parseCoteEuros, parseTransactions, quoteLine, quoteWarnings,
 } from '../lib/quote';
@@ -15,13 +15,13 @@ function FieldError({ id, message }: { id: string; message: string | null }) {
 }
 
 /**
- * Bloc « Cote iDealwine », propriétaire seulement (le parent ne le monte pas
- * pour un membre, qui ne reçoit ni `quote`, ni `idealwineUrl`, ni `savedUrl`).
- * La cote est saisie à la main : l'application ne lit jamais iDealwine, elle
- * n'offre qu'un lien, ouvert dans un nouvel onglet.
+ * Bloc « Cote », propriétaire seulement (le parent ne le monte pas pour un
+ * membre, qui ne reçoit ni `quote`, ni `searchLinks`, ni `savedUrl`). La cote
+ * est saisie à la main : l'application ne lit jamais les sites, elle n'offre
+ * que des liens, ouverts dans un nouvel onglet.
  */
-export function QuoteBlock({ wineId, quote, idealwineUrl, savedUrl }: {
-  wineId: string; quote: Quote | null; idealwineUrl: string; /** Lien enregistré sur une cote, fourni par l'api ; null sans lien. */ savedUrl: string | null;
+export function QuoteBlock({ wineId, quote, searchLinks, savedUrl }: {
+  wineId: string; quote: Quote | null; searchLinks: SearchLink[]; /** Lien enregistré sur une cote, fourni par l'api ; null sans lien. */ savedUrl: string | null;
 }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -69,13 +69,16 @@ export function QuoteBlock({ wineId, quote, idealwineUrl, savedUrl }: {
 
   return (
     <section className="card">
-      <h3 style={{ fontSize: 16, margin: 0 }}>Cote iDealwine</h3>
+      <h3 style={{ fontSize: 16, margin: 0 }}>Cote</h3>
       {!editing && (quote ? (
         <>
           <p style={{ margin: 'var(--space-xs) 0' }}>{quoteLine(quote, today)}</p>
-          <p className="list__meta" style={{ margin: 0 }}>
-            {`Valeur de cession estimée : ${formatEurosRounded(quote.cessionCents)} ${CESSION_NOTE}`}
-          </p>
+          {/* Frais acheteur d'enchères : la valeur de cession n'a de sens que pour une cote iDealwine (ou de source inconnue). */}
+          {(quote.site == null || quote.site === 'idealwine') && (
+            <p className="list__meta" style={{ margin: 0 }}>
+              {`Valeur de cession estimée : ${formatEurosRounded(quote.cessionCents)} ${CESSION_NOTE}`}
+            </p>
+          )}
           {quoteWarnings(quote, today).map((w) => (
             <p key={w} style={{ margin: 'var(--space-xs) 0 0' }}><span className="badge badge--warn">{w}</span></p>
           ))}
@@ -100,23 +103,28 @@ export function QuoteBlock({ wineId, quote, idealwineUrl, savedUrl }: {
             {...fieldA11y(dateError, ERR.date)}
           />
           <div aria-live="polite"><FieldError id={ERR.date} message={dateError} /></div>
-          <label className="field__label" htmlFor="quote-url">Lien de la page iDealwine (facultatif)</label>
+          <label className="field__label" htmlFor="quote-url">Lien de la page (facultatif)</label>
           <input
             id="quote-url" type="url" inputMode="url" autoComplete="off" value={sourceUrl}
-            onChange={(e) => setSourceUrl(e.target.value)} placeholder="https://www.idealwine.com/…"
+            onChange={(e) => setSourceUrl(e.target.value)} placeholder="Page iDealwine, Wine-Searcher ou Vivino"
           />
           {error && <p role="alert" className="text-error" style={{ margin: 0 }}>{error}</p>}
           <Button variant="dark" disabled={busy || invalid} onClick={save}>Enregistrer la cote</Button>
           <Button variant="link" onClick={() => { setEditing(false); setError(null); }}>Abandonner</Button>
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', flexWrap: 'wrap' }}>
-          <a className="btn btn--outline" href={idealwineUrl} target="_blank" rel="noopener noreferrer">
-            {quote ? 'Voir sur iDealwine' : 'Voir la cote sur iDealwine'}
-            <span className="visually-hidden"> (nouvel onglet)</span>
-          </a>
-          <Button variant="outline" onClick={open}>{quote ? 'Mettre à jour' : 'Saisir la cote'}</Button>
-        </div>
+        <>
+          <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', flexWrap: 'wrap' }}>
+            {searchLinks.map((l) => (
+              <a key={l.site} className="btn btn--outline" href={l.url} target="_blank" rel="noopener noreferrer">
+                {`Voir sur ${l.label}`}
+                <span className="visually-hidden"> (nouvel onglet)</span>
+              </a>
+            ))}
+            <Button variant="outline" onClick={open}>{quote ? 'Mettre à jour' : 'Saisir la cote'}</Button>
+          </div>
+          <p className="list__meta" style={{ margin: 'var(--space-xs) 0 0' }}>{searchLinks.map((l) => `${l.label} : ${l.hint}`).join(' · ')}</p>
+        </>
       )}
     </section>
   );

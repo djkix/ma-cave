@@ -1,12 +1,19 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as api from '../lib/api-client';
 import { QuoteBlock } from './QuoteBlock';
 
 const SEARCH = 'https://www.idealwine.com/fr/acheter-du-vin/recherche-domaine%20tempier%20la%20tourtine';
+const WS = 'https://www.wine-searcher.com/find/domaine+tempier+la+tourtine';
+const VIVINO = 'https://www.vivino.com/search/wines?q=domaine%20tempier%20la%20tourtine';
 const PAGE = 'https://www.idealwine.com/fr/acheter-vin/tempier.jsp';
-const quote: api.Quote = { coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: PAGE, enteredBy: 'djkix', cessionCents: 7328 };
+const quote: api.Quote = { coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: PAGE, site: 'idealwine', source: 'iDealwine', enteredBy: 'djkix', cessionCents: 7328 };
+const links = (idealwine = SEARCH, vivino = VIVINO): api.SearchLink[] => [
+  { site: 'idealwine', label: 'iDealwine', hint: 'enchères', url: idealwine },
+  { site: 'wine-searcher', label: 'Wine-Searcher', hint: 'prix moyen chez les cavistes', url: WS },
+  { site: 'vivino', label: 'Vivino', hint: 'prix boutique et note', url: vivino },
+];
 
 beforeEach(() => {
   // Seule l'horloge est figée (le 8 octobre 2026 à Paris) : les saisies de userEvent restent réelles.
@@ -18,8 +25,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const mount = (q: api.Quote | null, idealwineUrl = q?.sourceUrl ?? SEARCH, savedUrl: string | null = q?.sourceUrl ?? null) =>
-  render(<QueryClientProvider client={new QueryClient()}><QuoteBlock wineId="w1" quote={q} idealwineUrl={idealwineUrl} savedUrl={savedUrl} /></QueryClientProvider>);
+const mount = (q: api.Quote | null, searchLinks = links(q?.sourceUrl ?? SEARCH), savedUrl: string | null = q?.sourceUrl ?? null) =>
+  render(<QueryClientProvider client={new QueryClient()}><QuoteBlock wineId="w1" quote={q} searchLinks={searchLinks} savedUrl={savedUrl} /></QueryClientProvider>);
 
 const expectExternal = (name: string, href: string) => {
   // « (nouvel onglet) » : caché à l'écran, lu par le lecteur d'écran.
@@ -30,18 +37,21 @@ const expectExternal = (name: string, href: string) => {
   expect(link).toHaveAttribute('rel', 'noopener noreferrer');
 };
 
-it('sans cote : « Pas encore de cote », le lien vers iDealwine et « Saisir la cote »', () => {
+it('sans cote : « Pas encore de cote », un lien par site avec ce qu’il donne, et « Saisir la cote »', () => {
   mount(null);
-  expect(screen.getByRole('heading', { name: 'Cote iDealwine' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Cote' })).toBeInTheDocument();
   expect(screen.getByText('Pas encore de cote')).toBeInTheDocument();
-  expectExternal('Voir la cote sur iDealwine', SEARCH);
+  expectExternal('Voir sur iDealwine', SEARCH);
+  expectExternal('Voir sur Wine-Searcher', WS);
+  expectExternal('Voir sur Vivino', VIVINO);
+  expect(screen.getByText('iDealwine : enchères · Wine-Searcher : prix moyen chez les cavistes · Vivino : prix boutique et note')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Saisir la cote' })).toBeInTheDocument();
   expect(screen.queryByText(/0 €/)).not.toBeInTheDocument();
 });
 
-it('avec cote : la ligne, la valeur de cession et sa note, « Voir sur iDealwine » et « Mettre à jour »', () => {
+it('avec cote : la ligne et sa source, la valeur de cession et sa note, « Voir sur iDealwine » et « Mettre à jour »', () => {
   mount(quote);
-  expect(screen.getByText('85 € — 12 transactions — cote du 3 mars 2026, il y a 7 mois')).toBeInTheDocument();
+  expect(screen.getByText('85 € — 12 transactions — cote du 3 mars 2026, il y a 7 mois · source iDealwine')).toBeInTheDocument();
   expect(screen.getByText("Valeur de cession estimée : 73 € (cote hors frais acheteur d'environ 16 %)")).toBeInTheDocument();
   expectExternal('Voir sur iDealwine', PAGE);
   expect(screen.getByRole('button', { name: 'Mettre à jour' })).toBeInTheDocument();
@@ -49,11 +59,23 @@ it('avec cote : la ligne, la valeur de cession et sa note, « Voir sur iDealwine
   expect(screen.queryByText("Cote de plus d'un an")).not.toBeInTheDocument();
 });
 
+it('cote Vivino : source affichée, pas de valeur de cession (frais d’enchères sans objet) ; sans lien : valeur de cession', () => {
+  const page = 'https://www.vivino.com/FR/fr/tempier/w/1';
+  mount({ ...quote, sourceUrl: page, site: 'vivino', source: 'Vivino' }, links(SEARCH, page), page);
+  expect(screen.getByText('85 € — 12 transactions — cote du 3 mars 2026, il y a 7 mois · source Vivino')).toBeInTheDocument();
+  expect(screen.queryByText(/Valeur de cession/)).not.toBeInTheDocument();
+  expectExternal('Voir sur Vivino', page);
+  cleanup();
+  mount({ ...quote, sourceUrl: null, site: null, source: null }, links(), null);
+  expect(screen.getByText('85 € — 12 transactions — cote du 3 mars 2026, il y a 7 mois')).toBeInTheDocument();
+  expect(screen.getByText(/^Valeur de cession estimée : 73 €/)).toBeInTheDocument();
+});
+
 it('avertit : peu de transactions, cote de plus d’un an', () => {
   mount({ ...quote, nTransactions: 3, quotedOn: '2025-09-01' });
   expect(screen.getByText('Peu de transactions : ordre de grandeur')).toBeInTheDocument();
   expect(screen.getByText("Cote de plus d'un an")).toBeInTheDocument();
-  expect(screen.getByText('85 € — 3 transactions — cote du 1 septembre 2025, il y a 1 an')).toBeInTheDocument();
+  expect(screen.getByText('85 € — 3 transactions — cote du 1 septembre 2025, il y a 1 an · source iDealwine')).toBeInTheDocument();
 });
 
 it('saisit une cote : euros en centimes, date du jour par défaut, lien vide quand rien n’est enregistré', async () => {
@@ -63,7 +85,7 @@ it('saisit une cote : euros en centimes, date du jour par défaut, lien vide qua
   expect(screen.getByLabelText('Date de la cote')).toHaveValue('2026-10-08');
   expect(screen.getByLabelText('Date de la cote')).toHaveAttribute('min', '1990-01-01');
   expect(screen.getByLabelText('Date de la cote')).toHaveAttribute('max', '2026-10-08');
-  expect(screen.getByLabelText('Lien de la page iDealwine (facultatif)')).toHaveValue('');
+  expect(screen.getByLabelText('Lien de la page (facultatif)')).toHaveValue('');
   await userEvent.type(screen.getByLabelText('Cote en euros'), '85,50');
   await userEvent.type(screen.getByLabelText('Nombre de transactions (facultatif)'), '12');
   await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la cote' }));
@@ -74,9 +96,9 @@ it('saisit une cote : euros en centimes, date du jour par défaut, lien vide qua
 it('« Mettre à jour » pré-remplit le lien enregistré, même venu d’une cote plus ancienne', async () => {
   const create = vi.spyOn(api, 'createQuote').mockResolvedValue(quote);
   // Cote courante sans lien : l'api fournit celui d'une cote plus ancienne (`savedUrl`).
-  mount({ ...quote, sourceUrl: null }, PAGE, PAGE);
+  mount({ ...quote, sourceUrl: null, site: null, source: null }, links(PAGE), PAGE);
   await userEvent.click(screen.getByRole('button', { name: 'Mettre à jour' }));
-  expect(screen.getByLabelText('Lien de la page iDealwine (facultatif)')).toHaveValue(PAGE);
+  expect(screen.getByLabelText('Lien de la page (facultatif)')).toHaveValue(PAGE);
   expect(screen.getByLabelText('Cote en euros')).toHaveValue('');
   await userEvent.type(screen.getByLabelText('Cote en euros'), '90');
   await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la cote' }));
@@ -100,13 +122,13 @@ it('bloque une cote ou un nombre de transactions invalide, avec le message de l�
 });
 
 it('affiche l’erreur de l’api telle quelle et garde le formulaire', async () => {
-  vi.spyOn(api, 'createQuote').mockRejectedValue(new api.ApiError(400, 'Le lien doit être une page www.idealwine.com'));
+  vi.spyOn(api, 'createQuote').mockRejectedValue(new api.ApiError(400, 'Le lien doit être une page iDealwine, Wine-Searcher ou Vivino'));
   mount(null);
   await userEvent.click(screen.getByRole('button', { name: 'Saisir la cote' }));
   await userEvent.type(screen.getByLabelText('Cote en euros'), '85');
-  await userEvent.type(screen.getByLabelText('Lien de la page iDealwine (facultatif)'), 'https://example.com/');
+  await userEvent.type(screen.getByLabelText('Lien de la page (facultatif)'), 'https://example.com/');
   await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la cote' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Le lien doit être une page www.idealwine.com');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Le lien doit être une page iDealwine, Wine-Searcher ou Vivino');
   expect(screen.getByRole('button', { name: 'Enregistrer la cote' })).toBeInTheDocument();
 });
 
@@ -119,9 +141,9 @@ it('« Abandonner » referme le formulaire', async () => {
 });
 
 it('cote avec lien de recherche seulement : rien à pré-remplir', async () => {
-  mount({ ...quote, sourceUrl: null }, SEARCH, null);
+  mount({ ...quote, sourceUrl: null, site: null, source: null }, links(), null);
   await userEvent.click(screen.getByRole('button', { name: 'Mettre à jour' }));
-  expect(screen.getByLabelText('Lien de la page iDealwine (facultatif)')).toHaveValue('');
+  expect(screen.getByLabelText('Lien de la page (facultatif)')).toHaveValue('');
 });
 
 it('erreurs de champ accessibles : aria-invalid, aria-describedby, annonce polie', async () => {

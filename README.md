@@ -132,11 +132,12 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Recherche **Accompagner un plat** dans l'onglet Cave
 - Texte du domaine modifiable par un **administrateur**
 
-### 💶 Cote iDealwine
-- **Saisie à la main** : l'application ne contacte jamais iDealwine
-- Lien **Voir sur iDealwine** vers la recherche du vin
+### 💶 Cote
+- **Saisie à la main** : l'application ne lit jamais les sites de cote, elle n'offre que des liens
+- **Voir sur iDealwine** (enchères), **Wine-Searcher** (prix moyen chez les cavistes) et **Vivino** (prix boutique et note), recherche du vin pré-remplie
+- Source de la cote déduite du lien enregistré (« source Vivino »)
 - Âge de la cote, alerte si peu de transactions ou cote ancienne
-- **Valeur de cession estimée** (cote / 1,16) et **valeur à la cote** dans les Stats
+- **Valeur de cession estimée** (cote / 1,16, cotes iDealwine ou sans lien) et **valeur à la cote** dans les Stats
 - Invisible pour un membre en lecture seule
 
 ### 🗺️ Emplacements, zones et plans
@@ -718,7 +719,7 @@ celles de `/api/admin` aux administrateurs.
 | `GET` | `/api/wines/:id` | Fiche vin |
 | `POST` | `/api/wines/:id/inventory` · `/move` | Inventaire, déplacement |
 | `PUT/DELETE` | `/api/wines/:id/apogee` · `/rating` | Apogée manuelle, note |
-| `POST` | `/api/wines/:id/quotes` | Saisie de la cote iDealwine |
+| `POST` | `/api/wines/:id/quotes` | Saisie de la cote |
 | `POST` | `/api/wines/:id/pairing/regenerate` | Régénère les accords |
 | `POST` | `/api/wines/:id/image-search` | Recherche d'image d'étiquette |
 | `POST/DELETE` | `/api/wines/:id/reference-image` | Choisir ou retirer l'image trouvée |
@@ -770,7 +771,7 @@ PWA, Docker / Dockge.
 
 **Hors périmètre** (volontairement)
 - Alerte hors de l'application (notification, e-mail) : la liste « à boire » se consulte
-- Relevé automatique de la cote iDealwine (interdit par leurs conditions générales)
+- Relevé automatique de la cote sur iDealwine, Wine-Searcher ou Vivino (contraire à leurs conditions d'utilisation)
 - Accès à Drive ou Sheets : l'export est un simple téléchargement
 
 ---
