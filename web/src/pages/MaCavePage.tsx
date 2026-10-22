@@ -10,7 +10,7 @@ import { ZoneDetails } from '../components/LocationFields';
 import { PersonRow } from '../components/PersonRow';
 import { PhotoPicker } from '../components/PhotoPicker';
 import { CellNamesFields } from '../components/CellNamesFields';
-import { PlanView } from '../components/PlanView';
+import { PlanCrop, PlanView } from '../components/PlanView';
 import { TopBar } from '../components/TopBar';
 import {
   acceptSuggestion, CavePlan, createPlan, createZone, deletePlan, deleteZone, exportUrl, getMembers, inviteMember, MemberView, planImageUrl, PlanSuggestion, rejectSuggestion,
@@ -298,9 +298,6 @@ const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 const detectedSummary = (count: number, rows: number, cols: number) =>
   `${plural(count, 'case')} repérée${count > 1 ? 's' : ''} sur la photo · grille proposée : ${plural(rows, 'rangée')} × ${plural(cols, 'colonne')}`;
 
-/** Fraction → pourcentage CSS arrondi (333.33 %). */
-const pct = (v: number) => `${+(v * 100).toFixed(2)}%`;
-
 /**
  * Proposition de l'analyse du plan : nom, lignes et colonnes préremplis et modifiables, et ce que l'analyse a
  * vu (cases repérées, grille proposée) ; Accepter crée la zone, Rejeter la retire.
@@ -318,7 +315,6 @@ function ProposalForm({ suggestion, plan, takenPrefixes, idPrefix, busy, onAccep
   const [cols, setCols] = useState(String(suggestion.cols));
   const [names, setNames] = useState<CellNameMap>({});
   const grid = parseGrid(rows, cols);
-  const [x0, y0, x1, y1] = suggestion.box;
   // Lettre enregistrée avec la proposition ; d'avant la 2.27 (sans lettre), celle que l'api choisira.
   const prefix = suggestion.cellPrefix ?? suggestPrefix(name, takenPrefixes) ?? 'A';
   // Points nommés d'après leur rangée et leur colonne dans la grille saisie, comme à l'acceptation.
@@ -336,17 +332,10 @@ function ProposalForm({ suggestion, plan, takenPrefixes, idPrefix, busy, onAccep
   return (
     <form className="zone-form" onSubmit={submit}>
       {!!suggestion.cells?.some((c) => c.name) && (
-        // Image agrandie 1/(x1 − x0), décalée du coin du cadre, rognée au cadre.
-        // Hauteur bornée à 50vh par la largeur, pour garder le rapport (et donc les décalages en %).
-        <div className="plan-crop" style={{
-          aspectRatio: `${(x1 - x0) * plan.width} / ${(y1 - y0) * plan.height}`,
-          width: `min(100%, calc(50vh * ${((x1 - x0) * plan.width) / ((y1 - y0) * plan.height)}))`,
-        }}>
-          <div className="plan-crop__inner" style={{ width: pct(1 / (x1 - x0)), left: pct(-x0 / (x1 - x0)), top: pct(-y0 / (y1 - y0)) }}>
-            <PlanView src={planImageUrl(plan.id, plan.updatedAt)} plan={plan} markers={[]} suggestions={[shown]} openSuggestionId={suggestion.id}
-              cellNames={names} onCellClick={(code) => document.getElementById(`${idPrefix}-cell-${code}`)?.focus()} />
-          </div>
-        </div>
+        <PlanCrop box={suggestion.box} plan={plan}>
+          <PlanView src={planImageUrl(plan.id, plan.updatedAt)} plan={plan} markers={[]} suggestions={[shown]} openSuggestionId={suggestion.id}
+            cellNames={names} onCellClick={(code) => document.getElementById(`${idPrefix}-cell-${code}`)?.focus()} />
+        </PlanCrop>
       )}
       <label className="field__label" htmlFor={`${idPrefix}-name`}>Nom</label>
       <input id={`${idPrefix}-name`} value={name} maxLength={ZONE_NAME_MAX} autoComplete="off" onChange={(e) => setName(e.target.value)} />
