@@ -9,6 +9,19 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.24.0](https://github.com/djkix/ma-cave/compare/v2.23.0...v2.24.0) (2026-10-22)
+
+
+### Fonctionnalités
+
+* **api:** noms des cases d'une zone, libellé « Nom (code) » et saisie par le nom ([97e0473](https://github.com/djkix/ma-cave/commit/97e04731175b543552718607890f253f62f15161))
+* **web:** nommer les cases (Proposition, Modifier la zone, grille de rangement) ([7126d9d](https://github.com/djkix/ma-cave/commit/7126d9d0376d68a4155210bc10366f8df542e8e5))
+
+
+### Corrections
+
+* noms des cases dans la Proposition par la liste, plan recadré ; grille agrandie sans nom ambigu ([a17c9de](https://github.com/djkix/ma-cave/commit/a17c9de19f4e1e7a85729611714c4066113a25f9))
+
 ## [2.23.0](https://github.com/djkix/ma-cave/compare/v2.22.0...v2.23.0) (2026-10-22)
 
 ### Résumé
