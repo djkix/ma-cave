@@ -90,7 +90,6 @@ function MemberRow({ member, busy, onRemove }: { member: MemberView; busy: boole
 
 const ZONE_NAME_MAX = 40;
 const INDICATION_MAX = 300;
-const CELL_NAME_MAX = 40;
 
 /** Lignes et colonnes d'une grille de cases (saisies en texte), et l'aperçu des cases quand elles sont valides. */
 function GridFields({ idPrefix, rows, cols, setRows, setCols }: {
@@ -272,12 +271,16 @@ const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 const detectedSummary = (count: number, rows: number, cols: number) =>
   `${plural(count, 'case')} repérée${count > 1 ? 's' : ''} sur la photo · grille proposée : ${plural(rows, 'rangée')} × ${plural(cols, 'colonne')}`;
 
+/** Fraction → pourcentage CSS arrondi (333.33 %). */
+const pct = (v: number) => `${+(v * 100).toFixed(2)}%`;
+
 /**
  * Proposition de l'analyse du plan : nom, lignes et colonnes préremplis et modifiables, et ce que l'analyse a
  * vu (cases repérées, grille proposée) ; Accepter crée la zone, Rejeter la retire.
- * Cases repérées : le plan est repris dans la feuille (le reste de la page est
- * inerte sous elle), chaque point est un bouton « Case B3 » qui ouvre « Nom de la
- * case B3 » ; les noms donnés partent avec Accepter (ceux des cases de la grille choisie).
+ * « Noms des cases » (la liste de « Modifier la zone », pour la grille saisie) : les
+ * noms partent avec Accepter. Cases repérées : le plan est repris dans la feuille (le
+ * reste de la page est inerte sous elle), recadré sur la proposition pour des cases
+ * aussi grandes que possible ; toucher un point met le focus sur le champ de sa case.
  */
 function ProposalForm({ suggestion, plan, idPrefix, busy, onAccept, onReject }: {
   suggestion: PlanSuggestion; plan: CavePlan; idPrefix: string; busy: boolean;
@@ -287,46 +290,35 @@ function ProposalForm({ suggestion, plan, idPrefix, busy, onAccept, onReject }: 
   const [rows, setRows] = useState(String(suggestion.rows));
   const [cols, setCols] = useState(String(suggestion.cols));
   const [names, setNames] = useState<CellNameMap>({});
-  // Case dont on saisit le nom, et la saisie en cours.
-  const [naming, setNaming] = useState<{ code: string; value: string } | null>(null);
   const grid = parseGrid(rows, cols);
+  const [x0, y0, x1, y1] = suggestion.box;
   function submit(e: FormEvent) {
     e.preventDefault();
     if (name.trim() && grid) onAccept({ name: name.trim(), ...grid, cellNames: cleanCellNames(names, grid) });
   }
-  function saveName(e: FormEvent) {
-    e.preventDefault();
-    if (naming) setNames((n) => ({ ...n, [naming.code]: naming.value.trim() }));
-    setNaming(null);
-  }
   return (
-    <>
+    <form className="zone-form" onSubmit={submit}>
       {!!suggestion.cells?.some((c) => c.name) && (
-        <>
-          <PlanView src={planImageUrl(plan.id, plan.updatedAt)} plan={plan} markers={[]} suggestions={[suggestion]} openSuggestionId={suggestion.id}
-            cellNames={names} onCellClick={(code) => setNaming({ code, value: names[code] ?? '' })} />
-          {naming ? (
-            <form className="zone-form" onSubmit={saveName}>
-              <label className="field__label" htmlFor={`${idPrefix}-cell`}>{`Nom de la case ${naming.code}`}</label>
-              <input id={`${idPrefix}-cell`} value={naming.value} maxLength={CELL_NAME_MAX} autoComplete="off" autoFocus placeholder={naming.code}
-                onChange={(e) => setNaming({ ...naming, value: e.target.value })} />
-              <button type="submit" className="btn btn--dark">Enregistrer</button>
-              <Button variant="link" onClick={() => setNaming(null)}>Annuler</Button>
-            </form>
-          ) : (
-            <p className="list__meta" style={{ margin: 0 }}>Touchez une case pour lui donner un nom (facultatif).</p>
-          )}
-        </>
+        // Image agrandie 1/(x1 − x0), décalée du coin du cadre, rognée au cadre.
+        // Hauteur bornée à 50vh par la largeur, pour garder le rapport (et donc les décalages en %).
+        <div className="plan-crop" style={{
+          aspectRatio: `${(x1 - x0) * plan.width} / ${(y1 - y0) * plan.height}`,
+          width: `min(100%, calc(50vh * ${((x1 - x0) * plan.width) / ((y1 - y0) * plan.height)}))`,
+        }}>
+          <div className="plan-crop__inner" style={{ width: pct(1 / (x1 - x0)), left: pct(-x0 / (x1 - x0)), top: pct(-y0 / (y1 - y0)) }}>
+            <PlanView src={planImageUrl(plan.id, plan.updatedAt)} plan={plan} markers={[]} suggestions={[suggestion]} openSuggestionId={suggestion.id}
+              cellNames={names} onCellClick={(code) => document.getElementById(`${idPrefix}-cell-${code}`)?.focus()} />
+          </div>
+        </div>
       )}
-      <form className="zone-form" onSubmit={submit}>
-        <label className="field__label" htmlFor={`${idPrefix}-name`}>Nom</label>
-        <input id={`${idPrefix}-name`} value={name} maxLength={ZONE_NAME_MAX} autoComplete="off" onChange={(e) => setName(e.target.value)} />
-        <GridFields idPrefix={idPrefix} rows={rows} cols={cols} setRows={setRows} setCols={setCols} />
-        {suggestion.cellCount !== undefined && <p className="list__meta" style={{ margin: 0 }}>{detectedSummary(suggestion.cellCount, suggestion.rows, suggestion.cols)}</p>}
-        <button type="submit" className="btn btn--primary" disabled={!name.trim() || !grid || busy}>Accepter</button>
-        <Button variant="link" disabled={busy} onClick={onReject}>Rejeter</Button>
-      </form>
-    </>
+      <label className="field__label" htmlFor={`${idPrefix}-name`}>Nom</label>
+      <input id={`${idPrefix}-name`} value={name} maxLength={ZONE_NAME_MAX} autoComplete="off" onChange={(e) => setName(e.target.value)} />
+      <GridFields idPrefix={idPrefix} rows={rows} cols={cols} setRows={setRows} setCols={setCols} />
+      {suggestion.cellCount !== undefined && <p className="list__meta" style={{ margin: 0 }}>{detectedSummary(suggestion.cellCount, suggestion.rows, suggestion.cols)}</p>}
+      {grid && <CellNamesFields grid={grid} names={names} onChange={setNames} idPrefix={`${idPrefix}-cell`} />}
+      <button type="submit" className="btn btn--primary" disabled={!name.trim() || !grid || busy}>Accepter</button>
+      <Button variant="link" disabled={busy} onClick={onReject}>Rejeter</Button>
+    </form>
   );
 }
 

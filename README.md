@@ -168,9 +168,10 @@ colonnes »), puis *Accepter*
 est dessinée sur le plan : cadre fin, **point au centre et nom de la case**
 (« B3 », le nom même qu'on choisira en rangeant une bouteille dans la zone
 acceptée ; nom masqué quand la case fait moins de 24 px de large, point seul).
-La feuille reprend ce plan : chaque point y est un bouton « Case B3 » (cible de
-44 px) qui ouvre un petit champ « Nom de la case B3 » (*Enregistrer* /
-*Annuler*) ; le point affiche alors le nom donné, et les noms partent avec
+La feuille reprend ce plan, recadré sur la proposition (cases aussi grandes que
+possible), et la liste « Noms des cases » de la grille saisie (un champ par
+case, le code en placeholder) : toucher un point met le focus sur le champ de
+sa case, le point affiche ensuite le nom donné, et les noms partent avec
 *Accepter* (voir « Noms des cases » ci-dessous). Le propriétaire seul accepte ou rejette ; un nom déjà
 pris est refusé (« Une zone porte déjà ce nom »). Les cases se nomment en
 lignes × colonnes : A1, A2… pour la première ligne, B1, B2… pour la deuxième
@@ -190,7 +191,7 @@ libre reste possible ; une zone sans grille ne change pas.
 enregistrée dans *Casier* ; on peut lui donner en plus un nom libre
 (« Champagnes », 40 caractères au plus), simple libellé d'affichage qui ne
 déplace aucune bouteille. Les noms se donnent dans la feuille *Proposition*
-(toucher un point), dans *Modifier la zone* (section « Noms des cases » : un
+(liste des cases, sous le plan recadré), dans *Modifier la zone* (section « Noms des cases » : un
 champ facultatif par case, le code en placeholder) ou sous la grille de
 rangement (*Renommer les cases*, propriétaire seulement). Partout, un
 emplacement s'affiche alors **« Nom (code) »** : « Cave / Champagnes (B3) / 2 »
@@ -198,7 +199,9 @@ sur la fiche vin, *À boire*, le journal, « D'où sort-elle ? » et l'export Ex
 (sans nom : « B3 »). La grille de rangement montre le nom et le petit code ;
 *Casier* propose noms et codes, et **saisir le nom** (casse ignorée) range dans
 la case : l'api enregistre le code, « Champagnes » et « B3 » sont donc le même
-emplacement. Règles : un nom vide retire le nom ; deux cases d'une même zone ne
+emplacement. Des bouteilles rangées plus tôt sous un casier libre « Champagnes »
+(avant que la case porte ce nom) restent un emplacement à part : *Déplacer* les
+regroupe dans la case. Règles : un nom vide retire le nom ; deux cases d'une même zone ne
 portent pas le même nom (casse ignorée), ni un nom égal au code d'une autre case
 (« Ce nom est déjà pris dans cette zone ») ; une case hors de la grille est
 refusée (« Case inconnue dans cette zone ») ; réduire la grille supprime les

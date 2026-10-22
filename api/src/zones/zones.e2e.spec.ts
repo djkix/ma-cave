@@ -222,6 +222,9 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       const z = await newZone(`Noms grille ${run}`);
       await patch(z.id, { grid: { rows: 3, cols: 3 }, cellNames: { A1: 'Bordeaux', C3: 'Champagnes' } });
       expect((await patch(z.id, { grid: { rows: 2, cols: 3 } })).body.cellNames).toEqual({ A1: 'Bordeaux' });
+      // Agrandie : un nom égal au code d'une nouvelle case est retiré.
+      await patch(z.id, { cellNames: { A1: 'Bordeaux', A2: 'd1' } });
+      expect((await patch(z.id, { grid: { rows: 4, cols: 3 } })).body.cellNames).toEqual({ A1: 'Bordeaux' });
       expect((await patch(z.id, { grid: null })).body.cellNames).toEqual({});
     });
 

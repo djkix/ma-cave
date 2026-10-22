@@ -34,6 +34,10 @@ describe('keptCellNames', () => {
     expect(keptCellNames(names, { rows: 3, cols: 3 })).toEqual({ A1: 'Bordeaux', B2: 'Loire' });
     expect(keptCellNames(names, null)).toEqual({});
   });
+
+  it('grille agrandie : un nom égal au code d’une nouvelle case est retiré (il désignerait deux cases)', () => {
+    expect(keptCellNames({ A1: 'c1', A2: 'Loire', B1: 'b1' }, { rows: 3, cols: 2 })).toEqual({ A2: 'Loire', B1: 'b1' });
+  });
 });
 
 describe('updateZoneSchema (cellNames)', () => {

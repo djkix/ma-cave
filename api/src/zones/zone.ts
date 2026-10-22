@@ -91,10 +91,16 @@ export function cellNamesFor(input: CellNames, grid: { rows: number; cols: numbe
   return out;
 }
 
-/** Noms gardés après un changement de grille : ceux des cases qui existent encore. */
+/**
+ * Noms gardés après un changement de grille : ceux des cases qui existent encore,
+ * sauf un nom devenu le code d'une autre case (grille agrandie), qui désignerait deux cases.
+ */
 export function keptCellNames(names: CellNames, grid: { rows: number; cols: number } | null): CellNames {
   const codes = new Set(gridCodes(grid));
-  return Object.fromEntries(Object.entries(names).filter(([code]) => codes.has(code)));
+  return Object.fromEntries(Object.entries(names).filter(([code, name]) => {
+    const key = name.toUpperCase();
+    return codes.has(code) && (key === code || !codes.has(key));
+  }));
 }
 
 export const createZoneSchema = z.object({ name, indication }, { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME });

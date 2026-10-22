@@ -10,8 +10,10 @@ const CELL_NAME_MAX = 40;
  * « Noms des cases » : un champ facultatif par case de la grille (placeholder =
  * code), nom accessible « Nom de la case B3 ». Vide = la case garde son code.
  */
-export function CellNamesFields({ grid, names, onChange, onEnter }: {
+export function CellNamesFields({ grid, names, onChange, onEnter, idPrefix }: {
   grid: { rows: number; cols: number }; names: CellNameMap; onChange: (names: CellNameMap) => void;
+  /** Ids des champs (`${idPrefix}-B3`) : un point du plan y met le focus. */
+  idPrefix?: string;
   /** Entrée dans un champ (hors formulaire) : enregistre au lieu de soumettre le formulaire englobant. */
   onEnter?: () => void;
 }) {
@@ -25,7 +27,7 @@ export function CellNamesFields({ grid, names, onChange, onEnter }: {
       <legend className="field__label">Noms des cases</legend>
       <div className="cell-names__list">
         {cellNames(grid.rows, grid.cols).map((code) => (
-          <input key={code} aria-label={`Nom de la case ${code}`} placeholder={code} value={names[code] ?? ''} maxLength={CELL_NAME_MAX} autoComplete="off"
+          <input key={code} id={idPrefix && `${idPrefix}-${code}`} aria-label={`Nom de la case ${code}`} placeholder={code} value={names[code] ?? ''} maxLength={CELL_NAME_MAX} autoComplete="off"
             onChange={(e) => onChange({ ...names, [code]: e.target.value })} />
         ))}
       </div>

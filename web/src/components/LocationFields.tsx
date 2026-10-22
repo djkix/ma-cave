@@ -108,7 +108,7 @@ export function LocationFields({ value, onChange, locations, zones }: {
                   <button key={n} type="button" className="cell-grid__cell" aria-pressed={chosen === n}
                     aria-label={q ? `Case ${label}, ${q} bouteille${q > 1 ? 's' : ''}` : `Case ${label}`}
                     onClick={() => onChange({ ...value, casier: n })}>
-                    {given[n] ? <>{given[n]}<span className="cell-grid__code">{n}</span></> : n}
+                    {given[n] ? <><span className="cell-grid__name">{given[n]}</span><span className="cell-grid__code">{n}</span></> : n}
                     {q ? <span className="cell-grid__count">{q}</span> : null}
                   </button>
                 );

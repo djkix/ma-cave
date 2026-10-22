@@ -31,7 +31,7 @@ const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRigh
  *
  * `onCellClick` (feuille « Proposition ») : les cases repérées de la proposition
  * ouverte sont dessinées et chaque case au code connu devient un bouton
- * « Case B3 » (cible de 44 px) ; les cadres ne sont plus des boutons.
+ * « Case B3 » (« Case Champagnes (B3) » une fois nommée) ; les cadres ne sont plus des boutons.
  * `cellNames` : nom donné à une case, affiché à la place de son code.
  */
 export function PlanView({ src, plan, markers, highlightZoneId, pending, suggestions = [], openSuggestionId, cellNames, onPlanClick, onMarkerClick, onSuggestionClick, onCellClick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
@@ -79,7 +79,7 @@ export function PlanView({ src, plan, markers, highlightZoneId, pending, suggest
             <span key={i} className="plan-view__cell" aria-hidden={onCellClick ? undefined : 'true'} style={{ left: pct(x0), top: pct(y0), width: pct(x1 - x0), height: pct(y1 - y0) }}>
               {name && <span className="plan-view__cell-name" aria-hidden="true">{cellNames?.[name] ?? name}</span>}
               {name && onCellClick && (
-                <button type="button" className="plan-view__cell-button" aria-label={`Case ${name}`} onClick={(e) => { e.stopPropagation(); onCellClick(name); }} />
+                <button type="button" className="plan-view__cell-button" aria-label={cellNames?.[name] ? `Case ${cellNames[name]} (${name})` : `Case ${name}`} onClick={(e) => { e.stopPropagation(); onCellClick(name); }} />
               )}
             </span>
           ))}

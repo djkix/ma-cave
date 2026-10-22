@@ -128,10 +128,10 @@ it('feuille « Proposition » (`onCellClick`) : chaque case repérée et nommée
     cellNames={{ A2: 'Bordeaux' }} onCellClick={onCellClick} />);
   // Le cadre n'est pas un bouton ici : seules les cases le sont.
   expect(screen.queryByRole('button', { name: 'Proposition Casier A' })).not.toBeInTheDocument();
-  expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Case A1', 'Case A2']);
+  expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Case A1', 'Case Bordeaux (A2)']);
   expect(container.querySelector('.plan-view__cells')).not.toHaveAttribute('aria-hidden');
   expect([...container.querySelectorAll('.plan-view__cell')].map((c) => c.textContent)).toEqual(['A1', 'Bordeaux', '']);
-  await userEvent.click(screen.getByRole('button', { name: 'Case A2' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Case Bordeaux (A2)' }));
   expect(onCellClick).toHaveBeenCalledWith('A2');
 });
 

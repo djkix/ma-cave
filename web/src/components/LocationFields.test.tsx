@@ -149,6 +149,8 @@ describe('zone avec une grille', () => {
     const { container } = render(<Harness initial={{ zoneId: 'z3', casier: null, position: null }} zoneList={named} block={false} />);
     const b3 = await screen.findByRole('button', { name: 'Case Champagnes (B3), 2 bouteilles' });
     expect(b3).toHaveTextContent('ChampagnesB32');
+    // Nom long : coupé à l'affichage (points de suspension), entier dans le nom accessible.
+    expect(b3.querySelector('.cell-grid__name')).toHaveTextContent('Champagnes');
     expect(casierList(container)).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'Champagnes', 'B']);
     await userEvent.type(screen.getByLabelText('Casier'), 'champagnes');
     expect(b3).toHaveAttribute('aria-pressed', 'true');
