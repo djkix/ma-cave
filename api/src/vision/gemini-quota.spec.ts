@@ -210,16 +210,26 @@ describe('GeminiQuotaService (Redis réel)', () => {
     await quota.addTokens(M, 2700, NOW);
     await quota.markExhausted(L, NOW);
     await expect(quota.usage([M, L], NOW)).resolves.toEqual({
-      model: M,
+      current: M,
       minute: { requests: 1, tokens: 2700 },
-      day: { requests: 2 },
-      limits: DEFAULT_LIMITS,
       dayResetsAt: '2026-10-22T07:00:00.000Z',
       models: [
-        { model: M, requests: 2, rpd: 20, exhaustedUntil: null },
-        { model: L, requests: 0, rpd: 20, exhaustedUntil: '2026-10-22T07:00:00.000Z' },
+        { model: M, requests: 2, limits: DEFAULT_LIMITS, exhaustedUntil: null },
+        { model: L, requests: 0, limits: DEFAULT_LIMITS, exhaustedUntil: '2026-10-22T07:00:00.000Z' },
       ],
     });
+  });
+
+  it('usage : modèle en cours = le premier dont le quota du jour n’est pas atteint ; tous épuisés : aucun', async () => {
+    const { quota } = serviceWith();
+    await quota.markExhausted(M, NOW);
+    await quota.reserve(L, NOW);
+    const u = await quota.usage([M, L], NOW);
+    expect(u.current).toBe(L);
+    expect(u.minute.requests).toBe(1);
+    await quota.markExhausted(L, NOW);
+    expect((await quota.usage([M, L], NOW)).current).toBeNull();
+    expect(await quota.usage([], NOW)).toMatchObject({ current: null, models: [] });
   });
 
   it('blocked : le refus qu’essuierait un appel, sans rien réserver', async () => {
@@ -235,7 +245,7 @@ describe('GeminiQuotaService (Redis réel)', () => {
     const log = { error: jest.fn() };
     const broken = new Proxy({}, { get: () => jest.fn().mockRejectedValue(new Error('ECONNREFUSED')) }) as unknown as Redis;
     const quota = new GeminiQuotaService(fakePrisma(), broken, { prefix, log });
-    await expect(quota.usage([M], NOW)).resolves.toMatchObject({ minute: { requests: 0, tokens: 0 }, day: { requests: 0 } });
+    await expect(quota.usage([M], NOW)).resolves.toMatchObject({ current: M, minute: { requests: 0, tokens: 0 }, models: [{ model: M, requests: 0 }] });
     await expect(quota.blocked([M], NOW)).resolves.toBeNull();
     expect(log.error).toHaveBeenCalledWith(expect.stringContaining('ECONNREFUSED'));
   });

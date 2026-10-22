@@ -15,14 +15,13 @@ import { VISION_PROVIDER } from './vision-provider.interface';
   providers: [
     // Journal des appels et pause commune, partagés par l'api et le worker (même base).
     { provide: GeminiJournal, useFactory: (prisma: PrismaService) => new GeminiJournal(prisma, new Logger('GeminiJournal')), inject: [PrismaService] },
-    // Modèle en vigueur, choisi dans l'Administration (réglage partagé par l'api et le worker), et liste de bascule.
+    // Modèles choisis seuls : liste stable de Google, du plus récent au plus ancien.
     {
       provide: GeminiModelService,
-      useFactory: (prisma: PrismaService) => {
+      useFactory: () => {
         const env = loadEnv();
-        return new GeminiModelService(prisma, env.GEMINI_MODEL, env.GEMINI_API_KEY, { log: new Logger('GeminiModel') });
+        return new GeminiModelService(env.GEMINI_MODEL, env.GEMINI_API_KEY);
       },
-      inject: [PrismaService],
     },
     // Limites de débit (compteurs Redis partagés). Connexion à la demande, une
     // seule tentative par commande : Redis injoignable, l'appel part sans attendre.

@@ -4,25 +4,53 @@ import { GeminiQuotaError } from '../vision/gemini-pause';
 import { AdminGeminiQuotaController } from './admin.controller';
 import { GeminiUsageService } from './gemini-usage.service';
 
-const USAGE = { minute: { requests: 1, tokens: 2700 }, day: { requests: 7 }, limits: { rpm: 5, tpm: 250000, rpd: 20 }, dayResetsAt: '2026-10-22T07:00:00.000Z' };
+const LIMITS = { rpm: 5, tpm: 250000, rpd: 20 };
+const USAGE = {
+  current: 'gemini-3-flash-lite',
+  minute: { requests: 1, tokens: 2700 },
+  dayResetsAt: '2026-10-22T07:00:00.000Z',
+  models: [
+    { model: 'gemini-3-flash', requests: 20, limits: LIMITS, exhaustedUntil: '2026-10-22T07:00:00.000Z' },
+    { model: 'gemini-3-flash-lite', requests: 3, limits: LIMITS, exhaustedUntil: null },
+  ],
+};
 
 describe('AdminGeminiQuotaController', () => {
-  const setup = () => {
-    const quota = { usage: jest.fn(async () => USAGE), setLimits: jest.fn(async (l: unknown) => l) };
-    const models = { candidates: jest.fn(async () => ['gemini-3-flash', 'gemini-3-flash-lite']) };
+  const setup = (available = { models: ['gemini-3-flash-lite', 'gemini-3-flash'], error: null as string | null }) => {
+    const quota = { usage: jest.fn(async () => USAGE), setLimits: jest.fn(async (_m: string, l: unknown) => l) };
+    const models = { available: jest.fn(async () => available), candidates: jest.fn(async () => ['gemini-3-flash', 'gemini-3-flash-lite']) };
     return { quota, controller: new AdminGeminiQuotaController(quota as any, models as any) };
   };
 
-  it('GET : utilisation du modèle choisi et de la liste de bascule', async () => {
-    const { quota, controller } = setup();
-    await expect(controller.get()).resolves.toEqual(USAGE);
-    expect(quota.usage).toHaveBeenCalledWith(['gemini-3-flash', 'gemini-3-flash-lite']);
+  it('GET : modèle en cours, modèles dans l’ordre d’emploi, erreur de la liste de Google', async () => {
+    const { quota, controller } = setup({ models: ['gemini-3-flash'], error: 'Liste des modèles indisponible : x' });
+    await expect(controller.get()).resolves.toEqual({ ...USAGE, error: 'Liste des modèles indisponible : x' });
+    expect(quota.usage).toHaveBeenCalledWith(['gemini-3-flash']);
   });
 
-  it('PUT : limites enregistrées pour le modèle choisi, utilisation relue', async () => {
+  it('PUT sans modèle : limites du modèle en cours', async () => {
     const { quota, controller } = setup();
-    await expect(controller.update({ rpm: 10, tpm: 1000000, rpd: 500 })).resolves.toEqual(USAGE);
+    await expect(controller.update({ rpm: 10, tpm: 1000000, rpd: 500 })).resolves.toEqual({ ...USAGE, error: null });
+    expect(quota.setLimits).toHaveBeenCalledWith('gemini-3-flash-lite', { rpm: 10, tpm: 1000000, rpd: 500 });
+  });
+
+  it('PUT avec modèle de la liste : ses limites', async () => {
+    const { quota, controller } = setup();
+    await controller.update({ model: 'gemini-3-flash', rpm: 10, tpm: 1000000, rpd: 500 });
     expect(quota.setLimits).toHaveBeenCalledWith('gemini-3-flash', { rpm: 10, tpm: 1000000, rpd: 500 });
+  });
+
+  it.each([
+    [{ model: 'gemini-3-pro', rpm: 1, tpm: 1, rpd: 1 }, 'Seuls les modèles Gemini Flash ou Flash-Lite stables sont acceptés'],
+    [{ model: 'gemini-3-flash-preview-tts', rpm: 1, tpm: 1, rpd: 1 }, 'Seuls les modèles Gemini Flash ou Flash-Lite stables sont acceptés'],
+    [{ model: 3, rpm: 1, tpm: 1, rpd: 1 }, 'Seuls les modèles Gemini Flash ou Flash-Lite stables sont acceptés'],
+    [{ model: 'gemini-9-flash', rpm: 1, tpm: 1, rpd: 1 }, 'Modèle absent de la liste des modèles employés'],
+  ])('PUT %j : 400 « %s »', async (body, message) => {
+    const { quota, controller } = setup();
+    const e = await controller.update(body).catch((x: Error) => x);
+    expect(e).toBeInstanceOf(BadRequestException);
+    expect((e as Error).message).toBe(message);
+    expect(quota.setLimits).not.toHaveBeenCalled();
   });
 
   it.each([{ rpm: 0, tpm: 1, rpd: 1 }, { rpm: 1.5, tpm: 1, rpd: 1 }, { rpm: -1, tpm: 1, rpd: 1 }, { rpm: '5', tpm: 1, rpd: 1 }, { rpm: 5, tpm: 1 }, {}, null])(

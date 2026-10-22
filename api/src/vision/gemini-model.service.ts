@@ -1,20 +1,9 @@
-import { PrismaClient } from '@prisma/client';
 import { isLightModel } from '../config/env';
 
-/** Réglage `app_setting` du modèle choisi dans l'Administration ; absent : `GEMINI_MODEL` du .env. */
-export const GEMINI_MODEL_KEY = 'gemini_model';
-
-/** L'api et le worker relisent le réglage au plus tard 30 s après un changement fait par l'autre processus. */
-const CURRENT_TTL_MS = 30_000;
 const LIST_TTL_MS = 3_600_000;
 /** Google en panne : l'échec est gardé une minute, pour ne pas attendre son délai à chaque page de l'Administration. */
 const LIST_FAILURE_TTL_MS = 60_000;
 const LIST_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-
-export interface GeminiModelChoice {
-  model: string;
-  source: 'ADMIN' | 'ENV';
-}
 
 /** Modèle stable de génération : `gemini-<version>-flash` ou `-flash-lite`, sans suffixe (preview, exp, tts, image…). */
 const STABLE = /^gemini-(\d+(?:\.\d+)*)-flash(-lite)?$/;
@@ -29,17 +18,15 @@ export function isStableModel(name: string): boolean {
 }
 
 /**
- * Liste de bascule : le modèle choisi d'abord, puis les modèles stables Flash
- * et Flash-Lite de Google, du plus récent au plus ancien, Flash avant
- * Flash-Lite à version égale. Jamais de Pro.
+ * Ordre d'emploi : les modèles stables Flash et Flash-Lite, du plus récent au
+ * plus ancien, Flash avant Flash-Lite à version égale. Jamais de Pro.
  */
-export function fallbackModels(chosen: string, available: string[]): string[] {
+export function fallbackModels(available: string[]): string[] {
   const rank = (m: string) => {
     const [, version, lite] = STABLE.exec(m)!;
     return { version: version.split('.').map(Number), lite: lite ? 1 : 0 };
   };
-  const others = available.filter((m) => m !== chosen && isStableModel(m));
-  others.sort((a, b) => {
+  return [...new Set(available)].filter(isStableModel).sort((a, b) => {
     const [ra, rb] = [rank(a), rank(b)];
     for (let i = 0; i < Math.max(ra.version.length, rb.version.length); i++) {
       const d = (rb.version[i] ?? 0) - (ra.version[i] ?? 0);
@@ -47,13 +34,11 @@ export function fallbackModels(chosen: string, available: string[]): string[] {
     }
     return ra.lite - rb.lite;
   });
-  return [chosen, ...others];
 }
 
 interface Deps {
   fetch?: typeof fetch;
   clock?: () => number;
-  log?: { error(message: string): void };
 }
 
 interface GoogleModelsPage {
@@ -62,55 +47,26 @@ interface GoogleModelsPage {
 }
 
 /**
- * Modèle Gemini en vigueur, commun à tous les usages, à l'api et au worker
- * (même base). Un réglage illisible ou une base injoignable ne bloque jamais
- * un appel : dernier modèle connu, sinon celui du .env.
+ * Modèles Gemini de tous les usages, choisis seuls (plus de réglage) : la liste
+ * stable de Google, dans l'ordre de `fallbackModels`. Liste indisponible :
+ * `GEMINI_MODEL` du .env s'il est stable.
  */
 export class GeminiModelService {
-  private cached: { value: GeminiModelChoice; at: number } | null = null;
   private list: { models: string[]; at: number } | null = null;
   private listFailure: { error: string; at: number } | null = null;
   private readonly fetch: typeof fetch;
   private readonly clock: () => number;
-  private readonly log: { error(message: string): void };
 
   constructor(
-    private readonly prisma: Pick<PrismaClient, 'appSetting'>,
     private readonly envModel: string,
     private readonly apiKey: string,
     deps: Deps = {},
   ) {
     this.fetch = deps.fetch ?? fetch;
     this.clock = deps.clock ?? Date.now;
-    this.log = deps.log ?? console;
   }
 
-  async current(): Promise<GeminiModelChoice> {
-    const now = this.clock();
-    if (this.cached && now - this.cached.at < CURRENT_TTL_MS) return this.cached.value;
-    let value: GeminiModelChoice;
-    try {
-      const [row] = await this.prisma.appSetting.findMany({ where: { key: { in: [GEMINI_MODEL_KEY] } } });
-      // Une valeur Pro, ou une variante spécialisée (tts…) choisie avant le filtrage de la liste, n'est jamais employée.
-      if (row && !isStableModel(row.value)) this.log.error(`Modèle Gemini « ${row.value} » en base ignoré (Flash ou Flash-Lite stable seulement) : ${this.envModel} (.env) employé`);
-      value = row && isStableModel(row.value) ? { model: row.value, source: 'ADMIN' } : { model: this.envModel, source: 'ENV' };
-    } catch (e) {
-      this.log.error(`Modèle Gemini illisible, ${this.cached ? 'dernier modèle connu' : 'modèle du .env'} employé : ${messageOf(e)}`);
-      return this.cached?.value ?? { model: this.envModel, source: 'ENV' };
-    }
-    this.cached = { value, at: now };
-    return value;
-  }
-
-  /** Le nom est validé par l'appelant (Flash ou Lite, connu de Google). */
-  async set(model: string): Promise<GeminiModelChoice> {
-    await this.prisma.appSetting.upsert({ where: { key: GEMINI_MODEL_KEY }, create: { key: GEMINI_MODEL_KEY, value: model }, update: { value: model } });
-    const value: GeminiModelChoice = { model, source: 'ADMIN' };
-    this.cached = { value, at: this.clock() };
-    return value;
-  }
-
-  /** Modèles Flash ou Lite de Google (cache 1 h) ; en échec, le modèle en vigueur seul et l'erreur. */
+  /** Modèles Flash ou Lite de Google (cache 1 h) ; en échec, le modèle du .env (s'il est stable) et l'erreur. */
   async available(): Promise<{ models: string[]; error: string | null }> {
     const now = this.clock();
     if (this.list && now - this.list.at < LIST_TTL_MS) return { models: this.list.models, error: null };
@@ -124,13 +80,12 @@ export class GeminiModelService {
         this.listFailure = { error: `Liste des modèles indisponible : ${messageOf(e)}`, at: now };
       }
     }
-    return { models: [(await this.current()).model], error: this.listFailure.error };
+    return { models: isStableModel(this.envModel) ? [this.envModel] : [], error: this.listFailure.error };
   }
 
-  /** Modèles à essayer dans l'ordre (voir `fallbackModels`) ; liste de Google indisponible : le modèle choisi seul. */
+  /** Modèles à essayer, dans l'ordre (voir `fallbackModels`). */
   async candidates(): Promise<string[]> {
-    const [{ model }, { models }] = await Promise.all([this.current(), this.available()]);
-    return fallbackModels(model, models);
+    return fallbackModels((await this.available()).models);
   }
 
   private async fetchModels(): Promise<string[]> {

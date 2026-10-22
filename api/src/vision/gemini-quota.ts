@@ -21,27 +21,26 @@ export interface GeminiLimits {
 
 export const DEFAULT_LIMITS: GeminiLimits = { rpm: 5, tpm: 250_000, rpd: 20 };
 
-/** Requêtes du jour d'un modèle de la liste de bascule ; `exhaustedUntil` : quota du jour atteint, jusqu'à quand. */
+/** Requêtes du jour et limites d'un modèle ; `exhaustedUntil` : quota du jour atteint, jusqu'à quand. */
 export interface GeminiModelDayUsage {
   model: string;
   requests: number;
-  rpd: number;
+  limits: GeminiLimits;
   exhaustedUntil: string | null;
 }
 
 export interface GeminiQuotaUsage {
-  /** Modèle dont les compteurs et limites sont rendus (le modèle choisi). */
-  model: string;
+  /** Modèle en cours : le premier dont le quota du jour n'est pas atteint ; null si tous le sont (ou aucun modèle). */
+  current: string | null;
+  /** 60 dernières secondes du modèle en cours (à défaut, du premier). */
   minute: { requests: number; tokens: number };
-  day: { requests: number };
-  limits: GeminiLimits;
   /** Prochain minuit du Pacifique (ISO). */
   dayResetsAt: string;
-  /** Liste de bascule, dans l'ordre d'emploi (le modèle choisi en premier). */
+  /** Modèles dans l'ordre d'emploi. */
   models: GeminiModelDayUsage[];
 }
 
-/** Comme le modèle : l'api et le worker relisent les limites au plus tard 30 s après un changement. */
+/** L'api et le worker relisent les limites au plus tard 30 s après un changement. */
 const LIMITS_TTL_MS = 30_000;
 /** Google compte les requêtes et les jetons par minute sur une fenêtre glissante de 60 s. */
 const WINDOW_MS = 60_000;
@@ -215,32 +214,34 @@ export class GeminiQuotaService {
   }
 
   /**
-   * Utilisation des 60 dernières secondes et du jour de `models[0]` (le modèle
-   * choisi), et requêtes du jour de chaque modèle de la liste de bascule ;
-   * Redis injoignable : compteurs à zéro (journalisé).
+   * Requêtes du jour et limites de chaque modèle (dans l'ordre d'emploi), modèle
+   * en cours et ses 60 dernières secondes ; Redis injoignable : compteurs à
+   * zéro (journalisé).
    */
   async usage(models: string[], now = new Date(this.clock())): Promise<GeminiQuotaUsage> {
-    const [model] = models;
     const from = `(${now.getTime() - WINDOW_MS}`;
     const resetsAt = nextPacificMidnight(now).toISOString();
     const all = await Promise.all(models.map(async (m) => ({ m, limits: await this.limits(m), keys: this.keys(m, now) })));
     let minute = { requests: 0, tokens: 0 };
-    let days = all.map(({ m, limits }) => ({ model: m, requests: 0, rpd: limits.rpd, exhaustedUntil: null as string | null }));
+    let days: GeminiModelDayUsage[] = all.map(({ m, limits }) => ({ model: m, requests: 0, limits, exhaustedUntil: null }));
     try {
-      const [requestsKey, tokensKey] = all[0].keys;
-      const [requests, entries] = await Promise.all([this.redis.zcount(requestsKey, from, '+inf'), this.redis.zrangebyscore(tokensKey, from, '+inf')]);
-      minute = { requests, tokens: entries.reduce((sum, e) => sum + Number(e.split(':').pop()), 0) };
       days = await Promise.all(
         all.map(async ({ m, limits, keys }) => {
           const [day, marked] = await Promise.all([this.redis.get(keys[2]), this.redis.exists(keys[3])]);
           const requests = Number(day ?? 0);
-          return { model: m, requests, rpd: limits.rpd, exhaustedUntil: marked || requests >= limits.rpd ? resetsAt : null };
+          return { model: m, requests, limits, exhaustedUntil: marked || requests >= limits.rpd ? resetsAt : null };
         }),
       );
+      const shown = all[Math.max(0, days.findIndex((d) => !d.exhaustedUntil))];
+      if (shown) {
+        const [requestsKey, tokensKey] = shown.keys;
+        const [requests, entries] = await Promise.all([this.redis.zcount(requestsKey, from, '+inf'), this.redis.zrangebyscore(tokensKey, from, '+inf')]);
+        minute = { requests, tokens: entries.reduce((sum, e) => sum + Number(e.split(':').pop()), 0) };
+      }
     } catch (e) {
       this.log.error(`Compteurs Gemini illisibles : ${messageOf(e)}`);
     }
-    return { model, minute, day: { requests: days[0].requests }, limits: all[0].limits, dayResetsAt: resetsAt, models: days };
+    return { current: days.find((d) => !d.exhaustedUntil)?.model ?? null, minute, dayResetsAt: resetsAt, models: days };
   }
 
   /** Requêtes et jetons des 60 dernières secondes, requêtes du jour (Pacifique), marque « épuisé » : par modèle. */

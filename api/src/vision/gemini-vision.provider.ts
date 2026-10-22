@@ -230,9 +230,8 @@ type Model = Pick<GenerativeModel, 'generateContent'>;
 export class GeminiVisionProvider implements VisionProvider, PairingProvider, ProducerProvider, OfficialSiteProvider {
   /**
    * `modelFor` : le modèle Gemini d'un nom ; `models` : les modèles à essayer,
-   * lus à chaque appel (le modèle choisi dans l'Administration d'abord, puis la
-   * liste de bascule, voir GeminiModelService.candidates) : un changement sert
-   * dès l'appel suivant, pour tous les usages.
+   * lus à chaque appel (du plus récent au plus ancien, voir
+   * GeminiModelService.candidates), pour tous les usages.
    * `journal` : point de passage unique de tous les appels (voir `call`). Sans
    * journal (tests unitaires des consignes), les appels partent tels quels.
    * `quota` : limiteur de débit commun à l'api et au worker (voir `call`).
@@ -268,7 +267,7 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
         day ??= e;
       }
     }
-    throw day!;
+    throw day ?? new Error('Aucun modèle Gemini Flash ou Flash-Lite stable disponible');
   }
 
   /**

@@ -31,12 +31,6 @@ export const updateBudgetSchema = z
 
 const INVALID_MODEL = 'Seuls les modèles Gemini Flash ou Flash-Lite stables sont acceptés';
 
-/** Modèle Gemini choisi dans l'Administration : Flash ou Flash-Lite stable (voir `isStableModel`) ; connu de Google, vérifié à part. */
-export const updateGeminiModelSchema = z.object(
-  { model: z.string({ invalid_type_error: INVALID_MODEL, required_error: INVALID_MODEL }).refine(isStableModel, { message: INVALID_MODEL }) },
-  { invalid_type_error: INVALID_MODEL, required_error: INVALID_MODEL },
-);
-
 const INVALID_DAYS = 'La période doit être un nombre de jours entre 1 et 90';
 
 /** `?days=` de la consommation Gemini : 1 à 90 jours, 7 si absent ; répété (tableau), refusé en français. */
@@ -51,5 +45,17 @@ export const geminiUsageDaysSchema = z
 const INVALID_LIMITS = 'Limites invalides : entiers positifs attendus';
 const limit = z.number({ invalid_type_error: INVALID_LIMITS, required_error: INVALID_LIMITS }).int({ message: INVALID_LIMITS }).min(1, { message: INVALID_LIMITS });
 
-/** Limites de débit Gemini : requêtes par minute, jetons par minute, requêtes par jour ; entiers ≥ 1. */
-export const updateGeminiQuotaSchema = z.object({ rpm: limit, tpm: limit, rpd: limit }, { invalid_type_error: INVALID_LIMITS, required_error: INVALID_LIMITS });
+/**
+ * Limites de débit Gemini d'un modèle : requêtes par minute, jetons par minute,
+ * requêtes par jour, entiers ≥ 1 ; `model` (Flash ou Flash-Lite stable, présent
+ * dans la liste, vérifié à part) : par défaut le modèle en cours.
+ */
+export const updateGeminiQuotaSchema = z.object(
+  {
+    model: z.string({ invalid_type_error: INVALID_MODEL }).refine(isStableModel, { message: INVALID_MODEL }).optional(),
+    rpm: limit,
+    tpm: limit,
+    rpd: limit,
+  },
+  { invalid_type_error: INVALID_LIMITS, required_error: INVALID_LIMITS },
+);

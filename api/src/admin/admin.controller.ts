@@ -4,10 +4,10 @@ import { AdminGuard } from '../auth/admin.guard';
 import { AuthenticatedGuard } from '../auth/authenticated.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { VisionBudgetService } from '../queue/vision-budget.service';
-import { GeminiModelService } from '../vision/gemini-model.service';
+import { GeminiModelService, fallbackModels } from '../vision/gemini-model.service';
 import { GeminiQuotaService } from '../vision/gemini-quota';
 import { AdminService } from './admin.service';
-import { geminiUsageDaysSchema, updateAdminUserSchema, updateBudgetSchema, updateGeminiModelSchema, updateGeminiQuotaSchema } from './dto';
+import { geminiUsageDaysSchema, updateAdminUserSchema, updateBudgetSchema, updateGeminiQuotaSchema } from './dto';
 import { GeminiUsageService } from './gemini-usage.service';
 
 @Controller('admin/users')
@@ -98,31 +98,7 @@ export class AdminGeminiUsageController {
   }
 }
 
-/** Modèle Gemini de tous les usages : Flash ou Lite, parmi ceux que Google propose. */
-@Controller('admin/gemini-model')
-@UseGuards(AuthenticatedGuard, AdminGuard)
-export class AdminGeminiModelController {
-  constructor(private readonly models: GeminiModelService) {}
-
-  @Get()
-  async get() {
-    const [current, available] = await Promise.all([this.models.current(), this.models.available()]);
-    return { ...current, ...available };
-  }
-
-  @Put()
-  async update(@Body() body: unknown) {
-    const parsed = updateGeminiModelSchema.safeParse(body);
-    if (!parsed.success) throw new BadRequestException(parsed.error.issues[0].message);
-    const { model } = parsed.data;
-    const { models, error } = await this.models.available();
-    // Liste indisponible : le nom (Flash ou Lite) est accepté tel quel.
-    if (error === null && !models.includes(model)) throw new BadRequestException('Modèle inconnu de Google');
-    return this.models.set(model);
-  }
-}
-
-/** Limites de débit Gemini (niveau sans frais de Google) et leur utilisation en cours. */
+/** Modèles Gemini, choisis seuls (du plus récent au plus ancien), leurs limites de débit (niveau sans frais de Google) et leur utilisation. */
 @Controller('admin/gemini-quota')
 @UseGuards(AuthenticatedGuard, AdminGuard)
 export class AdminGeminiQuotaController {
@@ -131,18 +107,27 @@ export class AdminGeminiQuotaController {
     private readonly models: GeminiModelService,
   ) {}
 
-  /** Compteurs et limites du modèle choisi, requêtes du jour de chaque modèle de la liste de bascule. */
+  /** Modèle en cours (`current`), chaque modèle dans l'ordre d'emploi, erreur de la liste de Google éventuelle. */
   @Get()
   async get() {
-    return this.quota.usage(await this.models.candidates());
+    return this.view();
   }
 
+  /** Limites d'un modèle de la liste (`model`, par défaut le modèle en cours). */
   @Put()
   async update(@Body() body: unknown) {
     const parsed = updateGeminiQuotaSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0].message);
+    const { model, ...limits } = parsed.data;
     const models = await this.models.candidates();
-    await this.quota.setLimits(models[0], parsed.data);
-    return this.quota.usage(models);
+    const target = model ?? (await this.quota.usage(models)).current ?? models[0];
+    if (!target || !models.includes(target)) throw new BadRequestException('Modèle absent de la liste des modèles employés');
+    await this.quota.setLimits(target, limits);
+    return this.view();
+  }
+
+  private async view() {
+    const { models, error } = await this.models.available();
+    return { ...(await this.quota.usage(fallbackModels(models))), error };
   }
 }
