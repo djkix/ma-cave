@@ -208,6 +208,7 @@ describe('ZonePlan', () => {
     expect(screen.getByText('Cellier')).toHaveClass('plan-caption');
     expect(screen.getByRole('img', { name: 'Zone 2 : Étagère' })).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('img', { name: 'Zone 1 : Garage' })).not.toHaveAttribute('aria-current');
+    expect(screen.queryByRole('img', { name: 'Zone 1 : Cave 1' })).not.toBeInTheDocument();
   });
 
   it('zone sans repère : rien', async () => {
@@ -343,6 +344,13 @@ describe('ajuster les cases (editCells)', () => {
     expect(onMove).toHaveBeenLastCalledWith('C1', 0.15, 0.2);
     await userEvent.keyboard('{Escape}');
     expect(onSelect).toHaveBeenCalledWith(null);
+  });
+
+  it('au clavier : les flèches sur le bouton d’une autre case ne déplacent pas la case choisie', async () => {
+    const { onMove } = setup('C1');
+    screen.getByRole('button', { name: 'Case Champagnes (C2)' }).focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(onMove).not.toHaveBeenCalled();
   });
 
   it('au clavier : Entrée sur le plan pose une case choisie sans position au point `home`', async () => {

@@ -53,6 +53,8 @@ it('placeCell : centre de la case au point touché, taille gardée, bornée à l
   expect(placeCell(boxes, 'A1', 0.5, 0.5)).toEqual({ A1: [0.45, 0.4, 0.55, 0.6] });
   expect(placeCell(boxes, 'A1', 0.98, 0)).toEqual({ A1: [0.9, 0, 1, 0.2] });
   expect(boxes.A1).toEqual([0.1, 0.1, 0.2, 0.3]);
+  // Cadre donné (plan recadré) : la case reste dedans.
+  expect(placeCell(boxes, 'A1', 0.5, 0.5, [0.2, 0.2, 0.5, 0.5])).toEqual({ A1: [0.4, 0.3, 0.5, 0.5] });
 });
 
 it('placeCell : case sans position posée à la taille moyenne des cases placées, sinon 4 % × 4 %', () => {

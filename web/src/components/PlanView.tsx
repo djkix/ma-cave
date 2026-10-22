@@ -68,6 +68,9 @@ export function PlanView({ src, plan, markers, highlightZoneId, highlightCell, p
   }
   function editKey(e: KeyboardEvent<HTMLSpanElement>) {
     if (!editCells || !selected) return;
+    // Touche sur le bouton d'une autre case que la case choisie : elle ne déplace rien.
+    const focused = (e.target as HTMLElement).dataset.cell;
+    if (focused !== undefined && focused !== selected) return;
     const arrow = ARROWS[e.key];
     const b = editCells.boxes[selected];
     if (e.key === 'Escape') editCells.onSelect(null);
@@ -128,7 +131,7 @@ export function PlanView({ src, plan, markers, highlightZoneId, highlightCell, p
               <span key={code} className={`plan-view__cell plan-view__zone-cell${on ? ' plan-view__zone-cell--highlight plan-view__zone-cell--current' : ''}`}
                 style={{ left: pct(x0), top: pct(y0), width: pct(x1 - x0), height: pct(y1 - y0) }}>
                 <span className="plan-view__cell-name" aria-hidden="true">{name ?? code}</span>
-                <button type="button" className="plan-view__cell-button" aria-label={name ? `Case ${name} (${code})` : `Case ${code}`} aria-pressed={on}
+                <button type="button" className="plan-view__cell-button" aria-label={name ? `Case ${name} (${code})` : `Case ${code}`} aria-pressed={on} data-cell={code}
                   onClick={(e) => { e.stopPropagation(); editCells.onSelect(code); }} />
               </span>
             );

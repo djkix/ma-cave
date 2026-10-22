@@ -1229,16 +1229,56 @@ describe('plan de la cave', () => {
       await userEvent.click(s.getByRole('button', { name: 'Case C1' }));
       expect(s.getByRole('button', { name: 'Case C1' })).toHaveAttribute('aria-pressed', 'true');
       expect(s.getByRole('status')).toHaveTextContent('Case C1 choisie : touchez son nouvel endroit sur le plan.');
-      tapSheetPlan(s, 0.5, 0.5);
+      tapSheetPlan(s, 0.2, 0.3);
       const missing = within(s.getByRole('group', { name: 'Cases sans position' }));
       await userEvent.click(missing.getByRole('button', { name: 'C3' }));
       expect(s.getByRole('status')).toHaveTextContent('Case C3 choisie : touchez le plan pour la poser.');
-      tapSheetPlan(s, 0.8, 0.5);
+      tapSheetPlan(s, 0.35, 0.3);
       expect(s.queryByRole('group', { name: 'Cases sans position' })).not.toBeInTheDocument();
       await userEvent.click(s.getByRole('button', { name: 'Enregistrer' }));
-      await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { cellBoxes: { C1: [0.45, 0.4, 0.55, 0.6], C2: c2, C3: [0.75, 0.4, 0.85, 0.6] } }));
+      await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { cellBoxes: { C1: [0.15, 0.2, 0.25, 0.4], C2: c2, C3: [0.3, 0.2, 0.4, 0.4] } }));
       expect(await zonesCard().findByRole('status')).toHaveTextContent('Positions des cases enregistrées.');
       expect(screen.queryByRole('dialog', { name: 'Ajuster les cases de Cellier' })).not.toBeInTheDocument();
+    });
+
+    it('« Voir tout le plan » enlève le recadrage : une case se pose n’importe où ; recadré, elle reste dans le cadre', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [main], markers: [marker] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([casier]);
+      const update = vi.spyOn(api, 'updateZone').mockResolvedValue(casier);
+      mount();
+      await userEvent.click(within(await zonesCard().findByRole('listitem', { name: 'Cellier' })).getByRole('button', { name: 'Modifier' }));
+      await userEvent.click(within(screen.getByRole('dialog', { name: 'Modifier Cellier' })).getByRole('button', { name: 'Ajuster les cases sur le plan' }));
+      const dialog = screen.getByRole('dialog', { name: 'Ajuster les cases de Cellier' });
+      const s = within(dialog);
+      // Recadré sur [0.06, 0.16, 0.44, 0.44] : les flèches ne sortent pas la case du cadre.
+      await userEvent.click(s.getByRole('button', { name: 'Case Champagnes (C2)' }));
+      for (let i = 0; i < 3; i++) await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}');
+      const toggle = s.getByRole('button', { name: 'Voir tout le plan' });
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      await userEvent.click(toggle);
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      expect(dialog.querySelector('.plan-crop')).not.toBeInTheDocument();
+      await userEvent.click(s.getByRole('button', { name: 'Case C1' }));
+      tapSheetPlan(s, 0.9, 0.9);
+      await userEvent.click(s.getByRole('button', { name: 'Enregistrer' }));
+      await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { cellBoxes: { C1: [0.85, 0.8, 0.95, 1], C2: [0.34, 0.2, 0.44, 0.4] } }));
+    });
+
+    it('fermer la feuille avec des positions non enregistrées demande confirmation', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [main], markers: [marker] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([casier]);
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+      mount();
+      await userEvent.click(within(await zonesCard().findByRole('listitem', { name: 'Cellier' })).getByRole('button', { name: 'Modifier' }));
+      await userEvent.click(within(screen.getByRole('dialog', { name: 'Modifier Cellier' })).getByRole('button', { name: 'Ajuster les cases sur le plan' }));
+      const dialog = screen.getByRole('dialog', { name: 'Ajuster les cases de Cellier' });
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Case C1' }));
+      tapSheetPlan(within(dialog), 0.3, 0.3);
+      fireEvent.click(dialog);
+      expect(confirm).toHaveBeenCalledWith('Abandonner les positions non enregistrées ?');
+      expect(screen.getByRole('dialog', { name: 'Ajuster les cases de Cellier' })).toBeInTheDocument();
+      fireEvent.click(dialog);
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Ajuster les cases de Cellier' })).not.toBeInTheDocument());
     });
 
     it('Annuler n’envoie rien et revient à « Modifier »', async () => {
