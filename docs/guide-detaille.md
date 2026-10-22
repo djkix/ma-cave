@@ -440,7 +440,18 @@ cave n'a aucune zone, un lien *Créer une zone* mène à *Ma cave*. Le **casier*
 et la **position** restent du texte libre, avec les valeurs déjà utilisées en
 suggestion. Ce choix est proposé à l'entrée (unitaire et « À confirmer », bloc
 replié par défaut, pré-rempli avec le dernier emplacement d'entrée de la cave),
-au déplacement et à l'inventaire en hausse. La fiche vin affiche la
+au déplacement (« Vers ») et à l'inventaire en hausse. **Où est la
+bouteille ?** Dès qu'un plan porte des cases placées par l'analyse (zones
+acceptées, `cellBoxes`), ce choix montre la photo du plan (un onglet par plan
+à cases s'il y en a plusieurs) : toucher la photo du doigt ou cliquer choisit
+la case sous le doigt (zone et casier = code de la case, la position est
+gardée), qui s'allume ; la ligne dessous rappelle « Casier C · case
+Champagnes (C15) · 3 bouteilles déjà ». Un toucher entre les cases répond
+« Touchez une case ». Au clavier, chaque case est un bouton « Case C15,
+Casier C ». *Saisir à la main* déplie les champs zone / casier / position
+ci-dessus, pour une zone sans plan ou une case non repérée ; ils s'ouvrent
+d'office quand l'emplacement en cours n'est pas une case d'un plan, ou sans
+aucun plan à cases. L'enregistrement ne change pas. La fiche vin affiche la
 répartition du stock par emplacement (« Cave 2 / B / 3 × 4 ; Sans emplacement
 × 2 ») ; toucher un emplacement montre ou cache l'indication et la photo de sa
 zone (membre compris). Elle propose au propriétaire *Ranger / déplacer*
