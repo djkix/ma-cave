@@ -1175,10 +1175,10 @@ describe('AuthService', () => {
 
   it('creates then reuses a whitelisted Google user, keyed by sub', async () => {
     const prisma = fakePrisma();
-    prisma.allowed.add('proprietaire@example.com');
+    prisma.allowed.add('jeanne@example.com');
     const service = new AuthService(prisma as any);
-    const first = await service.findOrCreateGoogleUser({ sub: '123', email: 'proprietaire@example.com', displayName: 'djkix' });
-    const second = await service.findOrCreateGoogleUser({ sub: '123', email: 'new@example.com', displayName: 'djkix' });
+    const first = await service.findOrCreateGoogleUser({ sub: '123', email: 'jeanne@example.com', displayName: 'Jeanne' });
+    const second = await service.findOrCreateGoogleUser({ sub: '123', email: 'new@example.com', displayName: 'Jeanne' });
     expect(second.id).toBe(first.id);
   });
 

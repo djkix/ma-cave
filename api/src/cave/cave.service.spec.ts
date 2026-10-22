@@ -71,7 +71,7 @@ describe('CaveService.detail', () => {
   describe('cote iDealwine', () => {
     const quote = (coteCents: number, quotedOn: string, createdAt: string, sourceUrl: string | null = null) => ({
       wineId: 'w19', coteCents, nTransactions: 12, quotedOn: new Date(`${quotedOn}T00:00:00Z`), sourceUrl, createdAt: new Date(createdAt),
-      enteredBy: { displayName: null, email: 'proprietaire@example.com' },
+      enteredBy: { displayName: null, email: 'jeanne@example.com' },
     });
     const search = 'https://www.idealwine.com/fr/acheter-du-vin/recherche-domaine%20tempier%20la%20tourtine';
 
@@ -88,7 +88,7 @@ describe('CaveService.detail', () => {
         quote(9000, '2025-01-01', '2026-01-01T00:00:00Z', 'https://www.idealwine.com/fr/ancienne.jsp'),
         quote(8500, '2026-03-03', '2026-03-04T00:00:00Z', page),
       ]).detail('c1', 'w19', 'OWNER');
-      expect(r.quote).toEqual({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page, enteredBy: 'proprietaire@example.com', cessionCents: 7328 });
+      expect(r.quote).toEqual({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page, enteredBy: 'jeanne@example.com', cessionCents: 7328 });
       expect(r.idealwineUrl).toBe(page);
       expect(r.savedUrl).toBe(page);
       const noUrl = await service(null, [tempier19], undefined, null, [quote(8500, '2026-03-03', '2026-03-04T00:00:00Z')]).detail('c1', 'w19', 'OWNER');
@@ -209,12 +209,12 @@ describe('CaveService — apogée', () => {
     const profile = {
       id: 'p1', producerKey: 'chateau de beaucastel', displayName: 'Château de Beaucastel', status: 'DONE', description: 'Texte',
       source: 'MANUEL', model: null, costCents: null, errorMessage: null, generatedAt, updatedById: 'u1',
-      updatedBy: { displayName: 'djkix', email: 'proprietaire@example.com' }, updatedAt: generatedAt,
+      updatedBy: { displayName: 'Jeanne', email: 'jeanne@example.com' }, updatedAt: generatedAt,
     };
     const s = service(null, [cdp], undefined, profile);
     expect((await s.detail('c1', 'w16')).wine.producerProfile).toEqual({
       key: 'chateau de beaucastel', displayName: 'Château de Beaucastel', status: 'DONE', description: 'Texte',
-      source: 'MANUEL', errorMessage: null, generatedAt, updatedBy: 'djkix',
+      source: 'MANUEL', errorMessage: null, generatedAt, updatedBy: 'Jeanne',
     });
     expect(s.mockPrisma.producerProfile.findUnique).toHaveBeenCalledWith({
       where: { producerKey: 'chateau de beaucastel' },
@@ -225,19 +225,19 @@ describe('CaveService — apogée', () => {
   it('pour un membre (VIEWER), l’auteur du descriptif est son nom affiché ou null, jamais un e-mail', async () => {
     const profile = {
       producerKey: 'chateau de beaucastel', displayName: 'Château de Beaucastel', status: 'DONE', description: 'Texte', source: 'MANUEL',
-      errorMessage: null, generatedAt: null, updatedBy: { displayName: null, email: 'proprietaire@example.com' },
+      errorMessage: null, generatedAt: null, updatedBy: { displayName: null, email: 'jeanne@example.com' },
     };
     expect((await service(null, [cdp], undefined, profile).detail('c1', 'w16', 'VIEWER')).wine.producerProfile).toMatchObject({ updatedBy: null });
-    const named = { ...profile, updatedBy: { displayName: 'djkix', email: 'proprietaire@example.com' } };
-    expect((await service(null, [cdp], undefined, named).detail('c1', 'w16', 'VIEWER')).wine.producerProfile).toMatchObject({ updatedBy: 'djkix' });
+    const named = { ...profile, updatedBy: { displayName: 'Jeanne', email: 'jeanne@example.com' } };
+    expect((await service(null, [cdp], undefined, named).detail('c1', 'w16', 'VIEWER')).wine.producerProfile).toMatchObject({ updatedBy: 'Jeanne' });
   });
 
   it('nomme l’auteur par son e-mail à défaut de nom, et rend null sans descriptif', async () => {
     const profile = {
       producerKey: 'chateau de beaucastel', displayName: 'Château de Beaucastel', status: 'DONE', description: 'Texte', source: 'MANUEL',
-      errorMessage: null, generatedAt: null, updatedBy: { displayName: null, email: 'proprietaire@example.com' },
+      errorMessage: null, generatedAt: null, updatedBy: { displayName: null, email: 'jeanne@example.com' },
     };
-    expect((await service(null, [cdp], undefined, profile).detail('c1', 'w16', 'OWNER')).wine.producerProfile).toMatchObject({ updatedBy: 'proprietaire@example.com' });
+    expect((await service(null, [cdp], undefined, profile).detail('c1', 'w16', 'OWNER')).wine.producerProfile).toMatchObject({ updatedBy: 'jeanne@example.com' });
     const generated = { ...profile, source: 'GEMINI', updatedBy: null };
     expect((await service(null, [cdp], undefined, generated).detail('c1', 'w16')).wine.producerProfile).toMatchObject({ updatedBy: null });
     expect((await service(null, [cdp]).detail('c1', 'w16')).wine.producerProfile).toBeNull();
@@ -306,7 +306,7 @@ describe('CaveService — apogée', () => {
 });
 
 describe('CaveService — écritures de la fiche sans lecture de cote', () => {
-  const rated = { ...cdp, rating: 16.5, ratedAt: new Date('2026-10-05T10:00:00Z'), ratedBy: 'proprietaire@example.com' };
+  const rated = { ...cdp, rating: 16.5, ratedAt: new Date('2026-10-05T10:00:00Z'), ratedBy: 'jeanne@example.com' };
   const quotes = [{
     wineId: 'w16', coteCents: 8500, nTransactions: 12, quotedOn: new Date('2026-03-03T00:00:00Z'), sourceUrl: null,
     createdAt: new Date('2026-03-04T00:00:00Z'), enteredBy: null,
@@ -326,9 +326,9 @@ describe('CaveService — écritures de la fiche sans lecture de cote', () => {
 
 describe('CaveService — note de dégustation', () => {
   it('expose la note avec son auteur, et null pour un vin non noté', async () => {
-    const rated = { ...cdp, id: 'r1', rating: 16.5, ratedAt: new Date('2026-10-05T10:00:00Z'), ratedBy: 'djkix' };
+    const rated = { ...cdp, id: 'r1', rating: 16.5, ratedAt: new Date('2026-10-05T10:00:00Z'), ratedBy: 'Jeanne' };
     const items = await service(null, [rated, { ...cdp, id: 'r2' }]).list('c1', {});
-    expect(items.find((i) => i.id === 'r1')!.rating).toEqual({ value: 16.5, ratedAt: new Date('2026-10-05T10:00:00Z'), ratedBy: 'djkix' });
+    expect(items.find((i) => i.id === 'r1')!.rating).toEqual({ value: 16.5, ratedAt: new Date('2026-10-05T10:00:00Z'), ratedBy: 'Jeanne' });
     expect(items.find((i) => i.id === 'r2')!.rating).toBeNull();
     expect(items[0]).not.toHaveProperty('ratedAt');
     expect(items[0]).not.toHaveProperty('pairingDishes');

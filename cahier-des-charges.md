@@ -531,7 +531,7 @@ Le fichier est produit avec ExcelJS côté worker, avec la mise en forme qu'un t
 
 - **Bouton *Exporter*** dans l'application. Génération en quelques secondes, téléchargement direct sur le téléphone ou le poste.
 - **Filtre optionnel avant export** : toute la cave, ou une couleur, une région, les vins à boire cette année. C'est ce qui rend l'export utile au quotidien plutôt qu'une fois l'an.
-- **Aucun export planifié, aucune écriture automatique.** Si une archive régulière devient souhaitable, une tâche nocturne déposant le fichier sur le NAS (VM N) s'ajoutera sans rien changer d'autre.
+- **Aucun export planifié, aucune écriture automatique.** Si une archive régulière devient souhaitable, une tâche nocturne déposant le fichier sur le NAS s'ajoutera sans rien changer d'autre.
 
 Le classeur est **régénéré intégralement** à chaque export : pas de fusion, pas de conflit, aucun état à maintenir entre deux générations. Un fichier téléchargé est daté et figé — le modifier n'a aucun effet sur la cave, et la version suivante s'obtient en réexportant.
 
@@ -539,7 +539,7 @@ Le classeur est **régénéré intégralement** à chaque export : pas de fusion
 
 ### Cible d'hébergement
 
-L'application tourne en Docker Compose sur le hyperviseur existant, dans une VM ou un LXC dédié (2 vCPU, 4 Go de RAM, 40 Go de disque suffisent largement). L'exposition passe par le nginx proxy manager déjà en place sur la VM N : un sous-domaine, un certificat Let's Encrypt, et le conteneur `web` en amont. Rien à ouvrir de plus sur la box.
+L'application tourne en Docker Compose sur le serveur existant, dans une VM ou un conteneur dédié (2 vCPU, 4 Go de RAM, 40 Go de disque suffisent largement). L'exposition passe par le nginx proxy manager déjà en place : un sous-domaine, un certificat Let's Encrypt, et le conteneur `web` en amont. Rien à ouvrir de plus sur la box.
 
 ### Services Compose
 
@@ -558,7 +558,7 @@ Trois secrets seulement : la clé de l'API de vision, le couple identifiant / se
 
 ### Sauvegardes
 
-- `pg_dump` quotidien compressé, poussé vers un partage du NAS virtualisé (VM N), rétention 30 jours.
+- `pg_dump` quotidien compressé, poussé vers un partage réseau (NAS), rétention 30 jours.
 - Photos synchronisées vers le même partage, hebdomadaire. Le volume reste modeste : environ 200 Ko par photo normalisée, soit moins de 2 Go pour 10 000 photos.
 - **Test de restauration trimestriel**, à noter dans la procédure. Une sauvegarde jamais restaurée n'est pas une sauvegarde.
 

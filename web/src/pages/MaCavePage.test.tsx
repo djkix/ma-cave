@@ -27,7 +27,7 @@ beforeEach(() => {
 });
 
 const members: api.MemberView[] = [
-  { id: 'm1', email: 'proprietaire@example.com', displayName: 'djkix', role: 'OWNER', pending: false },
+  { id: 'm1', email: 'jeanne@example.com', displayName: 'Jeanne', role: 'OWNER', pending: false },
   { id: 'm2', email: 'paul@example.com', displayName: 'Paul', role: 'VIEWER', pending: false },
   { id: 'm3', email: 'lea@example.com', displayName: null, role: 'VIEWER', pending: true },
 ];
@@ -53,7 +53,7 @@ it('regroupe le nom de la cave, le plan, les zones, les membres puis la sauvegar
   mount();
   expect(screen.getByRole('heading', { level: 1, name: 'Ma cave' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /retour/i })).toHaveAttribute('href', '/compte');
-  await screen.findByText('proprietaire@example.com');
+  await screen.findByText('jeanne@example.com');
   const order = [screen.getByLabelText('Nom de la cave'), screen.getByRole('region', { name: 'Plans de la cave' }), screen.getByRole('region', { name: 'Zones' }), screen.getByRole('region', { name: 'Membres' }), screen.getByRole('region', { name: 'Sauvegarde' })];
   for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
@@ -306,11 +306,11 @@ describe('zones', () => {
 it('liste les membres avec leur rôle, l’invitation en attente et « Retirer » hors propriétaire', async () => {
   vi.spyOn(api, 'getMembers').mockResolvedValue(members);
   mount();
-  expect(await screen.findByText('proprietaire@example.com')).toBeInTheDocument();
+  expect(await screen.findByText('jeanne@example.com')).toBeInTheDocument();
   // Ligne de personne commune : nom affiché en titre, e-mail dessous ; sans nom, l'e-mail en titre.
-  expect(rowOf('proprietaire@example.com')).toHaveClass('person-row');
-  const owner = within(rowOf('proprietaire@example.com'));
-  expect(owner.getByText('djkix').tagName).toBe('STRONG');
+  expect(rowOf('jeanne@example.com')).toHaveClass('person-row');
+  const owner = within(rowOf('jeanne@example.com'));
+  expect(owner.getByText('Jeanne').tagName).toBe('STRONG');
   expect(owner.getByText('Propriétaire')).toBeInTheDocument();
   expect(owner.queryByRole('button', { name: /Retirer/ })).not.toBeInTheDocument();
   const paul = within(rowOf('paul@example.com'));
@@ -377,7 +377,7 @@ it('renomme la cave, nom prérempli, et rafraîchit la session', async () => {
   const qc = mount();
   const invalidate = vi.spyOn(qc, 'invalidateQueries');
   const input = screen.getByLabelText('Nom de la cave');
-  await waitFor(() => expect(input).toHaveValue('Cave de djkix'));
+  await waitFor(() => expect(input).toHaveValue('Cave de Jeanne'));
   await userEvent.clear(input);
   await userEvent.type(input, '  Cave du Var ');
   await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
@@ -390,7 +390,7 @@ it('refuse un nom vide ou de plus de 80 caractères, sans appel', async () => {
   const rename = vi.spyOn(api, 'renameCave');
   mount();
   const input = screen.getByLabelText('Nom de la cave');
-  await waitFor(() => expect(input).toHaveValue('Cave de djkix'));
+  await waitFor(() => expect(input).toHaveValue('Cave de Jeanne'));
   await userEvent.clear(input);
   await userEvent.type(input, '   ');
   expect(screen.getByText('Le nom de la cave doit faire de 1 à 80 caractères')).toBeInTheDocument();
@@ -413,7 +413,7 @@ it('affiche le refus de l’api au renommage', async () => {
   vi.spyOn(api, 'renameCave').mockRejectedValue(new api.ApiError(400, 'Le nom de la cave doit faire de 1 à 80 caractères'));
   mount();
   const input = screen.getByLabelText('Nom de la cave');
-  await waitFor(() => expect(input).toHaveValue('Cave de djkix'));
+  await waitFor(() => expect(input).toHaveValue('Cave de Jeanne'));
   await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Le nom de la cave doit faire de 1 à 80 caractères');
 });

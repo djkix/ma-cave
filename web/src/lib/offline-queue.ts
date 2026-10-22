@@ -16,7 +16,7 @@ export interface QueuedPhoto {
 
 /**
  * Une photo part avec le compte qui l'a prise. Une photo sans estampille date
- * d'avant cette version (téléphone de djkix, seul compte jusque-là) : elle est
+ * d'avant cette version (téléphone du propriétaire, seul compte jusque-là) : elle est
  * envoyée par le premier compte propriétaire qui vide la file — compatibilité
  * ascendante voulue.
  */

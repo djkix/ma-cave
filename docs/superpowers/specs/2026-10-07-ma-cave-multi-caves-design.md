@@ -20,7 +20,7 @@ inscriptions soient **validées par lui**, et que chaque propriétaire puisse
 | Vue d'un membre | **Cave, fiches vin, statistiques** (recherche par plat comprise) ; pas de journal, pas d'export, **pas de prix d'achat** ; aucune écriture |
 | Partagé | Référentiel des appellations, règles d'apogée, **descriptifs de domaine** : communs, gérés par l'administrateur |
 | Budget Gemini | Plafond mensuel global inchangé **+ part maximale par cave** (20 % par défaut, réglable en admin), sauf pour la cave de l'administrateur principal |
-| Existant | Devient **« Cave de djkix »**, propriété du premier administrateur ; les autres comptes actuels en deviennent **membres** |
+| Existant | Devient **« Cave de Jeanne »**, propriété du premier administrateur ; les autres comptes actuels en deviennent **membres** |
 | Approche | Colonne `cave_id` + garde d'accès central + filtrage systématique dans les services (pas de RLS PostgreSQL, pas de schéma par cave) |
 
 ## 1. Comptes
@@ -91,7 +91,7 @@ inscriptions soient **validées par lui**, et que chaque propriétaire puisse
   `movement.idempotency_key` reste globalement unique (clé aléatoire).
 - Réglage `app_setting(key, value)` avec `cave_budget_share` = `0.2`.
 - Migration de l'existant, en une transaction SQL :
-  1. créer la cave « Cave de djkix » (nom « Cave de {display_name ou e-mail} »
+  1. créer la cave « Cave de Jeanne » (nom « Cave de {display_name ou e-mail} »
      du propriétaire) appartenant au **premier compte administrateur** (le plus
      ancien `is_admin = true` non `is_break_glass`, sinon le compte de secours) ;
      s'il n'existe aucun compte, la cave est créée sans propriétaire et sera

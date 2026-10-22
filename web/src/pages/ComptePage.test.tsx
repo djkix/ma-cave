@@ -31,13 +31,13 @@ function stubSummaries() {
 }
 
 it('montre le profil et les quatre cartes au propriétaire administrateur', async () => {
-  vi.spyOn(api, 'getMe').mockResolvedValue(meFixture({ isAdmin: true, displayName: 'djkix', caves: [OWNER_CAVE, VIEWER_CAVE] }));
+  vi.spyOn(api, 'getMe').mockResolvedValue(meFixture({ isAdmin: true, displayName: 'Jeanne Martin', caves: [OWNER_CAVE, VIEWER_CAVE] }));
   stubSummaries();
   vi.spyOn(api, 'getRegistrations').mockResolvedValue(times(2, registration));
   mount();
-  expect(await screen.findByText('FL')).toBeInTheDocument();
-  expect(screen.getByText('djkix')).toBeInTheDocument();
-  expect(screen.getByText('proprietaire@example.com')).toBeInTheDocument();
+  expect(await screen.findByText('JM')).toBeInTheDocument();
+  expect(screen.getByText('Jeanne Martin')).toBeInTheDocument();
+  expect(screen.getByText('jeanne@example.com')).toBeInTheDocument();
 
   const moi = screen.getByRole('link', { name: /^Moi/ });
   expect(moi).toHaveAttribute('href', '/compte/moi');

@@ -1,12 +1,12 @@
 import type { CaveSummary, Me } from './lib/api-client';
 
-export const OWNER_CAVE: CaveSummary = { id: 'c1', name: 'Cave de djkix', role: 'OWNER' };
+export const OWNER_CAVE: CaveSummary = { id: 'c1', name: 'Cave de Jeanne', role: 'OWNER' };
 export const VIEWER_CAVE: CaveSummary = { id: 'c2', name: 'Cave de Paul', role: 'VIEWER' };
 
 /** Compte actif, propriétaire d'une seule cave, non administrateur. */
 export function meFixture(overrides: Partial<Me> = {}): Me {
   return {
-    id: 'u1', email: 'proprietaire@example.com', displayName: 'djkix', isAdmin: false, status: 'ACTIVE',
+    id: 'u1', email: 'jeanne@example.com', displayName: 'Jeanne', isAdmin: false, status: 'ACTIVE',
     caves: [OWNER_CAVE], currentCaveId: OWNER_CAVE.id,
     ...overrides,
   };

@@ -15,7 +15,7 @@ définis par le cahier des charges et seront repris dans des specs séparées le
 moment venu.
 
 Application auto-hébergée : nouveau repo public `djkix/ma-cave`, déployé
-sur le même hyperviseur/homelab que [`djkix/magazine-search`](https://github.com/djkix/magazine-search),
+sur le même serveur auto-hébergé que [`djkix/magazine-search`](https://github.com/djkix/magazine-search),
 dont les conventions d'hébergement (Docker Compose, images GHCR, Nginx Proxy
 Manager, sauvegardes) sont reprises telles quelles.
 

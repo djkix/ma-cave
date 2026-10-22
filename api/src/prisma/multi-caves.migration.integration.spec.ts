@@ -97,13 +97,13 @@ describeIfDb('migration multi_caves (base au format précédent)', () => {
       await run(s, `
         INSERT INTO "${s}".app_user (id, email, display_name, is_break_glass, status, is_admin, created_at) VALUES
           ('u-secours', 'secours@example.com', NULL, true, 'ACTIVE', true, '2026-01-01'),
-          ('u-proprietaire', 'proprietaire@example.com', 'djkix', false, 'ACTIVE', true, '2026-02-01'),
+          ('u-jeanne', 'jeanne@example.com', 'Jeanne', false, 'ACTIVE', true, '2026-02-01'),
           ('u-admin2', 'admin2@example.com', 'Second admin', false, 'ACTIVE', true, '2026-03-01'),
           ('u-ami', 'ami@example.com', 'Ami', false, 'ACTIVE', false, '2026-01-15'),
           ('u-bloque', 'bloque@example.com', 'Bloqué', false, 'BLOCKED', false, '2026-01-20')`);
       await run(s, `
         INSERT INTO "${s}".wine (id, match_key, producer, appellation_raw, color, rating, rated_at, rated_by) VALUES
-          ('w1', 'tempier|bandol|2019', 'Domaine Tempier', 'Bandol', 'ROUGE', 16.5, now(), 'u-proprietaire'),
+          ('w1', 'tempier|bandol|2019', 'Domaine Tempier', 'Bandol', 'ROUGE', 16.5, now(), 'u-jeanne'),
           ('w2', 'trimbach|alsace|2020', 'Trimbach', 'Alsace', 'BLANC', NULL, NULL, NULL)`);
       await run(s, `
         INSERT INTO "${s}".photo (id, content_hash, storage_path, status, purpose) VALUES
@@ -117,7 +117,7 @@ describeIfDb('migration multi_caves (base au format précédent)', () => {
           ('m3', 'w2', 3, 'IN', NULL, 1200, 'k3')`);
       await run(s, `UPDATE "${s}".wine SET reference_photo_id = 'p3' WHERE id = 'w1'`);
       await run(s, `
-        INSERT INTO "${s}".export_log (id, user_id, row_count) VALUES ('e1', 'u-proprietaire', 2)`);
+        INSERT INTO "${s}".export_log (id, user_id, row_count) VALUES ('e1', 'u-jeanne', 2)`);
       await run(s, `
         INSERT INTO "${s}".image_search_cost (id, wine_id, model, cost_cents) VALUES ('c1', 'w1', 'gemini', 1)`);
       migrate(s);
@@ -125,7 +125,7 @@ describeIfDb('migration multi_caves (base au format précédent)', () => {
 
     it('crée une seule cave, celle du premier administrateur qui n’est pas le compte de secours', async () => {
       const caves = await q<{ id: string; name: string; owner_id: string }>(`SELECT id, name, owner_id FROM "${s}".cave`);
-      expect(caves).toEqual([{ id: expect.any(String), name: 'Cave de djkix', owner_id: 'u-proprietaire' }]);
+      expect(caves).toEqual([{ id: expect.any(String), name: 'Cave de Jeanne', owner_id: 'u-jeanne' }]);
     });
 
     it('date la cave et ses accès en UTC, comme Prisma (sinon une cave créée ensuite paraîtrait plus ancienne)', async () => {
@@ -148,7 +148,7 @@ describeIfDb('migration multi_caves (base au format précédent)', () => {
       const stock = await q<{ wine_id: string; quantity: number }>(`SELECT wine_id, quantity FROM "${s}".stock_courant ORDER BY wine_id`);
       expect(stock).toEqual([{ wine_id: 'w1', quantity: 5 }, { wine_id: 'w2', quantity: 3 }]);
       const [w1] = await q<{ reference_photo_id: string; rated_by: string }>(`SELECT reference_photo_id, rated_by FROM "${s}".wine WHERE id = 'w1'`);
-      expect(w1).toEqual({ reference_photo_id: 'p3', rated_by: 'u-proprietaire' });
+      expect(w1).toEqual({ reference_photo_id: 'p3', rated_by: 'u-jeanne' });
     });
 
     it('fait du propriétaire une ligne OWNER et des autres comptes actifs des membres VIEWER', async () => {
@@ -156,7 +156,7 @@ describeIfDb('migration multi_caves (base au format précédent)', () => {
         `SELECT user_id, role::text AS role, invited_email FROM "${s}".cave_member ORDER BY role, user_id`,
       );
       expect(members).toEqual([
-        { user_id: 'u-proprietaire', role: 'OWNER', invited_email: null },
+        { user_id: 'u-jeanne', role: 'OWNER', invited_email: null },
         { user_id: 'u-admin2', role: 'VIEWER', invited_email: null },
         { user_id: 'u-ami', role: 'VIEWER', invited_email: null },
         { user_id: 'u-secours', role: 'VIEWER', invited_email: null },

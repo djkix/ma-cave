@@ -27,7 +27,7 @@
 1. Une route de cave oubliée par le garde ou un service qui ne filtre pas par `caveId` (fuite entre caves) — matrice e2e de la tâche 7.
 2. Le rapprochement des vins (`matchOrCreate`) et la déduplication des photos doivent rester par cave (un même vin dans deux caves = deux fiches).
 3. Les prix d'achat ne doivent apparaître dans aucune réponse lue par un membre (liste, fiche, stats, mouvements récents, mouvements de la fiche).
-4. La migration doit fonctionner sur la vraie base de djkix (données existantes, compte de secours, plusieurs comptes) et sur une base vide.
+4. La migration doit fonctionner sur la vraie base de production (données existantes, compte de secours, plusieurs comptes) et sur une base vide.
 5. Le worker (lots, accords, descriptifs, reprises) ne doit pas casser : un lot ne mélange pas deux caves.
 
 ---

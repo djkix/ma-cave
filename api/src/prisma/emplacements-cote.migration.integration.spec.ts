@@ -92,15 +92,15 @@ describeIfDb('migration emplacements_cote (base au format précédent)', () => {
       s = await previousFormat();
       await run(s, `
         INSERT INTO "${s}".app_user (id, email, display_name, status, is_admin) VALUES
-          ('u-proprietaire', 'proprietaire@example.com', 'djkix', 'ACTIVE', true),
+          ('u-jeanne', 'jeanne@example.com', 'Jeanne', 'ACTIVE', true),
           ('u-ami', 'ami@example.com', 'Ami', 'ACTIVE', false)`);
       await run(s, `
         INSERT INTO "${s}".cave (id, name, owner_id) VALUES
-          ('cave-a', 'Cave de djkix', 'u-proprietaire'),
+          ('cave-a', 'Cave de Jeanne', 'u-jeanne'),
           ('cave-b', 'Cave d’Ami', 'u-ami')`);
       await run(s, `
         INSERT INTO "${s}".cave_member (id, cave_id, user_id, role) VALUES
-          ('cm-a', 'cave-a', 'u-proprietaire', 'OWNER'),
+          ('cm-a', 'cave-a', 'u-jeanne', 'OWNER'),
           ('cm-b', 'cave-b', 'u-ami', 'OWNER')`);
       await run(s, `
         INSERT INTO "${s}".wine (id, cave_id, match_key, producer, appellation_raw, color) VALUES
@@ -178,7 +178,7 @@ describeIfDb('migration emplacements_cote (base au format précédent)', () => {
     it('enregistre une cote (source IDEALWINE par défaut) et refuse une cote nulle ou un nombre de transactions négatif', async () => {
       await run(s, `
         INSERT INTO "${s}".price_quote (id, wine_id, cote_cents, n_transactions, quoted_on, source_url, entered_by) VALUES
-          ('q1', 'w1', 8500, 12, '2026-03-03', 'https://www.idealwine.com/fr/x', 'u-proprietaire')`);
+          ('q1', 'w1', 8500, 12, '2026-03-03', 'https://www.idealwine.com/fr/x', 'u-jeanne')`);
       expect(await q(`SELECT source, cote_cents, n_transactions, quoted_on::text AS quoted_on FROM "${s}".price_quote WHERE id = 'q1'`)).toEqual([
         { source: 'IDEALWINE', cote_cents: 8500, n_transactions: 12, quoted_on: '2026-03-03' },
       ]);

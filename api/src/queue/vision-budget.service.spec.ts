@@ -52,7 +52,7 @@ describe('VisionBudgetService', () => {
 
 describe('VisionBudgetService — part par cave', () => {
   const CAVE = 'cave-1';
-  const EXEMPT = 'cave-proprietaire';
+  const EXEMPT = 'cave-jeanne';
   /** Faux Prisma : dépenses du mois de la cave, réglage, premier administrateur et sa cave. */
   const fake = (opts: {
     photos?: number | null;
@@ -70,7 +70,7 @@ describe('VisionBudgetService — part par cave', () => {
       findUnique: jest.fn(async () => (opts.setting === undefined || opts.setting === null ? null : { key: 'cave_budget_share', value: opts.setting })),
       upsert: jest.fn(async (args: any) => ({ key: 'cave_budget_share', value: args.update.value })),
     },
-    appUser: { findFirst: jest.fn(async () => (opts.firstAdmin === undefined ? { id: 'proprietaire' } : opts.firstAdmin)) },
+    appUser: { findFirst: jest.fn(async () => (opts.firstAdmin === undefined ? { id: 'jeanne' } : opts.firstAdmin)) },
     cave: { findFirst: jest.fn(async () => (opts.adminCave === undefined ? { id: EXEMPT } : opts.adminCave)) },
   });
 
@@ -131,7 +131,7 @@ describe('VisionBudgetService — part par cave', () => {
         select: { id: true },
       });
       expect(prisma.cave.findFirst).toHaveBeenCalledWith({
-        where: { ownerId: 'proprietaire' },
+        where: { ownerId: 'jeanne' },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         select: { id: true },
       });

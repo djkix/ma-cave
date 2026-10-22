@@ -8,7 +8,7 @@ const emptyToUndefined = <T extends z.ZodTypeAny>(s: T) => z.preprocess((v) => (
 
 /**
  * Modèles Gemini légers seulement (Flash, Lite) : les coûts et le budget sont
- * calculés au tarif Flash, et djkix n'emploie pas les modèles Pro. Nom fait de
+ * calculés au tarif Flash, et l'application n'emploie pas les modèles Pro. Nom fait de
  * lettres, chiffres, points et tirets seulement (il part dans une adresse de Google).
  */
 export const isLightModel = (model: string): boolean => /^[a-z0-9.-]+$/i.test(model) && /flash|lite|light/i.test(model) && !/pro/i.test(model);

@@ -78,7 +78,7 @@ it('propose les caves avec « · Lecture seule » pour un membre, la courante ch
   const select = await screen.findByRole('combobox', { name: 'Cave' });
   expect(select).toHaveValue('c1');
   const options = within(select).getAllByRole('option').map((o) => o.textContent);
-  expect(options).toEqual(['Cave de djkix', 'Cave de Paul · Lecture seule']);
+  expect(options).toEqual(['Cave de Jeanne', 'Cave de Paul · Lecture seule']);
   expect(screen.queryByText('Lecture seule')).not.toBeInTheDocument();
 });
 

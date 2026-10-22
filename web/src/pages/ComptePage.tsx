@@ -17,7 +17,7 @@ export function caveSummary(plans: number, zones: number, members: number): stri
   return [plans === 0 ? 'Aucun plan' : count(plans, 'plan'), count(zones, 'zone'), count(members, 'membre')].join(' · ');
 }
 
-/** Initiales du nom affiché, sinon de l'adresse : « djkix » → « FL », « camille@… » → « C ». */
+/** Initiales du nom affiché, sinon de l'adresse : « Jeanne Martin » → « JM », « camille@… » → « C ». */
 function initials(name: string): string {
   return name.split('@')[0].split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 }

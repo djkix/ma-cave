@@ -14,7 +14,7 @@ const mount = (wine: api.CaveRow) =>
   render(<QueryClientProvider client={new QueryClient()}><RatingBlock wine={wine} /></QueryClientProvider>);
 
 it('propose de noter un vin non noté, puis enregistre une note avec virgule', async () => {
-  const set = vi.spyOn(api, 'setRating').mockResolvedValue({ value: 16.5, ratedAt: '2026-10-05T10:00:00Z', ratedBy: 'djkix' });
+  const set = vi.spyOn(api, 'setRating').mockResolvedValue({ value: 16.5, ratedAt: '2026-10-05T10:00:00Z', ratedBy: 'Jeanne' });
   mount(base);
   await userEvent.click(screen.getByRole('button', { name: 'Noter ce vin' }));
   await userEvent.type(screen.getByLabelText('Note sur 20'), '16,5');
@@ -32,9 +32,9 @@ it('bloque une note qui n’est pas un demi-point', async () => {
 
 it('affiche la note, sa date et son auteur, et la retire', async () => {
   const clear = vi.spyOn(api, 'clearRating').mockResolvedValue(null);
-  mount({ ...base, rating: { value: 16.5, ratedAt: '2026-10-05T10:00:00Z', ratedBy: 'djkix' } });
+  mount({ ...base, rating: { value: 16.5, ratedAt: '2026-10-05T10:00:00Z', ratedBy: 'Jeanne' } });
   expect(screen.getByText('16,5 / 20')).toBeInTheDocument();
-  expect(screen.getByText('notée le 5 oct. 2026 par djkix')).toBeInTheDocument();
+  expect(screen.getByText('notée le 5 oct. 2026 par Jeanne')).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Retirer' }));
   await waitFor(() => expect(clear).toHaveBeenCalledWith('w1'));
 });

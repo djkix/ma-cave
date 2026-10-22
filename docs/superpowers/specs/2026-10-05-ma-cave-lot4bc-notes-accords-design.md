@@ -58,7 +58,7 @@ demi-point ». Vin inconnu : `404` « Vin introuvable ».
 
 - **Fiche vin**, bloc « Ma note » sous le bloc Apogée :
   - sans note : bouton *Noter ce vin* ;
-  - avec une note : « 16,5 / 20 » puis « notée le 5 oct. 2026 par djkix »,
+  - avec une note : « 16,5 / 20 » puis « notée le 5 oct. 2026 par Jeanne »,
     boutons *Modifier* et *Retirer* ;
   - saisie : champ numérique (pas 0,5), validation dans le formulaire et par
     l'api, *Enregistrer* / *Annuler*.

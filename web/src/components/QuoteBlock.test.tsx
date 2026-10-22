@@ -6,7 +6,7 @@ import { QuoteBlock } from './QuoteBlock';
 
 const SEARCH = 'https://www.idealwine.com/fr/acheter-du-vin/recherche-domaine%20tempier%20la%20tourtine';
 const PAGE = 'https://www.idealwine.com/fr/acheter-vin/tempier.jsp';
-const quote: api.Quote = { coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: PAGE, enteredBy: 'djkix', cessionCents: 7328 };
+const quote: api.Quote = { coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: PAGE, enteredBy: 'Jeanne', cessionCents: 7328 };
 
 beforeEach(() => {
   // Seule l'horloge est figée (le 8 octobre 2026 à Paris) : les saisies de userEvent restent réelles.

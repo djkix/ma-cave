@@ -15,7 +15,7 @@ function harness(opts: { wines?: unknown[]; saved?: unknown; existing?: unknown;
     if (conflicts-- > 0) throw conflict();
     return opts.saved ?? {
       producerKey: KEY, displayName: 'Domaine Tempier', status: 'DONE', description: 'Texte', source: 'MANUEL',
-      errorMessage: null, generatedAt: null, updatedBy: { displayName: null, email: 'proprietaire@example.com' },
+      errorMessage: null, generatedAt: null, updatedBy: { displayName: null, email: 'jeanne@example.com' },
     };
   });
   const findUnique = jest.fn(async () => opts.existing ?? null);
@@ -37,7 +37,7 @@ describe('ProducersService.setDescription', () => {
     });
     expect(view).toEqual({
       key: KEY, displayName: 'Domaine Tempier', status: 'DONE', description: 'Texte', source: 'MANUEL',
-      errorMessage: null, generatedAt: null, updatedBy: 'proprietaire@example.com',
+      errorMessage: null, generatedAt: null, updatedBy: 'jeanne@example.com',
     });
   });
 

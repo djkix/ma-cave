@@ -1,17 +1,17 @@
 import { Prisma } from '@prisma/client';
 import { CaveContextService } from './cave-context.service';
 
-/** Base factice : un administrateur principal propriétaire de « Cave de djkix ». */
+/** Base factice : un administrateur principal propriétaire de « Cave de Jeanne ». */
 function serviceFor(opts: { isBreakGlass: boolean; members: { id: string; name: string; role: 'OWNER' | 'VIEWER' }[]; mainCave?: boolean }) {
   const prisma = {
     caveMember: { findMany: jest.fn(async () => opts.members.map((c) => ({ role: c.role, cave: { id: c.id, name: c.name } }))) },
     appUser: {
       findUnique: jest.fn(async () => ({ isBreakGlass: opts.isBreakGlass })),
-      findFirst: jest.fn(async () => (opts.mainCave === false ? null : { id: 'proprietaire' })),
+      findFirst: jest.fn(async () => (opts.mainCave === false ? null : { id: 'jeanne' })),
     },
     cave: {
       findFirst: jest.fn(async () => ({ id: 'principale' })),
-      findUnique: jest.fn(async () => ({ id: 'principale', name: 'Cave de djkix' })),
+      findUnique: jest.fn(async () => ({ id: 'principale', name: 'Cave de Jeanne' })),
     },
   };
   return new CaveContextService(prisma as never);
@@ -19,8 +19,8 @@ function serviceFor(opts: { isBreakGlass: boolean; members: { id: string; name: 
 
 describe('CaveContextService — compte de secours', () => {
   it('le compte de secours est propriétaire de la cave principale, même inscrit comme membre', async () => {
-    const service = serviceFor({ isBreakGlass: true, members: [{ id: 'principale', name: 'Cave de djkix', role: 'VIEWER' }] });
-    expect(await service.listForUser('secours')).toEqual([{ id: 'principale', name: 'Cave de djkix', role: 'OWNER' }]);
+    const service = serviceFor({ isBreakGlass: true, members: [{ id: 'principale', name: 'Cave de Jeanne', role: 'VIEWER' }] });
+    expect(await service.listForUser('secours')).toEqual([{ id: 'principale', name: 'Cave de Jeanne', role: 'OWNER' }]);
     expect(await service.findAccess('secours', 'principale')).toEqual({ caveId: 'principale', role: 'OWNER' });
     expect(await service.resolveCurrent('secours')).toEqual({ caveId: 'principale', role: 'OWNER' });
   });
@@ -28,7 +28,7 @@ describe('CaveContextService — compte de secours', () => {
   it('le compte de secours y accède même sans ligne de membre, et garde ses autres caves', async () => {
     const service = serviceFor({ isBreakGlass: true, members: [{ id: 'autre', name: 'Cave d’Ami', role: 'VIEWER' }] });
     expect(await service.listForUser('secours')).toEqual([
-      { id: 'principale', name: 'Cave de djkix', role: 'OWNER' },
+      { id: 'principale', name: 'Cave de Jeanne', role: 'OWNER' },
       { id: 'autre', name: 'Cave d’Ami', role: 'VIEWER' },
     ]);
     expect(await service.findAccess('secours', 'autre')).toEqual({ caveId: 'autre', role: 'VIEWER' });
@@ -40,7 +40,7 @@ describe('CaveContextService — compte de secours', () => {
   });
 
   it('un autre compte reste lecteur de la cave principale', async () => {
-    const service = serviceFor({ isBreakGlass: false, members: [{ id: 'principale', name: 'Cave de djkix', role: 'VIEWER' }] });
+    const service = serviceFor({ isBreakGlass: false, members: [{ id: 'principale', name: 'Cave de Jeanne', role: 'VIEWER' }] });
     expect(await service.findAccess('membre', 'principale')).toEqual({ caveId: 'principale', role: 'VIEWER' });
   });
 });

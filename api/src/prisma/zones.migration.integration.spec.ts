@@ -89,9 +89,9 @@ describeIfDb('migration zones (base au format précédent)', () => {
       s = await previousFormat();
       await run(s, `
         INSERT INTO "${s}".app_user (id, email, display_name, status) VALUES
-          ('u-proprietaire', 'proprietaire@example.com', 'djkix', 'ACTIVE'),
+          ('u-jeanne', 'jeanne@example.com', 'Jeanne', 'ACTIVE'),
           ('u-ami', 'ami@example.com', 'Ami', 'ACTIVE')`);
-      await run(s, `INSERT INTO "${s}".cave (id, name, owner_id) VALUES ('cave-a', 'Cave de djkix', 'u-proprietaire'), ('cave-b', 'Cave d’Ami', 'u-ami')`);
+      await run(s, `INSERT INTO "${s}".cave (id, name, owner_id) VALUES ('cave-a', 'Cave de Jeanne', 'u-jeanne'), ('cave-b', 'Cave d’Ami', 'u-ami')`);
       await run(s, `
         INSERT INTO "${s}".wine (id, cave_id, match_key, producer, appellation_raw, color) VALUES
           ('w1', 'cave-a', 'tempier|bandol|2019', 'Domaine Tempier', 'Bandol', 'ROUGE'),

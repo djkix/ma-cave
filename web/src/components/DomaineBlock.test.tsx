@@ -56,8 +56,8 @@ it('montre le texte généré par Gemini avec son avertissement, Modifier et Ré
 
 it('montre le texte saisi à la main avec son auteur, Modifier et « Revenir au texte généré »', async () => {
   const regen = vi.spyOn(api, 'regenerateProducer').mockResolvedValue(undefined);
-  mount('domaine tempier', gemini({ source: 'MANUEL', updatedBy: 'djkix' }));
-  expect(screen.getByText('Texte saisi par djkix')).toBeInTheDocument();
+  mount('domaine tempier', gemini({ source: 'MANUEL', updatedBy: 'Jeanne' }));
+  expect(screen.getByText('Texte saisi par Jeanne')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Modifier' })).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Revenir au texte généré' }));
   await waitFor(() => expect(regen).toHaveBeenCalledWith('domaine tempier'));
@@ -107,7 +107,7 @@ it('autorise 2000 caractères utiles même entourés d’espaces, et compte la l
 });
 
 it('édite et enregistre un descriptif, avec le compteur de caractères', async () => {
-  const save = vi.spyOn(api, 'setProducerDescription').mockResolvedValue(gemini({ source: 'MANUEL', updatedBy: 'djkix', description: 'Nouveau texte' }));
+  const save = vi.spyOn(api, 'setProducerDescription').mockResolvedValue(gemini({ source: 'MANUEL', updatedBy: 'Jeanne', description: 'Nouveau texte' }));
   mount('domaine tempier', gemini());
   await userEvent.click(screen.getByRole('button', { name: 'Modifier' }));
   const textarea = screen.getByLabelText('Descriptif du domaine');
@@ -162,7 +162,7 @@ it('rafraîchit la fiche toutes les 5 s tant que le descriptif est en préparati
 describe('compte non administrateur (propriétaire compris)', () => {
   it.each([
     ['généré', { status: 'DONE', source: 'GEMINI' }],
-    ['saisi à la main', { status: 'DONE', source: 'MANUEL', updatedBy: 'djkix' }],
+    ['saisi à la main', { status: 'DONE', source: 'MANUEL', updatedBy: 'Jeanne' }],
     ['peu documenté', { status: 'UNKNOWN', description: null }],
     ['en échec', { status: 'FAILED', description: null, errorMessage: 'Réponse de Gemini inexploitable' }],
   ] as const)('montre le texte d’un descriptif %s sans aucun bouton', (_label, overrides) => {

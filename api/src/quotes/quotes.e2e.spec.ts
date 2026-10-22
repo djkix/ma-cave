@@ -59,7 +59,7 @@ describeIfInfra('cote iDealwine (HTTP)', () => {
       userIds.push(u.id);
       return u;
     };
-    const [uOwnerA, uViewerA, uOwnerB] = [await user('owner-a', 'djkix'), await user('viewer-a', 'Membre'), await user('owner-b', null)];
+    const [uOwnerA, uViewerA, uOwnerB] = [await user('owner-a', 'Jeanne'), await user('viewer-a', 'Membre'), await user('owner-b', null)];
     const caveA = (await createTestCave(prisma, { owner: uOwnerA, name: `Cotes A ${run}` })).id;
     const caveB = (await createTestCave(prisma, { owner: uOwnerB, name: `Cotes B ${run}` })).id;
     caveIds.push(caveA, caveB);
@@ -109,7 +109,7 @@ describeIfInfra('cote iDealwine (HTTP)', () => {
     it('propriétaire : 201, la cote créée, saisie par lui', async () => {
       const res = await ownerA.post(`/api/wines/${wineA}/quotes`).send({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page });
       expect(res.status).toBe(201);
-      expect(res.body).toEqual({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page, enteredBy: 'djkix', cessionCents: 7328 });
+      expect(res.body).toEqual({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: page, enteredBy: 'Jeanne', cessionCents: 7328 });
       const row = await prisma.priceQuote.findFirstOrThrow({ where: { wineId: wineA } });
       expect(row).toMatchObject({ source: 'IDEALWINE', enteredById: userIds[0] });
     });

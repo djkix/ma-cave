@@ -2,7 +2,7 @@ import { CavesService, caveNameFor } from './caves.service';
 
 describe('caveNameFor', () => {
   it('« Cave de {nom affiché} », sinon l’adresse', () => {
-    expect(caveNameFor({ email: 'a@example.com', displayName: ' djkix ' })).toBe('Cave de djkix');
+    expect(caveNameFor({ email: 'a@example.com', displayName: ' Jeanne ' })).toBe('Cave de Jeanne');
     expect(caveNameFor({ email: 'a@example.com', displayName: '  ' })).toBe('Cave de a@example.com');
     expect(caveNameFor({ email: 'a@example.com', displayName: null })).toBe('Cave de a@example.com');
   });

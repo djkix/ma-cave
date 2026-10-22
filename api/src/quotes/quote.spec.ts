@@ -121,10 +121,10 @@ describe('cote courante et vue', () => {
   it('vue : date AAAA-MM-JJ, auteur par son nom sinon son e-mail, valeur de cession', () => {
     const row = {
       coteCents: 8500, nTransactions: 12, quotedOn: new Date('2026-03-03T00:00:00Z'), sourceUrl: null,
-      enteredBy: { displayName: null, email: 'proprietaire@example.com' },
+      enteredBy: { displayName: null, email: 'jeanne@example.com' },
     };
-    expect(quoteView(row)).toEqual({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: null, enteredBy: 'proprietaire@example.com', cessionCents: 7328 });
-    expect(quoteView({ ...row, enteredBy: { displayName: 'djkix', email: 'f@x' } }).enteredBy).toBe('djkix');
+    expect(quoteView(row)).toEqual({ coteCents: 8500, nTransactions: 12, quotedOn: '2026-03-03', sourceUrl: null, enteredBy: 'jeanne@example.com', cessionCents: 7328 });
+    expect(quoteView({ ...row, enteredBy: { displayName: 'Jeanne', email: 'f@x' } }).enteredBy).toBe('Jeanne');
     expect(quoteView({ ...row, enteredBy: null }).enteredBy).toBeNull();
   });
 });
