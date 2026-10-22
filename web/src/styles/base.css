@@ -213,6 +213,8 @@ a.bars__row .bars__text > span:first-child { text-decoration: underline; text-un
   display: flex; justify-content: space-between; gap: var(--space-sm); width: 100%; min-height: var(--size-touch-target);
   padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
+.locations-list__toggle--thumbnail { flex-direction: column; align-items: stretch; }
+.locations-list__legend { display: flex; justify-content: space-between; gap: var(--space-sm); }
 .locations-list__toggle .locations-list__label { text-decoration: underline dotted; text-underline-offset: 3px; }
 .page section > .zone-details { margin-bottom: var(--space-sm); }
 /* « Ma cave › Réglages » : zones. */
@@ -382,8 +384,8 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 .cell-grid__cell { max-width: 128px; overflow: hidden; }
 .cell-grid__name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Feuille « Proposition » : plan recadré sur la proposition (image agrandie et décalée, rognée au cadre). */
-.plan-crop { position: relative; margin: 0 auto; overflow: hidden; border-radius: var(--radius-lg); }
-.plan-crop__inner { position: absolute; }
+.plan-crop { display: block; position: relative; margin: 0 auto; overflow: hidden; border-radius: var(--radius-lg); }
+.plan-crop__inner { display: block; position: absolute; }
 .plan-crop .plan-view { border-radius: 0; }
 
 /* Choix d'une photo (PhotoPicker) : bouton à la largeur de son texte, contenu centré en hauteur, nom du fichier à côté. */

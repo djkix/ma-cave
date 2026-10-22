@@ -1,5 +1,6 @@
 import { KeyboardEvent, MouseEvent, ReactNode, Ref, useState } from 'react';
 import { type CavePlan, type PlanMarker, type PlanSuggestion, planImageUrl } from '../lib/api-client';
+import { cellCodeOf } from '../lib/grid';
 import { usePlans } from '../lib/locations';
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
@@ -139,16 +140,16 @@ const hasCells = (m: PlanMarker) => Object.keys(m.cellBoxes ?? {}).length > 0;
  * Plan recadré sur `box` (fractions de l'image) : image agrandie 1/(x1 − x0),
  * décalée du coin du cadre, rognée au cadre. Hauteur bornée à `maxHeight` par la
  * largeur, pour garder le rapport (et donc les décalages en %). `children` : le
- * `PlanView` du plan entier.
+ * `PlanView` du plan entier. En span (affiché en bloc) : la vignette de la fiche vin vit dans un bouton.
  */
 export function PlanCrop({ box: [x0, y0, x1, y1], plan, maxHeight = '50vh', children }: {
   box: [number, number, number, number]; plan: Pick<CavePlan, 'width' | 'height'>; maxHeight?: string; children: ReactNode;
 }) {
   const ratio = ((x1 - x0) * plan.width) / ((y1 - y0) * plan.height);
   return (
-    <div className="plan-crop" style={{ aspectRatio: `${(x1 - x0) * plan.width} / ${(y1 - y0) * plan.height}`, width: `min(100%, calc(${maxHeight} * ${ratio}))` }}>
-      <div className="plan-crop__inner" style={{ width: pct(1 / (x1 - x0)), left: pct(-x0 / (x1 - x0)), top: pct(-y0 / (y1 - y0)) }}>{children}</div>
-    </div>
+    <span className="plan-crop" style={{ aspectRatio: `${(x1 - x0) * plan.width} / ${(y1 - y0) * plan.height}`, width: `min(100%, calc(${maxHeight} * ${ratio}))` }}>
+      <span className="plan-crop__inner" style={{ width: pct(1 / (x1 - x0)), left: pct(-x0 / (x1 - x0)), top: pct(-y0 / (y1 - y0)) }}>{children}</span>
+    </span>
   );
 }
 
@@ -184,5 +185,46 @@ export function ZonePlan({ zoneId, mini }: { zoneId: string; mini?: boolean }) {
       {caption}
       {mini && <button type="button" className="btn btn--link" onClick={() => setOpen(false)}>Réduire le plan</button>}
     </div>
+  );
+}
+
+/** Fraction arrondie : pas de 0.06000000000000001 dans les styles ni les tests. */
+const round = (v: number) => +v.toFixed(4);
+
+/**
+ * Cadre de la vignette d'une zone (fractions de l'image) : avec ses cases, leur
+ * englobant plus 4 % de chaque côté, coupé aux bords ; sinon une fenêtre de
+ * 40 % × 40 % centrée sur le repère, décalée pour rester dans l'image.
+ */
+export function thumbnailBox(marker: PlanMarker): [number, number, number, number] {
+  const boxes = Object.values(marker.cellBoxes ?? {});
+  if (boxes.length > 0) {
+    const m = 0.04;
+    return [
+      clamp(Math.min(...boxes.map((b) => b[0])) - m), clamp(Math.min(...boxes.map((b) => b[1])) - m),
+      clamp(Math.max(...boxes.map((b) => b[2])) + m), clamp(Math.max(...boxes.map((b) => b[3])) + m),
+    ].map(round) as [number, number, number, number];
+  }
+  const x0 = Math.min(0.6, Math.max(0, marker.x - 0.2));
+  const y0 = Math.min(0.6, Math.max(0, marker.y - 0.2));
+  return [x0, y0, x0 + 0.4, y0 + 0.4].map(round) as [number, number, number, number];
+}
+
+/**
+ * Vignette de l'emplacement d'une bouteille (fiche vin) : le plan de la zone
+ * recadré sur ses cases (ou autour de son repère), ce seul repère, la case du
+ * `casier` en évidence quand elle a une position. Rien sans repère.
+ */
+export function PlaceThumbnail({ zoneId, casier, label }: { zoneId: string; casier: string | null; label: string }) {
+  const data = usePlans().data;
+  const marker = data?.markers.find((m) => m.zoneId === zoneId);
+  const plan = data?.plans.find((p) => p.id === marker?.planId);
+  if (!marker || !plan) return null;
+  const code = cellCodeOf(casier, marker.cellNames)?.trim().toUpperCase();
+  return (
+    <PlanCrop box={thumbnailBox(marker)} plan={plan} maxHeight="40vh">
+      <PlanView src={planImageUrl(plan.id, plan.updatedAt)} plan={plan} markers={[marker]} highlightZoneId={zoneId}
+        highlightCell={code && marker.cellBoxes?.[code] ? code : null} alt={`Plan : ${label}`} />
+    </PlanCrop>
   );
 }

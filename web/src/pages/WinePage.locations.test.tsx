@@ -107,50 +107,109 @@ it('membre : voit les emplacements et le détail des zones, mais aucun bouton ni
 
 describe('plan de la cave', () => {
   const plan = { id: 'p1', name: 'Plan principal', width: 1200, height: 800, updatedAt: '2026-10-13T10:00:00.000Z', analysis: 'NONE' as const, suggestions: [], analysisInfo: null };
-  const markers = [{ zoneId: 'z1', planId: 'p1', name: 'Garage', number: 1, x: 0.2, y: 0.3 }, { zoneId: 'z2', planId: 'p1', name: 'Cave 2', number: 2, x: 0.6, y: 0.7 }];
-  const placed: api.Zone[] = [{ ...zones[0], marker: { planId: 'p1', x: 0.2, y: 0.3 } }, { ...zones[1], marker: { planId: 'p1', x: 0.6, y: 0.7 } }];
-
-  it('toucher un emplacement dont la zone a un repère montre le plan, ce repère en avant, sous l’indication et la photo', async () => {
+  // Casier C : cases C1, C2 et C15 (« Champagnes »), englobant [0.29, 0.14, 0.46, 0.56] → vignette [0.25, 0.1, 0.5, 0.6].
+  const casierC: api.PlanMarker = {
+    zoneId: 'z3', planId: 'p1', name: 'Casier C', number: 3, x: 0.4, y: 0.3,
+    cellBoxes: { C1: [0.29, 0.14, 0.37, 0.24], C2: [0.37, 0.14, 0.46, 0.24], C15: [0.37, 0.46, 0.46, 0.56] }, cellNames: { C15: 'Champagnes' },
+  };
+  const markers: api.PlanMarker[] = [{ zoneId: 'z1', planId: 'p1', name: 'Garage', number: 1, x: 0.2, y: 0.3 }, { zoneId: 'z2', planId: 'p1', name: 'Cave 2', number: 2, x: 0.6, y: 0.7 }, casierC];
+  const placed: api.Zone[] = [
+    { ...zones[0], marker: { planId: 'p1', x: 0.2, y: 0.3 } }, { ...zones[1], marker: { planId: 'p1', x: 0.6, y: 0.7 } },
+    { id: 'z3', name: 'Casier C', indication: null, hasPhoto: false, sortOrder: 2, marker: { planId: 'p1', x: 0.4, y: 0.3 }, grid: { rows: 4, cols: 12 }, cellPrefix: 'C', cellNames: { C15: 'Champagnes' } },
+  ];
+  const inCasier: api.WineDetail = {
+    ...detail,
+    locations: [
+      { id: 'l3', label: 'Casier C / Champagnes (C15)', quantity: 2, zoneId: 'z3', casier: 'champagnes' },
+      { id: 'l4', label: 'Casier C / Loire', quantity: 1, zoneId: 'z3', casier: 'Loire' },
+      ...detail.locations!,
+    ],
+  };
+  function mountPlaced(wine = inCasier) {
     vi.spyOn(api, 'getZones').mockResolvedValue(placed);
     vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [plan], markers });
-    vi.spyOn(api, 'getWine').mockResolvedValue(detail);
+    vi.spyOn(api, 'getWine').mockResolvedValue(wine);
     mount();
-    await screen.findByRole('region', { name: 'Emplacements' });
-    // Zone sans indication ni photo, mais placée sur le plan : son détail se révèle aussi.
-    await userEvent.click(await section().findByRole('button', { name: /Cave 2/ }));
-    const cave2 = section().getByRole('img', { name: 'Zone 2 : Cave 2' });
-    expect(cave2).toHaveAttribute('aria-current', 'true');
-    expect(section().getByRole('img', { name: 'Zone 1 : Garage' })).not.toHaveAttribute('aria-current');
-    await userEvent.click(section().getByRole('button', { name: /Garage/ }));
-    const planImg = section().getAllByRole('img', { name: 'Plan de la cave' })[1];
-    expect(planImg).toHaveAttribute('src', '/api/caves/plans/p1/image?v=2026-10-13T10%3A00%3A00.000Z');
-    const photo = section().getByRole('img', { name: 'Photo de la zone Garage' });
-    expect(photo.compareDocumentPosition(planImg) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  }
+  /** Bouton du dépliant d'un endroit, trouvé par le texte alternatif de sa vignette. */
+  const thumbnail = async (label: string) => (await within(await screen.findByRole('region', { name: 'Emplacements' })).findByRole('img', { name: `Plan : ${label}` })).closest('button')!;
+  const crop = (el: HTMLElement) => el.querySelector<HTMLElement>('.plan-crop__inner')!.style;
+
+  it('case connue : vignette recadrée sur le casier, sans toucher, case de la bouteille en évidence, légende « … × 2 »', async () => {
+    mountPlaced();
+    const button = await thumbnail('Casier C / Champagnes (C15)');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(button).toHaveTextContent('Casier C / Champagnes (C15) × 2');
+    expect(crop(button)).toMatchObject({ width: '400%', left: '-100%', top: '-20%' });
+    expect(button.querySelectorAll('.plan-view__zone-cell')).toHaveLength(3);
+    const current = button.querySelectorAll('.plan-view__zone-cell--current');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent('Champagnes');
+    // Seul le repère de la zone est sur la vignette.
+    expect(within(button).queryByRole('img', { name: /Zone [12]/ })).not.toBeInTheDocument();
   });
 
-  it('sans plan, ou sans repère dans la cave : pas de plan, et le plan n’est lu que si une zone a un repère', async () => {
+  it('casier « Loire » (hors grille) : même recadrage, aucune case en évidence', async () => {
+    mountPlaced();
+    const button = await thumbnail('Casier C / Loire');
+    expect(button).toHaveTextContent('Casier C / Loire × 1');
+    expect(crop(button)).toMatchObject({ width: '400%', left: '-100%', top: '-20%' });
+    expect(button.querySelectorAll('.plan-view__zone-cell')).toHaveLength(3);
+    expect(button.querySelector('.plan-view__zone-cell--current')).toBeNull();
+  });
+
+  it('zone avec un repère sans cases : vignette autour du repère, repère en évidence', async () => {
+    mountPlaced();
+    const button = await thumbnail('Cave 2 / B / 3');
+    // Fenêtre [0.4, 0.5, 0.8, 0.9] autour du repère (0.6, 0.7).
+    expect(crop(button)).toMatchObject({ width: '250%', left: '-100%', top: '-125%' });
+    expect(within(button).getByRole('img', { name: 'Zone 2 : Cave 2' })).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('zone sans repère, ou « Sans emplacement » : texte seul, et le plan n’est lu que si une zone a un repère', async () => {
     const getPlans = vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [], markers: [] });
     vi.spyOn(api, 'getWine').mockResolvedValue(detail);
     mount();
     await screen.findByRole('region', { name: 'Emplacements' });
     await userEvent.click(await section().findByRole('button', { name: /Garage/ }));
-    expect(section().queryByRole('img', { name: 'Plan de la cave' })).not.toBeInTheDocument();
+    expect(section().queryByRole('img', { name: /Plan/ })).not.toBeInTheDocument();
+    expect(section().getByText('Sans emplacement').closest('li')!.querySelector('img')).toBeNull();
     expect(getPlans).not.toHaveBeenCalled();
   });
 
-  it('membre : voit le plan et le repère, sans aucune commande', async () => {
+  it('toucher la vignette montre l’indication, la photo et le plan entier de la zone ; membre en lecture seule : idem, sans commande', async () => {
     vi.spyOn(api, 'getMe').mockResolvedValue(viewerMe());
-    vi.spyOn(api, 'getZones').mockResolvedValue(placed);
-    vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [plan], markers });
-    vi.spyOn(api, 'getWine').mockResolvedValue(detail);
     const set = vi.spyOn(api, 'setZoneMarker');
-    mount();
-    await screen.findByRole('region', { name: 'Emplacements' });
-    await userEvent.click(await section().findByRole('button', { name: /Garage/ }));
-    expect(await section().findByRole('img', { name: 'Zone 1 : Garage' })).toHaveAttribute('aria-current', 'true');
-    expect(screen.queryByRole('button', { name: /Zone \d/ })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/plan/i, { selector: 'input' })).not.toBeInTheDocument();
+    mountPlaced(detail);
+    const button = await thumbnail('Garage');
+    expect(section().queryByText('Au fond, derrière l’escalier')).not.toBeInTheDocument();
+    await userEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(section().getByText('Au fond, derrière l’escalier')).toBeInTheDocument();
+    const photo = section().getByRole('img', { name: 'Photo de la zone Garage' });
+    const planImg = section().getByRole('img', { name: 'Plan de la cave' });
+    expect(planImg).toHaveAttribute('src', '/api/caves/plans/p1/image?v=2026-10-13T10%3A00%3A00.000Z');
+    expect(photo.compareDocumentPosition(planImg) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Plan entier : tous les repères, celui de la zone en avant.
+    const whole = within(planImg.closest('.plan-view') as HTMLElement);
+    expect(whole.getByRole('img', { name: 'Zone 1 : Garage' })).toHaveAttribute('aria-current', 'true');
+    expect(whole.getByRole('img', { name: 'Zone 2 : Cave 2' })).not.toHaveAttribute('aria-current');
+    // Aucun repère ni case n'est un bouton (les vignettes sont nommées « Plan : … »).
+    expect(screen.queryByRole('button', { name: /^Zone \d/ })).not.toBeInTheDocument();
     expect(set).not.toHaveBeenCalled();
+    await userEvent.click(button);
+    expect(section().queryByRole('img', { name: 'Plan de la cave' })).not.toBeInTheDocument();
+  });
+
+  it('fenêtre « Emplacement » : vignette, la toucher montre le plan entier', async () => {
+    mountPlaced();
+    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.open = true; };
+    await userEvent.click(await screen.findByRole('button', { name: 'Voir l’emplacement' }));
+    const dialog = within(screen.getByRole('dialog', { hidden: true }));
+    const thumb = await dialog.findByRole('img', { name: 'Plan : Casier C / Champagnes (C15)', hidden: true });
+    expect(dialog.queryByRole('img', { name: 'Plan de la cave', hidden: true })).not.toBeInTheDocument();
+    await userEvent.click(thumb.closest('button')!);
+    expect(dialog.getByRole('img', { name: 'Plan de la cave', hidden: true })).toBeInTheDocument();
   });
 });
 

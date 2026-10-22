@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as api from '../lib/api-client';
 import type { PlanMarker } from '../lib/api-client';
-import { PlanView, ZonePlan } from './PlanView';
+import { PlanView, thumbnailBox, ZonePlan } from './PlanView';
 
 const plan = { width: 2400, height: 1200, updatedAt: '2026-10-13T10:00:00.000Z' };
 const markers: PlanMarker[] = [
@@ -283,5 +283,16 @@ describe('zone acceptée avec ses cases (cellBoxes)', () => {
     expect(screen.getByRole('img', { name: 'Zone 1 : Cave 1' })).toHaveTextContent('1');
     expect(screen.getByRole('img', { name: 'Zone 2 : Garage' })).toHaveTextContent('2');
     expect(container.querySelector('.plan-view__zone-cell')).toBeNull();
+  });
+});
+
+describe('thumbnailBox (vignette de la fiche vin)', () => {
+  const m: PlanMarker = { zoneId: 'z3', planId: 'p1', name: 'Casier C', number: 3, x: 0.5, y: 0.5 };
+  it('cases : englobant de toutes les cases, marge de 4 % coupée aux bords de l’image', () => {
+    expect(thumbnailBox({ ...m, cellBoxes: { C1: [0.1, 0.2, 0.2, 0.3], C2: [0.5, 0.6, 0.98, 0.7] } })).toEqual([0.06, 0.16, 1, 0.74]);
+  });
+  it('repère seul : fenêtre de 40 % × 40 % centrée, décalée pour rester dans l’image', () => {
+    expect(thumbnailBox({ ...m, cellBoxes: {} })).toEqual([0.3, 0.3, 0.7, 0.7]);
+    expect(thumbnailBox({ ...m, x: 0.05, y: 0.9 })).toEqual([0, 0.6, 0.4, 1]);
   });
 });
