@@ -28,10 +28,16 @@ const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRigh
  * d'avant. `openSuggestionId` : proposition ouverte, dont les cases repérées
  * sont dessinées (cadre fin, point au centre et nom « B3 »), sans être
  * cliquables ni lues par les lecteurs d'écran.
+ *
+ * `onCellClick` (feuille « Proposition ») : les cases repérées de la proposition
+ * ouverte sont dessinées et chaque case au code connu devient un bouton
+ * « Case B3 » (« Case Champagnes (B3) » une fois nommée) ; les cadres ne sont plus des boutons.
+ * `cellNames` : nom donné à une case, affiché à la place de son code.
  */
-export function PlanView({ src, plan, markers, highlightZoneId, pending, suggestions = [], openSuggestionId, onPlanClick, onMarkerClick, onSuggestionClick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
+export function PlanView({ src, plan, markers, highlightZoneId, pending, suggestions = [], openSuggestionId, cellNames, onPlanClick, onMarkerClick, onSuggestionClick, onCellClick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
   src: string; plan: Pick<CavePlan, 'width' | 'height'>; markers: PlanMarker[]; highlightZoneId?: string | null; pending?: { x: number; y: number } | null;
   suggestions?: PlanSuggestion[]; openSuggestionId?: string | null; onSuggestionClick?: (id: string) => void;
+  cellNames?: Record<string, string>; onCellClick?: (code: string) => void;
   onPlanClick?: (x: number, y: number) => void; onMarkerClick?: (zoneId: string) => void;
   onPendingMove?: (x: number, y: number) => void; onCancel?: () => void; planRef?: Ref<HTMLSpanElement>; maxWidth?: number; alt?: string;
 }) {
@@ -53,7 +59,7 @@ export function PlanView({ src, plan, markers, highlightZoneId, pending, suggest
     } else return;
     e.preventDefault();
   }
-  const openCells = (onSuggestionClick && suggestions.find((s) => s.id === openSuggestionId)?.cells) || [];
+  const openCells = ((onSuggestionClick || onCellClick) && suggestions.find((s) => s.id === openSuggestionId)?.cells) || [];
   return (
     // Placement au toucher (souris ou doigt) ou au clavier ; les repères restent des boutons.
     // span (affiché en bloc) : le petit plan d'« À boire » vit dans un bouton, qui n'admet pas de div.
@@ -68,10 +74,13 @@ export function PlanView({ src, plan, markers, highlightZoneId, pending, suggest
         </button>
       ))}
       {openCells.length > 0 && (
-        <span className="plan-view__cells" aria-hidden="true">
+        <span className="plan-view__cells" aria-hidden={onCellClick ? undefined : 'true'}>
           {openCells.map(({ box: [x0, y0, x1, y1], name }, i) => (
-            <span key={i} className="plan-view__cell" aria-hidden="true" style={{ left: pct(x0), top: pct(y0), width: pct(x1 - x0), height: pct(y1 - y0) }}>
-              {name && <span className="plan-view__cell-name">{name}</span>}
+            <span key={i} className="plan-view__cell" aria-hidden={onCellClick ? undefined : 'true'} style={{ left: pct(x0), top: pct(y0), width: pct(x1 - x0), height: pct(y1 - y0) }}>
+              {name && <span className="plan-view__cell-name" aria-hidden="true">{cellNames?.[name] ?? name}</span>}
+              {name && onCellClick && (
+                <button type="button" className="plan-view__cell-button" aria-label={cellNames?.[name] ? `Case ${cellNames[name]} (${name})` : `Case ${name}`} onClick={(e) => { e.stopPropagation(); onCellClick(name); }} />
+              )}
             </span>
           ))}
         </span>

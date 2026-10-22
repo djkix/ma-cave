@@ -13,7 +13,7 @@ import {
 } from '../queue/plan-analysis';
 import { PlanSuggestion } from './plan-suggestions';
 import {
-  ANALYSIS_IN_PROGRESS, PLAN_LIMIT, PLAN_MAX_COUNT, PLAN_MAX_SIDE, PLAN_NAME_TAKEN, PLAN_NOT_FOUND, PlanAnalysisInfo, PlanFailedReason, PlanMarker, PlanMeta,
+  ANALYSIS_IN_PROGRESS, cellNamesFor, CellNames, PLAN_LIMIT, PLAN_MAX_COUNT, PLAN_MAX_SIDE, PLAN_NAME_TAKEN, PLAN_NOT_FOUND, PlanAnalysisInfo, PlanFailedReason, PlanMarker, PlanMeta,
   planPath, SUGGESTION_NOT_FOUND, ZONE_NAME_TAKEN, ZoneView, zoneView,
 } from './zone';
 import { placeImage, unlinkIgnoringMissing } from './zones.service';
@@ -162,12 +162,16 @@ export class PlanService {
 
   /**
    * Accepte une proposition : crée la zone (fin de liste) avec son repère au
-   * centre du cadre sur ce plan et sa grille, et retire la proposition, dans la
+   * centre du cadre sur ce plan, sa grille et les noms donnés à ses cases (400
+   * avant toute écriture s'ils sont refusés), et retire la proposition, dans la
    * même transaction, sous verrou du plan. Deux acceptations simultanées de la
    * même proposition : la seconde attend le verrou, ne la trouve plus (404).
    * Nom pris : 409, rien n'est écrit.
    */
-  async acceptSuggestion(caveId: string, id: string, sid: string, input: { name: string; rows: number; cols: number }): Promise<ZoneView> {
+  async acceptSuggestion(
+    caveId: string, id: string, sid: string, input: { name: string; rows: number; cols: number; cellNames?: CellNames },
+  ): Promise<ZoneView> {
+    const cellNames = cellNamesFor(input.cellNames ?? {}, { rows: input.rows, cols: input.cols });
     return this.prisma.$transaction(async (tx) => {
       const { suggestions } = await this.lockOwn(tx, caveId, id);
       const s = suggestions.find((x) => x.id === sid);
@@ -177,7 +181,7 @@ export class PlanService {
       const zone = await tx.caveZone.create({
         data: {
           caveId, name: input.name, sortOrder: (last._max.sortOrder ?? -1) + 1, planId: id, planX: (x0 + x1) / 2, planY: (y0 + y1) / 2,
-          gridRows: input.rows, gridCols: input.cols,
+          gridRows: input.rows, gridCols: input.cols, cellNames,
         },
       });
       await tx.cavePlan.update({ where: { id }, data: { suggestions: suggestions.filter((x) => x.id !== sid) as object[] } });
