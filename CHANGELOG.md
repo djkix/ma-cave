@@ -9,6 +9,23 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.27.0](https://github.com/djkix/ma-cave/compare/v2.26.0...v2.27.0) (2026-10-22)
+
+
+### Fonctionnalités
+
+* **api:** lettre des cases et codes numérotés par casier (migration cases_visuelles) ([93fd09d](https://github.com/djkix/ma-cave/commit/93fd09d4b3dcb6bb5418a8b6d5612ce7d11037d6))
+* **api:** positions des cases gardées à l'acceptation, lettre modifiable et emplacements renommés ([cdcb469](https://github.com/djkix/ma-cave/commit/cdcb4690216a786fa4f4aa0c27db8af5a6c2d40f))
+* **web:** cases numérotées par casier et champ « Lettre des cases » ([853a18f](https://github.com/djkix/ma-cave/commit/853a18f5e26d6b3677671cae9a94537756a82de2))
+* **web:** les cases d'une zone restent sur le plan après acceptation ([934c95f](https://github.com/djkix/ma-cave/commit/934c95f5576e341d471ce855a2a8c0aa500b1356))
+* **web:** vignette du plan recadrée sur la case de la bouteille dans la fiche vin ([564e178](https://github.com/djkix/ma-cave/commit/564e17811519973307e5f5334f0c0e9525907bd0))
+
+
+### Corrections
+
+* **web:** message sous « Lettre des cases » quand la lettre est invalide ([64b990e](https://github.com/djkix/ma-cave/commit/64b990e7699443bc0cdc776606b6401aea7b6387))
+* **web:** plans relus après renommage des cases ; avertissement « sans emplacement » au passage à la 2.27.0 ([70b1263](https://github.com/djkix/ma-cave/commit/70b126313d53cf8ea1a1e8599624a50fc3c0fd24))
+
 ## [2.26.0](https://github.com/djkix/ma-cave/compare/v2.25.0...v2.26.0) (2026-10-22)
 
 ### Résumé
