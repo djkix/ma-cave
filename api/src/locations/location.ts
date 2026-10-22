@@ -27,7 +27,7 @@ export const locationIdSchema = z.string({ invalid_type_error: 'Emplacement inva
 
 /**
  * Parties d'un libellé : `zone` est le NOM de la zone, lu par la relation (il suit les renommages) ;
- * `cellNames` : noms des cases de la zone (« B3 » → « Champagnes »), pour afficher « Champagnes (B3) ».
+ * `cellNames` : noms des cases de la zone (« C15 » → « Champagnes »), pour afficher « Champagnes (C15) ».
  */
 export interface LocationParts { zone: string | null; casier: string | null; position: string | null; cellNames?: Record<string, string> | null }
 /** Emplacement lu, prêt pour un libellé : son id, celui de sa zone et ses parties. */
@@ -35,8 +35,11 @@ export interface LocatedParts extends LocationParts { id: string; zoneId: string
 /** Saisie nettoyée : `zoneName` seulement pour un ancien client qui envoie `zone` en texte. */
 export interface NormalizedLocation { zoneId: string | null; zoneName: string | null; casier: string | null; position: string | null }
 
-/** Un endroit où se trouve un vin : un emplacement (id) ou « Sans emplacement » (id null) ; `zoneId` : sa zone (indication, photo). */
-export interface Place { id: string | null; label: string; quantity: number; zoneId: string | null }
+/**
+ * Un endroit où se trouve un vin : un emplacement (id) ou « Sans emplacement » (id null) ; `zoneId` : sa zone
+ * (indication, photo) ; `casier` : tel qu'enregistré (« C15 », la case sur le plan), null sans casier ou pour « Sans emplacement ».
+ */
+export interface Place { id: string | null; label: string; quantity: number; zoneId: string | null; casier: string | null }
 
 export const NO_LOCATION = 'Sans emplacement';
 export const MAX_LOCATION_FIELD = 40;
@@ -76,7 +79,7 @@ export function partsOf(l: {
   return parts;
 }
 
-/** Casier affiché : « Nom (B3) » quand la case a un nom dans sa zone (casse du casier ignorée), sinon le casier tel quel. */
+/** Casier affiché : « Nom (C15) » quand la case a un nom dans sa zone (casse du casier ignorée), sinon le casier tel quel. */
 function casierLabel(casier: string | null, cellNames?: Record<string, string> | null): string | null {
   const code = casier?.toUpperCase();
   const name = code ? cellNames?.[code] : undefined;
@@ -90,7 +93,7 @@ export function labelOf(loc: LocationParts): string {
 
 /**
  * Casier saisi → valeur enregistrée : le nom d'une case de la zone (casse et
- * espaces ignorés) devient son code, pour que « Champagnes » et « B3 » désignent
+ * espaces ignorés) devient son code, pour que « Champagnes » et « C15 » désignent
  * le même emplacement. Sinon le casier ne change pas.
  */
 export function cellCodeOf(casier: string | null, cellNames: Record<string, string>): string | null {
@@ -109,10 +112,10 @@ export function placesOf(groups: Array<{ location: LocatedParts | null; quantity
   const total = groups.reduce((s, g) => s + g.quantity, 0);
   const located = groups
     .filter((g): g is { location: LocatedParts; quantity: number } => g.location != null && g.quantity > 0)
-    .map((g) => ({ id: g.location.id, label: labelOf(g.location), quantity: g.quantity, zoneId: g.location.zoneId }))
+    .map((g) => ({ id: g.location.id, label: labelOf(g.location), quantity: g.quantity, zoneId: g.location.zoneId, casier: g.location.casier }))
     .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
   const none = total - located.reduce((s, p) => s + p.quantity, 0);
-  return none > 0 ? [...located, { id: null, label: NO_LOCATION, quantity: none, zoneId: null }] : located;
+  return none > 0 ? [...located, { id: null, label: NO_LOCATION, quantity: none, zoneId: null, casier: null }] : located;
 }
 
 /** Colonne « Emplacements » de l'export : « Cave 2 / B / 3 × 4 ; Sans emplacement × 2 ». */

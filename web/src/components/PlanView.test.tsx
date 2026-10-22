@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as api from '../lib/api-client';
 import type { PlanMarker } from '../lib/api-client';
-import { PlanView, ZonePlan } from './PlanView';
+import { PlanView, thumbnailBox, ZonePlan } from './PlanView';
 
 const plan = { width: 2400, height: 1200, updatedAt: '2026-10-13T10:00:00.000Z' };
 const markers: PlanMarker[] = [
@@ -223,5 +223,76 @@ describe('ZonePlan', () => {
     const mini = await screen.findByRole('button', { name: 'Agrandir le plan' });
     expect(within(mini).getByRole('img', { name: 'Zone 2 : Étagère' })).toBeInTheDocument();
     expect(screen.getByText('Cellier')).toHaveClass('plan-caption');
+  });
+});
+
+describe('zone acceptée avec ses cases (cellBoxes)', () => {
+  const zoned: PlanMarker[] = [
+    markers[0],
+    { zoneId: 'z2', planId: 'p1', name: 'Casier C', number: 2, x: 0.5, y: 0.5,
+      cellBoxes: { C1: [0.1, 0.2, 0.2, 0.4], C5: [0.3, 0.4, 0.5, 0.6] }, cellNames: { C1: 'Champagnes' } },
+  ];
+
+  it('repère avec cellBoxes : un point par case, nommé par son nom donné sinon son code, au centre du cadre en pourcentage ; pas de repère numéroté', () => {
+    const { container } = render(<PlanView src="/plan.jpg" plan={plan} markers={zoned} />);
+    const cells = [...container.querySelectorAll<HTMLElement>('.plan-view__zone-cell')];
+    expect(cells.map((c) => c.textContent)).toEqual(['Champagnes', 'C5']);
+    expect(cells[1].style.left).toBe('30%');
+    expect(cells[1].style.top).toBe('40%');
+    expect(cells[1].style.width).toBe('20%');
+    expect(cells[1].style.height).toBe('20%');
+    expect(cells.every((c) => c.classList.contains('plan-view__cell'))).toBe(true);
+    expect(screen.queryByRole('img', { name: 'Zone 2 : Casier C' })).not.toHaveTextContent('2');
+    expect(container.querySelectorAll('.plan-view__marker')).toHaveLength(1);
+  });
+
+  it('avec onMarkerClick : chaque case est un bouton « Zone 2 : Casier C, case Champagnes (C1) » qui appelle onMarkerClick(zoneId), sans toucher au plan', async () => {
+    const onMarkerClick = vi.fn();
+    const onPlanClick = vi.fn();
+    render(<PlanView src="/plan.jpg" plan={plan} markers={zoned} onMarkerClick={onMarkerClick} onPlanClick={onPlanClick} />);
+    expect(screen.getByRole('button', { name: 'Zone 2 : Casier C, case C5' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Zone 2 : Casier C, case Champagnes (C1)' }));
+    expect(onMarkerClick).toHaveBeenCalledWith('z2');
+    expect(onPlanClick).not.toHaveBeenCalled();
+  });
+
+  it('sans action : les cases d’une zone sont dans une image nommée « Zone 2 : Casier C », pas des boutons', () => {
+    const { container } = render(<PlanView src="/plan.jpg" plan={plan} markers={zoned} />);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    const zone = screen.getByRole('img', { name: 'Zone 2 : Casier C' });
+    expect(zone.querySelectorAll('.plan-view__zone-cell')).toHaveLength(2);
+    expect(container.querySelectorAll('.plan-view__zone-cell')).toHaveLength(2);
+  });
+
+  it('highlightZoneId : les cases de la zone portent la classe de mise en avant ; highlightCell « C5 » : cadre de la case, point plus gros, nom affiché (classe plan-view__zone-cell--current)', () => {
+    const { container, rerender } = render(<PlanView src="/plan.jpg" plan={plan} markers={zoned} highlightZoneId="z2" />);
+    const cells = () => [...container.querySelectorAll<HTMLElement>('.plan-view__zone-cell')];
+    expect(cells().every((c) => c.classList.contains('plan-view__zone-cell--highlight'))).toBe(true);
+    expect(screen.getByRole('img', { name: 'Zone 2 : Casier C' })).toHaveAttribute('aria-current', 'true');
+    expect(container.querySelector('.plan-view__zone-cell--current')).toBeNull();
+    rerender(<PlanView src="/plan.jpg" plan={plan} markers={zoned} highlightZoneId="z2" highlightCell="C5" />);
+    expect(cells().map((c) => c.classList.contains('plan-view__zone-cell--current'))).toEqual([false, true]);
+    // Une case d'une autre zone n'est jamais « courante ».
+    rerender(<PlanView src="/plan.jpg" plan={plan} markers={zoned} highlightZoneId="z1" highlightCell="C5" />);
+    expect(container.querySelector('.plan-view__zone-cell--current')).toBeNull();
+    expect(container.querySelector('.plan-view__zone-cell--highlight')).toBeNull();
+  });
+
+  it('repère sans cellBoxes ({} ou absent) : repère numéroté comme avant', () => {
+    const { container } = render(<PlanView src="/plan.jpg" plan={plan} markers={[markers[0], { ...markers[1], cellBoxes: {} }]} />);
+    expect(screen.getByRole('img', { name: 'Zone 1 : Cave 1' })).toHaveTextContent('1');
+    expect(screen.getByRole('img', { name: 'Zone 2 : Garage' })).toHaveTextContent('2');
+    expect(container.querySelector('.plan-view__zone-cell')).toBeNull();
+  });
+});
+
+describe('thumbnailBox (vignette de la fiche vin)', () => {
+  const m: PlanMarker = { zoneId: 'z3', planId: 'p1', name: 'Casier C', number: 3, x: 0.5, y: 0.5 };
+  it('cases : englobant de toutes les cases, marge de 4 % coupée aux bords de l’image', () => {
+    expect(thumbnailBox({ ...m, cellBoxes: { C1: [0.1, 0.2, 0.2, 0.3], C2: [0.5, 0.6, 0.98, 0.7] } })).toEqual([0.06, 0.16, 1, 0.74]);
+  });
+  it('repère seul : fenêtre de 40 % × 40 % centrée, décalée pour rester dans l’image', () => {
+    expect(thumbnailBox({ ...m, cellBoxes: {} })).toEqual([0.3, 0.3, 0.7, 0.7]);
+    expect(thumbnailBox({ ...m, x: 0.05, y: 0.9 })).toEqual([0, 0.6, 0.4, 1]);
   });
 });

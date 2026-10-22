@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { z } from 'zod';
 import type { PlanAnalysisJobState } from '../queue/plan-analysis';
-import { GRID_MAX_COLS, GRID_MAX_ROWS, PlanSuggestion } from './plan-suggestions';
+import { cellCode, GRID_MAX_COLS, GRID_MAX_ROWS, PlanSuggestion } from './plan-suggestions';
 
 export const ZONE_NOT_FOUND = 'Zone introuvable';
 export const ZONE_NAME_TAKEN = 'Une zone porte déjà ce nom';
@@ -23,6 +23,10 @@ export const UNKNOWN_CELL = 'Case inconnue dans cette zone';
 export const CELL_NAME_TAKEN = 'Ce nom est déjà pris dans cette zone';
 export const INVALID_CELL_NAME = 'Le nom d\'une case fait 40 caractères au plus';
 export const INVALID_CELL_NAMES = 'Noms des cases invalides';
+export const CELL_PREFIX_TAKEN = 'Cette lettre est déjà prise par une autre zone';
+export const NO_FREE_PREFIX = 'Plus de lettre libre pour les cases (26 casiers au plus)';
+export const INVALID_CELL_PREFIX = 'La lettre des cases est une lettre de A à Z';
+export const CELL_CODES_TAKEN = 'Des bouteilles sont déjà rangées sous ces codes dans cette zone';
 export const CELL_NAME_MAX = 40;
 export const ZONE_NAME_MAX = 40;
 export const PLAN_NAME_MAX = 40;
@@ -57,13 +61,55 @@ const cellNames = z.record(
   { invalid_type_error: INVALID_CELL_NAMES, required_error: INVALID_CELL_NAMES },
 );
 
-/** Nom d'affichage par case : { « B3 »: « Champagnes » }. Le code reste la valeur enregistrée dans `location.casier`. */
-export type CellNames = Record<string, string>;
+/** Lettre des cases : une lettre de A à Z, mise en majuscule. */
+const cellPrefix = z
+  .string({ invalid_type_error: INVALID_CELL_PREFIX })
+  .regex(/^[A-Za-z]$/, INVALID_CELL_PREFIX)
+  .transform((v) => v.toUpperCase());
 
-/** Codes des cases d'une grille, ligne par ligne : ligne `i` → lettre `A + i`, colonne `j` → `j + 1` (comme web/src/lib/grid.ts). */
-export function gridCodes(grid: { rows: number; cols: number } | null): string[] {
+/** Nom d'affichage par case : { « C15 »: « Champagnes » }. Le code reste la valeur enregistrée dans `location.casier`. */
+export type CellNames = Record<string, string>;
+/** Cadre d'une case sur le plan de la zone, en fractions de l'image [x0, y0, x1, y1]. */
+export type CellBox = [number, number, number, number];
+/** Positions des cases : { « C15 »: cadre }. */
+export type CellBoxes = Record<string, CellBox>;
+
+/**
+ * Codes des cases d'une grille, rangée par rangée : `<lettre><n>`, n = i × cols + j + 1
+ * (comme web/src/lib/grid.ts). Sans lettre (zone à grille d'avant la 2.27) : « A ».
+ */
+export function gridCodes(grid: { rows: number; cols: number } | null, prefix: string | null): string[] {
   if (!grid) return [];
-  return Array.from({ length: grid.rows * grid.cols }, (_, k) => `${String.fromCharCode(65 + Math.floor(k / grid.cols))}${(k % grid.cols) + 1}`);
+  return Array.from({ length: grid.rows * grid.cols }, (_, k) => cellCode(prefix ?? 'A', Math.floor(k / grid.cols), k % grid.cols, grid.cols));
+}
+
+/**
+ * Lettre choisie pour une zone qui pose sa grille sans en avoir : la lettre finale
+ * du nom quand il finit par une lettre seule précédée d'une espace (« Casier C »
+ * → C, casse ignorée) et qu'elle n'est pas dans `taken` (lettres des autres zones
+ * actives) ; sinon la première libre de A à Z ; aucune libre : null.
+ */
+export function suggestPrefix(name: string, taken: Iterable<string>): string | null {
+  const used = new Set(taken);
+  const end = /\s([A-Za-z])$/.exec(name.trim())?.[1].toUpperCase();
+  if (end && !used.has(end)) return end;
+  return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').find((l) => !used.has(l)) ?? null;
+}
+
+/**
+ * Clés `<from><n>` renommées en `<to><n>` (lettre des cases changée) ; les autres clés sont gardées telles quelles.
+ * Deux clés sur un même code n'arrivent pas (les clés sont des codes de `from`, `to` est libre dans la cave) :
+ * refusé plutôt qu'écrasé, si jamais.
+ */
+export function renamePrefix<T>(map: Record<string, T>, from: string, to: string): Record<string, T> {
+  const code = new RegExp(`^${from}([1-9][0-9]*)$`);
+  const out = new Map<string, T>();
+  for (const [k, v] of Object.entries(map)) {
+    const key = k.replace(code, `${to}$1`);
+    if (out.has(key)) throw new Error(`Lettre des cases : ${key} existe déjà`);
+    out.set(key, v);
+  }
+  return Object.fromEntries(out);
 }
 
 /**
@@ -73,8 +119,8 @@ export function gridCodes(grid: { rows: number; cols: number } | null): string[]
  * porté par une autre case ou égal au code d'une autre case (casse ignorée) :
  * un nom saisi dans « casier » désigne ainsi une seule case.
  */
-export function cellNamesFor(input: CellNames, grid: { rows: number; cols: number } | null): CellNames {
-  const codes = new Set(gridCodes(grid));
+export function cellNamesFor(input: CellNames, grid: { rows: number; cols: number } | null, prefix: string | null): CellNames {
+  const codes = new Set(gridCodes(grid, prefix));
   const out: CellNames = {};
   for (const [rawCode, rawName] of Object.entries(input)) {
     const code = rawCode.trim().toUpperCase();
@@ -95,8 +141,8 @@ export function cellNamesFor(input: CellNames, grid: { rows: number; cols: numbe
  * Noms gardés après un changement de grille : ceux des cases qui existent encore,
  * sauf un nom devenu le code d'une autre case (grille agrandie), qui désignerait deux cases.
  */
-export function keptCellNames(names: CellNames, grid: { rows: number; cols: number } | null): CellNames {
-  const codes = new Set(gridCodes(grid));
+export function keptCellNames(names: CellNames, grid: { rows: number; cols: number } | null, prefix: string | null): CellNames {
+  const codes = new Set(gridCodes(grid, prefix));
   return Object.fromEntries(Object.entries(names).filter(([code, name]) => {
     const key = name.toUpperCase();
     return codes.has(code) && (key === code || !codes.has(key));
@@ -108,14 +154,16 @@ export type CreateZoneInput = { name: string; indication?: string | null };
 
 /** Champs absents : inchangés ; `indication: null` ou vide l'efface. L'ordre se change par POST …/zones/order. */
 export const updateZoneSchema = z.object(
-  { name: name.optional(), indication: indication.optional(), grid: grid.nullable().optional(), cellNames: cellNames.optional() },
+  { name: name.optional(), indication: indication.optional(), grid: grid.nullable().optional(), cellNames: cellNames.optional(), cellPrefix: cellPrefix.optional() },
   { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME },
 );
-export type UpdateZoneInput = { name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null; cellNames?: CellNames };
+export type UpdateZoneInput = {
+  name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null; cellNames?: CellNames; cellPrefix?: string;
+};
 
-/** Accepter une proposition : nom de zone, grille et noms des cases (facultatifs), mêmes règles que pour une zone. */
+/** Accepter une proposition : nom de zone, grille, noms et lettre des cases (facultatifs), mêmes règles que pour une zone. */
 export const acceptSuggestionSchema = z.object(
-  { name, ...gridShape, cellNames: cellNames.optional() },
+  { name, ...gridShape, cellNames: cellNames.optional(), cellPrefix: cellPrefix.optional() },
   { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME },
 );
 
@@ -134,24 +182,28 @@ export const zoneOrderSchema = z.object(
  * Zone telle que l'api la rend : la photo se lit par GET /api/caves/zones/:id/photo ;
  * `marker` : son repère sur un plan de la cave (le plan, puis fractions de la
  * largeur et de la hauteur), null sans repère. Effacé quand son plan est supprimé.
- * `grid` : grille de cases (lignes A…, colonnes 1…), null sans grille ;
- * `cellNames` : noms d'affichage des cases ({} sans nom).
+ * `grid` : grille de cases, null sans grille ; `cellPrefix` : lettre de leurs codes
+ * (« C » → C1…C48, rangée par rangée), null sans grille ou pour une zone à grille
+ * d'avant la 2.27 (codes lus avec « A ») ; `cellNames` : noms d'affichage des cases
+ * ({} sans nom) ; `cellBoxes` : positions des cases sur le plan du repère ({} sans position).
  */
 export interface ZoneView {
   id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; marker: { planId: string; x: number; y: number } | null;
-  grid: { rows: number; cols: number } | null; cellNames: CellNames;
+  grid: { rows: number; cols: number } | null; cellPrefix: string | null; cellNames: CellNames; cellBoxes: CellBoxes;
 }
 
 export function zoneView(z: {
   id: string; name: string; indication: string | null; photoPath: string | null; sortOrder: number; planId: string | null; planX: number | null; planY: number | null;
-  gridRows: number | null; gridCols: number | null; cellNames: unknown;
+  gridRows: number | null; gridCols: number | null; cellPrefix: string | null; cellNames: unknown; cellBoxes: unknown;
 }): ZoneView {
   return {
     id: z.id, name: z.name, indication: z.indication, hasPhoto: z.photoPath != null, sortOrder: z.sortOrder,
     marker: z.planId != null && z.planX != null && z.planY != null ? { planId: z.planId, x: z.planX, y: z.planY } : null,
     grid: z.gridRows != null && z.gridCols != null ? { rows: z.gridRows, cols: z.gridCols } : null,
-    // Un objet JSON (cave_zone_cell_names_check).
+    cellPrefix: z.cellPrefix,
+    // Des objets JSON (cave_zone_cell_names_check, cave_zone_cell_boxes_check).
     cellNames: z.cellNames as CellNames,
+    cellBoxes: z.cellBoxes as CellBoxes,
   };
 }
 
@@ -202,5 +254,8 @@ export interface PlanMeta {
   id: string; name: string; width: number; height: number; updatedAt: string;
   analysis: 'NONE' | 'PENDING' | 'DONE' | 'FAILED'; suggestions: PlanSuggestion[]; analysisInfo: PlanAnalysisInfo;
 }
-/** Repère affiché : `number` = rang (à partir de 1) sur son plan, parmi les zones non archivées, dans l'ordre d'affichage. */
-export interface PlanMarker { zoneId: string; planId: string; name: string; number: number; x: number; y: number }
+/**
+ * Repère affiché : `number` = rang (à partir de 1) sur son plan, parmi les zones non archivées, dans l'ordre d'affichage ;
+ * `cellBoxes` et `cellNames` : positions et noms des cases de la zone, pour les dessiner sur ce plan ({} sans case).
+ */
+export interface PlanMarker { zoneId: string; planId: string; name: string; number: number; x: number; y: number; cellBoxes: CellBoxes; cellNames: CellNames }

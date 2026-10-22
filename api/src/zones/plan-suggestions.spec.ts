@@ -1,4 +1,4 @@
-import { nameBlocks, RawBlock, unitsToBlocks, validBlocks } from './plan-suggestions';
+import { cellCode, nameBlocks, RawBlock, unitsToBlocks, validBlocks } from './plan-suggestions';
 
 const block = (kind: RawBlock['kind'], x0: number, y0 = 0.1, rows = 4, cols = 6): RawBlock => ({ kind, box: [x0, y0, x0 + 0.1, y0 + 0.2], rows, cols });
 
@@ -36,25 +36,52 @@ describe('validBlocks', () => {
 
 describe('nameBlocks', () => {
   it('tri par x0 puis y0 ; une lettre par bloc, tous types confondus', () => {
-    const named = nameBlocks([block('ETAGERE', 0.5), block('AUTRE', 0.1, 0.6), block('CASIER', 0.1, 0.2)], []);
+    const named = nameBlocks([block('ETAGERE', 0.5), block('AUTRE', 0.1, 0.6), block('CASIER', 0.1, 0.2)], [], []);
     expect(named.map((s) => s.name)).toEqual(['Casier A', 'Rangement B', 'Étagère C']);
-    expect(named[0]).toEqual({ ...block('CASIER', 0.1, 0.2), id: expect.stringMatching(/^[0-9a-f-]{36}$/), name: 'Casier A' });
+    expect(named[0]).toEqual({ ...block('CASIER', 0.1, 0.2), id: expect.stringMatching(/^[0-9a-f-]{36}$/), name: 'Casier A', cellPrefix: 'A' });
     expect(new Set(named.map((s) => s.id)).size).toBe(3);
   });
 
   it('« Casier A » puis « Étagère B »', () => {
-    expect(nameBlocks([block('CASIER', 0.1), block('ETAGERE', 0.5)], []).map((s) => s.name)).toEqual(['Casier A', 'Étagère B']);
+    expect(nameBlocks([block('CASIER', 0.1), block('ETAGERE', 0.5)], [], []).map((s) => s.name)).toEqual(['Casier A', 'Étagère B']);
   });
 
   it('saute une lettre prise par une zone active, sans tenir compte de la casse', () => {
-    expect(nameBlocks([block('CASIER', 0.1), block('ETAGERE', 0.5)], ['casier a', 'Cave du bas']).map((s) => s.name)).toEqual(['Casier B', 'Étagère C']);
-    expect(nameBlocks([block('CASIER', 0.1)], ['ÉTAGÈRE A', 'Rangement B']).map((s) => s.name)).toEqual(['Casier C']);
+    expect(nameBlocks([block('CASIER', 0.1), block('ETAGERE', 0.5)], ['casier a', 'Cave du bas'], []).map((s) => s.name)).toEqual(['Casier B', 'Étagère C']);
+    expect(nameBlocks([block('CASIER', 0.1)], ['ÉTAGÈRE A', 'Rangement B'], []).map((s) => s.name)).toEqual(['Casier C']);
     // « Étagère A » saisi en forme décomposée (E + accent combinant) : même nom.
-    expect(nameBlocks([block('CASIER', 0.1)], ['E\u0301tage\u0300re A']).map((s) => s.name)).toEqual(['Casier B']);
+    expect(nameBlocks([block('CASIER', 0.1)], ['E\u0301tage\u0300re A'], []).map((s) => s.name)).toEqual(['Casier B']);
   });
 
   it('une lettre seulement employée par une zone archivée (non passée par l’appelant) n’est pas sautée', () => {
-    expect(nameBlocks([block('CASIER', 0.1)], []).map((s) => s.name)).toEqual(['Casier A']);
+    expect(nameBlocks([block('CASIER', 0.1)], [], []).map((s) => s.name)).toEqual(['Casier A']);
+  });
+
+  it('saute aussi les lettres des cases des zones actives ; lettre et noms des cases enregistrés avec la proposition', () => {
+    const [s] = nameBlocks([{ ...block('CASIER', 0.1), rows: 2, cols: 3, cells: [
+      { box: [0, 0, 0.1, 0.1], row: 1, col: 2, name: null }, { box: [0.2, 0, 0.3, 0.1], row: null, col: 0, name: null }] }], [], ['A']);
+    expect(s.name).toBe('Casier B');
+    expect(s.cellPrefix).toBe('B');
+    expect(s.cells!.map((c) => c.name)).toEqual(['B6', null]);
+    // Case hors de la grille : sans nom.
+    const [out] = nameBlocks([{ ...block('CASIER', 0.1), rows: 1, cols: 2, cells: [{ box: [0, 0, 0.1, 0.1], row: 1, col: 0, name: null }] }], [], []);
+    expect(out.cells![0].name).toBeNull();
+  });
+
+  it('au-delà de Z (« AA ») : pas de lettre des cases, cases sans nom', () => {
+    const taken = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    const [s] = nameBlocks([{ ...block('CASIER', 0.1), cells: [{ box: [0, 0, 0.1, 0.1], row: 0, col: 0, name: null }] }], [], taken);
+    expect(s.name).toBe('Casier AA');
+    expect(s.cellPrefix).toBeNull();
+    expect(s.cells![0].name).toBeNull();
+  });
+});
+
+describe('cellCode', () => {
+  it('rangée par rangée : n = rangée × colonnes + colonne + 1', () => {
+    expect(cellCode('C', 0, 0, 12)).toBe('C1');
+    expect(cellCode('C', 1, 0, 12)).toBe('C13');
+    expect(cellCode('A', 3, 11, 12)).toBe('A48');
   });
 });
 
@@ -191,16 +218,16 @@ describe('unitsToBlocks', () => {
     }
     return cells;
   };
-  /** Noms attendus des cases du mur, dans l'ordre où `wall` les rend. */
+  /** [rangée, colonne] attendues des cases du mur, dans l'ordre où `wall` les rend. */
   const wallNames = ({ vertical = false, missing = [] }: WallOptions = {}) => {
     const [along, across] = vertical ? [4, 12] : [12, 4];
     return Array.from({ length: along * across }, (_, i) => (vertical ? [Math.floor(i / across), i % across] : [i % across, Math.floor(i / across)]))
-      .filter(([r, c]) => !missing.some(([mr, mc]) => mr === r && mc === c))
-      .map(([r, c]) => `${String.fromCharCode(65 + r)}${c + 1}`);
+      .filter(([r, c]) => !missing.some(([mr, mc]) => mr === r && mc === c));
   };
-  const namesOf = (o: WallOptions) => unitsToBlocks([{ kind: 'CASIER', cells: wall(o) }])[0].cells!.map((c) => c.name);
-  const names = (rows: number, cols: number) =>
-    Array.from({ length: rows * cols }, (_, i) => `${String.fromCharCode(65 + Math.floor(i / cols))}${(i % cols) + 1}`);
+  const namesOf = (o: WallOptions) => unitsToBlocks([{ kind: 'CASIER', cells: wall(o) }])[0].cells!.map((c) => [c.row, c.col]);
+  /** [rangée, colonne] d'une grille, rangée par rangée ; `key` pour trier et comparer. */
+  const names = (rows: number, cols: number) => Array.from({ length: rows * cols }, (_, i) => [Math.floor(i / cols), i % cols]);
+  const key = (rc: (number | null)[]) => rc.join(',');
 
   it('mur 12 × 4 en forte perspective horizontale : 4 rangées, 12 colonnes, 48 cases', () => {
     const [b] = unitsToBlocks([{ kind: 'CASIER', cells: wall() }]);
@@ -208,20 +235,20 @@ describe('unitsToBlocks', () => {
     expect(b.cells).toHaveLength(48);
   });
 
-  it('cases nommées rangée par rangée depuis la topologie : A1 en haut à gauche, D12 en bas à droite', () => {
+  it('rangée et colonne des cases depuis la topologie : (0, 0) en haut à gauche, (3, 11) en bas à droite ; noms donnés par nameBlocks', () => {
     const [b] = unitsToBlocks([{ kind: 'CASIER', cells: wall() }]);
-    // Le mur est rendu colonne par colonne : noms triés pour les comparer à la grille.
-    expect(b.cells!.map((c) => c.name).sort()).toEqual(names(4, 12).sort());
-    expect(b.cells![0]).toMatchObject({ row: 0, col: 0, name: 'A1' });
-    expect(b.cells![1]).toMatchObject({ row: 1, col: 0, name: 'B1' });
-    expect(b.cells![47]).toMatchObject({ row: 3, col: 11, name: 'D12' });
+    // Le mur est rendu colonne par colonne : cases triées pour les comparer à la grille.
+    expect(b.cells!.map((c) => key([c.row, c.col])).sort()).toEqual(names(4, 12).map(key).sort());
+    expect(b.cells![0]).toMatchObject({ row: 0, col: 0, name: null });
+    expect(b.cells![1]).toMatchObject({ row: 1, col: 0, name: null });
+    expect(b.cells![47]).toMatchObject({ row: 3, col: 11, name: null });
     expect(b.cells![0].box).toEqual(wall()[0].box_2d.map((v, i, a) => a[[1, 0, 3, 2][i]] / 1000));
   });
 
   it('le même mur en perspective verticale (rangées horizontales, colonnes inclinées) : 4 rangées, 12 colonnes', () => {
     const [b] = unitsToBlocks([{ kind: 'CASIER', cells: wall({ vertical: true }) }]);
     expect(b).toMatchObject({ rows: 4, cols: 12, cellCount: 48 });
-    expect(b.cells!.map((c) => c.name)).toEqual(names(4, 12));
+    expect(b.cells!.map((c) => [c.row, c.col])).toEqual(names(4, 12));
   });
 
   it('perspective et légère rotation : 4 rangées, 12 colonnes', () => {
@@ -231,20 +258,20 @@ describe('unitsToBlocks', () => {
     }
   });
 
-  it('3 cases oubliées sur 48 : grille 4 × 12, 45 cases ; leurs noms manquent sans décaler les autres', () => {
+  it('3 cases oubliées sur 48 : grille 4 × 12, 45 cases ; leurs places manquent sans décaler les autres', () => {
     const [b] = unitsToBlocks([{ kind: 'CASIER', cells: wall({ missing: [[0, 5], [2, 0], [3, 11]] }) }]);
     expect(b).toMatchObject({ rows: 4, cols: 12, cellCount: 45 });
-    expect(b.cells!.map((c) => c.name).sort()).toEqual(names(4, 12).filter((n) => !['A6', 'C1', 'D12'].includes(n)).sort());
+    expect(b.cells!.map((c) => key([c.row, c.col])).sort()).toEqual(names(4, 12).map(key).filter((n) => !['0,5', '2,0', '3,11'].includes(n)).sort());
   });
 
-  it('case oubliée dont la voisine de la colonne suivante est d’une autre rangée : noms gardés (un seul prédécesseur par case)', () => {
+  it('case oubliée dont la voisine de la colonne suivante est d’une autre rangée : places gardées (un seul prédécesseur par case)', () => {
     for (const missing of [[[1, 9]], [[0, 9]], [[1, 3]], [[0, 8], [1, 10], [3, 9]]] as [number, number][][]) {
       expect(namesOf({ missing })).toEqual(wallNames({ missing }));
     }
     expect(namesOf({ vertical: true, missing: [[1, 5]] })).toEqual(wallNames({ vertical: true, missing: [[1, 5]] }));
   });
 
-  it('cadres bruités (± 10 % de la case sur chaque bord) : 4 × 12 et noms gardés', () => {
+  it('cadres bruités (± 10 % de la case sur chaque bord) : 4 × 12 et places gardées', () => {
     for (const seed of [1, 2, 3, 4, 5]) {
       expect(unitsToBlocks([{ kind: 'CASIER', cells: wall({ jitter: 0.1, seed }) }])).toMatchObject([{ rows: 4, cols: 12 }]);
       expect(namesOf({ jitter: 0.1, seed })).toEqual(wallNames());
@@ -262,7 +289,8 @@ describe('unitsToBlocks', () => {
     // Trois cases en haut, une case large sous les deux premières, une sous la troisième.
     const [b] = unitsToBlocks([{ kind: 'CASIER', cells: [...grid(0, 0, 3, 1), cell(100, 0, 200, 200), cell(100, 200, 200, 300), ...grid(0, 200, 3, 1)] }]);
     expect(b).toMatchObject({ rows: 3, cols: 3 });
-    expect(b.cells!.map((c) => c.name)).toEqual(['A1', 'A2', 'A3', null, null, 'C1', 'C2', 'C3']);
+    expect(b.cells!.map((c) => (c.row !== null && c.col !== null ? key([c.row, c.col]) : null))).toEqual(['0,0', '0,1', '0,2', null, null, '2,0', '2,1', '2,2']);
+    expect(b.cells!.every((c) => c.name === null)).toBe(true);
   });
 
   it('casier irrégulier en perspective : 2 colonnes de cases hautes de 2 rangées à côté d’une colonne de 4, plus petite et plus bas → 4 rangées', () => {
@@ -270,17 +298,17 @@ describe('unitsToBlocks', () => {
     expect(unitsToBlocks([{ kind: 'CASIER', cells }])).toMatchObject([{ rows: 4, cols: 3, cellCount: 8 }]);
   });
 
-  it('au plus 200 cases gardées ; rangée ou colonne indéterminée : nom absent, cadre gardé', () => {
+  it('au plus 200 cases gardées ; rangée ou colonne indéterminée : null, cadre gardé', () => {
     const [big] = unitsToBlocks([{ kind: 'CASIER', cells: grid(0, 0, 30, 10, 30, 90) }]);
     expect(big).toMatchObject({ cellCount: 300 });
     expect(big.cells).toHaveLength(200);
     // Deux cases en haut, une case large dessous : colonnes incohérentes (une case sous deux colonnes) ;
-    // la rangée du haut, complète, nomme ses cases, la case large n'a pas de colonne.
+    // la rangée du haut, complète, donne leur colonne à ses cases, la case large n'en a pas.
     const [odd] = unitsToBlocks([{ kind: 'CASIER', cells: [...grid(0, 0, 2, 1), cell(100, 0, 200, 200)] }]);
     expect(odd).toMatchObject({ rows: 2, cols: 2, cellCount: 3 });
     expect(odd.cells).toEqual([
-      { box: [0, 0, 0.1, 0.1], row: 0, col: 0, name: 'A1' },
-      { box: [0.1, 0, 0.2, 0.1], row: 0, col: 1, name: 'A2' },
+      { box: [0, 0, 0.1, 0.1], row: 0, col: 0, name: null },
+      { box: [0.1, 0, 0.2, 0.1], row: 0, col: 1, name: null },
       { box: [0, 0.1, 0.2, 0.2], row: 1, col: null, name: null },
     ]);
   });

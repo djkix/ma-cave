@@ -179,16 +179,16 @@ describe('zones', () => {
     expect(sheet.getByLabelText('Colonnes')).toHaveValue(null);
     await userEvent.type(sheet.getByLabelText('Lignes'), '6');
     await userEvent.type(sheet.getByLabelText('Colonnes'), '4');
-    expect(sheet.getByText('Cases A1 à F4')).toBeInTheDocument();
+    expect(sheet.getByText('Cases A1 à A24')).toBeInTheDocument();
     await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { name: 'Cellier', indication: 'Au fond, derrière l’escalier', grid: { rows: 6, cols: 4 }, cellNames: {} }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { name: 'Cellier', indication: 'Au fond, derrière l’escalier', grid: { rows: 6, cols: 4 }, cellPrefix: 'A', cellNames: {} }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
     await userEvent.click(zoneRow('Garage').getByRole('button', { name: 'Modifier' }));
     sheet = within(screen.getByRole('dialog', { name: 'Modifier Garage' }));
     expect(sheet.getByLabelText('Lignes')).toHaveValue(2);
     expect(sheet.getByLabelText('Colonnes')).toHaveValue(3);
-    expect(sheet.getByText('Cases A1 à B3')).toBeInTheDocument();
+    expect(sheet.getByText('Cases A1 à A6')).toBeInTheDocument();
     await userEvent.clear(sheet.getByLabelText('Lignes'));
     await userEvent.clear(sheet.getByLabelText('Colonnes'));
     await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
@@ -196,28 +196,29 @@ describe('zones', () => {
   });
 
   it('« Modifier » une zone à grille : section « Noms des cases », un champ facultatif par case (placeholder = code), enregistrés avec le reste', async () => {
-    const gridded: api.Zone[] = [zones[0], { ...zones[1], grid: { rows: 2, cols: 2 }, cellNames: { B2: 'Loire' } }, zones[2]];
+    const gridded: api.Zone[] = [zones[0], { ...zones[1], grid: { rows: 2, cols: 2 }, cellPrefix: 'A', cellNames: { A4: 'Loire' } }, zones[2]];
     vi.spyOn(api, 'getZones').mockResolvedValue(gridded);
     const update = vi.spyOn(api, 'updateZone').mockResolvedValue(gridded[1]);
     mount();
     await zonesCard().findByText('Garage');
-    // Zone sans grille : pas de section.
+    // Zone sans grille : ni section, ni lettre.
     await userEvent.click(zoneRow('Cellier').getByRole('button', { name: 'Modifier' }));
     expect(within(screen.getByRole('dialog', { name: 'Modifier Cellier' })).queryByRole('group', { name: 'Noms des cases' })).not.toBeInTheDocument();
+    expect(within(screen.getByRole('dialog', { name: 'Modifier Cellier' })).queryByLabelText('Lettre des cases')).not.toBeInTheDocument();
     await userEvent.click(within(screen.getByRole('dialog', { name: 'Modifier Cellier' })).getByRole('button', { name: 'Annuler' }));
 
     await userEvent.click(zoneRow('Garage').getByRole('button', { name: 'Modifier' }));
     const sheet = within(screen.getByRole('dialog', { name: 'Modifier Garage' }));
     const names = within(sheet.getByRole('group', { name: 'Noms des cases' }));
-    expect(names.getAllByRole('textbox').map((i) => i.getAttribute('placeholder'))).toEqual(['A1', 'A2', 'B1', 'B2']);
-    expect(names.getByLabelText('Nom de la case B2')).toHaveValue('Loire');
+    expect(names.getAllByRole('textbox').map((i) => i.getAttribute('placeholder'))).toEqual(['A1', 'A2', 'A3', 'A4']);
+    expect(names.getByLabelText('Nom de la case A4')).toHaveValue('Loire');
     await userEvent.type(names.getByLabelText('Nom de la case A1'), ' Bordeaux ');
     await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith('z2', { name: 'Garage', indication: null, grid: { rows: 2, cols: 2 }, cellNames: { A1: 'Bordeaux', B2: 'Loire' } }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('z2', { name: 'Garage', indication: null, grid: { rows: 2, cols: 2 }, cellPrefix: 'A', cellNames: { A1: 'Bordeaux', A4: 'Loire' } }));
   });
 
   it('« Modifier » : réduire la grille n’envoie que les noms des cases restantes ; le refus de l’api s’affiche tel quel', async () => {
-    const gridded: api.Zone[] = [{ ...zones[1], grid: { rows: 2, cols: 2 }, cellNames: { A1: 'Bordeaux', B2: 'Loire' } }];
+    const gridded: api.Zone[] = [{ ...zones[1], grid: { rows: 2, cols: 2 }, cellPrefix: 'A', cellNames: { A1: 'Bordeaux', A4: 'Loire' } }];
     vi.spyOn(api, 'getZones').mockResolvedValue(gridded);
     const update = vi.spyOn(api, 'updateZone').mockRejectedValue(new api.ApiError(400, 'Ce nom est déjà pris dans cette zone'));
     mount();
@@ -228,8 +229,53 @@ describe('zones', () => {
     await userEvent.type(sheet.getByLabelText('Lignes'), '1');
     expect(within(sheet.getByRole('group', { name: 'Noms des cases' })).getAllByRole('textbox')).toHaveLength(2);
     await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith('z2', { name: 'Garage', indication: null, grid: { rows: 1, cols: 2 }, cellNames: { A1: 'Bordeaux' } }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('z2', { name: 'Garage', indication: null, grid: { rows: 1, cols: 2 }, cellPrefix: 'A', cellNames: { A1: 'Bordeaux' } }));
     expect(await sheet.findByRole('alert')).toHaveTextContent('Ce nom est déjà pris dans cette zone');
+  });
+
+  it('« Modifier » : « Lettre des cases » préremplie, aperçu et noms avec la lettre ; la changer renomme les champs et l’envoie', async () => {
+    const gridded: api.Zone[] = [{ ...zones[1], name: 'Casier C', grid: { rows: 4, cols: 12 }, cellPrefix: 'C', cellNames: { C5: 'Loire' } }];
+    vi.spyOn(api, 'getZones').mockResolvedValue(gridded);
+    const update = vi.spyOn(api, 'updateZone').mockResolvedValue(gridded[0]);
+    mount();
+    await zonesCard().findByText('Casier C');
+    await userEvent.click(zoneRow('Casier C').getByRole('button', { name: 'Modifier' }));
+    const sheet = within(screen.getByRole('dialog', { name: 'Modifier Casier C' }));
+    const letter = sheet.getByLabelText('Lettre des cases');
+    expect(letter).toHaveValue('C');
+    expect(sheet.getByText('Cases C1 à C48')).toBeInTheDocument();
+    expect(sheet.getByLabelText('Nom de la case C1')).toBeInTheDocument();
+    expect(sheet.getByLabelText('Nom de la case C5')).toHaveValue('Loire');
+    await userEvent.clear(letter);
+    await userEvent.type(letter, 'd');
+    expect(letter).toHaveValue('D');
+    expect(sheet.getByText('Cases D1 à D48')).toBeInTheDocument();
+    expect(sheet.getByLabelText('Nom de la case D5')).toHaveValue('Loire');
+    await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('z2', { name: 'Casier C', indication: null, grid: { rows: 4, cols: 12 }, cellPrefix: 'D', cellNames: { D5: 'Loire' } }));
+  });
+
+  it('« Modifier » une zone à grille sans lettre (« Casier F ») : lettre finale du nom si libre ; une lettre invalide ne s’enregistre pas', async () => {
+    const gridded: api.Zone[] = [
+      { ...zones[0], grid: { rows: 1, cols: 2 }, cellPrefix: 'A' },
+      { ...zones[1], name: 'Casier F', grid: { rows: 2, cols: 2 } },
+      { ...zones[2], name: 'Cellier A', grid: { rows: 1, cols: 1 } },
+    ];
+    vi.spyOn(api, 'getZones').mockResolvedValue(gridded);
+    mount();
+    await zonesCard().findByText('Casier F');
+    await userEvent.click(zoneRow('Casier F').getByRole('button', { name: 'Modifier' }));
+    let sheet = within(screen.getByRole('dialog', { name: 'Modifier Casier F' }));
+    expect(sheet.getByLabelText('Lettre des cases')).toHaveValue('F');
+    await userEvent.clear(sheet.getByLabelText('Lettre des cases'));
+    await userEvent.type(sheet.getByLabelText('Lettre des cases'), '1');
+    expect(sheet.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
+    expect(sheet.getByLabelText('Lettre des cases')).toHaveAccessibleDescription('Une lettre de A à Z.');
+    await userEvent.click(sheet.getByRole('button', { name: 'Annuler' }));
+    // « A » est prise par Cave 1 : la première lettre libre.
+    await userEvent.click(zoneRow('Cellier A').getByRole('button', { name: 'Modifier' }));
+    sheet = within(screen.getByRole('dialog', { name: 'Modifier Cellier A' }));
+    expect(sheet.getByLabelText('Lettre des cases')).toHaveValue('B');
   });
 
   it('« Modifier » : une seule des deux dimensions, ou hors bornes, ne s’enregistre pas', async () => {
@@ -1013,13 +1059,14 @@ describe('plan de la cave', () => {
       expect(s.getByLabelText('Nom')).toHaveValue('Casier A');
       expect(s.getByLabelText('Lignes')).toHaveValue(6);
       expect(s.getByLabelText('Colonnes')).toHaveValue(4);
-      expect(s.getByText('Cases A1 à F4')).toBeInTheDocument();
+      expect(s.getByText('Cases A1 à A24')).toBeInTheDocument();
       await userEvent.clear(s.getByLabelText('Nom'));
       await userEvent.type(s.getByLabelText('Nom'), ' Casier du fond ');
       await userEvent.clear(s.getByLabelText('Lignes'));
       await userEvent.type(s.getByLabelText('Lignes'), '5');
-      expect(s.getByText('Cases A1 à E4')).toBeInTheDocument();
+      expect(s.getByText('Cases A1 à A20')).toBeInTheDocument();
       await userEvent.click(s.getByRole('button', { name: 'Accepter' }));
+      // Proposition d'avant la 2.27 (sans lettre) : l'api choisit la lettre.
       await waitFor(() => expect(accept).toHaveBeenCalledWith('p1', 's1', { name: 'Casier du fond', rows: 5, cols: 4, cellNames: {} }));
       await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Proposition' })).not.toBeInTheDocument());
       await waitFor(() => expect(planCard().queryByRole('button', { name: 'Proposition Casier A' })).not.toBeInTheDocument());
@@ -1027,40 +1074,40 @@ describe('plan de la cave', () => {
 
     it('proposition ouverte : cases repérées nommées sur le plan et phrase « 3 cases repérées… » ; refermée : plus de cases', async () => {
       const cells: api.DetectedCell[] = [
-        { box: [0.1, 0.1, 0.25, 0.3], row: 0, col: 0, name: 'A1' },
-        { box: [0.25, 0.1, 0.4, 0.3], row: 0, col: 1, name: 'A2' },
-        { box: [0.1, 0.3, 0.25, 0.5], row: 1, col: 0, name: 'B1' },
+        { box: [0.1, 0.1, 0.25, 0.3], row: 0, col: 0, name: 'C1' },
+        { box: [0.25, 0.1, 0.4, 0.3], row: 0, col: 1, name: 'C2' },
+        { box: [0.1, 0.3, 0.25, 0.5], row: 1, col: 0, name: 'C3' },
       ];
-      vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([{ ...casierA, rows: 2, cols: 2, cellCount: 3, cells }, { ...etagereA, cellCount: 1, cells: [] }]));
+      vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([{ ...casierA, rows: 2, cols: 2, cellCount: 3, cells, cellPrefix: 'C' }, { ...etagereA, cellCount: 1, cells: [] }]));
       vi.spyOn(api, 'getZones').mockResolvedValue([]);
       mount();
       expect(await planCard().findByRole('button', { name: 'Proposition Casier A' })).toHaveTextContent('Casier A · 3 cases');
-      expect(planCard().queryByText('B1')).not.toBeInTheDocument();
+      expect(planCard().queryByText('C3')).not.toBeInTheDocument();
       const s = await openProposal('Casier A');
       expect(s.getByText('3 cases repérées sur la photo · grille proposée : 2 rangées × 2 colonnes')).toBeInTheDocument();
       // Sur le plan de la carte et sur celui repris dans la feuille.
-      expect(planCard().getAllByText('A1')).toHaveLength(2);
-      expect(planCard().getAllByText('B1')).toHaveLength(2);
+      expect(planCard().getAllByText('C1')).toHaveLength(2);
+      expect(planCard().getAllByText('C3')).toHaveLength(2);
       // Toucher le fond referme la feuille.
       fireEvent.click(screen.getByRole('dialog', { name: 'Proposition' }));
-      await waitFor(() => expect(planCard().queryByText('B1')).not.toBeInTheDocument());
+      await waitFor(() => expect(planCard().queryByText('C3')).not.toBeInTheDocument());
       const e = await openProposal('Étagère A');
       expect(e.getByText('1 case repérée sur la photo · grille proposée : 1 rangée × 5 colonnes')).toBeInTheDocument();
     });
 
     it('feuille ouverte : plan recadré sur la proposition, liste « Noms des cases » de la grille saisie ; toucher un point met le focus sur son champ ; Accepter envoie les noms', async () => {
       const cells: api.DetectedCell[] = [
-        { box: [0.1, 0.1, 0.25, 0.3], row: 0, col: 0, name: 'A1' },
-        { box: [0.25, 0.1, 0.4, 0.3], row: 0, col: 1, name: 'A2' },
-        { box: [0.1, 0.3, 0.25, 0.5], row: 1, col: 0, name: 'B1' },
+        { box: [0.1, 0.1, 0.25, 0.3], row: 0, col: 0, name: 'C1' },
+        { box: [0.25, 0.1, 0.4, 0.3], row: 0, col: 1, name: 'C2' },
+        { box: [0.1, 0.3, 0.25, 0.5], row: 1, col: 0, name: 'C3' },
       ];
-      vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([{ ...casierA, rows: 2, cols: 2, cellCount: 3, cells }]));
+      vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([{ ...casierA, rows: 2, cols: 2, cellCount: 3, cells, cellPrefix: 'C' }]));
       vi.spyOn(api, 'getZones').mockResolvedValue([]);
       const accept = vi.spyOn(api, 'acceptSuggestion').mockResolvedValue({ ...zones[0], id: 'zn', name: 'Casier A', grid: { rows: 2, cols: 2 } });
       mount();
       // Hors de la feuille, les points ne sont pas des boutons.
       await planCard().findByRole('button', { name: 'Proposition Casier A' });
-      expect(planCard().queryByRole('button', { name: 'Case A1' })).not.toBeInTheDocument();
+      expect(planCard().queryByRole('button', { name: 'Case C1' })).not.toBeInTheDocument();
       const s = await openProposal('Casier A');
       // Cadre [0.1, 0.1, 0.4, 0.5] : image agrandie 1/0.3, décalée de −0.1/0.3 et −0.1/0.4.
       const crop = screen.getByRole('dialog', { name: 'Proposition' }).querySelector<HTMLElement>('.plan-crop__inner')!;
@@ -1068,19 +1115,38 @@ describe('plan de la cave', () => {
       expect(crop.style.left).toBe('-33.33%');
       expect(crop.style.top).toBe('-25%');
       const names = within(s.getByRole('group', { name: 'Noms des cases' }));
-      expect(names.getAllByRole('textbox').map((i) => i.getAttribute('placeholder'))).toEqual(['A1', 'A2', 'B1', 'B2']);
-      await userEvent.click(s.getByRole('button', { name: 'Case B1' }));
-      expect(names.getByLabelText('Nom de la case B1')).toHaveFocus();
-      await userEvent.type(names.getByLabelText('Nom de la case A1'), ' Bordeaux ');
+      expect(names.getAllByRole('textbox').map((i) => i.getAttribute('placeholder'))).toEqual(['C1', 'C2', 'C3', 'C4']);
+      await userEvent.click(s.getByRole('button', { name: 'Case C3' }));
+      expect(names.getByLabelText('Nom de la case C3')).toHaveFocus();
+      await userEvent.type(names.getByLabelText('Nom de la case C1'), ' Bordeaux ');
       // Le point montre le nom donné, son nom accessible aussi.
-      expect(s.getByRole('button', { name: 'Case Bordeaux (A1)' })).toBeInTheDocument();
+      expect(s.getByRole('button', { name: 'Case Bordeaux (C1)' })).toBeInTheDocument();
       // Grille réduite à une ligne : la liste suit, les noms des cases disparues ne partent pas.
-      await userEvent.type(names.getByLabelText('Nom de la case B1'), 'Loire');
+      await userEvent.type(names.getByLabelText('Nom de la case C3'), 'Loire');
       await userEvent.clear(s.getByLabelText('Lignes'));
       await userEvent.type(s.getByLabelText('Lignes'), '1');
       expect(within(s.getByRole('group', { name: 'Noms des cases' })).getAllByRole('textbox')).toHaveLength(2);
       await userEvent.click(s.getByRole('button', { name: 'Accepter' }));
-      await waitFor(() => expect(accept).toHaveBeenCalledWith('p1', 's1', { name: 'Casier A', rows: 1, cols: 2, cellNames: { A1: 'Bordeaux' } }));
+      await waitFor(() => expect(accept).toHaveBeenCalledWith('p1', 's1', { name: 'Casier A', rows: 1, cols: 2, cellNames: { C1: 'Bordeaux' }, cellPrefix: 'C' }));
+    });
+
+    it('lettre de la proposition (C) : aperçu « Cases C1 à C6 », points nommés par rangée et colonne ; colonnes changées, ils se renomment', async () => {
+      // Noms de l'api ignorés (proposition d'avant la 2.27 : « B2 ») : la feuille les recalcule.
+      const cells: api.DetectedCell[] = [
+        { box: [0.1, 0.1, 0.2, 0.3], row: 0, col: 0, name: 'A1' },
+        { box: [0.3, 0.1, 0.4, 0.3], row: 0, col: 2, name: 'A3' },
+        { box: [0.2, 0.3, 0.3, 0.5], row: 1, col: 1, name: 'B2' },
+      ];
+      vi.spyOn(api, 'getPlans').mockResolvedValue(analysed([{ ...casierA, name: 'Casier C', rows: 2, cols: 3, cellCount: 3, cells, cellPrefix: 'C' }]));
+      vi.spyOn(api, 'getZones').mockResolvedValue([]);
+      mount();
+      const s = await openProposal('Casier C');
+      expect(s.getByText('Cases C1 à C6')).toBeInTheDocument();
+      expect(s.getAllByRole('button', { name: /^Case / }).map((b) => b.getAttribute('aria-label'))).toEqual(['Case C1', 'Case C3', 'Case C5']);
+      await userEvent.clear(s.getByLabelText('Colonnes'));
+      await userEvent.type(s.getByLabelText('Colonnes'), '2');
+      // Rangée 1, colonne 1 → C4 ; la colonne 2 sort de la grille : plus de nom.
+      expect(s.getAllByRole('button', { name: /^Case / }).map((b) => b.getAttribute('aria-label'))).toEqual(['Case C1', 'Case C4']);
     });
 
     it('proposition sans cases repérées (d’avant) : pas de phrase sur les cases repérées', async () => {

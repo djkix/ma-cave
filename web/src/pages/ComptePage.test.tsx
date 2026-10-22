@@ -35,7 +35,7 @@ it('montre le profil et les quatre cartes au propriétaire administrateur', asyn
   stubSummaries();
   vi.spyOn(api, 'getRegistrations').mockResolvedValue(times(2, registration));
   mount();
-  expect(await screen.findByText('FL')).toBeInTheDocument();
+  expect(await screen.findByText('D')).toBeInTheDocument();
   expect(screen.getByText('djkix')).toBeInTheDocument();
   expect(screen.getByText('proprietaire@example.com')).toBeInTheDocument();
 

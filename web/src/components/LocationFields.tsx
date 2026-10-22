@@ -51,7 +51,7 @@ export function LocationFields({ value, onChange, locations, zones }: {
   const selected = zones?.find((z) => z.id === value.zoneId);
   const grid = selected?.grid ?? null;
   const cells = useQuery({ queryKey: ['zone-cells', selected?.id], queryFn: () => getZoneCells(selected!.id), enabled: !!grid });
-  const names = grid ? cellNames(grid.rows, grid.cols) : [];
+  const names = grid ? cellNames(grid.rows, grid.cols, selected?.cellPrefix ?? 'A') : [];
   // Noms des cases de la grille actuelle (ceux d'une case disparue ne comptent plus).
   const given = grid ? selected?.cellNames ?? {} : {};
   const named = names.filter((n) => given[n]).map((n) => given[n]);

@@ -112,31 +112,45 @@ describe('zone avec une grille', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.spyOn(api, 'getMe').mockResolvedValue(meFixture());
-    vi.spyOn(api, 'getZoneCells').mockResolvedValue([{ casier: 'B3', quantity: 2 }, { casier: 'Z9', quantity: 1 }]);
+    vi.spyOn(api, 'getZoneCells').mockResolvedValue([{ casier: 'A6', quantity: 2 }, { casier: 'Z9', quantity: 1 }]);
   });
 
   it('montre la grille, les cases occupées, et toucher une case remplit « Casier »', async () => {
     const { container } = render(<Harness initial={{ zoneId: 'z3', casier: null, position: null }} zoneList={gridZones} block={false} />);
     const cells = within(screen.getByRole('group', { name: 'Cases de Casier A' })).getAllByRole('button');
-    expect(cells.map((c) => c.textContent)).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3']);
-    expect(await screen.findByRole('button', { name: 'Case B3, 2 bouteilles' })).toHaveTextContent('B32');
+    expect(cells.map((c) => c.textContent)).toEqual(['A1', 'A2', 'A3', 'A4', 'A5', 'A6']);
+    expect(await screen.findByRole('button', { name: 'Case A6, 2 bouteilles' })).toHaveTextContent('A62');
     expect(api.getZoneCells).toHaveBeenCalledWith('z3');
     await userEvent.click(screen.getByRole('button', { name: 'Case A2' }));
     expect(screen.getByLabelText('Casier')).toHaveValue('A2');
     expect(screen.getByRole('button', { name: 'Case A2' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Case A1' })).toHaveAttribute('aria-pressed', 'false');
     // Suggestions : les cases puis les valeurs déjà utilisées.
-    expect(casierList(container)).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'B']);
+    expect(casierList(container)).toEqual(['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'B']);
+  });
+
+  it('codes de la lettre de la zone (« C ») ; sans lettre (zone d’avant la 2.27), « A »', () => {
+    const lettered: Zone[] = [
+      { ...gridZones[1], id: 'z4', name: 'Casier C', grid: { rows: 2, cols: 2 }, cellPrefix: 'C' },
+      { ...gridZones[1], id: 'z5', name: 'Ancien', grid: { rows: 2, cols: 2 } },
+    ];
+    const { container, unmount } = render(<Harness initial={{ zoneId: 'z4', casier: null, position: null }} zoneList={lettered} block={false} />);
+    expect(within(screen.getByRole('group', { name: 'Cases de Casier C' })).getAllByRole('button').map((c) => c.getAttribute('aria-label')))
+      .toEqual(['Case C1', 'Case C2', 'Case C3', 'Case C4']);
+    expect(casierList(container)).toEqual(['C1', 'C2', 'C3', 'C4', 'B']);
+    unmount();
+    render(<Harness initial={{ zoneId: 'z5', casier: null, position: null }} zoneList={lettered} block={false} />);
+    expect(within(screen.getByRole('group', { name: 'Cases de Ancien' })).getAllByRole('button').map((c) => c.textContent)).toEqual(['A1', 'A2', 'A3', 'A4']);
   });
 
   it('casier saisi en minuscules : la case correspondante est choisie', async () => {
-    render(<Harness initial={{ zoneId: 'z3', casier: 'b3', position: null }} zoneList={gridZones} block={false} />);
-    expect(await screen.findByRole('button', { name: 'Case B3, 2 bouteilles' })).toHaveAttribute('aria-pressed', 'true');
+    render(<Harness initial={{ zoneId: 'z3', casier: 'a6', position: null }} zoneList={gridZones} block={false} />);
+    expect(await screen.findByRole('button', { name: 'Case A6, 2 bouteilles' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('valeur hors grille (« Z9 ») gardée dans le champ, aucune case choisie ; saisie libre conservée', async () => {
     render(<Harness initial={{ zoneId: 'z3', casier: 'Z9', position: null }} zoneList={gridZones} block={false} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Case B3, 2 bouteilles' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Case A6, 2 bouteilles' })).toBeInTheDocument());
     expect(screen.getByLabelText('Casier')).toHaveValue('Z9');
     expect(screen.queryByRole('button', { pressed: true })).not.toBeInTheDocument();
     await userEvent.clear(screen.getByLabelText('Casier'));
@@ -145,15 +159,15 @@ describe('zone avec une grille', () => {
   });
 
   it('cases nommées : le bouton montre le nom et le petit code, Casier propose noms et codes, saisir le nom choisit la case', async () => {
-    const named: Zone[] = [gridZones[0], { ...gridZones[1], cellNames: { B3: 'Champagnes' } }];
+    const named: Zone[] = [gridZones[0], { ...gridZones[1], cellNames: { A6: 'Champagnes' } }];
     const { container } = render(<Harness initial={{ zoneId: 'z3', casier: null, position: null }} zoneList={named} block={false} />);
-    const b3 = await screen.findByRole('button', { name: 'Case Champagnes (B3), 2 bouteilles' });
-    expect(b3).toHaveTextContent('ChampagnesB32');
+    const a6 = await screen.findByRole('button', { name: 'Case Champagnes (A6), 2 bouteilles' });
+    expect(a6).toHaveTextContent('ChampagnesA62');
     // Nom long : coupé à l'affichage (points de suspension), entier dans le nom accessible.
-    expect(b3.querySelector('.cell-grid__name')).toHaveTextContent('Champagnes');
-    expect(casierList(container)).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'Champagnes', 'B']);
+    expect(a6.querySelector('.cell-grid__name')).toHaveTextContent('Champagnes');
+    expect(casierList(container)).toEqual(['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'Champagnes', 'B']);
     await userEvent.type(screen.getByLabelText('Casier'), 'champagnes');
-    expect(b3).toHaveAttribute('aria-pressed', 'true');
+    expect(a6).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('« Renommer les cases » (propriétaire) ouvre la liste des cases ; Enregistrer envoie les noms, le refus de l’api s’affiche tel quel', async () => {
@@ -175,7 +189,7 @@ describe('zone avec une grille', () => {
   it('membre : pas de « Renommer les cases »', async () => {
     vi.spyOn(api, 'getMe').mockResolvedValue(viewerMe());
     render(<Harness initial={{ zoneId: 'z3', casier: null, position: null }} zoneList={gridZones} block={false} />);
-    await screen.findByRole('button', { name: 'Case B3, 2 bouteilles' });
+    await screen.findByRole('button', { name: 'Case A6, 2 bouteilles' });
     expect(screen.queryByRole('button', { name: 'Renommer les cases' })).not.toBeInTheDocument();
   });
 

@@ -18,12 +18,19 @@ import { CavePlansController } from './plan.controller';
 // qui possède C et est membre de A (image lue hors de la cave courante).
 const describeIfInfra = process.env.DATABASE_URL && process.env.REDIS_URL ? describe : describe.skip;
 
-interface Zone { id: string; name: string; marker: { planId: string; x: number; y: number } | null }
-interface Suggestion { id: string; kind: string; name: string; box: number[]; rows: number; cols: number }
+interface Zone {
+  id: string; name: string; marker: { planId: string; x: number; y: number } | null; grid: { rows: number; cols: number } | null;
+  cellPrefix: string | null; cellNames: Record<string, string>; cellBoxes: Record<string, number[]>;
+}
+interface Cell { box: number[]; row: number | null; col: number | null; name: string | null }
+interface Suggestion { id: string; kind: string; name: string; box: number[]; rows: number; cols: number; cellCount?: number; cells?: Cell[]; cellPrefix?: string | null }
 interface Plan {
   id: string; name: string; width: number; height: number; updatedAt: string; analysis: string; suggestions: Suggestion[]; analysisInfo: Record<string, unknown> | null;
 }
-interface PlansRead { plans: Plan[]; markers: Array<{ zoneId: string; planId: string; name: string; number: number; x: number; y: number }> }
+interface PlansRead {
+  plans: Plan[];
+  markers: Array<{ zoneId: string; planId: string; name: string; number: number; x: number; y: number; cellBoxes: Record<string, number[]>; cellNames: Record<string, string> }>;
+}
 
 describeIfInfra('plans de la cave (HTTP)', () => {
   let app: INestApplication;
@@ -252,9 +259,9 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       expect((await mark(z3.id, { planId: p2.id, x: 0.5, y: 0.6 })).status).toBe(200);
       expect((await zones(viewerA)).find((z) => z.id === z3.id)?.marker).toEqual({ planId: p2.id, x: 0.5, y: 0.6 });
       expect((await read(viewerA)).markers).toEqual([
-        { zoneId: z1.id, planId: p1.id, name: z1.name, number: 1, x: 0.1, y: 0.2 },
-        { zoneId: z2.id, planId: p1.id, name: z2.name, number: 2, x: 0.3, y: 0.4 },
-        { zoneId: z3.id, planId: p2.id, name: z3.name, number: 1, x: 0.5, y: 0.6 },
+        { zoneId: z1.id, planId: p1.id, name: z1.name, number: 1, x: 0.1, y: 0.2, cellBoxes: {}, cellNames: {} },
+        { zoneId: z2.id, planId: p1.id, name: z2.name, number: 2, x: 0.3, y: 0.4, cellBoxes: {}, cellNames: {} },
+        { zoneId: z3.id, planId: p2.id, name: z3.name, number: 1, x: 0.5, y: 0.6, cellBoxes: {}, cellNames: {} },
       ]);
       // Nouvel ordre : Z2, Z3, Z1 → Z2 devient 1 sur Cellier.
       expect((await ownerA.post('/api/caves/current/zones/order').send({ ids: [z2.id, z3.id, z1.id] })).status).toBe(200);
@@ -504,13 +511,13 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       accepted.push(res.body.id);
       expect(res.body).toEqual({
         id: expect.any(String), name: 'Casier A', indication: null, hasPhoto: false, sortOrder: expect.any(Number),
-        marker: { planId: p2.id, x: 0.5, y: 0.75 }, grid: { rows: 5, cols: 4 }, cellNames: {},
+        marker: { planId: p2.id, x: 0.5, y: 0.75 }, grid: { rows: 5, cols: 4 }, cellPrefix: 'A', cellNames: {}, cellBoxes: {},
       });
       const listed = await zones();
       expect(listed[listed.length - 1]).toEqual(res.body);
       // L'image n'a pas changé : même date.
       expect(await plan2()).toEqual({ ...before, suggestions: [s2, s3] });
-      expect((await read()).markers).toContainEqual({ zoneId: res.body.id, planId: p2.id, name: 'Casier A', number: 2, x: 0.5, y: 0.75 });
+      expect((await read()).markers).toContainEqual({ zoneId: res.body.id, planId: p2.id, name: 'Casier A', number: 2, x: 0.5, y: 0.75, cellBoxes: {}, cellNames: {} });
     });
 
     it('accepter deux fois la même proposition : une seule zone, le second appel reçoit 404 « Proposition introuvable »', async () => {
@@ -526,15 +533,15 @@ describeIfInfra('plans de la cave (HTTP)', () => {
     });
 
     it('noms des cases donnés avant d’accepter : enregistrés avec la zone ; case hors grille ou nom pris : 400, la proposition reste', async () => {
-      expectStatus(await accept(s3.id, { name: 'Rangement C', rows: 1, cols: 1, cellNames: { B1: 'Loire' } }), 400, 'Case inconnue dans cette zone');
-      expectStatus(await accept(s3.id, { name: 'Rangement C', rows: 2, cols: 1, cellNames: { A1: 'b1' } }), 400, 'Ce nom est déjà pris dans cette zone');
+      expectStatus(await accept(s3.id, { name: 'Rangement C', rows: 1, cols: 1, cellNames: { C2: 'Loire' } }), 400, 'Case inconnue dans cette zone');
+      expectStatus(await accept(s3.id, { name: 'Rangement C', rows: 2, cols: 1, cellNames: { C1: 'c2' } }), 400, 'Ce nom est déjà pris dans cette zone');
       expect((await plan2()).suggestions).toEqual([s3]);
       await prisma.cavePlan.update({ where: { id: p2.id }, data: { suggestions: [s3, { ...s3, id: randomUUID() }] as object[] } });
       const [, copy] = (await plan2()).suggestions;
-      const res = await accept(copy.id, { name: 'Rangement D', rows: 2, cols: 2, cellNames: { a1: ' Loire ', B2: '' } });
+      const res = await accept(copy.id, { name: 'Rangement D', rows: 2, cols: 2, cellNames: { d1: ' Loire ', D4: '' } });
       expect(res.status).toBe(201);
       accepted.push(res.body.id);
-      expect(res.body.cellNames).toEqual({ A1: 'Loire' });
+      expect(res.body).toMatchObject({ cellPrefix: 'D', cellNames: { D1: 'Loire' } });
       expect((await plan2()).suggestions).toEqual([s3]);
     });
 
@@ -551,6 +558,75 @@ describeIfInfra('plans de la cave (HTTP)', () => {
     });
   });
 
+  describe('lettre et positions des cases à l’acceptation (cave B)', () => {
+    const cell = (k: number, row: number | null, col: number | null, name: string | null = null): Cell => ({ box: [k / 10, 0.1, (2 * k + 1) / 20, 0.2], row, col, name });
+    const offer = async (s: Suggestion) => {
+      await prisma.cavePlan.update({ where: { id: pB.id }, data: { analysisStatus: 'DONE', suggestions: [s] as object[] } });
+      return s;
+    };
+    const proposal = (name: string, cells: Cell[], extra: Partial<Suggestion> = {}): Suggestion =>
+      ({ id: randomUUID(), kind: 'CASIER', name, box: [0, 0, 0.5, 0.5], rows: 2, cols: 3, cellCount: cells.length, cells, ...extra });
+    const accept = (sid: string, body: object) => ownerB.post(`/api/caves/current/plans/${pB.id}/suggestions/${sid}/accept`).send(body);
+    const suggestionsB = async () => (await read(ownerB)).plans.find((p) => p.id === pB.id)!.suggestions;
+    let casierC: Zone;
+
+    it('lettre donnée : positions des cases connues et dans la grille, sous leur code ; repère au centre du cadre', async () => {
+      const s = await offer(proposal('Casier C', [cell(1, 1, 2, 'C6'), cell(2, null, 0), cell(3, 5, 0)], { cellPrefix: 'C' }));
+      const res = await accept(s.id, { name: 'Casier C', rows: 2, cols: 3, cellPrefix: 'c', cellNames: { C6: 'Loire' } });
+      expect(res.status).toBe(201);
+      casierC = res.body;
+      expect(res.body).toMatchObject({ marker: { planId: pB.id, x: 0.25, y: 0.25 }, grid: { rows: 2, cols: 3 }, cellPrefix: 'C', cellNames: { C6: 'Loire' }, cellBoxes: { C6: cell(1, 1, 2).box } });
+      expect(await suggestionsB()).toEqual([]);
+      // Le repère porte les cases de la zone.
+      expect((await read(ownerB)).markers).toContainEqual({
+        zoneId: res.body.id, planId: pB.id, name: 'Casier C', number: 1, x: 0.25, y: 0.25, cellBoxes: { C6: cell(1, 1, 2).box }, cellNames: { C6: 'Loire' },
+      });
+    });
+
+    it('colonnes changées (3 → 2) : la case rangée 1, colonne 1 devient E4, celle de la colonne 2 sort de la grille', async () => {
+      const s = await offer(proposal('Casier E', [cell(1, 1, 1, 'E5'), cell(2, 0, 2, 'E3')], { cellPrefix: 'E' }));
+      const res = await accept(s.id, { name: 'Casier E', rows: 2, cols: 2, cellPrefix: 'E' });
+      expect(res.body).toMatchObject({ cellPrefix: 'E', cellBoxes: { E4: cell(1, 1, 1).box } });
+      expect(Object.keys(res.body.cellBoxes)).toEqual(['E4']);
+    });
+
+    it('sans lettre donnée : celle de la proposition, sinon celle du nom, sinon la première libre', async () => {
+      const recorded = await offer(proposal('Casier G', [cell(1, 0, 0, 'G1')], { cellPrefix: 'G' }));
+      expect((await accept(recorded.id, { name: 'Bordeaux', rows: 2, cols: 3 })).body).toMatchObject({ cellPrefix: 'G', cellBoxes: { G1: cell(1, 0, 0).box } });
+      // Proposition d'avant la 2.27 : pas de lettre, cases nommées « rangée + colonne » ; positions par rangée et colonne.
+      const legacy = await offer(proposal('Casier D', [cell(1, 0, 1, 'A2'), cell(2, 1, 0, 'B1')]));
+      expect((await accept(legacy.id, { name: 'Casier D', rows: 2, cols: 3 })).body).toMatchObject({ cellPrefix: 'D', cellBoxes: { D2: cell(1, 0, 1).box, D4: cell(2, 1, 0).box } });
+      // C, D, E et G prises : la première libre.
+      const plain = await offer(proposal('Champagnes', []));
+      expect((await accept(plain.id, { name: 'Champagnes', rows: 1, cols: 1 })).body).toMatchObject({ cellPrefix: 'A', cellBoxes: {} });
+    });
+
+    it('lettre prise par une zone active : 409, rien n’est écrit, la proposition reste', async () => {
+      const s = await offer(proposal('Casier C bis', [cell(1, 0, 0)], { cellPrefix: 'C' }));
+      const count = (await zones(ownerB)).length;
+      expectStatus(await accept(s.id, { name: 'Casier X', rows: 1, cols: 1, cellPrefix: 'C' }), 409, 'Cette lettre est déjà prise par une autre zone');
+      expectStatus(await accept(s.id, { name: 'Casier X', rows: 1, cols: 1 }), 409, 'Cette lettre est déjà prise par une autre zone');
+      expect((await zones(ownerB)).length).toBe(count);
+      expect(await suggestionsB()).toEqual([s]);
+    });
+
+    it('26 lettres prises : 409 « Plus de lettre libre pour les cases (26 casiers au plus) »', async () => {
+      const taken = new Set((await zones(ownerB)).map((z) => z.cellPrefix));
+      const fill = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').filter((l) => !taken.has(l))
+        .map((l, i) => ({ caveId: caveB, name: `Plein ${l}`, sortOrder: 100 + i, gridRows: 1, gridCols: 1, cellPrefix: l }));
+      await prisma.caveZone.createMany({ data: fill });
+      const s = await offer(proposal('Casier Z', []));
+      expectStatus(await accept(s.id, { name: 'Casier Z bis', rows: 1, cols: 1 }), 409, 'Plus de lettre libre pour les cases (26 casiers au plus)');
+      expect(await suggestionsB()).toEqual([s]);
+      await prisma.caveZone.deleteMany({ where: { caveId: caveB, name: { startsWith: 'Plein ' } } });
+    });
+
+    it('supprimer le plan efface le repère et les positions des cases de ses zones', async () => {
+      expect((await ownerB.delete(`/api/caves/current/plans/${pB.id}`)).status).toBe(204);
+      expect((await zones(ownerB)).find((z) => z.id === casierC.id)).toMatchObject({ marker: null, cellPrefix: 'C', cellNames: { C6: 'Loire' }, cellBoxes: {} });
+    });
+  });
+
   describe('supprimer un plan', () => {
     it('204 ; ses zones (archivées comprises) sont gardées sans repère, son image est effacée, les autres plans ne bougent pas', async () => {
       const archived = await prisma.caveZone.findFirstOrThrow({ where: { caveId: caveA, archivedAt: { not: null } } });
@@ -561,7 +637,7 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       expect(existsSync(planFile(p2.id))).toBe(true);
       const after = await read(viewerA);
       expect(after.plans.map((p) => p.id)).toEqual([p2.id]);
-      expect(after.markers).toEqual([{ zoneId: z3.id, planId: p2.id, name: z3.name, number: 1, x: 0.5, y: 0.6 }]);
+      expect(after.markers).toEqual([{ zoneId: z3.id, planId: p2.id, name: z3.name, number: 1, x: 0.5, y: 0.6, cellBoxes: {}, cellNames: {} }]);
       const listed = await zones();
       expect(listed.find((z) => z.id === z1.id)?.marker).toBeNull();
       expect(listed.find((z) => z.id === z2.id)?.marker).toBeNull();

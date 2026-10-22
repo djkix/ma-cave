@@ -1,5 +1,6 @@
-import { KeyboardEvent, MouseEvent, Ref, useState } from 'react';
+import { KeyboardEvent, MouseEvent, ReactNode, Ref, useState } from 'react';
 import { type CavePlan, type PlanMarker, type PlanSuggestion, planImageUrl } from '../lib/api-client';
+import { cellCodeOf } from '../lib/grid';
 import { usePlans } from '../lib/locations';
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
@@ -33,9 +34,17 @@ const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRigh
  * ouverte sont dessinées et chaque case au code connu devient un bouton
  * « Case B3 » (« Case Champagnes (B3) » une fois nommée) ; les cadres ne sont plus des boutons.
  * `cellNames` : nom donné à une case, affiché à la place de son code.
+ *
+ * Zone acceptée avec ses cases (`cellBoxes` du repère, non vide) : dessinée par
+ * ses cases (point au centre, nom donné sinon code, comme une proposition
+ * ouverte) au lieu de son repère numéroté. Avec `onMarkerClick`, chaque case est
+ * un bouton « Zone 2 : Casier C, case Champagnes (C1) » qui vaut un toucher sur
+ * le repère ; sinon les cases forment une image « Zone 2 : Casier C ».
+ * `highlightCell` : code de la case mise en évidence dans la zone `highlightZoneId`
+ * (cadre, point plus gros, nom toujours affiché).
  */
-export function PlanView({ src, plan, markers, highlightZoneId, pending, suggestions = [], openSuggestionId, cellNames, onPlanClick, onMarkerClick, onSuggestionClick, onCellClick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
-  src: string; plan: Pick<CavePlan, 'width' | 'height'>; markers: PlanMarker[]; highlightZoneId?: string | null; pending?: { x: number; y: number } | null;
+export function PlanView({ src, plan, markers, highlightZoneId, highlightCell, pending, suggestions = [], openSuggestionId, cellNames, onPlanClick, onMarkerClick, onSuggestionClick, onCellClick, onPendingMove, onCancel, planRef, maxWidth, alt = 'Plan de la cave' }: {
+  src: string; plan: Pick<CavePlan, 'width' | 'height'>; markers: PlanMarker[]; highlightZoneId?: string | null; highlightCell?: string | null; pending?: { x: number; y: number } | null;
   suggestions?: PlanSuggestion[]; openSuggestionId?: string | null; onSuggestionClick?: (id: string) => void;
   cellNames?: Record<string, string>; onCellClick?: (code: string) => void;
   onPlanClick?: (x: number, y: number) => void; onMarkerClick?: (zoneId: string) => void;
@@ -85,7 +94,29 @@ export function PlanView({ src, plan, markers, highlightZoneId, pending, suggest
           ))}
         </span>
       )}
-      {[...markers, ...(pending ? [{ zoneId: '', name: 'Nouveau repère', number: 0, ...pending }] : [])].map((m) => {
+      {markers.filter(hasCells).map((m) => {
+        const highlighted = m.zoneId === highlightZoneId;
+        const label = `Zone ${m.number} : ${m.name}`;
+        return (
+          <span key={m.zoneId} className="plan-view__cells" {...(!onMarkerClick && { role: 'img', 'aria-label': label, 'aria-current': highlighted ? ('true' as const) : undefined })}>
+            {Object.entries(m.cellBoxes!).map(([code, [x0, y0, x1, y1]]) => {
+              const name = m.cellNames?.[code];
+              const current = highlighted && code === highlightCell;
+              return (
+                <span key={code} className={`plan-view__cell plan-view__zone-cell${highlighted ? ' plan-view__zone-cell--highlight' : ''}${current ? ' plan-view__zone-cell--current' : ''}`}
+                  style={{ left: pct(x0), top: pct(y0), width: pct(x1 - x0), height: pct(y1 - y0) }}>
+                  <span className="plan-view__cell-name" aria-hidden="true">{name ?? code}</span>
+                  {onMarkerClick && (
+                    <button type="button" className="plan-view__cell-button" aria-label={`${label}, case ${name ? `${name} (${code})` : code}`}
+                      aria-current={highlighted ? 'true' : undefined} onClick={(e) => { e.stopPropagation(); onMarkerClick(m.zoneId); }} />
+                  )}
+                </span>
+              );
+            })}
+          </span>
+        );
+      })}
+      {[...markers.filter((m) => !hasCells(m)), ...(pending ? [{ zoneId: '', name: 'Nouveau repère', number: 0, ...pending }] : [])].map((m) => {
         const highlighted = m.zoneId === '' || m.zoneId === highlightZoneId;
         const props = {
           className: `plan-view__marker${highlighted ? ' plan-view__marker--highlight' : ''}`,
@@ -99,6 +130,25 @@ export function PlanView({ src, plan, markers, highlightZoneId, pending, suggest
           <span key={m.zoneId || 'pending'} role="img" {...props}>{m.zoneId === '' ? '+' : m.number}</span>
         );
       })}
+    </span>
+  );
+}
+
+const hasCells = (m: PlanMarker) => Object.keys(m.cellBoxes ?? {}).length > 0;
+
+/**
+ * Plan recadré sur `box` (fractions de l'image) : image agrandie 1/(x1 − x0),
+ * décalée du coin du cadre, rognée au cadre. Hauteur bornée à `maxHeight` par la
+ * largeur, pour garder le rapport (et donc les décalages en %). `children` : le
+ * `PlanView` du plan entier. En span (affiché en bloc) : la vignette de la fiche vin vit dans un bouton.
+ */
+export function PlanCrop({ box: [x0, y0, x1, y1], plan, maxHeight = '50vh', children }: {
+  box: [number, number, number, number]; plan: Pick<CavePlan, 'width' | 'height'>; maxHeight?: string; children: ReactNode;
+}) {
+  const ratio = ((x1 - x0) * plan.width) / ((y1 - y0) * plan.height);
+  return (
+    <span className="plan-crop" style={{ aspectRatio: `${(x1 - x0) * plan.width} / ${(y1 - y0) * plan.height}`, width: `min(100%, calc(${maxHeight} * ${ratio}))` }}>
+      <span className="plan-crop__inner" style={{ width: pct(1 / (x1 - x0)), left: pct(-x0 / (x1 - x0)), top: pct(-y0 / (y1 - y0)) }}>{children}</span>
     </span>
   );
 }
@@ -135,5 +185,46 @@ export function ZonePlan({ zoneId, mini }: { zoneId: string; mini?: boolean }) {
       {caption}
       {mini && <button type="button" className="btn btn--link" onClick={() => setOpen(false)}>Réduire le plan</button>}
     </div>
+  );
+}
+
+/** Fraction arrondie : pas de 0.06000000000000001 dans les styles ni les tests. */
+const round = (v: number) => +v.toFixed(4);
+
+/**
+ * Cadre de la vignette d'une zone (fractions de l'image) : avec ses cases, leur
+ * englobant plus 4 % de chaque côté, coupé aux bords ; sinon une fenêtre de
+ * 40 % × 40 % centrée sur le repère, décalée pour rester dans l'image.
+ */
+export function thumbnailBox(marker: PlanMarker): [number, number, number, number] {
+  const boxes = Object.values(marker.cellBoxes ?? {});
+  if (boxes.length > 0) {
+    const m = 0.04;
+    return [
+      clamp(Math.min(...boxes.map((b) => b[0])) - m), clamp(Math.min(...boxes.map((b) => b[1])) - m),
+      clamp(Math.max(...boxes.map((b) => b[2])) + m), clamp(Math.max(...boxes.map((b) => b[3])) + m),
+    ].map(round) as [number, number, number, number];
+  }
+  const x0 = Math.min(0.6, Math.max(0, marker.x - 0.2));
+  const y0 = Math.min(0.6, Math.max(0, marker.y - 0.2));
+  return [x0, y0, x0 + 0.4, y0 + 0.4].map(round) as [number, number, number, number];
+}
+
+/**
+ * Vignette de l'emplacement d'une bouteille (fiche vin) : le plan de la zone
+ * recadré sur ses cases (ou autour de son repère), ce seul repère, la case du
+ * `casier` en évidence quand elle a une position. Rien sans repère.
+ */
+export function PlaceThumbnail({ zoneId, casier, label }: { zoneId: string; casier: string | null; label: string }) {
+  const data = usePlans().data;
+  const marker = data?.markers.find((m) => m.zoneId === zoneId);
+  const plan = data?.plans.find((p) => p.id === marker?.planId);
+  if (!marker || !plan) return null;
+  const code = cellCodeOf(casier, marker.cellNames)?.trim().toUpperCase();
+  return (
+    <PlanCrop box={thumbnailBox(marker)} plan={plan} maxHeight="40vh">
+      <PlanView src={planImageUrl(plan.id, plan.updatedAt)} plan={plan} markers={[marker]} highlightZoneId={zoneId}
+        highlightCell={code && marker.cellBoxes?.[code] ? code : null} alt={`Plan : ${label}`} />
+    </PlanCrop>
   );
 }

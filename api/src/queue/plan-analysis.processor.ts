@@ -84,8 +84,10 @@ export class PlanAnalysisProcessor {
         await this.plans.setAnalysis(planId, expected, { status: 'FAILED', reason: 'ILLISIBLE' });
         return;
       }
-      const zones = await this.prisma.caveZone.findMany({ where: { caveId: plan.caveId, archivedAt: null }, select: { name: true } });
-      const suggestions = nameBlocks(validBlocks(unitsToBlocks(output.units)), zones.map((z) => z.name));
+      const zones = await this.prisma.caveZone.findMany({ where: { caveId: plan.caveId, archivedAt: null }, select: { name: true, cellPrefix: true } });
+      const suggestions = nameBlocks(
+        validBlocks(unitsToBlocks(output.units)), zones.map((z) => z.name), zones.flatMap((z) => (z.cellPrefix ? [z.cellPrefix] : [])),
+      );
       await this.plans.setAnalysis(planId, expected, { status: 'DONE', suggestions });
     } catch (e) {
       // Image absente : plan supprimé pendant la lecture (setAnalysis sans effet), ou fichier manquant sur un plan qui existe (FAILED, pas d'attente éternelle).

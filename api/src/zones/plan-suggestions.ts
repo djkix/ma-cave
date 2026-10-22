@@ -3,8 +3,9 @@ import { randomUUID } from 'node:crypto';
 export type SuggestionKind = 'CASIER' | 'ETAGERE' | 'AUTRE';
 /**
  * Case repérée sur la photo : cadre en fractions [x0, y0, x1, y1], rangée et
- * colonne (0 = haut, gauche) tirées du voisinage, nom de la case dans la grille
- * de la zone (« B3 ») ; null quand la rangée ou la colonne est indéterminée.
+ * colonne (0 = haut, gauche) tirées du voisinage, code de la case dans la grille
+ * de la proposition (« C15 », donné par `nameBlocks`) ; null quand la rangée ou
+ * la colonne est indéterminée ou hors de la grille, ou sans lettre.
  */
 export interface DetectedCell { box: [number, number, number, number]; row: number | null; col: number | null; name: string | null }
 /**
@@ -12,13 +13,19 @@ export interface DetectedCell { box: [number, number, number, number]; row: numb
  * `cellCount` (cases valides repérées) et `cells` (200 au plus) : absents des propositions d'avant la 2.23.
  */
 export interface RawBlock { kind: SuggestionKind; box: [number, number, number, number]; rows: number; cols: number; cellCount?: number; cells?: DetectedCell[] }
-/** Proposition de zone en attente sur un plan. */
-export interface PlanSuggestion extends RawBlock { id: string; name: string }
+/**
+ * Proposition de zone en attente sur un plan. `cellPrefix` : lettre des codes de
+ * ses cases (null au-delà de Z), absente des propositions d'avant la 2.27.
+ */
+export interface PlanSuggestion extends RawBlock { id: string; name: string; cellPrefix?: string | null }
 
 export const GRID_MAX_ROWS = 26;
 export const GRID_MAX_COLS = 30;
 export const MAX_BLOCKS = 12;
 export const MAX_CELLS = 200;
+
+/** Code d'une case : `<lettre><n>`, rangée par rangée (rangée `row`, colonne `col`, à partir de 0 → n = row × cols + col + 1). */
+export const cellCode = (prefix: string, row: number, col: number, cols: number): string => `${prefix}${row * cols + col + 1}`;
 
 const LABELS: Record<SuggestionKind, string> = { CASIER: 'Casier', ETAGERE: 'Étagère', AUTRE: 'Rangement' };
 
@@ -188,9 +195,9 @@ function ranks(boxes: Box[], own: Lines, cross: Lines, axis: 0 | 1, count: numbe
  * large sous deux colonnes, cadres trop bruités), le compte de cet axe passe au plus grand nombre
  * de cases côte à côte (colonnes) ou empilées (rangées), et le rang des cases
  * sur cet axe est celui qu'elles ont dans une ligne complète de l'autre axe
- * (`ranks`). Une case haute de deux rangées prend le nom de celle du haut.
- * `cellCount` : cases valides ; `cells` : leurs 200 premières, nommées comme
- * la grille de la zone (« A1 », « B3 ») quand rangée et colonne sont connues.
+ * (`ranks`). Une case haute de deux rangées prend la place de celle du haut.
+ * `cellCount` : cases valides ; `cells` : leurs 200 premières, sans nom
+ * (`nameBlocks` les nomme avec la lettre de la proposition).
  * Unité de moins de 2 cases valides ou de type inconnu ignorée. Le reste est
  * validé ensuite par `validBlocks`.
  */
@@ -210,11 +217,7 @@ export function unitsToBlocks(units: unknown): RawBlock[] {
       kind: kind as SuggestionKind,
       box: [Math.min(...boxes.map((b) => b[0])), Math.min(...boxes.map((b) => b[1])), Math.max(...boxes.map((b) => b[2])), Math.max(...boxes.map((b) => b[3]))],
       rows, cols, cellCount: boxes.length,
-      cells: boxes.slice(0, MAX_CELLS).map((box, i) => {
-        const row = rowOf[i], col = colOf[i];
-        const known = row !== null && col !== null && row < rows && col < cols;
-        return { box, row, col, name: known ? `${String.fromCharCode(65 + row)}${col + 1}` : null };
-      }),
+      cells: boxes.slice(0, MAX_CELLS).map((box, i) => ({ box, row: rowOf[i], col: colOf[i], name: null })),
     });
   }
   return blocks;
@@ -227,17 +230,25 @@ const letter = (n: number): string => (n >= 26 ? letter(Math.floor(n / 26) - 1) 
  * Nomme les blocs de gauche à droite (x0, puis y0) : « Casier A », « Étagère B »,
  * « Rangement C »… une lettre par bloc, en sautant toute lettre déjà employée
  * par `takenNames` (noms des zones actives) sous la forme « <Type> <lettre> »,
- * casse ignorée.
+ * casse ignorée, ou par `takenPrefixes` (lettres des cases des zones actives).
+ * La lettre (une seule, null au-delà de Z) est celle des codes des cases :
+ * « Casier C » → C1…C48, enregistrés sur chaque case repérée dans la grille.
  */
-export function nameBlocks(blocks: RawBlock[], takenNames: string[]): PlanSuggestion[] {
+export function nameBlocks(blocks: RawBlock[], takenNames: string[], takenPrefixes: string[]): PlanSuggestion[] {
   const key = (n: string) => n.normalize('NFC').trim().toLowerCase();
   const taken = new Set(takenNames.map(key));
-  const used = (l: string) => Object.values(LABELS).some((label) => taken.has(key(`${label} ${l}`)));
+  const prefixes = new Set(takenPrefixes);
+  const used = (l: string) => prefixes.has(l) || Object.values(LABELS).some((label) => taken.has(key(`${label} ${l}`)));
   let n = 0;
   return [...blocks]
     .sort((a, b) => a.box[0] - b.box[0] || a.box[1] - b.box[1])
     .map((b) => {
       while (used(letter(n))) n++;
-      return { ...b, id: randomUUID(), name: `${LABELS[b.kind]} ${letter(n++)}` };
+      const l = letter(n++), prefix = l.length === 1 ? l : null;
+      const cells = b.cells?.map((c) => ({
+        ...c,
+        name: prefix && c.row !== null && c.col !== null && c.row < b.rows && c.col < b.cols ? cellCode(prefix, c.row, c.col, b.cols) : null,
+      }));
+      return { ...b, ...(cells ? { cells } : {}), id: randomUUID(), name: `${LABELS[b.kind]} ${l}`, cellPrefix: prefix };
     });
 }

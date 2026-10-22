@@ -5,12 +5,14 @@ import { EMPTY_LOCATION, toLocationInput, useLocations, usePlans, useZones } fro
 import { Button } from './Button';
 import { Icon } from './Icon';
 import { LocationFields, ZoneDetails } from './LocationFields';
-import { ZonePlan } from './PlanView';
+import { PlaceThumbnail, ZonePlan } from './PlanView';
 
 /**
  * Un endroit du vin ; touché, il montre ou cache l'indication et la photo de sa
- * zone, puis le plan de son repère (pour tous, membre compris). Les plans ne
- * sont lus que pour une zone qui a un repère.
+ * zone, puis le plan de son repère (pour tous, membre compris). Zone sur un
+ * plan : la vignette recadrée sur la zone (case de la bouteille en évidence),
+ * légendée par l'endroit, est le bouton. Les plans ne sont lus que pour une
+ * zone qui a un repère.
  */
 function PlaceItem({ place, zone }: { place: Place; zone: Zone | undefined }) {
   const [open, setOpen] = useState(false);
@@ -26,23 +28,34 @@ function PlaceItem({ place, zone }: { place: Place; zone: Zone | undefined }) {
   if (!zone || (!zone.indication && !zone.hasPhoto && !onPlan)) return <li>{text}</li>;
   return (
     <li className="locations-list__item--zone">
-      <button type="button" className="locations-list__toggle" aria-expanded={open} aria-controls={detailsId} onClick={() => setOpen((o) => !o)}>
-        {text}
+      <button type="button" className={`locations-list__toggle${onPlan ? ' locations-list__toggle--thumbnail' : ''}`} aria-expanded={open} aria-controls={detailsId} onClick={() => setOpen((o) => !o)}>
+        {onPlan ? <><PlaceThumbnail zoneId={zone.id} casier={place.casier ?? null} label={place.label} /><span className="locations-list__legend">{text}</span></> : text}
       </button>
       <div id={detailsId}>{open && <><ZoneDetails zone={zone} />{onPlan && <ZonePlan zoneId={zone.id} />}</>}</div>
     </li>
   );
 }
 
-/** Contenu de la fenêtre « Emplacement » : chaque endroit, la photo et l'indication de sa zone, puis le plan. */
+/**
+ * Contenu de la fenêtre « Emplacement » : chaque endroit, la photo et l'indication de sa zone,
+ * puis sa vignette, qui montre au toucher le plan entier.
+ */
 function PlaceDetails({ place, zone }: { place: Place; zone: Zone | undefined }) {
+  const [open, setOpen] = useState(false);
   const plans = usePlans(!!zone?.marker);
   const onPlan = !!zone?.marker && !!plans.data?.markers.some((m) => m.zoneId === zone.id);
   return (
     <li>
       <p className="locations-list__label" style={{ margin: 0 }}>{place.label}<span className="num">{` × ${place.quantity}`}</span></p>
       <ZoneDetails zone={zone} />
-      {onPlan && zone && <ZonePlan zoneId={zone.id} />}
+      {onPlan && zone && (
+        <>
+          <button type="button" className="locations-list__toggle locations-list__toggle--thumbnail" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            <PlaceThumbnail zoneId={zone.id} casier={place.casier ?? null} label={place.label} />
+          </button>
+          {open && <ZonePlan zoneId={zone.id} />}
+        </>
+      )}
     </li>
   );
 }
