@@ -48,9 +48,9 @@ it('annonce une pause en cours, heure de Paris', async () => {
 
 it('limite de débit ou quota de Google : le texte de l’api, tel quel', async () => {
   const until = new Date(Date.now() + 3_600_000).toISOString();
-  vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage({ pause: { until, reason: 'QUOTA_JOUR', message: 'Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.' } }));
+  vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(usage({ pause: { until, reason: 'QUOTA_JOUR', message: 'Quota Gemini du jour atteint (20 requêtes) : reprise jeudi à 09:00.' } }));
   mount();
-  expect(await screen.findByText('Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.')).toBeInTheDocument();
+  expect(await screen.findByText('Quota Gemini du jour atteint (20 requêtes) : reprise jeudi à 09:00.')).toBeInTheDocument();
   expect(screen.queryByText(/Gemini en pause jusqu'à/)).not.toBeInTheDocument();
 });
 

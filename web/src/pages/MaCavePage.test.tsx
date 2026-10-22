@@ -48,7 +48,7 @@ const rowOf = (email: string) => screen.getByText(email).closest<HTMLElement>('.
 const zonesCard = () => within(screen.getByRole('region', { name: 'Zones' }));
 const zoneRow = (name: string) => within(zonesCard().getByRole('listitem', { name }));
 
-it('regroupe le nom de la cave, le plan, les zones, les membres puis la sauvegarde, sous le titre « Ma cave », retour vers Mon compte', async () => {
+it('regroupe le nom de la cave, le plan, les zones, les membres puis la sauvegarde, sous le titre « Ma cave », retour vers les Réglages', async () => {
   vi.spyOn(api, 'getMembers').mockResolvedValue(members);
   mount();
   expect(screen.getByRole('heading', { level: 1, name: 'Ma cave' })).toBeInTheDocument();
@@ -822,8 +822,8 @@ describe('plan de la cave', () => {
       ['RETRY', { waiting: 'RETRY' as const, attempt: 2, nextAttemptAt: local(10, 52) }, 'Nouvel essai à 10:52 (tentative 2 sur 10).'],
       [
         'QUOTA (jour)',
-        { waiting: 'QUOTA' as const, pauseUntil: local(9, 0), quotaKind: 'JOUR' as const, message: 'Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.' },
-        'Quota Gemini du jour atteint (20 requêtes) : reprise demain à 09:00.',
+        { waiting: 'QUOTA' as const, pauseUntil: local(9, 0), quotaKind: 'JOUR' as const, message: 'Quota Gemini du jour atteint (20 requêtes) : reprise jeudi à 09:00.' },
+        'Quota Gemini du jour atteint (20 requêtes) : reprise jeudi à 09:00.',
       ],
       [
         'QUOTA (minute)',
