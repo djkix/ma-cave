@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { formatPlaces, labelOf, locationInputSchema, normalizeLocation, partsOf, placesOf } from './location';
+import { cellCodeOf, formatPlaces, labelOf, locationInputSchema, normalizeLocation, partsOf, placesOf } from './location';
 
 describe('normalizeLocation', () => {
   const ZONE = '7d9f2a52-3c1e-4f0e-9a3b-2f5e8c1d4a60';
@@ -43,6 +43,11 @@ describe('partsOf', () => {
     });
     expect(partsOf({ id: 'l2', zoneId: null, zone: null, casier: null, position: '4' })).toEqual({ id: 'l2', zoneId: null, zone: null, casier: null, position: '4' });
   });
+
+  it('les noms de cases de la zone suivent, pour le libellé', () => {
+    const parts = partsOf({ id: 'l3', zoneId: 'z1', zone: { name: 'Casier', cellNames: { B3: 'Champagnes' } }, casier: 'B3', position: null });
+    expect(labelOf(parts)).toBe('Casier / Champagnes (B3)');
+  });
 });
 
 describe('labelOf', () => {
@@ -50,6 +55,25 @@ describe('labelOf', () => {
     expect(labelOf({ zone: 'Cave 2', casier: 'B', position: '3' })).toBe('Cave 2 / B / 3');
     expect(labelOf({ zone: null, casier: 'B', position: null })).toBe('B');
     expect(labelOf({ zone: 'Cellier', casier: null, position: '12' })).toBe('Cellier / 12');
+  });
+
+  it('case nommée : « Nom (code) », casse du casier ignorée ; sans nom : le casier tel quel', () => {
+    const cellNames = { B3: 'Champagnes' };
+    expect(labelOf({ zone: 'Casier', casier: 'b3', position: '2', cellNames })).toBe('Casier / Champagnes (B3) / 2');
+    expect(labelOf({ zone: 'Casier', casier: 'A1', position: null, cellNames })).toBe('Casier / A1');
+    expect(labelOf({ zone: 'Casier', casier: null, position: '4', cellNames })).toBe('Casier / 4');
+  });
+});
+
+describe('cellCodeOf', () => {
+  it('un nom de case connu (casse et espaces ignorés) devient son code ; sinon le casier ne change pas', () => {
+    const cellNames = { B3: 'Champagnes', A1: 'Bordeaux' };
+    expect(cellCodeOf('champagnes', cellNames)).toBe('B3');
+    expect(cellCodeOf('BORDEAUX', cellNames)).toBe('A1');
+    expect(cellCodeOf('B3', cellNames)).toBe('B3');
+    expect(cellCodeOf('Loire', cellNames)).toBe('Loire');
+    expect(cellCodeOf(null, cellNames)).toBeNull();
+    expect(cellCodeOf('Champagnes', {})).toBe('Champagnes');
   });
 });
 

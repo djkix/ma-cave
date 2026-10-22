@@ -25,8 +25,11 @@ export type LocationInput = z.infer<typeof locationInputSchema>;
 /** Identifiant d'emplacement (sortie, inventaire, origine d'un déplacement) ; null = « Sans emplacement ». */
 export const locationIdSchema = z.string({ invalid_type_error: 'Emplacement invalide' }).uuid('Emplacement invalide').nullable();
 
-/** Parties d'un libellé : `zone` est le NOM de la zone, lu par la relation (il suit les renommages). */
-export interface LocationParts { zone: string | null; casier: string | null; position: string | null }
+/**
+ * Parties d'un libellé : `zone` est le NOM de la zone, lu par la relation (il suit les renommages) ;
+ * `cellNames` : noms des cases de la zone (« B3 » → « Champagnes »), pour afficher « Champagnes (B3) ».
+ */
+export interface LocationParts { zone: string | null; casier: string | null; position: string | null; cellNames?: Record<string, string> | null }
 /** Emplacement lu, prêt pour un libellé : son id, celui de sa zone et ses parties. */
 export interface LocatedParts extends LocationParts { id: string; zoneId: string | null }
 /** Saisie nettoyée : `zoneName` seulement pour un ancien client qui envoie `zone` en texte. */
@@ -65,13 +68,35 @@ export function normalizeLocation(input: LocationInput): NormalizedLocation {
 }
 
 /** Emplacement lu avec sa zone (`include: { zone: true }`) → parties du libellé. */
-export function partsOf(l: { id: string; zoneId: string | null; zone: { name: string } | null; casier: string | null; position: string | null }): LocatedParts {
-  return { id: l.id, zoneId: l.zoneId, zone: l.zone?.name ?? null, casier: l.casier, position: l.position };
+export function partsOf(l: {
+  id: string; zoneId: string | null; zone: { name: string; cellNames?: unknown } | null; casier: string | null; position: string | null;
+}): LocatedParts {
+  const parts: LocatedParts = { id: l.id, zoneId: l.zoneId, zone: l.zone?.name ?? null, casier: l.casier, position: l.position };
+  if (l.zone?.cellNames) parts.cellNames = l.zone.cellNames as Record<string, string>;
+  return parts;
 }
 
-/** « zone / casier / position », parties absentes omises. */
+/** Casier affiché : « Nom (B3) » quand la case a un nom dans sa zone (casse du casier ignorée), sinon le casier tel quel. */
+function casierLabel(casier: string | null, cellNames?: Record<string, string> | null): string | null {
+  const code = casier?.toUpperCase();
+  const name = code ? cellNames?.[code] : undefined;
+  return name ? `${name} (${code})` : casier;
+}
+
+/** « zone / casier / position », parties absentes omises : le seul libellé d'emplacement de l'api. */
 export function labelOf(loc: LocationParts): string {
-  return [loc.zone, loc.casier, loc.position].filter((p): p is string => p != null && p !== '').join(' / ');
+  return [loc.zone, casierLabel(loc.casier, loc.cellNames), loc.position].filter((p): p is string => p != null && p !== '').join(' / ');
+}
+
+/**
+ * Casier saisi → valeur enregistrée : le nom d'une case de la zone (casse et
+ * espaces ignorés) devient son code, pour que « Champagnes » et « B3 » désignent
+ * le même emplacement. Sinon le casier ne change pas.
+ */
+export function cellCodeOf(casier: string | null, cellNames: Record<string, string>): string | null {
+  const key = casier?.trim().toUpperCase();
+  if (!key) return casier;
+  return Object.entries(cellNames).find(([, name]) => name.toUpperCase() === key)?.[0] ?? casier;
 }
 
 /**

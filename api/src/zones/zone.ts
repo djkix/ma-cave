@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { z } from 'zod';
 import type { PlanAnalysisJobState } from '../queue/plan-analysis';
 import { GRID_MAX_COLS, GRID_MAX_ROWS, PlanSuggestion } from './plan-suggestions';
@@ -18,6 +19,11 @@ export const INVALID_ORDER = 'Ordre des zones invalide';
 export const INVALID_GRID = 'La grille fait de 1 à 26 lignes et de 1 à 30 colonnes';
 export const SUGGESTION_NOT_FOUND = 'Proposition introuvable';
 export const ANALYSIS_IN_PROGRESS = 'Une analyse est déjà en cours';
+export const UNKNOWN_CELL = 'Case inconnue dans cette zone';
+export const CELL_NAME_TAKEN = 'Ce nom est déjà pris dans cette zone';
+export const INVALID_CELL_NAME = 'Le nom d\'une case fait 40 caractères au plus';
+export const INVALID_CELL_NAMES = 'Noms des cases invalides';
+export const CELL_NAME_MAX = 40;
 export const ZONE_NAME_MAX = 40;
 export const PLAN_NAME_MAX = 40;
 export const PLAN_MAX_COUNT = 20;
@@ -42,18 +48,70 @@ const gridSide = (max: number) => z.number({ invalid_type_error: INVALID_GRID, r
 const gridShape = { rows: gridSide(GRID_MAX_ROWS), cols: gridSide(GRID_MAX_COLS) };
 const grid = z.object(gridShape, { invalid_type_error: INVALID_GRID, required_error: INVALID_GRID });
 
+/**
+ * Noms des cases : { code: nom } (remplacement complet). Codes et noms sont
+ * vérifiés contre la grille par cellNamesFor ; ici, seulement la forme.
+ */
+const cellNames = z.record(
+  z.string({ invalid_type_error: INVALID_CELL_NAME }).refine((v) => v.trim().length <= CELL_NAME_MAX, INVALID_CELL_NAME),
+  { invalid_type_error: INVALID_CELL_NAMES, required_error: INVALID_CELL_NAMES },
+);
+
+/** Nom d'affichage par case : { « B3 »: « Champagnes » }. Le code reste la valeur enregistrée dans `location.casier`. */
+export type CellNames = Record<string, string>;
+
+/** Codes des cases d'une grille, ligne par ligne : ligne `i` → lettre `A + i`, colonne `j` → `j + 1` (comme web/src/lib/grid.ts). */
+export function gridCodes(grid: { rows: number; cols: number } | null): string[] {
+  if (!grid) return [];
+  return Array.from({ length: grid.rows * grid.cols }, (_, k) => `${String.fromCharCode(65 + Math.floor(k / grid.cols))}${(k % grid.cols) + 1}`);
+}
+
+/**
+ * Noms saisis → noms enregistrés : codes en majuscules, noms sans espaces autour,
+ * nom vide = case sans nom. 400 « Case inconnue dans cette zone » pour un code
+ * hors de la grille ; 400 « Ce nom est déjà pris dans cette zone » pour un nom
+ * porté par une autre case ou égal au code d'une autre case (casse ignorée) :
+ * un nom saisi dans « casier » désigne ainsi une seule case.
+ */
+export function cellNamesFor(input: CellNames, grid: { rows: number; cols: number } | null): CellNames {
+  const codes = new Set(gridCodes(grid));
+  const out: CellNames = {};
+  for (const [rawCode, rawName] of Object.entries(input)) {
+    const code = rawCode.trim().toUpperCase();
+    if (!codes.has(code)) throw new BadRequestException(UNKNOWN_CELL);
+    const name = rawName.trim();
+    if (name) out[code] = name;
+  }
+  const taken = new Map<string, string>();
+  for (const [code, name] of Object.entries(out)) {
+    const key = name.toUpperCase();
+    if ((codes.has(key) && key !== code) || (taken.has(key) && taken.get(key) !== code)) throw new BadRequestException(CELL_NAME_TAKEN);
+    taken.set(key, code);
+  }
+  return out;
+}
+
+/** Noms gardés après un changement de grille : ceux des cases qui existent encore. */
+export function keptCellNames(names: CellNames, grid: { rows: number; cols: number } | null): CellNames {
+  const codes = new Set(gridCodes(grid));
+  return Object.fromEntries(Object.entries(names).filter(([code]) => codes.has(code)));
+}
+
 export const createZoneSchema = z.object({ name, indication }, { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME });
 export type CreateZoneInput = { name: string; indication?: string | null };
 
 /** Champs absents : inchangés ; `indication: null` ou vide l'efface. L'ordre se change par POST …/zones/order. */
 export const updateZoneSchema = z.object(
-  { name: name.optional(), indication: indication.optional(), grid: grid.nullable().optional() },
+  { name: name.optional(), indication: indication.optional(), grid: grid.nullable().optional(), cellNames: cellNames.optional() },
   { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME },
 );
-export type UpdateZoneInput = { name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null };
+export type UpdateZoneInput = { name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null; cellNames?: CellNames };
 
-/** Accepter une proposition : nom de zone et grille, mêmes règles que pour une zone. */
-export const acceptSuggestionSchema = z.object({ name, ...gridShape }, { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME });
+/** Accepter une proposition : nom de zone, grille et noms des cases (facultatifs), mêmes règles que pour une zone. */
+export const acceptSuggestionSchema = z.object(
+  { name, ...gridShape, cellNames: cellNames.optional() },
+  { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME },
+);
 
 /** Nouvel ordre d'affichage : les zones de la cave, de la première à la dernière. */
 export const zoneOrderSchema = z.object(
@@ -70,21 +128,24 @@ export const zoneOrderSchema = z.object(
  * Zone telle que l'api la rend : la photo se lit par GET /api/caves/zones/:id/photo ;
  * `marker` : son repère sur un plan de la cave (le plan, puis fractions de la
  * largeur et de la hauteur), null sans repère. Effacé quand son plan est supprimé.
- * `grid` : grille de cases (lignes A…, colonnes 1…), null sans grille.
+ * `grid` : grille de cases (lignes A…, colonnes 1…), null sans grille ;
+ * `cellNames` : noms d'affichage des cases ({} sans nom).
  */
 export interface ZoneView {
   id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; marker: { planId: string; x: number; y: number } | null;
-  grid: { rows: number; cols: number } | null;
+  grid: { rows: number; cols: number } | null; cellNames: CellNames;
 }
 
 export function zoneView(z: {
   id: string; name: string; indication: string | null; photoPath: string | null; sortOrder: number; planId: string | null; planX: number | null; planY: number | null;
-  gridRows: number | null; gridCols: number | null;
+  gridRows: number | null; gridCols: number | null; cellNames: unknown;
 }): ZoneView {
   return {
     id: z.id, name: z.name, indication: z.indication, hasPhoto: z.photoPath != null, sortOrder: z.sortOrder,
     marker: z.planId != null && z.planX != null && z.planY != null ? { planId: z.planId, x: z.planX, y: z.planY } : null,
     grid: z.gridRows != null && z.gridCols != null ? { rows: z.gridRows, cols: z.gridCols } : null,
+    // Un objet JSON (cave_zone_cell_names_check).
+    cellNames: z.cellNames as CellNames,
   };
 }
 

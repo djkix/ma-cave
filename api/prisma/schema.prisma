@@ -422,6 +422,9 @@ model CaveZone {
   /// lignes et 1 à 30 colonnes.
   gridRows   Int?       @map("grid_rows")
   gridCols   Int?       @map("grid_cols")
+  /// Noms d'affichage des cases : { code: nom } (« B3 » → « Champagnes »), {} sans nom.
+  /// CHECK en migration (cave_zone_cell_names_check) : un objet JSON.
+  cellNames  Json       @default("{}") @map("cell_names")
   archivedAt DateTime?  @map("archived_at")
   createdAt  DateTime   @default(now()) @map("created_at")
   locations  Location[]
