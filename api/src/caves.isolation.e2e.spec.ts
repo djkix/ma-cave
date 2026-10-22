@@ -525,7 +525,10 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
   describe('classification', () => {
     /** Routes réellement montées : le routeur Express de l'application (Nest 10, Express 4). */
     function mountedRoutes(): string[] {
-      const router = (app.getHttpAdapter().getInstance() as { _router: { stack: Array<{ route?: { path: string; methods: Record<string, boolean> } }> } })._router;
+      // Express 5 (NestJS 11) : `app.router` ; Express 4 : `app._router`.
+      type Router = { stack: Array<{ route?: { path: string; methods: Record<string, boolean> } }> };
+      const instance = app.getHttpAdapter().getInstance() as { router?: Router; _router?: Router };
+      const router = (instance.router ?? instance._router)!;
       return router.stack.flatMap((layer) => (layer.route ? Object.keys(layer.route.methods).map((m) => routeKey(m, layer.route!.path)) : []));
     }
 
