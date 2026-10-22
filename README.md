@@ -155,13 +155,20 @@ arrière-plan, sans jamais bloquer : l'IA détecte les blocs de rangement (casie
 les 10 s), puis, si elle a échoué, « Les zones n’ont pas pu être proposées.
 Placez-les à la main. » (les plans existants ne sont pas analysés). Quand des
 zones sont proposées, leurs cadres apparaissent **en pointillés** sur le plan,
-avec une étiquette « Casier A · 24 cases », et une ligne au-dessus du plan
+avec une étiquette « Casier A · 48 cases » (nombre de cases repérées sur la
+photo ; lignes × colonnes pour une proposition d'avant), et une ligne au-dessus du plan
 annonce « 3 zones proposées : touchez-les pour les accepter. ». Toucher un cadre
 ouvre la feuille **Proposition** : *Nom* (prérempli : « Casier A », « Étagère B »,
 « Rangement C »… de gauche à droite, en sautant les lettres déjà prises),
-*Lignes* et *Colonnes* (préremplis), aperçu « Cases A1 à F4 », puis *Accepter*
+*Lignes* et *Colonnes* (préremplis), aperçu « Cases A1 à F4 », ce que l'IA a
+vu (« 48 cases repérées sur la photo · grille proposée : 4 rangées × 12
+colonnes »), puis *Accepter*
 (crée la zone avec son repère au centre du cadre et sa grille) ou *Rejeter*
-(retire la proposition). Le propriétaire seul accepte ou rejette ; un nom déjà
+(retire la proposition). Tant que la feuille est ouverte, chaque case repérée
+est dessinée sur le plan : cadre fin, **point au centre et nom de la case**
+(« B3 », le nom même qu'on choisira en rangeant une bouteille dans la zone
+acceptée ; nom masqué quand la case fait moins de 24 px de large, point seul),
+ni cliquable ni lu par les lecteurs d'écran. Le propriétaire seul accepte ou rejette ; un nom déjà
 pris est refusé (« Une zone porte déjà ce nom »). Les cases se nomment en
 lignes × colonnes : A1, A2… pour la première ligne, B1, B2… pour la deuxième
 (1 à 26 lignes, 1 à 30 colonnes ; les cases sont calculées, jamais stockées).
@@ -252,13 +259,21 @@ texte est lue quand même, et une réponse sans objet JSON finit en « photo
 illisible ». Un refus de Gemini (400, 403, 404…, hors 429) s'affiche « L’IA a
 refusé la demande. Réessayez, ou choisissez un autre modèle dans
 l’Administration. », avec *Relancer l’analyse*. Le serveur reconstruit ensuite
-chaque proposition : cadre = union des cases, lignes et colonnes comptées sur
-les tablettes et les montants (les bords haut et bas de toutes les cases,
-regroupés quand ils sont à moins d'un tiers de la petite hauteur de case ;
-lignes = tablettes − 1, idem en largeur pour les colonnes). Une case haute de
-deux rangées ou des rangées de hauteurs différentes sont donc bien comptées, et
-une photo un peu inclinée reste tolérée ; un meuble de moins de deux cases est
-ignoré. Le reste (nommage « Casier A », états, garde par date de demande) ne
+chaque proposition : cadre = union des cases, lignes et colonnes comptées
+**par voisinage**, et non sur des coordonnées communes à tout le meuble (un mur
+pris de biais, dont une même tablette descend de plus d'une case d'un bout à
+l'autre, donnait 260 cases pour 48). Chaque case est reliée à sa voisine de
+droite (chevauchement vertical d'au moins la moitié de la moins haute des deux)
+et à celle du dessous (idem en largeur) ; les rangées sont les suites de cases
+reliées de gauche à droite, les colonnes celles reliées de haut en bas. Une
+case oubliée par l'IA ne coupe pas sa rangée (la voisine suivante est cherchée
+plus loin). Quand une case haute ou large relie deux rangées ou deux colonnes,
+le compte de cet axe passe au plus grand nombre de cases empilées (rangées) ou
+côte à côte (colonnes). Chaque proposition garde aussi `cellCount` (cases
+valides repérées) et `cells` (200 au plus) : cadre de chaque case, sa rangée et
+sa colonne, et son nom dans la grille (« A1 » en haut à gauche) ; une case dont
+la rangée ou la colonne reste indéterminée garde son cadre, sans nom. Un meuble
+de moins de deux cases est ignoré. Le reste (nommage « Casier A », états, garde par date de demande) ne
 change pas. L'analyse des plans emploie le modèle choisi dans l'Administration
 (voir *Modèle de l'IA*), comme tous les autres usages. **Relancer l’analyse** est
 aussi dans le menu ⋯ du plan, même après une analyse réussie (désactivé pendant
