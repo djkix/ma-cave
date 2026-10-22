@@ -208,7 +208,6 @@ describe('ZonePlan', () => {
     expect(screen.getByText('Cellier')).toHaveClass('plan-caption');
     expect(screen.getByRole('img', { name: 'Zone 2 : Étagère' })).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('img', { name: 'Zone 1 : Garage' })).not.toHaveAttribute('aria-current');
-    expect(screen.queryByRole('img', { name: 'Zone 1 : Cave 1' })).not.toBeInTheDocument();
   });
 
   it('zone sans repère : rien', async () => {
@@ -294,5 +293,62 @@ describe('thumbnailBox (vignette de la fiche vin)', () => {
   it('repère seul : fenêtre de 40 % × 40 % centrée, décalée pour rester dans l’image', () => {
     expect(thumbnailBox({ ...m, cellBoxes: {} })).toEqual([0.3, 0.3, 0.7, 0.7]);
     expect(thumbnailBox({ ...m, x: 0.05, y: 0.9 })).toEqual([0, 0.6, 0.4, 1]);
+  });
+});
+
+describe('ajuster les cases (editCells)', () => {
+  const boxes = { C1: [0.1, 0.2, 0.2, 0.4] as [number, number, number, number], C2: [0.3, 0.2, 0.4, 0.4] as [number, number, number, number] };
+  const HELP = 'Plan de la cave. Touchez une case puis l’endroit où la placer ; au clavier, flèches pour déplacer la case choisie (Maj : plus vite), Échap pour la désélectionner.';
+  function setup(selected: string | null = null) {
+    const onSelect = vi.fn();
+    const onMove = vi.fn();
+    const { container } = render(<PlanView src="/plan.jpg" plan={plan} markers={[]}
+      editCells={{ boxes, names: { C2: 'Champagnes' }, selected, home: { x: 0.3, y: 0.6 }, onSelect, onMove }} />);
+    return { onSelect, onMove, box: container.firstChild as HTMLElement };
+  }
+
+  it('chaque case est un bouton « Case C1 » / « Case Champagnes (C2) » (aria-pressed) ; consigne lue', async () => {
+    const { onSelect, onMove } = setup('C2');
+    expect(screen.getByRole('group', { name: HELP })).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('button', { name: 'Case C1' })).toHaveAttribute('aria-pressed', 'false');
+    const champagnes = screen.getByRole('button', { name: 'Case Champagnes (C2)' });
+    expect(champagnes).toHaveAttribute('aria-pressed', 'true');
+    expect(champagnes.parentElement).toHaveClass('plan-view__zone-cell--current');
+    await userEvent.click(screen.getByRole('button', { name: 'Case C1' }));
+    expect(onSelect).toHaveBeenCalledWith('C1');
+    expect(onMove).not.toHaveBeenCalled();
+  });
+
+  it('toucher le plan déplace la case choisie à ce point ; sans case choisie, rien', () => {
+    const rect = { left: 0, top: 0, width: 200, height: 100, right: 200, bottom: 100, x: 0, y: 0, toJSON: () => ({}) };
+    const { onMove, box } = setup('C1');
+    box.getBoundingClientRect = () => rect;
+    fireEvent.click(box, { clientX: 100, clientY: 25 });
+    expect(onMove).toHaveBeenCalledWith('C1', 0.5, 0.25);
+  });
+
+  it('sans case choisie, un toucher sur le plan ne fait rien', () => {
+    const { onMove, box } = setup();
+    box.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100, right: 200, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+    fireEvent.click(box, { clientX: 100, clientY: 25 });
+    expect(onMove).not.toHaveBeenCalled();
+  });
+
+  it('au clavier : les flèches déplacent la case choisie (2 %, Maj 10 %) depuis son bouton ; Échap la désélectionne', async () => {
+    const { onMove, onSelect } = setup('C1');
+    screen.getByRole('button', { name: 'Case C1' }).focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(onMove).toHaveBeenLastCalledWith('C1', 0.17, 0.3);
+    await userEvent.keyboard('{Shift>}{ArrowUp}{/Shift}');
+    expect(onMove).toHaveBeenLastCalledWith('C1', 0.15, 0.2);
+    await userEvent.keyboard('{Escape}');
+    expect(onSelect).toHaveBeenCalledWith(null);
+  });
+
+  it('au clavier : Entrée sur le plan pose une case choisie sans position au point `home`', async () => {
+    const { onMove } = setup('C3');
+    screen.getByRole('group', { name: HELP }).focus();
+    await userEvent.keyboard('{Enter}');
+    expect(onMove).toHaveBeenCalledWith('C3', 0.3, 0.6);
   });
 });

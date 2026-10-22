@@ -1190,6 +1190,73 @@ describe('plan de la cave', () => {
     });
   });
 
+  describe('ajuster les cases sur le plan', () => {
+    const c1: [number, number, number, number] = [0.1, 0.2, 0.2, 0.4];
+    const c2: [number, number, number, number] = [0.3, 0.2, 0.4, 0.4];
+    const casier: api.Zone = {
+      ...zones[2], marker: { planId: 'p1', x: 0.25, y: 0.3 }, grid: { rows: 1, cols: 3 }, cellPrefix: 'C', cellNames: { C2: 'Champagnes' }, cellBoxes: { C1: c1, C2: c2 },
+    };
+    const marker: api.PlanMarker = { zoneId: 'z3', planId: 'p1', name: 'Cellier', number: 1, x: 0.25, y: 0.3, cellBoxes: { C1: c1, C2: c2 }, cellNames: { C2: 'Champagnes' } };
+    /** Toucher le plan de la feuille à (x, y) en fractions de l'image. */
+    function tapSheetPlan(s: ReturnType<typeof within>, x: number, y: number) {
+      const box = s.getByRole('group', { name: /^Plan de la cave\. Touchez une case/ });
+      box.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 200, right: 400, bottom: 200, x: 0, y: 0, toJSON: () => ({}) });
+      fireEvent.click(box, { clientX: x * 400, clientY: y * 200 });
+    }
+
+    it('seulement pour une zone avec grille, lettre et repère', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [main], markers: [marker] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([zones[0], { ...zones[1], grid: { rows: 1, cols: 2 }, cellPrefix: 'G' }, casier]);
+      mount();
+      await userEvent.click(within(await zonesCard().findByRole('listitem', { name: 'Garage' })).getByRole('button', { name: 'Modifier' }));
+      expect(within(screen.getByRole('dialog', { name: 'Modifier Garage' })).queryByRole('button', { name: 'Ajuster les cases sur le plan' })).not.toBeInTheDocument();
+      await userEvent.click(within(screen.getByRole('dialog', { name: 'Modifier Garage' })).getByRole('button', { name: 'Annuler' }));
+      await userEvent.click(zoneRow('Cellier').getByRole('button', { name: 'Modifier' }));
+      expect(within(screen.getByRole('dialog', { name: 'Modifier Cellier' })).getByRole('button', { name: 'Ajuster les cases sur le plan' })).toBeInTheDocument();
+    });
+
+    it('toucher une case puis le plan la déplace ; une case sans position se pose ; Enregistrer envoie toutes les positions', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [main], markers: [marker] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([casier]);
+      const update = vi.spyOn(api, 'updateZone').mockResolvedValue(casier);
+      mount();
+      await userEvent.click(within(await zonesCard().findByRole('listitem', { name: 'Cellier' })).getByRole('button', { name: 'Modifier' }));
+      await userEvent.click(within(screen.getByRole('dialog', { name: 'Modifier Cellier' })).getByRole('button', { name: 'Ajuster les cases sur le plan' }));
+      const s = within(screen.getByRole('dialog', { name: 'Ajuster les cases de Cellier' }));
+      // Plan recadré sur les cases : englobant [0.1, 0.2, 0.4, 0.4] plus 4 %.
+      expect(screen.getByRole('dialog', { name: 'Ajuster les cases de Cellier' }).querySelector('.plan-crop')).toBeInTheDocument();
+      expect(s.getByRole('button', { name: 'Case Champagnes (C2)' })).toHaveAttribute('aria-pressed', 'false');
+      await userEvent.click(s.getByRole('button', { name: 'Case C1' }));
+      expect(s.getByRole('button', { name: 'Case C1' })).toHaveAttribute('aria-pressed', 'true');
+      expect(s.getByRole('status')).toHaveTextContent('Case C1 choisie : touchez son nouvel endroit sur le plan.');
+      tapSheetPlan(s, 0.5, 0.5);
+      const missing = within(s.getByRole('group', { name: 'Cases sans position' }));
+      await userEvent.click(missing.getByRole('button', { name: 'C3' }));
+      expect(s.getByRole('status')).toHaveTextContent('Case C3 choisie : touchez le plan pour la poser.');
+      tapSheetPlan(s, 0.8, 0.5);
+      expect(s.queryByRole('group', { name: 'Cases sans position' })).not.toBeInTheDocument();
+      await userEvent.click(s.getByRole('button', { name: 'Enregistrer' }));
+      await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { cellBoxes: { C1: [0.45, 0.4, 0.55, 0.6], C2: c2, C3: [0.75, 0.4, 0.85, 0.6] } }));
+      expect(await zonesCard().findByRole('status')).toHaveTextContent('Positions des cases enregistrées.');
+      expect(screen.queryByRole('dialog', { name: 'Ajuster les cases de Cellier' })).not.toBeInTheDocument();
+    });
+
+    it('Annuler n’envoie rien et revient à « Modifier »', async () => {
+      vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [main], markers: [marker] });
+      vi.spyOn(api, 'getZones').mockResolvedValue([casier]);
+      const update = vi.spyOn(api, 'updateZone');
+      mount();
+      await userEvent.click(within(await zonesCard().findByRole('listitem', { name: 'Cellier' })).getByRole('button', { name: 'Modifier' }));
+      await userEvent.click(within(screen.getByRole('dialog', { name: 'Modifier Cellier' })).getByRole('button', { name: 'Ajuster les cases sur le plan' }));
+      const s = within(screen.getByRole('dialog', { name: 'Ajuster les cases de Cellier' }));
+      await userEvent.click(s.getByRole('button', { name: 'Case C1' }));
+      tapSheetPlan(s, 0.5, 0.5);
+      await userEvent.click(s.getByRole('button', { name: 'Annuler' }));
+      expect(screen.getByRole('dialog', { name: 'Modifier Cellier' })).toBeInTheDocument();
+      expect(update).not.toHaveBeenCalled();
+    });
+  });
+
   it('archiver une zone placée ou changer l’ordre relit les plans : repère disparu, numéros échangés', async () => {
     const z3: api.PlanMarker = { zoneId: 'z3', planId: 'p1', name: 'Cellier', number: 2, x: 0.8, y: 0.8 };
     const two = { plans: [main], markers: [m1, z3] };
