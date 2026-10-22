@@ -79,6 +79,8 @@ describe('GeminiQuotaService (Redis réel)', () => {
   const redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', { maxRetriesPerRequest: 1 });
   const prefix = `test-gemini-quota-${process.pid}`;
   const NOW = new Date('2026-10-21T12:02:30Z');
+  const M = 'gemini-3-flash';
+  const L = 'gemini-3-flash-lite';
   const quiet = { error: jest.fn() };
   const serviceWith = (limits: Partial<Record<string, string>> = {}, prisma = fakePrisma()) => {
     for (const [key, value] of Object.entries(limits)) prisma.settings.set(key, value);
@@ -93,116 +95,155 @@ describe('GeminiQuotaService (Redis réel)', () => {
 
   it('limites par défaut 5 / 250 000 / 20, puis réglées en base', async () => {
     expect(DEFAULT_LIMITS).toEqual({ rpm: 5, tpm: 250000, rpd: 20 });
-    await expect(serviceWith().quota.limits()).resolves.toEqual(DEFAULT_LIMITS);
+    await expect(serviceWith().quota.limits(M)).resolves.toEqual(DEFAULT_LIMITS);
     const { quota, prisma } = serviceWith({ [GEMINI_RPM_KEY]: '10', [GEMINI_TPM_KEY]: '1000', [GEMINI_RPD_KEY]: 'abc' });
-    await expect(quota.limits()).resolves.toEqual({ rpm: 10, tpm: 1000, rpd: 20 });
-    await quota.setLimits({ rpm: 3, tpm: 500, rpd: 7 });
-    expect(prisma.settings.get(GEMINI_RPD_KEY)).toBe('7');
-    await expect(quota.limits()).resolves.toEqual({ rpm: 3, tpm: 500, rpd: 7 });
+    await expect(quota.limits(M)).resolves.toEqual({ rpm: 10, tpm: 1000, rpd: 20 });
+    await quota.setLimits(M, { rpm: 3, tpm: 500, rpd: 7 });
+    expect(prisma.settings.get(`${GEMINI_RPD_KEY}:${M}`)).toBe('7');
+    expect(prisma.settings.get(GEMINI_RPD_KEY)).toBe('abc');
+    await expect(quota.limits(M)).resolves.toEqual({ rpm: 3, tpm: 500, rpd: 7 });
+  });
+
+  it('limites par modèle : réglage du modèle, sinon réglage commun, sinon défaut', async () => {
+    const { quota } = serviceWith({ [GEMINI_RPM_KEY]: '10', [`${GEMINI_RPD_KEY}:${L}`]: '1000', [`${GEMINI_RPD_KEY}:${M}`]: '0' });
+    await expect(quota.limits(L)).resolves.toEqual({ rpm: 10, tpm: DEFAULT_LIMITS.tpm, rpd: 1000 });
+    // Réglage du modèle illisible : le commun, absent ici, puis le défaut.
+    await expect(quota.limits(M)).resolves.toEqual({ rpm: 10, tpm: DEFAULT_LIMITS.tpm, rpd: DEFAULT_LIMITS.rpd });
+    await quota.setLimits(M, { rpm: 2, tpm: 100, rpd: 3 });
+    await expect(quota.limits(L)).resolves.toEqual({ rpm: 10, tpm: DEFAULT_LIMITS.tpm, rpd: 1000 });
+  });
+
+  it('compteurs séparés par modèle : le quota du jour de l’un ne bloque pas l’autre', async () => {
+    const { quota } = serviceWith({ [GEMINI_RPD_KEY]: '1', [GEMINI_RPM_KEY]: '100' });
+    await quota.reserve(M, NOW);
+    await expect(quota.reserve(M, at(1))).rejects.toMatchObject({ reason: 'QUOTA_JOUR' });
+    await expect(quota.reserve(L, at(1))).resolves.toBeUndefined();
+    await expect(quota.reserve(L, at(2))).rejects.toMatchObject({ reason: 'QUOTA_JOUR' });
+  });
+
+  it('modèle marqué épuisé (429 journalier) : refus du jour jusqu’au prochain minuit du Pacifique, les autres passent', async () => {
+    const { quota } = serviceWith();
+    await quota.markExhausted(M, NOW);
+    const e = await quota.reserve(M, at(1)).catch((x: any) => x);
+    expect(e).toMatchObject({ reason: 'QUOTA_JOUR', until: new Date('2026-10-22T07:00:00Z') });
+    await expect(quota.reserve(L, at(1))).resolves.toBeUndefined();
+    const ttl = await redis.pttl(`${prefix}:${M}:epuise`);
+    expect(ttl).toBeGreaterThan(0);
+    expect(ttl).toBeLessThanOrEqual(new Date('2026-10-22T07:00:00Z').getTime() - NOW.getTime());
+    // Blocked suit la bascule : L décide tant qu'il a de la place.
+    await expect(quota.blocked([M, L], at(2))).resolves.toBeNull();
+    await quota.markExhausted(L, NOW);
+    await expect(quota.blocked([M, L], at(2))).resolves.toMatchObject({ reason: 'QUOTA_JOUR', limit: 20 });
   });
 
   const at = (s: number) => new Date(NOW.getTime() + s * 1000);
 
   it('fenêtre glissante de 60 s : la 6e requête attend que la plus ancienne ait 60 s (+ 1 s)', async () => {
     const { quota } = serviceWith();
-    for (let i = 0; i < 5; i++) await quota.reserve(at(i * 10)); // 12:02:30, :40, :50, 12:03:00, :10
-    const e = await quota.reserve(at(45)).catch((x: any) => x);
+    for (let i = 0; i < 5; i++) await quota.reserve(M, at(i * 10)); // 12:02:30, :40, :50, 12:03:00, :10
+    const e = await quota.reserve(M, at(45)).catch((x: any) => x);
     expect(e).toBeInstanceOf(GeminiQuotaError);
     expect(e.reason).toBe('QUOTA_MINUTE');
     expect(e.until.toISOString()).toBe('2026-10-21T12:03:31.000Z');
     expect(e.message).toBe('Limite de 5 requêtes par minute atteinte : reprise à 14:04.');
     // Changer de minute UTC ne remet rien à zéro : la plus ancienne compte encore.
-    await expect(quota.reserve(at(59))).rejects.toBeInstanceOf(GeminiQuotaError);
-    await expect(quota.reserve(at(61))).resolves.toBeUndefined();
+    await expect(quota.reserve(M, at(59))).rejects.toBeInstanceOf(GeminiQuotaError);
+    await expect(quota.reserve(M, at(61))).resolves.toBeUndefined();
   });
 
   it('deux appels à 59 s d’écart comptent ensemble, à 61 s non', async () => {
     const { quota } = serviceWith({ [GEMINI_RPM_KEY]: '1' });
-    await quota.reserve(at(0));
-    const e = await quota.reserve(at(59)).catch((x: any) => x);
+    await quota.reserve(M, at(0));
+    const e = await quota.reserve(M, at(59)).catch((x: any) => x);
     expect(e.reason).toBe('QUOTA_MINUTE');
     expect(e.until.toISOString()).toBe(at(61).toISOString());
-    await expect(quota.reserve(at(61))).resolves.toBeUndefined();
+    await expect(quota.reserve(M, at(61))).resolves.toBeUndefined();
   });
 
   it('jetons sur 60 s glissantes : refus au plafond, reprise quand assez de jetons sont sortis de la fenêtre', async () => {
     const { quota } = serviceWith({ [GEMINI_TPM_KEY]: '1000', [GEMINI_RPM_KEY]: '100' });
-    await quota.reserve(at(0));
-    await quota.addTokens(400, at(0));
-    await quota.reserve(at(10));
-    await quota.addTokens(599, at(10));
-    await expect(quota.reserve(at(20))).resolves.toBeUndefined();
-    await quota.addTokens(300, at(20));
+    await quota.reserve(M, at(0));
+    await quota.addTokens(M, 400, at(0));
+    await quota.reserve(M, at(10));
+    await quota.addTokens(M, 599, at(10));
+    await expect(quota.reserve(M, at(20))).resolves.toBeUndefined();
+    await quota.addTokens(M, 300, at(20));
     // 1 299 jetons : il faut que 400 (à 0 s) sortent pour repasser sous 1 000.
-    const e = await quota.reserve(at(30)).catch((x: any) => x);
+    const e = await quota.reserve(M, at(30)).catch((x: any) => x);
     expect(e.reason).toBe('QUOTA_TOKENS');
     expect(e.until.toISOString()).toBe(at(61).toISOString());
     expect(e.message).toBe('Limite de jetons par minute atteinte : reprise à 14:04.');
-    await expect(quota.reserve(at(61))).resolves.toBeUndefined();
+    await expect(quota.reserve(M, at(61))).resolves.toBeUndefined();
   });
 
   it('jour : refus jusqu’au prochain minuit du Pacifique, compteur par jour du Pacifique', async () => {
     const { quota } = serviceWith({ [GEMINI_RPD_KEY]: '2', [GEMINI_RPM_KEY]: '100' });
-    await quota.reserve(NOW);
-    await quota.reserve(at(60));
-    const e = await quota.reserve(at(120)).catch((x: any) => x);
+    await quota.reserve(M, NOW);
+    await quota.reserve(M, at(60));
+    const e = await quota.reserve(M, at(120)).catch((x: any) => x);
     expect(e.reason).toBe('QUOTA_JOUR');
     expect(e.until.toISOString()).toBe('2026-10-22T07:00:00.000Z');
     expect(e.message).toBe('Quota Gemini du jour atteint (2 requêtes) : reprise jeudi à 09:00.');
-    await expect(quota.reserve(new Date('2026-10-22T07:00:00Z'))).resolves.toBeUndefined();
+    await expect(quota.reserve(M, new Date('2026-10-22T07:00:00Z'))).resolves.toBeUndefined();
   });
 
   it('deux réservations simultanées pour une seule place : une seule passe', async () => {
     const { quota } = serviceWith({ [GEMINI_RPM_KEY]: '1' });
-    const results = await Promise.allSettled([quota.reserve(NOW), quota.reserve(NOW)]);
+    const results = await Promise.allSettled([quota.reserve(M, NOW), quota.reserve(M, NOW)]);
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
   });
 
   it('durées de vie : 2 min pour la minute, 26 h pour le jour', async () => {
     const { quota } = serviceWith();
-    await quota.reserve(NOW);
-    await quota.addTokens(10, NOW);
-    const ttls = await Promise.all((await redis.keys(`${prefix}:*`)).sort().map(async (k) => [k.split(':')[1], await redis.ttl(k)] as const));
+    await quota.reserve(M, NOW);
+    await quota.addTokens(M, 10, NOW);
+    const ttls = await Promise.all((await redis.keys(`${prefix}:${M}:*`)).sort().map(async (k) => [k.split(':')[2], await redis.ttl(k)] as const));
     expect(Object.fromEntries(ttls)).toEqual({ rpd: 26 * 3600, rpm: 120, tpm: 120 });
   });
 
   it('usage : compteurs des 60 dernières secondes et du jour, limites et heure de remise à zéro du jour', async () => {
     const { quota } = serviceWith();
-    await quota.reserve(at(-70));
-    await quota.addTokens(500, at(-70));
-    await quota.reserve(NOW);
-    await quota.addTokens(2700, NOW);
-    await expect(quota.usage(NOW)).resolves.toEqual({
+    await quota.reserve(M, at(-70));
+    await quota.addTokens(M, 500, at(-70));
+    await quota.reserve(M, NOW);
+    await quota.addTokens(M, 2700, NOW);
+    await quota.markExhausted(L, NOW);
+    await expect(quota.usage([M, L], NOW)).resolves.toEqual({
+      model: M,
       minute: { requests: 1, tokens: 2700 },
       day: { requests: 2 },
       limits: DEFAULT_LIMITS,
       dayResetsAt: '2026-10-22T07:00:00.000Z',
+      models: [
+        { model: M, requests: 2, rpd: 20, exhaustedUntil: null },
+        { model: L, requests: 0, rpd: 20, exhaustedUntil: '2026-10-22T07:00:00.000Z' },
+      ],
     });
   });
 
   it('blocked : le refus qu’essuierait un appel, sans rien réserver', async () => {
     const { quota } = serviceWith({ [GEMINI_RPM_KEY]: '1' });
-    await expect(quota.blocked(NOW)).resolves.toBeNull();
-    await quota.reserve(NOW);
-    const b = await quota.blocked(at(5));
+    await expect(quota.blocked([M], NOW)).resolves.toBeNull();
+    await quota.reserve(M, NOW);
+    const b = await quota.blocked([M], at(5));
     expect(b).toMatchObject({ reason: 'QUOTA_MINUTE', until: at(61) });
-    expect((await quota.usage(at(5))).minute.requests).toBe(1);
+    expect((await quota.usage([M], at(5))).minute.requests).toBe(1);
   });
 
   it('usage, Redis injoignable : compteurs à zéro (journalisé), jamais d’erreur', async () => {
     const log = { error: jest.fn() };
     const broken = new Proxy({}, { get: () => jest.fn().mockRejectedValue(new Error('ECONNREFUSED')) }) as unknown as Redis;
     const quota = new GeminiQuotaService(fakePrisma(), broken, { prefix, log });
-    await expect(quota.usage(NOW)).resolves.toMatchObject({ minute: { requests: 0, tokens: 0 }, day: { requests: 0 } });
-    await expect(quota.blocked(NOW)).resolves.toBeNull();
+    await expect(quota.usage([M], NOW)).resolves.toMatchObject({ minute: { requests: 0, tokens: 0 }, day: { requests: 0 } });
+    await expect(quota.blocked([M], NOW)).resolves.toBeNull();
     expect(log.error).toHaveBeenCalledWith(expect.stringContaining('ECONNREFUSED'));
   });
 
   it('Redis injoignable : l’appel part quand même (journalisé)', async () => {
     const log = { error: jest.fn() };
     const broken = { eval: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')) } as unknown as Redis;
-    await expect(new GeminiQuotaService(fakePrisma(), broken, { prefix, log }).reserve(NOW)).resolves.toBeUndefined();
+    await expect(new GeminiQuotaService(fakePrisma(), broken, { prefix, log }).reserve(M, NOW)).resolves.toBeUndefined();
     expect(log.error).toHaveBeenCalledWith(expect.stringContaining('ECONNREFUSED'));
   });
 });

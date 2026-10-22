@@ -80,7 +80,7 @@ describeIfDb('journal des appels Gemini (base réelle)', () => {
       const c = await prisma.geminiCall.create({ data: { ...r, durationMs: 10 } });
       created.push(c.id);
     }
-    const report = await new GeminiUsageService(prisma as never, new GeminiJournal(prisma, quiet), { blocked: async () => null } as never).report(2, now);
+    const report = await new GeminiUsageService(prisma as never, new GeminiJournal(prisma, quiet), { blocked: async () => null } as never, { candidates: async () => ['m'] } as never).report(2, now);
     expect(report.rows).toEqual([
       { day: '2001-06-15', usage: 'LECTURE_SORTIE', model: null, ok: 1, refused503: 1, refused429: 0, errors: 0, costCents: 2 },
       { day: '2001-06-15', usage: 'LECTURE_SORTIE', model: 'gemini-3.5-flash-lite', ok: 1, refused503: 0, refused429: 0, errors: 0, costCents: 1 },

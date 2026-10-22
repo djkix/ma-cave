@@ -89,9 +89,14 @@ const RETRY_DELAY = [/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/, /retry in (\d+(?:\
 /** Quota journalier épuisé chez Google (identifiant `…PerDay…`, ou texte « per day »). */
 const DAILY_QUOTA = /PerDay|per day/i;
 
+/** Le 429 de Google porte sur le quota du jour (du modèle) : la bascule passe au modèle suivant. */
+export function isDailyQuota(detail: string): boolean {
+  return DAILY_QUOTA.test(detail);
+}
+
 /** Fin de la pause commune après un 429 : minuit du Pacifique (quota du jour), délai demandé, sinon 1 h. */
 export function pauseAfter429(detail: string, now: Date): Date {
-  if (DAILY_QUOTA.test(detail)) return nextPacificMidnight(now);
+  if (isDailyQuota(detail)) return nextPacificMidnight(now);
   for (const re of RETRY_DELAY) {
     const m = re.exec(detail);
     if (m) return new Date(now.getTime() + Math.ceil(Number(m[1]) * 1000));

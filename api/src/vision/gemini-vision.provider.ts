@@ -1,6 +1,6 @@
 import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { EXTRACTION_JSON_SCHEMA_DESCRIPTION, parseExtraction } from './extraction-schema';
-import { GeminiJournal, GeminiPausedError, GeminiUsage, classifyFailure } from './gemini-journal';
+import { GeminiJournal, GeminiPausedError, GeminiQuotaError, GeminiUsage, classifyFailure, isDailyQuota, nextPacificMidnight } from './gemini-journal';
 import { GeminiQuotaService } from './gemini-quota';
 import { parsePairingOutput } from './pairing-output';
 import { PairingBatchItem, PairingBatchResult, PairingProvider, PairingWine } from './pairing-provider.interface';
@@ -229,38 +229,58 @@ type Model = Pick<GenerativeModel, 'generateContent'>;
 
 export class GeminiVisionProvider implements VisionProvider, PairingProvider, ProducerProvider, OfficialSiteProvider {
   /**
-   * `modelFor` : le modèle Gemini d'un nom ; `currentModel` : le nom en vigueur,
-   * lu à chaque appel (choisi dans l'Administration, voir GeminiModelService) :
-   * un changement sert dès l'appel suivant, pour tous les usages.
+   * `modelFor` : le modèle Gemini d'un nom ; `models` : les modèles à essayer,
+   * lus à chaque appel (le modèle choisi dans l'Administration d'abord, puis la
+   * liste de bascule, voir GeminiModelService.candidates) : un changement sert
+   * dès l'appel suivant, pour tous les usages.
    * `journal` : point de passage unique de tous les appels (voir `call`). Sans
    * journal (tests unitaires des consignes), les appels partent tels quels.
    * `quota` : limiteur de débit commun à l'api et au worker (voir `call`).
    */
   constructor(
     private readonly modelFor: (name: string) => Model,
-    private readonly currentModel: () => Promise<string>,
+    private readonly models: () => Promise<string[]>,
     private readonly journal?: GeminiJournal,
-    private readonly quota?: Pick<GeminiQuotaService, 'reserve' | 'addTokens'>,
+    private readonly quota?: Pick<GeminiQuotaService, 'reserve' | 'addTokens' | 'markExhausted' | 'limits'>,
   ) {}
 
-  static fromApiKey(apiKey: string, currentModel: () => Promise<string>, journal?: GeminiJournal, quota?: GeminiQuotaService): GeminiVisionProvider {
+  static fromApiKey(apiKey: string, models: () => Promise<string[]>, journal?: GeminiJournal, quota?: GeminiQuotaService): GeminiVisionProvider {
     const ai = new GoogleGenerativeAI(apiKey);
-    return new GeminiVisionProvider((model) => ai.getGenerativeModel({ model }), currentModel, journal, quota);
+    return new GeminiVisionProvider((model) => ai.getGenerativeModel({ model }), models, journal, quota);
   }
 
   /**
    * Chaque méthode publique passe par ici : pendant une pause commune, aucun
-   * appel ne part (`GeminiPausedError`) et rien n'est noté ; sinon une ligne
-   * `gemini_call` par requête envoyée, réussie, refusée (429, 503 : la pause
-   * est posée) ou en erreur, avec le modèle employé. Le journal ne lève jamais.
-   * Le limiteur réserve la place juste avant l'envoi (voir `counted`) : refus
-   * (`GeminiQuotaError`), rien ne part et rien n'est noté.
+   * appel ne part (`GeminiPausedError`) et rien n'est noté. Bascule : quand le
+   * quota du jour d'un modèle est atteint (refus du limiteur, ou 429 journalier
+   * de Google), le modèle suivant est essayé aussitôt ; tous épuisés : le
+   * refus du jour (`GeminiQuotaError` QUOTA_JOUR) du premier. Les autres
+   * refus (minute, jetons, 503, 429 non journalier) remontent tels quels.
    */
   private async call<T extends { costCents: number }>(usage: GeminiUsage, run: (model: Model, modelName: string) => Promise<T>): Promise<T> {
     await this.journal?.assertNotPaused();
-    const model = await this.currentModel();
-    const counted = this.counted(this.modelFor(model));
-    if (!this.journal) return run(counted, model);
+    let day: GeminiQuotaError | null = null;
+    for (const model of await this.models()) {
+      try {
+        return await this.attempt(usage, model, run);
+      } catch (e) {
+        if (!(e instanceof GeminiQuotaError && e.reason === 'QUOTA_JOUR')) throw e;
+        day ??= e;
+      }
+    }
+    throw day!;
+  }
+
+  /**
+   * Un essai sur un modèle : une ligne `gemini_call` par requête envoyée,
+   * réussie, refusée (429, 503 : la pause commune est posée) ou en erreur, avec
+   * le modèle employé. Le journal ne lève jamais. Le limiteur réserve la place
+   * juste avant l'envoi (voir `counted`) : refus (`GeminiQuotaError`), rien ne
+   * part et rien n'est noté. 429 journalier : noté sans pause commune, le
+   * modèle est marqué épuisé et l'essai rend un refus du jour (bascule).
+   */
+  private async attempt<T extends { costCents: number }>(usage: GeminiUsage, model: string, run: (model: Model, modelName: string) => Promise<T>): Promise<T> {
+    const counted = this.counted(this.modelFor(model), model);
     const started = Date.now();
     let result: T;
     try {
@@ -268,10 +288,19 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
     } catch (e) {
       // Refus du limiteur : rien n'est parti, rien n'est noté.
       if (e instanceof GeminiPausedError) throw e;
-      await this.journal.record({ usage, ...classifyFailure(e), model, durationMs: Date.now() - started }, undefined, e instanceof Error ? e.message : String(e));
+      const detail = e instanceof Error ? e.message : String(e);
+      const failure = classifyFailure(e);
+      // Sans limiteur, pas de marque « épuisé » partagée : la pause commune, comme avant.
+      const daily = !!this.quota && failure.httpStatus === 429 && isDailyQuota(detail);
+      await this.journal?.record({ usage, ...failure, model, durationMs: Date.now() - started }, undefined, detail, !daily);
+      if (daily) {
+        const now = new Date();
+        await this.quota!.markExhausted(model, now);
+        throw new GeminiQuotaError(nextPacificMidnight(now), 'QUOTA_JOUR', (await this.quota!.limits(model)).rpd, now);
+      }
       throw e;
     }
-    await this.journal.record({ usage, outcome: 'OK', httpStatus: null, reason: null, costCents: result.costCents, model, durationMs: Date.now() - started });
+    await this.journal?.record({ usage, outcome: 'OK', httpStatus: null, reason: null, costCents: result.costCents, model, durationMs: Date.now() - started });
     return result;
   }
 
@@ -280,15 +309,15 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
    * échec local avant l'appel ne consomme rien) et ajoute les jetons de chaque
    * réponse (entrée + sortie), même si sa sortie est ensuite refusée.
    */
-  private counted(model: Model): Model {
+  private counted(model: Model, name: string): Model {
     const quota = this.quota;
     if (!quota) return model;
     return {
       generateContent: async (...args: Parameters<Model['generateContent']>) => {
-        await quota.reserve();
+        await quota.reserve(name);
         const result = await model.generateContent(...args);
         const u = result.response.usageMetadata;
-        await quota.addTokens((u?.promptTokenCount ?? 0) + (u?.candidatesTokenCount ?? 0));
+        await quota.addTokens(name, (u?.promptTokenCount ?? 0) + (u?.candidatesTokenCount ?? 0));
         return result;
       },
     };

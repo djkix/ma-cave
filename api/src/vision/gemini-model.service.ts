@@ -16,6 +16,31 @@ export interface GeminiModelChoice {
   source: 'ADMIN' | 'ENV';
 }
 
+/** Modèle stable de génération : `gemini-<version>-flash` ou `-flash-lite`, sans suffixe (preview, exp, tts, image…). */
+const STABLE = /^gemini-(\d+(?:\.\d+)*)-flash(-lite)?$/;
+
+/**
+ * Liste de bascule : le modèle choisi d'abord, puis les modèles stables Flash
+ * et Flash-Lite de Google, du plus récent au plus ancien, Flash avant
+ * Flash-Lite à version égale. Jamais de Pro.
+ */
+export function fallbackModels(chosen: string, available: string[]): string[] {
+  const rank = (m: string) => {
+    const [, version, lite] = STABLE.exec(m)!;
+    return { version: version.split('.').map(Number), lite: lite ? 1 : 0 };
+  };
+  const others = available.filter((m) => m !== chosen && STABLE.test(m) && isLightModel(m));
+  others.sort((a, b) => {
+    const [ra, rb] = [rank(a), rank(b)];
+    for (let i = 0; i < Math.max(ra.version.length, rb.version.length); i++) {
+      const d = (rb.version[i] ?? 0) - (ra.version[i] ?? 0);
+      if (d) return d;
+    }
+    return ra.lite - rb.lite;
+  });
+  return [chosen, ...others];
+}
+
 interface Deps {
   fetch?: typeof fetch;
   clock?: () => number;
@@ -91,6 +116,12 @@ export class GeminiModelService {
       }
     }
     return { models: [(await this.current()).model], error: this.listFailure.error };
+  }
+
+  /** Modèles à essayer dans l'ordre (voir `fallbackModels`) ; liste de Google indisponible : le modèle choisi seul. */
+  async candidates(): Promise<string[]> {
+    const [{ model }, { models }] = await Promise.all([this.current(), this.available()]);
+    return fallbackModels(model, models);
   }
 
   private async fetchModels(): Promise<string[]> {

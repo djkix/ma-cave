@@ -76,14 +76,15 @@ export class GeminiJournal {
   /**
    * Une ligne par requête envoyée ; un refus pose aussi la pause commune.
    * `detail` : message complet de l'erreur (le motif noté est tronqué), où un 429 dit quand revenir.
+   * `pause` false : refus noté sans pause commune (429 journalier d'un modèle, la bascule prend le relais).
    */
-  async record(call: GeminiCallRecord, now = this.clock(), detail = call.reason ?? ''): Promise<void> {
+  async record(call: GeminiCallRecord, now = this.clock(), detail = call.reason ?? '', pause = true): Promise<void> {
     try {
       await this.prisma.geminiCall.create({ data: call });
     } catch (e) {
       this.log.error(`Journal des appels Gemini : écriture impossible : ${messageOf(e)}`);
     }
-    if (call.outcome === 'REFUSE' && call.httpStatus !== null) await this.extendPause(call.httpStatus, now, detail);
+    if (pause && call.outcome === 'REFUSE' && call.httpStatus !== null) await this.extendPause(call.httpStatus, now, detail);
   }
 
   /**

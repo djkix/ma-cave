@@ -19,7 +19,7 @@ function fakeModel(text: string, usage = { promptTokenCount: 1000, candidatesTok
 }
 
 /** Fournisseur au modèle fixe : la fabrique rend toujours `model`, le modèle en vigueur est `name`. */
-const gemini = (model: any, name: string, journal?: GeminiJournal) => new GeminiVisionProvider(() => model, async () => name, journal);
+const gemini = (model: any, name: string, journal?: GeminiJournal) => new GeminiVisionProvider(() => model, async () => [name], journal);
 
 describe('GeminiVisionProvider', () => {
   it('sends the image with the JSON contract and parses the answer', async () => {
@@ -639,7 +639,7 @@ describe('GeminiVisionProvider — modèle en vigueur', () => {
       asked.push(name);
       return name.endsWith('lite') ? fakeModel(JSON.stringify({ units: [] })) : fakeModel(validJson);
     };
-    const provider = new GeminiVisionProvider(modelFor, async () => current);
+    const provider = new GeminiVisionProvider(modelFor, async () => [current]);
     expect((await provider.extractWineLabel(Buffer.from('x'), 'image/jpeg')).model).toBe('gemini-3.5-flash');
     current = 'gemini-3.5-flash-lite';
     await provider.analyzePlan(Buffer.from('x'), 'image/jpeg');
@@ -652,7 +652,7 @@ describe('GeminiVisionProvider — modèle en vigueur', () => {
     const journal = new GeminiJournal(prisma, { warn: jest.fn(), error: jest.fn() });
     let current = 'gemini-3.5-flash';
     const failing = { generateContent: jest.fn(async () => { throw new Error('[500 Internal Server Error] boom'); }) };
-    const provider = new GeminiVisionProvider((name) => (name === 'gemini-3.5-flash' ? fakeModel('[{"vin":1,"plats":["Agneau"]}]') : failing), async () => current, journal);
+    const provider = new GeminiVisionProvider((name) => (name === 'gemini-3.5-flash' ? fakeModel('[{"vin":1,"plats":["Agneau"]}]') : failing), async () => [current], journal);
     const wine = { producer: 'X', cuvee: null, appellation: 'Bandol', region: null, color: 'ROUGE', vintage: null };
     await provider.suggestPairingsBatch([wine]);
     current = 'gemini-3.5-flash-lite';
@@ -663,9 +663,14 @@ describe('GeminiVisionProvider — modèle en vigueur', () => {
 
 describe('GeminiVisionProvider — limiteur de débit', () => {
   const wine = { producer: 'Domaine Tempier', cuvee: null, appellation: 'Bandol', region: null, color: 'ROUGE', vintage: 2019 };
-  const limiter = () => ({ reserve: jest.fn(async () => undefined), addTokens: jest.fn(async () => undefined) });
+  const limiter = () => ({
+    reserve: jest.fn<Promise<void>, [string]>(async () => undefined),
+    addTokens: jest.fn(async () => undefined),
+    markExhausted: jest.fn(async () => undefined),
+    limits: jest.fn(async () => ({ rpm: 5, tpm: 250000, rpd: 20 })),
+  });
   const withQuota = (model: any, quota: ReturnType<typeof limiter>, journal?: GeminiJournal) =>
-    new GeminiVisionProvider(() => model, async () => 'm', journal, quota);
+    new GeminiVisionProvider(() => model, async () => ['m'], journal, quota);
 
   it('refus du limiteur : aucun appel à Google, rien au journal, l’erreur de pause remonte', async () => {
     const prisma = fakePrisma();
@@ -684,13 +689,13 @@ describe('GeminiVisionProvider — limiteur de débit', () => {
     const quota = limiter();
     await withQuota(fakeModel(validJson, { promptTokenCount: 2500, candidatesTokenCount: 200 }), quota).extractWineLabel(Buffer.from('x'), 'image/jpeg');
     expect(quota.reserve).toHaveBeenCalledTimes(1);
-    expect(quota.addTokens).toHaveBeenCalledWith(2700);
+    expect(quota.addTokens).toHaveBeenCalledWith('m', 2700);
   });
 
   it('une sortie inexploitable a consommé ses jetons : ils sont comptés aussi', async () => {
     const quota = limiter();
     await expect(withQuota(fakeModel('pas du json', { promptTokenCount: 100, candidatesTokenCount: 20 }), quota).analyzePlan(Buffer.from('x'), 'image/jpeg')).rejects.toThrow();
-    expect(quota.addTokens).toHaveBeenCalledWith(120);
+    expect(quota.addTokens).toHaveBeenCalledWith('m', 120);
   });
 
   it('la place est réservée juste avant l’appel réseau : un échec local (modèle illisible) n’en consomme pas', async () => {
@@ -716,5 +721,84 @@ describe('GeminiVisionProvider — limiteur de débit', () => {
     const journal = new GeminiJournal(prisma, { warn: jest.fn(), error: jest.fn() });
     await expect(withQuota(fakeModel(validJson), quota, journal).extractWineLabel(Buffer.from('x'), 'image/jpeg')).rejects.toBeInstanceOf(GeminiPausedError);
     expect(quota.reserve).not.toHaveBeenCalled();
+  });
+});
+
+describe('GeminiVisionProvider — bascule quand le quota du jour d’un modèle est atteint', () => {
+  const wine = { producer: 'Domaine Tempier', cuvee: null, appellation: 'Bandol', region: null, color: 'ROUGE', vintage: 2019 };
+  const A = 'gemini-3-flash';
+  const B = 'gemini-3-flash-lite';
+  const DAILY_429 = new Error(
+    '[GoogleGenerativeAI Error]: Error fetching from https://…:generateContent: [429 Too Many Requests] You exceeded your current quota. [{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]',
+  );
+  const MINUTE_429 = new Error('[GoogleGenerativeAI Error]: Error fetching from https://…:generateContent: [429 Too Many Requests] [{"quotaId":"GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]');
+  const ok = () => fakeModel('[{"vin":1,"plats":["Agneau"]}]');
+  const failing = (e: Error) => ({ generateContent: jest.fn(async () => { throw e; }) });
+  const setup = (models: Record<string, any>) => {
+    const prisma = fakePrisma();
+    const journal = new GeminiJournal(prisma, { warn: jest.fn(), error: jest.fn() });
+    const quota = {
+      reserve: jest.fn<Promise<void>, [string]>(async () => undefined),
+      addTokens: jest.fn(async () => undefined),
+      markExhausted: jest.fn(async () => undefined),
+      limits: jest.fn(async () => ({ rpm: 5, tpm: 250000, rpd: 20 })),
+    };
+    const provider = new GeminiVisionProvider((name) => models[name], async () => Object.keys(models), journal, quota);
+    return { prisma, quota, provider };
+  };
+  const dayRefusal = () => new GeminiQuotaError(new Date('2026-10-22T07:00:00Z'), 'QUOTA_JOUR', 20);
+
+  it('refus local du jour pour le modèle choisi : le suivant sert, rien n’est parti vers le premier', async () => {
+    const models = { [A]: ok(), [B]: ok() };
+    const { prisma, quota, provider } = setup(models);
+    quota.reserve.mockImplementation(async (m: string) => { if (m === A) throw dayRefusal(); });
+    const r = await provider.suggestPairingsBatch([wine]);
+    expect(r.model).toBe(B);
+    expect(models[A].generateContent).not.toHaveBeenCalled();
+    expect(prisma.calls.map((c: any) => [c.outcome, c.model])).toEqual([['OK', B]]);
+  });
+
+  it('429 journalier de Google : noté au journal, modèle marqué épuisé, le suivant sert aussitôt, sans pause commune', async () => {
+    const { prisma, quota, provider } = setup({ [A]: failing(DAILY_429), [B]: ok() });
+    const r = await provider.suggestPairingsBatch([wine]);
+    expect(r.model).toBe(B);
+    expect(quota.markExhausted).toHaveBeenCalledWith(A, expect.any(Date));
+    expect(prisma.calls.map((c: any) => [c.outcome, c.httpStatus, c.model])).toEqual([['REFUSE', 429, A], ['OK', null, B]]);
+    expect(prisma.settings.has(GEMINI_PAUSE_UNTIL_KEY)).toBe(false);
+  });
+
+  it('429 à la minute : pause commune comme avant, pas de bascule', async () => {
+    const models = { [A]: failing(MINUTE_429), [B]: ok() };
+    const { prisma, quota, provider } = setup(models);
+    await expect(provider.suggestPairingsBatch([wine])).rejects.toBe(MINUTE_429);
+    expect(models[B].generateContent).not.toHaveBeenCalled();
+    expect(quota.markExhausted).not.toHaveBeenCalled();
+    expect(prisma.settings.has(GEMINI_PAUSE_UNTIL_KEY)).toBe(true);
+  });
+
+  it('refus local à la minute du modèle choisi : attente, pas de bascule', async () => {
+    const models = { [A]: ok(), [B]: ok() };
+    const { quota, provider } = setup(models);
+    const refusal = new GeminiQuotaError(new Date('2026-10-21T12:01:00Z'), 'QUOTA_MINUTE', 5);
+    quota.reserve.mockImplementation(async (m: string) => { if (m === A) throw refusal; });
+    await expect(provider.suggestPairingsBatch([wine])).rejects.toBe(refusal);
+    expect(models[B].generateContent).not.toHaveBeenCalled();
+  });
+
+  it('tous les modèles épuisés pour la journée : refus du jour (QUOTA_JOUR) du premier, sans pause commune', async () => {
+    const first = dayRefusal();
+    const { prisma, quota, provider } = setup({ [A]: ok(), [B]: failing(DAILY_429) });
+    quota.reserve.mockImplementation(async (m: string) => { if (m === A) throw first; });
+    await expect(provider.suggestPairingsBatch([wine])).rejects.toBe(first);
+    expect(quota.markExhausted).toHaveBeenCalledWith(B, expect.any(Date));
+    expect(prisma.settings.has(GEMINI_PAUSE_UNTIL_KEY)).toBe(false);
+  });
+
+  it('dernier modèle refusé par un 429 journalier : l’erreur est un refus du jour, avec la limite du modèle', async () => {
+    const { provider } = setup({ [A]: failing(DAILY_429) });
+    const e = await provider.suggestPairingsBatch([wine]).catch((x: any) => x);
+    expect(e).toBeInstanceOf(GeminiQuotaError);
+    expect(e.reason).toBe('QUOTA_JOUR');
+    expect(e.message).toMatch(/^Quota Gemini du jour atteint \(20 requêtes\)/);
   });
 });

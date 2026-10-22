@@ -15,7 +15,7 @@ import { VISION_PROVIDER } from './vision-provider.interface';
   providers: [
     // Journal des appels et pause commune, partagés par l'api et le worker (même base).
     { provide: GeminiJournal, useFactory: (prisma: PrismaService) => new GeminiJournal(prisma, new Logger('GeminiJournal')), inject: [PrismaService] },
-    // Modèle en vigueur, choisi dans l'Administration (réglage partagé par l'api et le worker).
+    // Modèle en vigueur, choisi dans l'Administration (réglage partagé par l'api et le worker), et liste de bascule.
     {
       provide: GeminiModelService,
       useFactory: (prisma: PrismaService) => {
@@ -35,7 +35,7 @@ import { VISION_PROVIDER } from './vision-provider.interface';
     {
       provide: VISION_PROVIDER,
       useFactory: (journal: GeminiJournal, models: GeminiModelService, quota: GeminiQuotaService) =>
-        GeminiVisionProvider.fromApiKey(loadEnv().GEMINI_API_KEY, async () => (await models.current()).model, journal, quota),
+        GeminiVisionProvider.fromApiKey(loadEnv().GEMINI_API_KEY, () => models.candidates(), journal, quota),
       inject: [GeminiJournal, GeminiModelService, GeminiQuotaService],
     },
     { provide: PAIRING_PROVIDER, useExisting: VISION_PROVIDER },

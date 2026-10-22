@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GeminiJournal } from '../vision/gemini-journal';
 import { QUOTA_REASONS, QuotaReason, quotaMessage } from '../vision/gemini-pause';
+import { GeminiModelService } from '../vision/gemini-model.service';
 import { GeminiQuotaService } from '../vision/gemini-quota';
 import { GeminiUsageRow, GeminiUsageTotals, aggregateGeminiUsage, usageSince } from './gemini-usage';
 
@@ -21,6 +22,7 @@ export class GeminiUsageService {
     private readonly prisma: PrismaService,
     private readonly journal: GeminiJournal,
     private readonly quota: GeminiQuotaService,
+    private readonly models: GeminiModelService,
   ) {}
 
   async report(days: number, now = new Date()): Promise<GeminiUsageReport> {
@@ -31,7 +33,7 @@ export class GeminiUsageService {
       }),
       this.journal.currentPause(now),
       // Limiteur illisible (Redis) : la consommation s'affiche quand même, sans limite.
-      this.quota.blocked(now).catch((e: unknown) => {
+      this.models.candidates().then((models) => this.quota.blocked(models, now)).catch((e: unknown) => {
         this.logger.error(`Limites de débit illisibles : ${e instanceof Error ? e.message : String(e)}`);
         return null;
       }),

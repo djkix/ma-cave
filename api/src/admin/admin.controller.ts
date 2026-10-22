@@ -126,18 +126,23 @@ export class AdminGeminiModelController {
 @Controller('admin/gemini-quota')
 @UseGuards(AuthenticatedGuard, AdminGuard)
 export class AdminGeminiQuotaController {
-  constructor(private readonly quota: GeminiQuotaService) {}
+  constructor(
+    private readonly quota: GeminiQuotaService,
+    private readonly models: GeminiModelService,
+  ) {}
 
+  /** Compteurs et limites du modèle choisi, requêtes du jour de chaque modèle de la liste de bascule. */
   @Get()
-  get() {
-    return this.quota.usage();
+  async get() {
+    return this.quota.usage(await this.models.candidates());
   }
 
   @Put()
   async update(@Body() body: unknown) {
     const parsed = updateGeminiQuotaSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0].message);
-    await this.quota.setLimits(parsed.data);
-    return this.quota.usage();
+    const models = await this.models.candidates();
+    await this.quota.setLimits(models[0], parsed.data);
+    return this.quota.usage(models);
   }
 }

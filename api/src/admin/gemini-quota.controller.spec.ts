@@ -9,17 +9,20 @@ const USAGE = { minute: { requests: 1, tokens: 2700 }, day: { requests: 7 }, lim
 describe('AdminGeminiQuotaController', () => {
   const setup = () => {
     const quota = { usage: jest.fn(async () => USAGE), setLimits: jest.fn(async (l: unknown) => l) };
-    return { quota, controller: new AdminGeminiQuotaController(quota as any) };
+    const models = { candidates: jest.fn(async () => ['gemini-3-flash', 'gemini-3-flash-lite']) };
+    return { quota, controller: new AdminGeminiQuotaController(quota as any, models as any) };
   };
 
-  it('GET : utilisation de la minute et du jour, limites et remise à zéro', async () => {
-    await expect(setup().controller.get()).resolves.toEqual(USAGE);
+  it('GET : utilisation du modèle choisi et de la liste de bascule', async () => {
+    const { quota, controller } = setup();
+    await expect(controller.get()).resolves.toEqual(USAGE);
+    expect(quota.usage).toHaveBeenCalledWith(['gemini-3-flash', 'gemini-3-flash-lite']);
   });
 
-  it('PUT : limites enregistrées, utilisation relue', async () => {
+  it('PUT : limites enregistrées pour le modèle choisi, utilisation relue', async () => {
     const { quota, controller } = setup();
     await expect(controller.update({ rpm: 10, tpm: 1000000, rpd: 500 })).resolves.toEqual(USAGE);
-    expect(quota.setLimits).toHaveBeenCalledWith({ rpm: 10, tpm: 1000000, rpd: 500 });
+    expect(quota.setLimits).toHaveBeenCalledWith('gemini-3-flash', { rpm: 10, tpm: 1000000, rpd: 500 });
   });
 
   it.each([{ rpm: 0, tpm: 1, rpd: 1 }, { rpm: 1.5, tpm: 1, rpd: 1 }, { rpm: -1, tpm: 1, rpd: 1 }, { rpm: '5', tpm: 1, rpd: 1 }, { rpm: 5, tpm: 1 }, {}, null])(
@@ -41,6 +44,7 @@ describe('GeminiUsageService — bandeau de pause', () => {
       { geminiCall: { findMany: jest.fn(async () => []) } } as any,
       { currentPause: jest.fn(async () => pause) } as any,
       { blocked: jest.fn(async () => { if (blocked instanceof Error && !(blocked instanceof GeminiQuotaError)) throw blocked; return blocked; }) } as any,
+      { candidates: jest.fn(async () => ['gemini-3-flash']) } as any,
     );
 
   it('limiteur en panne (Redis) : la consommation s’affiche quand même, sans limite', async () => {

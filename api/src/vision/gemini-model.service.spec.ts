@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { fakeGeminiPrisma as fakePrisma } from '../test-utils/fake-gemini-prisma';
-import { GEMINI_MODEL_KEY, GeminiModelService } from './gemini-model.service';
+import { GEMINI_MODEL_KEY, GeminiModelService, fallbackModels } from './gemini-model.service';
 
 const quiet = { error: jest.fn() };
 
@@ -145,3 +145,27 @@ describe('GeminiModelService.available', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 });
+
+describe('fallbackModels (liste de bascule)', () => {
+  it('le modèle choisi d’abord, puis les Flash et Flash-Lite stables, du plus récent au plus ancien, Flash avant Lite', () => {
+    const available = [
+      'gemini-2.0-flash', 'gemini-2.5-flash-lite', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-3-flash-lite',
+      'gemini-3.5-flash-preview-09-2026', 'gemini-2.5-flash-image', 'gemini-2.5-flash-preview-tts', 'gemini-2.0-flash-exp',
+      'gemini-2.5-flash-live', 'gemini-2.5-flash-native-audio', 'gemini-flash-latest', 'gemini-2.5-pro', 'gemini-2.5-flash-pro',
+      'gemini-10-flash',
+    ];
+    expect(fallbackModels('gemini-2.5-flash-lite', available)).toEqual([
+      'gemini-2.5-flash-lite', 'gemini-10-flash', 'gemini-3-flash', 'gemini-3-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash',
+    ]);
+  });
+
+  it('un modèle choisi hors des règles (preview…) reste en tête, sans doublon', () => {
+    expect(fallbackModels('gemini-3.5-flash-preview-09-2026', ['gemini-3.5-flash-preview-09-2026', 'gemini-3-flash'])).toEqual(['gemini-3.5-flash-preview-09-2026', 'gemini-3-flash']);
+  });
+
+  it('liste de Google indisponible (le modèle choisi seul) : le modèle choisi seul', async () => {
+    const service = new GeminiModelService(fakePrisma(), 'gemini-3-flash', '', { log: quiet });
+    await expect(service.candidates()).resolves.toEqual(['gemini-3-flash']);
+  });
+});
+
