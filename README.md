@@ -96,7 +96,8 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Service saturé, quota ou clé invalide : la photo **attend et repart seule**
 - **Pause commune** après un refus de Google (503, 429), pour l'api et le worker
 - **Limites de débit par modèle**, comme Google, respectées avant l'appel (5 req/min, 250 000 jetons/min, 20 req/jour par défaut)
-- **Un modèle** Flash ou Lite choisi dans l'Administration ; quand son **quota du jour** est atteint, l'application **bascule seule** sur un autre Flash ou Flash-Lite stable
+- **Modèle choisi seul** : le Flash ou Flash-Lite stable le plus récent dont le **quota du jour** n'est pas atteint, puis le suivant ; plus de sélecteur, l'Administration **affiche le modèle en cours** et les limites de chaque modèle
+- **Modèle tracé** : chaque appel note le modèle employé, visible dans la colonne *Modèle* de la consommation Gemini
 - **Photos plus nettes** : recadrage sur l'étiquette, sans appel supplémentaire
 
 ### 📤 Sortie
@@ -165,7 +166,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Connexion **Google** ; **compte de secours** local par `/login?secours`
 - **Inscription validée** par un administrateur, qui crée la cave
 - `ADMIN_EMAILS` : **administrateurs garantis**, ni blocables ni rétrogradables
-- **Coûts de l'IA** : modèle, limites de débit, budget mensuel, **part par cave**, consommation par jour
+- **Coûts de l'IA** : modèle en cours (automatique), limites de débit par modèle, budget mensuel, **part par cave**, consommation par jour
 - **Données du vin** : qualité de la lecture (« zéro saisie »), règles d'apogée
 
 ### 📦 Sauvegarde Excel
@@ -654,7 +655,7 @@ Référence : [`.env.example`](.env.example).
 | `BREAK_GLASS_EMAIL` | Non | Non | Compte de secours local (vide : aucun) |
 | `BREAK_GLASS_PASSWORD` | Non | Oui | Mot de passe du compte de secours, 12 caractères minimum |
 | `GEMINI_API_KEY` | Oui* | Oui | Clé Google AI Studio |
-| `GEMINI_MODEL` | Non | Non | Modèle de départ, Flash ou Lite seulement (défaut `gemini-3.8-flash`) ; l'Administration le remplace |
+| `GEMINI_MODEL` | Non | Non | Modèle de repli quand la liste de Google est indisponible, Flash ou Lite seulement (défaut `gemini-3.8-flash`) |
 | `GEMINI_MONTHLY_CAP_CENTS` | Non | Non | Plafond mensuel approximatif en centimes (défaut `500`) |
 | `BACKUP_DIR` | Non | Non | Dossier des sauvegardes (défaut `./backups`) |
 | `BACKUP_RETENTION_DAYS` | Non | Non | Rétention en jours (défaut `30`) |
@@ -733,7 +734,7 @@ celles de `/api/admin` aux administrateurs.
 | `GET` | `/api/stats` | Statistiques |
 | `GET` | `/api/export.xlsx` | Sauvegarde Excel |
 | `GET/PATCH/POST` | `/api/admin/users` · `/registrations` | Comptes et inscriptions *(admin)* |
-| `GET/PUT` | `/api/admin/budget` · `/gemini-model` · `/gemini-quota` | Budget, modèle, limites *(admin)* |
+| `GET/PUT` | `/api/admin/budget` · `/gemini-quota` | Budget, modèle en cours et limites par modèle *(admin)* |
 | `GET` | `/api/admin/gemini-usage` · `/reading-quality` | Consommation, qualité de lecture *(admin)* |
 | `GET/PUT/DELETE` | `/api/admin/vintages` · `/guards` | Règles d'apogée *(admin)* |
 

@@ -298,8 +298,7 @@ cases) avec un « 400 Bad Request » ; la forme attendue et un petit exemple son
 donnés dans la consigne, une réponse entourée de balises ```` ```json ```` ou de
 texte est lue quand même, et une réponse sans objet JSON finit en « photo
 illisible ». Un refus de Gemini (400, 403, 404…, hors 429) s'affiche « L’IA a
-refusé la demande. Réessayez, ou choisissez un autre modèle dans
-l’Administration. », avec *Relancer l’analyse*. Le serveur reconstruit ensuite
+refusé la demande. Réessayez plus tard. », avec *Relancer l’analyse*. Le serveur reconstruit ensuite
 chaque proposition : cadre = union des cases, lignes et colonnes comptées
 **par voisinage**, et non sur des coordonnées communes à tout le meuble (un mur
 pris de biais, dont une même tablette descend de plus d'une case d'un bout à
@@ -320,8 +319,8 @@ valides repérées) et `cells` (200 au plus) : cadre de chaque case, sa rangée 
 sa colonne, et son numéro dans la grille (1 en haut à gauche, rangée par rangée) ; une case dont
 la rangée ou la colonne reste indéterminée garde son cadre, sans nom. Un meuble
 de moins de deux cases est ignoré. Le reste (nommage « Casier A », états, garde par date de demande) ne
-change pas. L'analyse des plans emploie le modèle choisi dans l'Administration
-(voir *Modèle de l'IA*), comme tous les autres usages. **Relancer l’analyse** est
+change pas. L'analyse des plans emploie le modèle Gemini choisi seul par l'application
+(voir *Modèle Gemini (automatique)*), comme tous les autres usages. **Relancer l’analyse** est
 aussi dans le menu ⋯ du plan, même après une analyse réussie (désactivé pendant
 une analyse en cours) ; s'il reste des propositions en attente, une
 confirmation prévient : « Relancer l’analyse ? Les propositions en attente
@@ -520,36 +519,35 @@ le modèle employé (colonne `model`). API : `GET /api/admin/gemini-usage?days=7
 (1 à 90 jours) ; chaque ligne du détail porte `model` (regroupement jour × usage
 × modèle).
 
-**Modèle de l'IA.** Un seul modèle Gemini sert à tous les usages : lecture des
-étiquettes (entrée, sortie, lots), accords, descriptifs, recherche d'image et
-analyse des plans. Il se choisit dans *Administration › Coûts de l’IA*, carte
-**Modèle de l’IA**, parmi la liste que Google propose en direct (modèles Flash
-ou Lite seulement, jamais Pro, capables de `generateContent` ; liste gardée une
-heure). Le choix est enregistré en base (réglage `gemini_model` de
-`app_setting`) et sert dès l'appel suivant, dans l'api comme dans le worker (au
-plus 30 secondes plus tard pour l'autre processus). Tant qu'aucun modèle n'est
-choisi, `GEMINI_MODEL` du `.env` sert de valeur de départ (« Valeur du serveur
-(.env) tant qu’aucun modèle n’est choisi ici. »). Si la liste de Google est
-indisponible (pas de clé, Google en panne), la carte l'affiche en clair et ne
-propose que le modèle en vigueur, qu'on peut toujours enregistrer. API :
-`GET /api/admin/gemini-model` → `{ model, source, models, error }` (`source` :
-`ADMIN` ou `ENV`) ; `PUT /api/admin/gemini-model` `{ model }` → `{ model,
-source: 'ADMIN' }`, 400 « Seuls les modèles Gemini Flash ou Lite sont acceptés »
-ou « Modèle inconnu de Google » (quand la liste est disponible) ; réservées à
-l'administrateur (403 sinon).
+**Modèle Gemini (automatique).** Aucun modèle n'est à choisir : l'application
+prend seule, pour tous les usages (lecture des étiquettes, accords, descriptifs,
+recherche d'image, analyse des plans), le modèle stable le plus récent dont le
+quota du jour n'est pas atteint, puis le suivant (voir *Bascule automatique de
+modèle*). La liste vient de Google en direct (modèles Flash ou Flash-Lite
+stables seulement, jamais Pro, capables de `generateContent` ; gardée une
+heure) ; si elle est indisponible (pas de clé, Google en panne), `GEMINI_MODEL`
+du `.env` sert seul s'il est stable, et la carte affiche l'erreur en clair.
+L'ancien réglage `gemini_model` d'`app_setting`, laissé en base, n'est plus lu,
+et la route `PUT /api/admin/gemini-model` n'existe plus. *Administration ›
+Coûts de l’IA*, carte **Modèle Gemini (automatique)** : « L’application choisit
+seule le modèle : le plus récent dont le quota du jour n’est pas atteint, puis
+le suivant. », le **modèle en cours** en évidence avec sa minute (« Cette minute
+: 1 / 5 requêtes, 2 700 / 250 000 jetons »), ou « Tous les modèles ont atteint
+leur quota du jour : reprise à 09:00. », puis la liste des modèles dans l'ordre
+d'emploi.
 
 **Limites de débit Gemini.** L'application reste toujours sous le quota de la
 clé Gemini (niveau sans frais) au lieu d'attendre le refus de Google : 5
 requêtes par minute, 250 000 jetons par minute et 20 requêtes par jour par
 défaut **et par modèle** (Google compte modèle par modèle), partagées entre tous
-les usages, l'api et le worker, premier arrivé, premier servi. Celles du modèle
-choisi se règlent dans *Administration › Coûts de l’IA*, carte **Modèle de
-l’IA**, sous le titre « Limites de gemini-… » : champs « Requêtes par minute », « Jetons par minute »,
+les usages, l'api et le worker, premier arrivé, premier servi. Celles de chaque
+modèle se règlent dans *Administration › Coûts de l’IA*, carte **Modèle Gemini
+(automatique)** : on coche le modèle dans la liste (par défaut le modèle en
+cours), puis, sous le titre « Limites de gemini-… », champs « Requêtes par minute », « Jetons par minute »,
 « Requêtes par jour » (entiers positifs, sinon 400 « Limites invalides : entiers
 positifs attendus »), bouton **Enregistrer les limites** (« Limites
 enregistrées : elles s’appliquent dès le prochain appel. » ; au plus 30 s plus
-tard pour l'autre processus), et la ligne « Aujourd’hui : 7 / 20 requêtes ·
-Cette minute : 1 / 5 requêtes, 2 700 / 250 000 jetons », relue toutes les 30 s.
+tard pour l'autre processus) ; la carte est relue toutes les 30 s.
 Les réglages sont dans `app_setting`, par modèle (`gemini_rpm:<modèle>`,
 `gemini_tpm:<modèle>`, `gemini_rpd:<modèle>`) ; à défaut, les anciennes clés
 communes `gemini_rpm`, `gemini_tpm`, `gemini_rpd` si elles existent, puis les
@@ -578,20 +576,23 @@ carte *Consommation Gemini* (`GET /api/admin/gemini-usage` : `pause` porte
 texte) ; une analyse de sortie échoue tout de suite avec ce texte, comme pendant
 une pause. Redis injoignable : l'appel part quand même, et l'Administration
 affiche des compteurs à zéro au lieu d'une erreur. API : `GET
-/api/admin/gemini-quota` → `{ model, minute: { requests, tokens }, day: {
-requests }, limits: { rpm, tpm, rpd }, dayResetsAt, models: [{ model, requests,
-rpd, exhaustedUntil }] }` (compteurs et limites du modèle choisi, puis la liste
-de bascule) ; `PUT /api/admin/gemini-quota` `{ rpm, tpm, rpd }` règle les
-limites du modèle choisi → la même réponse ; réservées à l'administrateur (403
-sinon).
+/api/admin/gemini-quota` → `{ current, minute: { requests, tokens },
+dayResetsAt, models: [{ model, requests, limits: { rpm, tpm, rpd },
+exhaustedUntil }], error }` (`current` : modèle en cours, null si tous sont
+épuisés ; `minute` : ses 60 dernières secondes ; `models` dans l'ordre
+d'emploi ; `error` : liste de Google indisponible) ; `PUT
+/api/admin/gemini-quota` `{ model?, rpm, tpm, rpd }` règle les limites de
+`model` (par défaut le modèle en cours ; Flash ou Flash-Lite stable, sinon 400
+« Seuls les modèles Gemini Flash ou Flash-Lite stables sont acceptés », et
+présent dans la liste, sinon 400 « Modèle absent de la liste des modèles
+employés ») → la même réponse ; réservées à l'administrateur (403 sinon).
 
-**Bascule automatique de modèle.** Quand le quota du jour du modèle choisi est
-atteint, l'application passe seule au modèle suivant, sans rien faire à la
-main. La liste de bascule : le modèle choisi d'abord, puis les modèles stables
-de génération que Google propose, de la forme `gemini-<version>-flash` ou
+**Bascule automatique de modèle.** Quand le quota du jour du modèle en cours
+est atteint, l'application passe seule au modèle suivant, sans rien faire à la
+main. L'ordre d'emploi : les modèles stables de génération que Google propose, de la forme `gemini-<version>-flash` ou
 `gemini-<version>-flash-lite` sans suffixe (ni preview, ni exp, tts, image,
 live, audio…), du plus récent au plus ancien, Flash avant Flash-Lite à version
-égale ; jamais de Pro. Liste de Google indisponible : le modèle choisi seul.
+égale ; jamais de Pro. Liste de Google indisponible : `GEMINI_MODEL` du `.env` seul, s'il est stable.
 Pour chaque appel, le premier modèle dont le quota du jour n'est pas atteint
 sert : refus local du jour → modèle suivant, rien ne part ; 429 de Google qui
 porte sur un quota journalier (`PerDay`, « per day ») → l'appel refusé est noté
@@ -602,10 +603,10 @@ limites à la minute (requêtes, jetons), les 503 et les autres 429 gardent leur
 comportement : attente ou pause commune, sans bascule. Tous les modèles épuisés
 pour la journée : le même refus qu'avant, « Quota Gemini du jour atteint… »,
 reprise au prochain minuit du Pacifique. Le journal `gemini_call` note le
-modèle réellement employé. La carte **Modèle de l’IA** montre, sous les
-limites, « Quand le quota du jour d’un modèle est atteint, l’application passe
-seule au suivant. » et une ligne par modèle de la liste : « gemini-… : 7 / 20
-requêtes aujourd’hui », avec le badge « épuisé jusqu’à 09:00 » s'il l'est. Les
+modèle réellement employé, et le « Détail par jour » de *Consommation Gemini*
+le montre (colonne *Modèle*). La carte **Modèle Gemini (automatique)** montre
+une ligne par modèle : « gemini-… : 7 / 20 requêtes aujourd’hui », avec le
+badge « épuisé jusqu’à 09:00 » s'il l'est. Les
 compteurs d'avant ce changement (communs à tous les modèles) ne sont pas
 repris : le jour du déploiement, un 429 journalier de Google fait la bascule.
 
@@ -936,8 +937,9 @@ administrateurs, trois onglets : *Comptes* (`/admin/comptes`, ouvert par défaut
   d'administration, avec confirmation pour *Bloquer* et *Retirer les droits*, et *Créer sa cave*) pour un
   compte actif qui n'en a pas (un invité qui veut aussi sa propre cave, ou un
   administrateur). Un compte n'est propriétaire que d'une seule cave.
-- *Coûts de l’IA* — **Modèle de l’IA**, en tête de l'onglet : le modèle Gemini
-  de tous les usages, choisi dans la liste de Google (voir *Modèle de l'IA* plus
+- *Coûts de l’IA* — **Modèle Gemini (automatique)**, en tête de l'onglet : le
+  modèle en cours, choisi seul par l'application, les modèles dans l'ordre
+  d'emploi et les limites de chacun (voir *Modèle Gemini (automatique)* plus
   haut).
 - *Coûts de l’IA* — **Budget** (jauge de consommation) : la dépense Gemini du mois et la **part maximale par cave**
   (20 % du plafond mensuel `GEMINI_MONTHLY_CAP_CENTS` par défaut, réglable de
