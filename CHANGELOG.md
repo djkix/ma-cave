@@ -11,6 +11,16 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.24.0](https://github.com/djkix/ma-cave/compare/v2.23.0...v2.24.0) (2026-10-22)
 
+### Résumé
+
+**Renommer une case.** Chaque case d'une zone peut porter un nom (« Champagnes » pour
+B3) ; partout où l'emplacement apparaît, il s'affiche « Champagnes (B3) », et taper le nom
+dans le champ Case le ramène à son code. On nomme les cases dès la feuille *Proposition*
+(plan recadré sur le casier, liste des cases avec un champ par nom), dans *Modifier la
+zone* (« Noms des cases ») ou depuis la grille de rangement (« Renommer les cases »).
+Petite migration qui ajoute seulement une colonne ; voir « Passage à la 2.24.0 » dans le
+README.
+
 
 ### Fonctionnalités
 
