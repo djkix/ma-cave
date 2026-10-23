@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.33.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.33.1-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -789,6 +789,13 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.33.1 — 23 octobre 2026
+
+Publiée ([v2.33.1](https://github.com/djkix/ma-cave/releases/tag/v2.33.1)),
+images `ghcr.io/djkix/ma-cave-api:2.33.1` et `-web:2.33.1`.
+
+**Dictée sur téléphone seulement** ; champ texte d'office sur ordinateur.
+
 ### 2.33.0 — 23 octobre 2026
 
 Publiée ([v2.33.0](https://github.com/djkix/ma-cave/releases/tag/v2.33.0)),
@@ -865,6 +872,9 @@ images `ghcr.io/djkix/ma-cave-api:2.25.0` et `-web:2.25.0`.
 **Onglet Réglages** dans la barre du bas, version en haut à droite des Réglages,
 heure de reprise avec le jour nommé (« jeudi à 09:00 »). Aucune migration.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.24.0 → 1.0.0)</summary>
+
 ### 2.24.0 — 22 octobre 2026
 
 Publiée ([v2.24.0](https://github.com/djkix/ma-cave/releases/tag/v2.24.0)),
@@ -874,8 +884,6 @@ images `ghcr.io/djkix/ma-cave-api:2.24.0` et `-web:2.24.0`.
 noms dans la Proposition, Modifier la zone et la grille de rangement. Petite
 migration (ajout d'une colonne) ; voir « Passage à la 2.24.0 ».
 
-<details>
-<summary><strong>Versions antérieures</strong> (2.23.0 → 1.0.0)</summary>
 
 ### 2.23.0 — 22 octobre 2026
 

@@ -11,6 +11,15 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.33.1](https://github.com/djkix/ma-cave/compare/v2.33.0...v2.33.1) (2026-10-23)
 
+### Résumé
+
+**Dictée sur téléphone seulement.** Dans *Accords*, le micro n'est proposé que
+sur un écran tactile (téléphone, tablette) ; sur ordinateur, le champ texte
+s'affiche d'office. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Corrections
 
