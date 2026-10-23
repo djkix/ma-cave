@@ -1248,6 +1248,16 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 À lire avant une mise à jour qui change de version mineure. Les sections
 vont de la plus récente à la plus ancienne.
 
+### Passage à la version suivant la 2.33.1 (journal Gemini purgé, annulations lisibles)
+
+Aucune migration. Le worker efface chaque jour, et au démarrage, les lignes du
+journal des appels Gemini (`gemini_call`) de plus de
+`GEMINI_JOURNAL_RETENTION_DAYS` jours (365 par défaut, 92 au minimum, car
+l'Administration lit jusqu'à 90 jours et le budget le mois en cours). Une
+annulation note désormais ce qu'elle annule (« Annulation de la sortie du
+23 oct. 2026, 14:02 ») ; les anciennes notes « Annulation du mouvement <id> »
+sont affichées de la même façon.
+
 ### Passage à la 2.33.0 (accords vins)
 
 Une migration, appliquée toute seule au démarrage de l'api, sans rien modifier

@@ -662,6 +662,7 @@ Référence : [`.env.example`](.env.example).
 | `GEMINI_API_KEY` | Oui* | Oui | Clé Google AI Studio |
 | `GEMINI_MODEL` | Non | Non | Modèle de repli quand la liste de Google est indisponible, Flash ou Lite seulement (défaut `gemini-3.8-flash`) |
 | `GEMINI_MONTHLY_CAP_CENTS` | Non | Non | Plafond mensuel approximatif en centimes (défaut `500`) |
+| `GEMINI_JOURNAL_RETENTION_DAYS` | Non | Non | Conservation du journal des appels Gemini, purgé chaque jour par le worker (défaut `365`, minimum `92`) |
 | `BACKUP_DIR` | Non | Non | Dossier des sauvegardes (défaut `./backups`) |
 | `BACKUP_RETENTION_DAYS` | Non | Non | Rétention en jours (défaut `30`) |
 | `BACKUP_INTERVAL_SECONDS` | Non | Non | Intervalle entre deux dumps (défaut `86400`) |

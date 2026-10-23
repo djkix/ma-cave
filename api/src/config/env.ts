@@ -34,6 +34,8 @@ const schema = z.object({
   // GEMINI_PLAN_MODEL, retirée en 2.19, est simplement ignorée (clés inconnues écartées).
   GEMINI_MODEL: lightModel.default('gemini-3.8-flash'),
   GEMINI_MONTHLY_CAP_CENTS: z.coerce.number().int().default(500),
+  // Journal des appels Gemini : purgé chaque jour au-delà de cette durée (92 jours au moins : l'Administration en lit 90).
+  GEMINI_JOURNAL_RETENTION_DAYS: z.coerce.number().int().min(92).default(365),
   PHOTO_STORAGE_DIR: z.string().default('./data/photos'),
   BREAK_GLASS_EMAIL: emptyToUndefined(z.string().email().optional()),
   BREAK_GLASS_PASSWORD: emptyToUndefined(z.string().min(12).optional()),

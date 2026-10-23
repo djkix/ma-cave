@@ -17,6 +17,8 @@ import { EXTRACTION_QUEUE, ExtractionJobData, deferredBackoffDelay, redisConnect
 import { requeueOrphanPhotos } from './queue/orphan-recovery';
 import { clearPlanAnalysisDeferral, PLAN_ANALYSIS_QUEUE, PLAN_ANALYSIS_QUEUE_TOKEN, PlanAnalysisJobData, requeuePendingPlans } from './queue/plan-analysis';
 import { PlanAnalysisProcessor } from './queue/plan-analysis.processor';
+import { GEMINI_JOURNAL_PURGE_TICK_MS, purgeGeminiJournal } from './vision/gemini-journal-purge';
+import { loadEnv } from './config/env';
 
 async function main() {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['log', 'warn', 'error'] });
@@ -113,13 +115,24 @@ async function main() {
   );
   pairingLoop.start();
   producerLoop.start();
+  // Journal des appels Gemini : les lignes trop anciennes sont effacées au démarrage puis chaque jour.
+  const retentionDays = loadEnv().GEMINI_JOURNAL_RETENTION_DAYS;
+  const journalPurgeLoop = createEntryBatchLoop(
+    async () => {
+      const n = await purgeGeminiJournal(prisma, retentionDays);
+      if (n > 0) console.log(`journal Gemini : ${n} appel${n > 1 ? 's' : ''} de plus de ${retentionDays} jours effacé${n > 1 ? 's' : ''}`);
+    },
+    GEMINI_JOURNAL_PURGE_TICK_MS,
+    (e) => console.error(`purge du journal Gemini : ${(e as Error).message}`),
+  );
+  journalPurgeLoop.start();
   console.log(`worker prêt (accords et descriptifs par lots de dix, toutes les ${GENERATION_BATCH_TICK_MS / 1000} s)`);
 
   let stopping = false;
   const stop = async () => {
     if (stopping) return;
     stopping = true;
-    await Promise.all([entryBatchLoop.stop(), pairingLoop.stop(), producerLoop.stop()]);
+    await Promise.all([entryBatchLoop.stop(), pairingLoop.stop(), producerLoop.stop(), journalPurgeLoop.stop()]);
     await legacyPairingWorker.close();
     await planWorker.close();
     await worker.close();
