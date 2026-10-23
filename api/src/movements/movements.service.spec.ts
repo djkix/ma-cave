@@ -663,3 +663,11 @@ describe('movePartnerKey', () => {
     expect(movePartnerKey('3f0c8f1e-2a1b-4c5d-9e8f-0a1b2c3d4e5f')).toBeNull();
   });
 });
+
+describe('cancelNote', () => {
+  it('dit ce qui est annulé et quand, à l’heure de Paris', () => {
+    const { cancelNote } = jest.requireActual('./movements.service');
+    expect(cancelNote({ type: 'OUT', occurredAt: new Date('2026-10-23T12:02:00Z') })).toBe('Annulation de la sortie du 23 oct. 2026, 14:02');
+    expect(cancelNote({ type: 'IN', occurredAt: new Date('2026-01-05T08:00:00Z') })).toBe("Annulation de l'entrée du 5 janv. 2026, 09:00");
+  });
+});

@@ -5,6 +5,7 @@ import { CANCEL_MOVED, labelOf, normalizeLocation, NOT_ENOUGH_AT_LOCATION, parts
 import { Db, LocationsService } from '../locations/locations.service';
 import { PairingScheduler } from '../pairing/pairing.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { STATS_TIME_ZONE } from '../stats/stats';
 import { ProducerScheduler } from '../producers/producers.service';
 import { WineMatchingService } from '../wines/wine-matching.service';
 import { CreateMovementInput, CreateOutInput, InventoryInput, MoveInput } from './dto';
@@ -250,7 +251,7 @@ export class MovementsService {
                 wineId: original.wineId,
                 delta: -half.delta,
                 type: 'ADJUST',
-                note: `Annulation du mouvement ${half.id}`,
+                note: cancelNote(half),
                 idempotencyKey: half.id === original.id ? idempotencyKey : `${idempotencyKey}:paire`,
                 reversesId: half.id,
                 // La bouteille revient (ou repart) à l'emplacement du mouvement annulé.
@@ -489,4 +490,12 @@ export class MovementsService {
     });
     return rows.map(({ location, ...m }) => ({ ...m, locationLabel: location ? labelOf(partsOf(location)) : null }));
   }
+}
+
+const CANCELLED_KIND: Record<Movement['type'], string> = { IN: "de l'entrée", OUT: 'de la sortie', ADJUST: 'de la correction', MOVE: 'du déplacement' };
+const cancelledAt = new Intl.DateTimeFormat('fr-FR', { timeZone: STATS_TIME_ZONE, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+/** Note lisible d'une annulation : « Annulation de la sortie du 23 oct. 2026, 14:02 » (heure de Paris), jamais un identifiant. */
+export function cancelNote(m: Pick<Movement, 'type' | 'occurredAt'>): string {
+  return `Annulation ${CANCELLED_KIND[m.type]} du ${cancelledAt.format(m.occurredAt)}`;
 }

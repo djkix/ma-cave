@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { movementNote } from '../lib/movement-note';
 import { useState } from 'react';
 import { BottomNav } from '../components/BottomNav';
 import { Button } from '../components/Button';
@@ -9,7 +10,9 @@ import { NO_LOCATION } from '../lib/locations';
 
 const fmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-export function MovementRow({ m, onCancel, cancelling, cancelled }: { m: MovementWithWine; onCancel?: (id: string) => void; cancelling?: boolean; cancelled?: boolean }) {
+/** `all` : la liste affichée, où une annulation retrouve le mouvement qu'elle annule (voir movementNote). */
+export function MovementRow({ m, all = [m], onCancel, cancelling, cancelled }: { m: MovementWithWine; all?: MovementWithWine[]; onCancel?: (id: string) => void; cancelling?: boolean; cancelled?: boolean }) {
+  const note = movementNote(m, all);
   const isIn = m.delta > 0;
   return (
     <div className="list__row">
@@ -22,7 +25,7 @@ export function MovementRow({ m, onCancel, cancelling, cancelled }: { m: Movemen
         <p className="list__title" style={{ margin: 0 }}>
           {m.wine.producer}{m.wine.cuvee ? ` — ${m.wine.cuvee}` : ''} {m.wine.vintage ?? ''}
         </p>
-        <span className="list__meta">{m.wine.appellationRaw}{m.type !== 'MOVE' && m.locationLabel ? ` · ${m.locationLabel}` : ''}{m.note ? ` · ${m.note}` : ''}</span>
+        <span className="list__meta">{m.wine.appellationRaw}{m.type !== 'MOVE' && m.locationLabel ? ` · ${m.locationLabel}` : ''}{note ? ` · ${note}` : ''}</span>
       </div>
       {onCancel && !m.reversesId && !cancelled && (
         <Button variant="outline" onClick={() => onCancel(m.id)} disabled={cancelling}>Annuler</Button>
@@ -73,7 +76,7 @@ export function JournalPage() {
         {cancel.isError && <p role="alert" className="text-error">{(cancel.error as Error).message}</p>}
         <div className="list">
           {movements.data?.map((m) => (
-            <MovementRow key={m.id} m={m} onCancel={(id) => cancel.mutate(id)} cancelling={cancel.isPending} cancelled={reversed.has(m.id)} />
+            <MovementRow key={m.id} m={m} all={movements.data} onCancel={(id) => cancel.mutate(id)} cancelling={cancel.isPending} cancelled={reversed.has(m.id)} />
           ))}
           {movements.data?.length === 0 && <p className="centered">Aucun mouvement pour l’instant.</p>}
         </div>
