@@ -9,6 +9,14 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.32.0](https://github.com/djkix/ma-cave/compare/v2.31.0...v2.32.0) (2026-10-23)
+
+
+### Fonctionnalités
+
+* **web:** listes déroulantes avec chevron, filtres de la cave en pastilles ([1082537](https://github.com/djkix/ma-cave/commit/1082537c1ae3c49e15c9e66f77c1824cea6e6d92))
+* **web:** logo vers l'accueil, cote sur une ligne, stock dans le bloc de sortie, historique replié ([ab64a18](https://github.com/djkix/ma-cave/commit/ab64a18b0297ab4b1c3324c279ae1c6398fca725))
+
 ## [2.31.0](https://github.com/djkix/ma-cave/compare/v2.30.0...v2.31.0) (2026-10-22)
 
 ### Résumé
