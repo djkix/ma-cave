@@ -9,6 +9,23 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.35.1](https://github.com/djkix/ma-cave/compare/v2.35.0...v2.35.1) (2026-10-23)
+
+
+### Fonctionnalités
+
+* **web:** badge « lent ou saturé » dans la section Modèle Gemini ([0b6e886](https://github.com/djkix/ma-cave/commit/0b6e8862202699a6c9eac6d0e3bc689a49c68357))
+
+
+### Corrections
+
+* **api:** bascule Gemini sur lenteur ou saturation, délai par essai ([b973a80](https://github.com/djkix/ma-cave/commit/b973a8021c239e11ef8d09db43b29c65796fec0d))
+
+
+### Divers
+
+* publier la 2.35.1 ([520badd](https://github.com/djkix/ma-cave/commit/520badd2d09afc04a9119ad4928c62eccee3e7f8))
+
 ## [2.35.0](https://github.com/djkix/ma-cave/compare/v2.34.0...v2.35.0) (2026-10-23)
 
 ### Résumé
