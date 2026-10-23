@@ -415,3 +415,23 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 .stock-stepper__value { width: 4ch; text-align: center; font-size: 28px; border: 0; background: transparent; color: var(--color-on-surface); }
 /* Historique de la fiche vin : au-delà des trois derniers, en accordéon. */
 .history-more summary { cursor: pointer; color: var(--color-primary); font-weight: 600; padding: var(--space-sm) 0; }
+
+/* Listes déroulantes : chevron dessiné, même habillage partout (proposition A). */
+select {
+  appearance: none; -webkit-appearance: none; cursor: pointer; font-weight: 500;
+  padding-right: 40px; border-radius: var(--radius-lg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%237A5522' d='M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 20px;
+}
+select:disabled { cursor: not-allowed; opacity: 0.6; }
+select:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
+/* Filtres de la cave : pastilles, dorées quand un filtre est actif. */
+.filter-pill, .filter-toggle {
+  min-height: 40px; border-radius: 999px; border: 1px solid transparent;
+  background-color: var(--color-surface-container); color: var(--color-on-surface); font: 600 14px var(--font-sans);
+}
+.filter-pill { padding: 0 38px 0 14px; max-width: 100%; text-overflow: ellipsis; }
+.filter-pill--on, .filter-toggle:has(input:checked) { background-color: var(--color-primary-fixed); border-color: var(--color-primary-container); color: var(--color-primary); }
+.filter-toggle { display: inline-flex; align-items: center; padding: 0 14px; cursor: pointer; user-select: none; }
+.filter-toggle:has(input:focus-visible) { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
+.topbar__select { padding-right: 32px; background-position: right 6px center; }

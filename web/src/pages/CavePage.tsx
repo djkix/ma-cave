@@ -10,7 +10,7 @@ import { NO_LOCATION, useLocations } from '../lib/locations';
 import { formatRatingShort } from '../lib/rating';
 
 const COLORS: Array<{ value: WineColor | ''; label: string }> = [
-  { value: '', label: 'Toutes' }, { value: 'ROUGE', label: 'Rouge' }, { value: 'BLANC', label: 'Blanc' },
+  { value: '', label: 'Couleur : toutes' }, { value: 'ROUGE', label: 'Rouge' }, { value: 'BLANC', label: 'Blanc' },
   { value: 'ROSE', label: 'Rosé' }, { value: 'PETILLANT', label: 'Pétillant' },
 ];
 
@@ -50,26 +50,28 @@ export function CavePage() {
           <input type="search" value={dish} onChange={(e) => setDish(e.target.value)} placeholder="Agneau, comté, poisson…" aria-label="Accompagner un plat" maxLength={100} />
           {/* Libellé relié par htmlFor : enveloppé dans le <label>, le select aurait
               pour nom accessible « Couleur » suivi du texte de toutes ses options. */}
-          <label htmlFor="cave-color" className="field__label">Couleur</label>
-          <select id="cave-color" value={color} onChange={(e) => setColor(e.target.value as WineColor | '')}>
+          {/* Pastilles : le libellé est dans l'option vide (« Couleur : toutes ») ;
+              le <label> reste pour le nom accessible, caché à l'écran. */}
+          <label htmlFor="cave-color" className="visually-hidden">Couleur</label>
+          <select id="cave-color" className={`filter-pill${color ? ' filter-pill--on' : ''}`} value={color} onChange={(e) => setColor(e.target.value as WineColor | '')}>
             {COLORS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
-          <label htmlFor="cave-location" className="field__label">Emplacement</label>
-          <select id="cave-location" value={location} onChange={(e) => setLocation(e.target.value)} style={{ maxWidth: '100%' }}>
-            <option value="">Tous</option>
+          <label htmlFor="cave-location" className="visually-hidden">Emplacement</label>
+          <select id="cave-location" className={`filter-pill${location ? ' filter-pill--on' : ''}`} value={location} onChange={(e) => setLocation(e.target.value)}>
+            <option value="">Emplacement : tous</option>
             {locations.data?.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
             <option value="none">{NO_LOCATION}</option>
           </select>
-          <label className="field__label">
-            <input type="checkbox" checked={includeEmpty} onChange={(e) => setIncludeEmpty(e.target.checked)} aria-label="Afficher les vins épuisés" />
+          <label className="filter-toggle">
+            <input type="checkbox" className="visually-hidden" checked={includeEmpty} onChange={(e) => setIncludeEmpty(e.target.checked)} aria-label="Afficher les vins épuisés" />
             Vins épuisés
           </label>
-          <label className="field__label">
-            <input type="checkbox" checked={apogeeFilter === 'drinkSoon'} onChange={(e) => toggle('drinkSoon')(e.target.checked)} aria-label="À boire en priorité" />
+          <label className="filter-toggle">
+            <input type="checkbox" className="visually-hidden" checked={apogeeFilter === 'drinkSoon'} onChange={(e) => toggle('drinkSoon')(e.target.checked)} aria-label="À boire en priorité" />
             À boire en priorité
           </label>
-          <label className="field__label">
-            <input type="checkbox" checked={apogeeFilter === 'noApogee'} onChange={(e) => toggle('noApogee')(e.target.checked)} aria-label="Sans apogée" />
+          <label className="filter-toggle">
+            <input type="checkbox" className="visually-hidden" checked={apogeeFilter === 'noApogee'} onChange={(e) => toggle('noApogee')(e.target.checked)} aria-label="Sans apogée" />
             Sans apogée
           </label>
         </section>

@@ -169,7 +169,7 @@ it('filtre par emplacement, « Sans emplacement » compris', async () => {
   mount();
   await screen.findByText(/Domaine Tempier/);
   const select = screen.getByLabelText('Emplacement') as HTMLSelectElement;
-  await waitFor(() => expect([...select.options].map((o) => o.text)).toEqual(['Tous', 'Cave 2 / B / 3', 'Garage', 'Sans emplacement']));
+  await waitFor(() => expect([...select.options].map((o) => o.text)).toEqual(['Emplacement : tous', 'Cave 2 / B / 3', 'Garage', 'Sans emplacement']));
   await userEvent.selectOptions(select, 'Garage');
   await waitFor(() => expect(getCave).toHaveBeenLastCalledWith({ q: '', color: undefined, includeEmpty: false, location: 'l2' }));
   await userEvent.selectOptions(select, 'Sans emplacement');
