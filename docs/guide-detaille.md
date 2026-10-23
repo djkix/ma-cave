@@ -348,7 +348,7 @@ l'export Excel, ni « À confirmer », et il **n'écrit rien** : pas d'entrée, 
 sortie, d'inventaire, de photo, de note, d'apogée manuelle, de recherche
 d'image, de déplacement d'emplacement, de saisie de cote ni de régénération
 des accords (l'API répond 403 « Lecture seule »). Son application n'affiche
-que les onglets *Cave* et *Stats*, sans boutons d'action sur la fiche. Les
+que les onglets *Cave*, *Accords* et *Stats*, sans boutons d'action sur la fiche. Les
 images des photos lui sont servies pour toutes les caves dont il est membre.
 
 **Sélecteur de cave.** Un compte qui a accès à plusieurs caves (la sienne et
@@ -661,7 +661,7 @@ minute. API : `POST /api/wines/:id/image-search`, `GET
 **Réglages.** L'onglet *Réglages* de la barre du bas (ou l'icône en haut à
 droite des autres écrans) ouvre les Réglages (`/compte`), un **hub** ouvert à tout compte connecté, avec le profil (initiales, nom,
 e-mail) puis une carte par écran, chacune avec son résumé. Dans les Réglages et
-leurs écrans (Moi, Ma cave, Application, À propos), la version de l'application
+leurs écrans (Moi, Ma cave, Journal, Application, À propos), la version de l'application
 (« v2.25.0 ») remplace l'icône en haut à droite :
 
 - **Moi** (`/compte/moi`) : **mes caves** (la sienne et celles où l'on est
@@ -671,6 +671,8 @@ leurs écrans (Moi, Ma cave, Application, À propos), la version de l'applicatio
   d'accueil*) et **« Se déconnecter »** ;
 - **Ma cave** (propriétaire seulement) : la page `/ma-cave` décrite plus haut,
   sauvegarde Excel comprise ;
+- **Journal** (propriétaire seulement) : les derniers mouvements et leur
+  annulation (`/journal`, voir *Journal et annulation*) ;
 - **Application** (administrateur seulement) : l'Administration, en trois
   onglets (voir *Comptes et administration*), avec le nombre d'inscriptions en
   attente (la page d'accueil garde aussi un lien *Administration* pour les
@@ -712,7 +714,8 @@ il annonce « File d'envoi pleine (200 photos) — attendez que les envois
 partent ».
 
 **Journal et annulation.** Les 20 derniers mouvements de la cave sont
-consultables et annulables en un tap, par son propriétaire seulement. Une annulation écrit un mouvement inverse : rien n'est
+consultables et annulables en un tap, par son propriétaire seulement, depuis la
+carte *Journal* des Réglages (`/journal` ; l'onglet du bas est devenu *Accords*). Une annulation écrit un mouvement inverse : rien n'est
 jamais supprimé, l'historique reste vrai.
 
 **Apogée.** Une fourchette de buvabilité est estimée par règles pour chaque vin
@@ -873,6 +876,43 @@ inexploitable ». Dans l'onglet Cave, le champ
 tapés (sans accents ni majuscules), les bouteilles à boire en priorité en
 premier, avec la mention « avec : … » (`GET /api/cave?dish=`). L'export ajoute
 une colonne *Accords*.
+
+**Accords vins (qu'est-ce qu'on mange ?).** L'onglet *Accords* de la barre du bas
+(Cave · Entrée · Sortie · **Accords** · Stats · Réglages ; ouvert aussi aux
+membres en lecture seule) propose des vins **de la cave** pour le plat qu'on
+prépare. On touche le grand bouton micro et on dit le plat : la dictée du
+navigateur (Web Speech, en français) affiche le texte au fur et à mesure, et la
+fin de la dictée lance la recherche (toucher à nouveau le micro arrête
+l'écoute). *Écrire plutôt* ouvre un champ texte et *Proposer des vins* ; sans
+dictée dans le navigateur (Firefox…) ou micro refusé, le champ texte est
+affiché d'office. La réponse montre « Ce que l'IA a compris » en pastilles
+(« Blanc sec », « Belle acidité », « À boire d'abord ») puis **jusqu'à 5 vins
+en stock**, chacun avec son score d'accord en %, domaine — cuvée, millésime,
+appellation · couleur · quantité · emplacement principal (celui qui tient le
+plus de bouteilles), une raison en une ligne et une barre d'apogée avec son
+libellé (« À boire cette année », « À l'apogée jusqu'en 2029 », « Encore
+jeune — à partir de 2027 », « Apogée passée depuis 2020 »). Toucher un vin
+ouvre sa fiche ; la flèche retour ramène à la même liste, sans nouvel appel (le
+dernier plat et sa réponse sont gardés le temps de la session du navigateur).
+Cave vide : « Votre cave est vide », sans appel à l'IA ; aucun vin adapté : un
+message et le style idéal décrit par l'IA.
+
+Côté api, `POST /api/accords` (`{ "dish": "…" }`, 1 à 200 caractères, 10
+demandes par minute) lit les vins en stock de la cave courante, les range **à
+boire d'abord** (apogée passée, dernière année, à boire, sans estimation, trop
+jeunes en dernier) et en envoie au plus **300** au modèle, une ligne compacte
+par vin, numérotée (producteur, cuvée, appellation, couleur, millésime,
+fenêtre d'apogée). Un seul appel Gemini, par le même fournisseur que les autres
+usages : journal (`gemini_call`, usage `ACCORDS_PLAT`, « Accords (plat) » dans
+*Coûts de l'IA*), limites de débit par modèle, bascule de modèle, pause commune
+— modèles Flash et Flash-Lite seulement. Comme les accords des fiches, il ne
+part que sous 80 % du plafond mensuel et dans la part de la cave. Le serveur ne
+garde que des numéros de la liste envoyée (une fois chacun), classe par score
+puis par priorité d'apogée et complète chaque vin (quantité, emplacement,
+apogée). Une panne de l'IA n'est jamais bloquante : pause ou quota (« Gemini
+en pause jusqu'à HH:MM… », « quota Gemini épuisé »), part de la cave atteinte,
+réponse inexploitable ou panne répondent 503 avec un message lisible, affiché
+tel quel, et l'on peut réessayer.
 
 **Descriptif du domaine.** Chaque domaine (producteur) reçoit un seul texte,
 partagé par tous ses vins et millésimes, **dans toutes les caves**, généré en arrière-plan par Gemini (3
@@ -1193,7 +1233,7 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 2. « Se connecter avec Google » puis rentrer une bouteille avec une vraie photo
    d'étiquette : la fiche doit arriver dans « À confirmer » en moins d'une
    minute.
-3. **Journal → Exporter le classeur** : la bouteille figure dans la feuille
+3. **Réglages → Journal → Exporter le classeur** : la bouteille figure dans la feuille
    `Stock`.
 4. **Réglages → Moi → Installer l'application** : bouton « Installer
    l'application » sur Android, indication *Partager → Sur l'écran d'accueil*
@@ -1207,6 +1247,14 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 
 À lire avant une mise à jour qui change de version mineure. Les sections
 vont de la plus récente à la plus ancienne.
+
+### Passage à la version suivant la 2.32.0 (accords vins)
+
+Une migration, appliquée toute seule au démarrage de l'api, sans rien modifier
+ni supprimer dans les données : `20261027000000_usage_accords_plat` (le
+journal des appels Gemini accepte l'usage `ACCORDS_PLAT`). Rien à faire.
+**Retour arrière** vers une image précédente : le détail des coûts IA affiche
+le libellé brut `ACCORDS_PLAT` (aucun plantage).
 
 ### Passage à la version suivant la 2.32.0 (avertissement `unaccent`)
 
@@ -1689,6 +1737,13 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
   coût de l'appel) ; une réponse de lot entièrement inexploitable n'est
   comptée que dans le journal `gemini_call`, pas dans le plafond. Le coût d'un
   lot de photos d'entrée est réparti de même sur ses photos.
+- **Accords vins** : la dictée dépend du navigateur (Chrome, Safari, Edge ;
+  pas Firefox, qui garde le champ texte) et peut passer par le service de
+  reconnaissance vocale de l'éditeur du navigateur. Au-delà de 300 vins en
+  stock, les moins pressés à boire ne sont pas proposés au modèle. La dépense
+  de ces appels (de l'ordre d'un millième de centime) figure au journal
+  `gemini_call` mais n'est pas ajoutée au plafond mensuel, qui sert seulement
+  de garde-fou avant l'appel.
 - **Une seule note par vin**, sans commentaire ni historique.
 - **Descriptif du domaine limité par ce que Gemini sait** : pour un petit
   domaine, la connaissance de Gemini est parfois incomplète ou erronée — d'où
