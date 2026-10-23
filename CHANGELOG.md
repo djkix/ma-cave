@@ -9,6 +9,15 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.35.0](https://github.com/djkix/ma-cave/compare/v2.34.0...v2.35.0) (2026-10-23)
+
+
+### Fonctionnalités
+
+* **api:** tentatives et demandes de sauvegarde, vues de l'Administration ([f7cf5f1](https://github.com/djkix/ma-cave/commit/f7cf5f194a5b51dd916d1f819ff3e0f0e99c28b8))
+* **sauvegarde:** sauvegarde quotidienne vers le NAS, à la place de db-backup ([257d16c](https://github.com/djkix/ma-cave/commit/257d16c124ce83d1c88ebba7240d3f736425e35f))
+* **web:** onglet Sauvegarde de l'Administration, « Sauvegarder maintenant » ([0e5f6b1](https://github.com/djkix/ma-cave/commit/0e5f6b191233fb6cfe196f4ad12fc7ff5b76b494))
+
 ## [2.34.0](https://github.com/djkix/ma-cave/compare/v2.33.1...v2.34.0) (2026-10-23)
 
 ### Résumé
