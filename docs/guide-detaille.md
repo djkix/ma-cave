@@ -1248,7 +1248,7 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 À lire avant une mise à jour qui change de version mineure. Les sections
 vont de la plus récente à la plus ancienne.
 
-### Passage à la version suivant la 2.32.0 (accords vins)
+### Passage à la 2.33.0 (accords vins)
 
 Une migration, appliquée toute seule au démarrage de l'api, sans rien modifier
 ni supprimer dans les données : `20261027000000_usage_accords_plat` (le
@@ -1256,7 +1256,7 @@ journal des appels Gemini accepte l'usage `ACCORDS_PLAT`). Rien à faire.
 **Retour arrière** vers une image précédente : le détail des coûts IA affiche
 le libellé brut `ACCORDS_PLAT` (aucun plantage).
 
-### Passage à la version suivant la 2.32.0 (avertissement `unaccent`)
+### Passage à la 2.33.0 (avertissement `unaccent`)
 
 Une migration, appliquée toute seule au démarrage de l'api, sans rien modifier
 ni supprimer dans les données : `20261026000000_unaccent_schema` nomme en

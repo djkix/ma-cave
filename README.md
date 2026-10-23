@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.32.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.33.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -789,6 +789,15 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.33.0 — 23 octobre 2026
+
+Publiée ([v2.33.0](https://github.com/djkix/ma-cave/releases/tag/v2.33.0)),
+images `ghcr.io/djkix/ma-cave-api:2.33.0` et `-web:2.33.0`.
+
+**Accords vins** : le plat à la voix ou par écrit, 5 vins de la cave proposés ;
+Journal dans les Réglages ; mouvements datés à l'heure. Migrations
+automatiques, sans effet sur les données.
+
 ### 2.32.0 — 23 octobre 2026
 
 Publiée ([v2.32.0](https://github.com/djkix/ma-cave/releases/tag/v2.32.0)),
@@ -865,6 +874,9 @@ images `ghcr.io/djkix/ma-cave-api:2.24.0` et `-web:2.24.0`.
 noms dans la Proposition, Modifier la zone et la grille de rangement. Petite
 migration (ajout d'une colonne) ; voir « Passage à la 2.24.0 ».
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.23.0 → 1.0.0)</summary>
+
 ### 2.23.0 — 22 octobre 2026
 
 Publiée ([v2.23.0](https://github.com/djkix/ma-cave/releases/tag/v2.23.0)),
@@ -874,8 +886,6 @@ images `ghcr.io/djkix/ma-cave-api:2.23.0` et `-web:2.23.0`.
 cases nommées dessinées sur la photo quand une proposition est ouverte. Aucune
 migration ; relancer l'analyse du plan.
 
-<details>
-<summary><strong>Versions antérieures</strong> (2.22.0 → 1.0.0)</summary>
 
 ### 2.22.0 — 21 octobre 2026
 

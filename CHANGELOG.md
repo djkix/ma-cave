@@ -11,6 +11,26 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.33.0](https://github.com/djkix/ma-cave/compare/v2.32.0...v2.33.0) (2026-10-23)
 
+### Résumé
+
+**Accords vins.** Nouvel onglet *Accords* (à la place de *Journal*, qui
+devient une carte des Réglages, propriétaire seulement) : on dicte au micro ou
+on écrit le plat préparé, et l'application propose jusqu'à 5 vins de la cave,
+à boire d'abord, avec un score d'accord, une raison, l'apogée et
+l'emplacement. Toucher un vin ouvre sa fiche ; le retour ramène à la même
+liste sans nouvel appel. Un appel Gemini par plat (usage « Accords (plat) »
+dans le journal), soumis aux quotas, à la bascule de modèle et au budget ;
+ouvert aussi aux membres invités.
+
+**Corrections.** Les mouvements de la fiche vin affichent le type, puis le
+jour et l'heure, puis la description ; l'erreur `unaccent` disparaît des
+journaux de postgres. Deux petites migrations, appliquées seules au
+démarrage, sans toucher aux données (voir « Passage à la 2.33.0 » dans
+`docs/guide-detaille.md`).
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
