@@ -93,6 +93,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Rien n'entre en stock** sans validation explicite
 
 ### 🤖 Lecture d'étiquette (Gemini)
+- **Bascule sur lenteur ou saturation** : un modèle qui ne répond pas dans le délai d'essai (45 s par défaut, `GEMINI_ATTEMPT_TIMEOUT_MS` ; 2 min pour les lots d'accords, de descriptifs et l'analyse de plan), qui renvoie 503 ou un 429 non journalier est mis de côté 15 min et le modèle suivant est essayé aussitôt ; badge « lent ou saturé, repris à HH:MM » dans l'Administration
 - Analyse **différée, jamais bloquante** : une photo reçue n'est jamais perdue
 - Service saturé, quota ou clé invalide : la photo **attend et repart seule**
 - **Pause commune** après un refus de Google (503, 429), pour l'api et le worker
@@ -415,7 +416,7 @@ services:
     restart: unless-stopped
     command: ["node", "dist/worker.js"]
     # Un lot en cours (appel Gemini de 2 min au plus) se termine avant l'arrêt.
-    stop_grace_period: 150s
+    stop_grace_period: 270s
     env_file: .env
     environment:
       NODE_ENV: production
