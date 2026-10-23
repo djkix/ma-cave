@@ -5,6 +5,7 @@ import { AdminModule } from './admin/admin.module';
 import { AppellationsModule } from './appellations/appellations.module';
 import { ApogeeModule } from './apogee/apogee.module';
 import { AuthModule } from './auth/auth.module';
+import { BackupModule } from './backup/backup.module';
 import { CaveModule } from './cave/cave.module';
 import { ExportModule } from './export/export.module';
 import { HealthController } from './health/health.controller';
@@ -44,6 +45,7 @@ import { ZonesModule } from './zones/zones.module';
     PairingModule,
     ProducersModule,
     ExportModule,
+    BackupModule,
     CaveModule,
     ImageSearchModule,
     ZonesModule,
