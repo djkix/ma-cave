@@ -173,6 +173,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - `ADMIN_EMAILS` : **administrateurs garantis**, ni blocables ni rétrogradables
 - **Coûts de l'IA** : modèle en cours (automatique), limites de débit par modèle, budget mensuel, **part par cave**, consommation par jour
 - **Données du vin** : qualité de la lecture (« zéro saisie »), règles d'apogée
+- **Sauvegarde** : dernière réussite, alerte si échec ou rien depuis 36 h, **Sauvegarder maintenant**
 
 ### 📦 Sauvegarde Excel
 - Classeur `.xlsx` **régénéré à chaque fois**, cave courante seulement
@@ -205,7 +206,7 @@ flowchart TB
         PG[("PostgreSQL 16<br/>pg_trgm")]
         RD[("Redis 7<br/>files, sessions, quotas")]
         PH[("Volume photo_data<br/>photos et plans")]
-        BK["db-backup<br/>pg_dump quotidien"]
+        SV["sauvegarde<br/>chaque nuit vers le NAS"]
     end
 
     subgraph External["Services externes"]
@@ -226,7 +227,9 @@ flowchart TB
     API --> GEM
     API --> OFF
     API --> GOA
-    BK --> PG
+    SV --> PG
+    SV --> PH
+    SV -->|NFS| NAS[("NAS<br/>sept jours datés")]
 ```
 
 | Service | Rôle | Port |
@@ -236,7 +239,7 @@ flowchart TB
 | `worker` | Lots d'entrée (8 photos), accords et descriptifs (10), sorties et plans via BullMQ | interne |
 | `postgres` | Données (PostgreSQL 16 + `pg_trgm`) | 5432, interne |
 | `redis` | Files BullMQ, sessions, compteurs de quota | 6379, interne |
-| `db-backup` | `pg_dump` quotidien avec rotation | interne |
+| `sauvegarde` | Chaque nuit : base, photos et configuration vers le NAS | interne |
 
 ### Entrée d'une bouteille
 
@@ -330,15 +333,17 @@ cd web && npm run build                 # tsc --noEmit + vite build
 ```
 
 La CI (`.github/workflows/ci.yml`) lance ces commandes sur chaque push `main` et
-chaque pull request. Elle démarre aussi la stack dans un dossier qui ne
-contient que `docker-compose.yml` et `.env`.
+chaque pull request. Elle essaie le script de sauvegarde dans son image
+(`sauvegarde/essai.sh`, faux `pg_dump` et `psql`), et démarre la stack dans un
+dossier qui ne contient que `docker-compose.yml` et `.env`, jusqu'à une vraie
+sauvegarde sur un « NAS » local.
 
 ---
 
 ## Déploiement Docker
 
 La stack est **autonome** : `docker-compose.yml` et son `.env` suffisent. Les
-images portent le code, le script de sauvegarde est écrit dans le YAML.
+images portent le code, sauvegarde comprise.
 
 ```bash
 mkdir -p /opt/stacks/ma-cave && cd /opt/stacks/ma-cave
@@ -360,7 +365,7 @@ Le pas à pas complet est dans le [guide détaillé](docs/guide-detaille.md#dép
 2. Dans Dockge : **+ Compose**, nommer la stack `ma-cave` (rangée dans `/opt/stacks/ma-cave/`)
 3. Coller le YAML ci-dessous
 4. Coller le `.env` rempli dans le panneau des variables
-5. **Images** : `ghcr.io/djkix/ma-cave-api` et `ma-cave-web` sont publiques, aucune authentification n'est nécessaire
+5. **Images** : `ghcr.io/djkix/ma-cave-api`, `ma-cave-web` et `ma-cave-sauvegarde` sont publiques, aucune authentification n'est nécessaire
 6. **Deploy**
 
 ```yaml
@@ -369,8 +374,12 @@ services:
     image: ghcr.io/djkix/ma-cave-web:${IMAGE_TAG:-latest}
     build: ./web
     restart: unless-stopped
+    # Publié sur 127.0.0.1 seulement par défaut : le nginx de ce conteneur relaie
+    # X-Forwarded-For et X-Forwarded-Proto, il ne doit être joint que par NPM.
+    # NPM sur une autre machine : WEB_BIND = adresse de cette machine sur le
+    # réseau local (voir .env.example).
     ports:
-      - "${WEB_PORT:-3100}:80"
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3100}:80"
     depends_on:
       - api
     networks: [internal]
@@ -388,6 +397,13 @@ services:
     volumes:
       - photo_data:/data/photos
     expose: ["3000"]
+    # Saine une fois les migrations jouées et le serveur à l'écoute.
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -442,59 +458,34 @@ services:
       retries: 10
     networks: [internal]
 
-  db-backup:
-    image: postgres:16-alpine
+  # Sauvegarde vers le NAS, en NFS : chaque jour dès 3 h (heure de Paris), la
+  # base, les photos et la configuration de la stack dans un dossier daté, sept
+  # jours gardés, sans chiffrement (voir sauvegarde/). Le code est dans l'image :
+  # la stack reste autonome. Aucun service n'en dépend : NAS éteint, seul ce
+  # conteneur ne démarre pas, et l'Administration le signale au bout de 36 h.
+  sauvegarde:
+    image: ghcr.io/djkix/ma-cave-sauvegarde:${IMAGE_TAG:-latest}
+    build: ./sauvegarde
     restart: unless-stopped
     environment:
-      PGHOST: postgres
-      PGUSER: ${POSTGRES_USER}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
-      PGDATABASE: ${POSTGRES_DB}
-      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
-      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      TZ: Europe/Paris
+      HEURE: ${SAUVEGARDE_HEURE:-3}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Une base injoignable ne bloque pas la boucle de planification : 10 s pour se connecter.
+      PGCONNECT_TIMEOUT: "10"
     volumes:
-      - ${BACKUP_DIR:-./backups}:/backups
-    # Le script est écrit ici même, et non monté depuis le dépôt : Dockge crée la
-    # stack à partir de ce seul fichier, sans cloner le dépôt. Un fichier monté
-    # absent de l'hôte devient un dossier vide dans le conteneur, `sh` n'y
-    # exécute rien, sort avec le code 0, et la sauvegarde ne tourne jamais — ce
-    # qui s'est produit en production. Les `$$` sont des `$` échappés pour
-    # Docker Compose, qui interpréterait sinon les variables à sa place.
-    #
-    # Dump quotidien, jamais un fichier tronqué : le nom définitif n'apparaît
-    # qu'après un pg_dump ET un gzip réussis. Le dump est fait avec --clean
-    # --if-exists, il se restaure donc par-dessus un schéma existant.
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -eu
-        mkdir -p /backups
-        echo "sauvegarde : un dump toutes les $${BACKUP_INTERVAL_SECONDS} s, conservation $${BACKUP_RETENTION_DAYS} jours"
-        while true; do
-          ts=$$(date +%Y%m%d-%H%M%S)
-          raw="/backups/cave-$${ts}.sql.part"
-          tmp="/backups/cave-$${ts}.sql.gz.tmp"
-          final="/backups/cave-$${ts}.sql.gz"
-          # busybox ash n'a pas PIPESTATUS : on dumpe d'abord, on compresse
-          # ensuite, afin de tester chaque code de retour séparément.
-          if pg_dump --clean --if-exists > "$$raw"; then
-            if gzip -c "$$raw" > "$$tmp"; then
-              rm -f "$$raw"
-              mv "$$tmp" "$$final"
-              echo "sauvegarde écrite : $$final"
-            else
-              rm -f "$$raw" "$$tmp"
-              echo "sauvegarde échouée : compression impossible" >&2
-            fi
-          else
-            rm -f "$$raw"
-            echo "sauvegarde échouée : pg_dump en erreur" >&2
-          fi
-          find /backups -name 'cave-*.sql.gz' -mtime "+$${BACKUP_RETENTION_DAYS}" -delete
-          sleep "$${BACKUP_INTERVAL_SECONDS}"
-        done
+      - photo_data:/data/photos:ro
+      # Le dossier de la stack : son fichier compose et son .env sont copiés.
+      - .:/stack:ro
+      - nas:/nas
+    # L'api saine a joué les migrations : les tables backup_run et
+    # backup_request existent avant la première tentative.
     depends_on:
-      postgres: { condition: service_healthy }
+      api: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          memory: 128m
     networks: [internal]
 
 networks:
@@ -504,6 +495,14 @@ volumes:
   postgres_data:
   redis_data:
   photo_data:
+  # NAS du réseau local, en NFS ; adresse et chemin dans le .env, jamais dans le
+  # dépôt. La CI le remplace par un dossier local (NAS_TYPE=none, NAS_OPTIONS=bind).
+  nas:
+    driver: local
+    driver_opts:
+      type: ${NAS_TYPE:-nfs}
+      o: ${NAS_OPTIONS:?NAS_OPTIONS vide, par exemple addr=<IP du NAS>,nfsvers=4.1,soft,timeo=150,retrans=3}
+      device: ${NAS_CHEMIN:?NAS_CHEMIN vide, par exemple :/volumeN/<partage>/<dossier>}
 ```
 
 Variables à renseigner dans le `.env` (référence complète :
@@ -517,6 +516,8 @@ Variables à renseigner dans le `.env` (référence complète :
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Oui | Client OAuth Google |
 | `GOOGLE_CALLBACK_URL` | Non | `https://<domaine>/api/auth/google/callback` |
 | `ADMIN_EMAILS` | Non | Au moins votre adresse Google |
+| `NAS_OPTIONS` | Non | `addr=<IP du NAS>,nfsvers=4.1,soft,timeo=150,retrans=3` |
+| `NAS_CHEMIN` | Non | `:/volumeN/<partage>/<dossier>` |
 | `GEMINI_API_KEY` | Oui | Clé Google AI Studio |
 | `IMAGE_TAG` | Non | `latest`, ou une version (`2.26.0`) pour figer |
 
@@ -589,6 +590,7 @@ Versions avec migration ou geste particulier :
 
 | Version | À retenir |
 |---------|-----------|
+| [Suivant la 2.32.0](docs/guide-detaille.md#passage-à-la-version-suivant-la-2320-sauvegarde-vers-le-nas) | Sauvegarde vers le NAS ; **`NAS_OPTIONS` et `NAS_CHEMIN` à ajouter au `.env`**, `db-backup` remplacé |
 | [2.27.0](docs/guide-detaille.md#passage-à-la-2270-cases-numérotées-par-casier) | Colonnes `cell_prefix` et `cell_boxes` des zones, additive ; **supprimer les zones à grille et relancer l'analyse du plan** |
 | [2.24.0](docs/guide-detaille.md#passage-à-la-2240-noms-des-cases) | Colonne `cell_names` des zones, additive |
 | [2.19.0](docs/guide-detaille.md#passage-à-la-2190-modèle-de-lia-dans-ladministration) | Colonne `model` du journal Gemini, `GEMINI_PLAN_MODEL` retirée |
@@ -620,22 +622,71 @@ sauvegarde.
 
 ## Sauvegarde et restauration
 
-Le service `db-backup` dépose un `pg_dump` compressé chaque jour dans
-`BACKUP_DIR` (`./backups`), conservé 30 jours. Un fichier `cave-*.sql.gz` est
-toujours complet. Les dumps (`--clean --if-exists`) se restaurent par-dessus un
-schéma existant.
+Chaque jour dès 3 h (heure de Paris), le service `sauvegarde` copie tout ce
+qu'il faut pour remonter Ma Cave dans un dossier daté du NAS, monté en NFS
+(volume `nas`, `NAS_OPTIONS` et `NAS_CHEMIN` dans le `.env`). **Sans
+chiffrement** : le `.env` et ses secrets y sont en clair, lisibles par qui a
+accès au dossier partagé.
 
-```bash
-cd /opt/stacks/ma-cave && docker compose logs db-backup --tail=5 && ls -la backups/
+```
+<dossier>/
+├── 2026-10-28/
+│   ├── base/cave.dump      pg_dump -Fc de la base complète
+│   ├── photos/             le volume photo_data : étiquettes, références, plans, zones
+│   ├── config/             docker-compose.yml (ou compose.yaml) et .env
+│   └── sauvegarde.txt      version, début, fin, tailles
+├── …                       sept dossiers datés au plus
+└── derniere -> 2026-10-28  la plus récente réussie
 ```
 
+- Une photo inchangée est un lien physique vers celle de la veille : sept jours
+  occupent à peu près la place d'un seul.
+- Une tentative ratée ne supprime rien. Une nuit manquée (VM ou NAS éteint) est
+  rattrapée dès que le service tourne ; après un échec, il réessaie une heure
+  plus tard. Une seule sauvegarde tourne à la fois.
+- Chaque tentative est inscrite dans la table `backup_run`.
+  **Administration › Sauvegarde** montre la dernière réussite et une alerte
+  (badge « à voir » sur l'onglet) si la dernière tentative a échoué ou si
+  aucune n'a réussi depuis 36 h.
+- **Si la VM redémarre avant le NAS**, le montage échoue et le conteneur reste
+  arrêté : l'alerte des 36 h le signale. Remède, le NAS allumé :
+  `docker compose up -d sauvegarde`.
+- Le NAS doit autoriser la VM en NFS sur le dossier partagé, en lecture et
+  écriture, avec « Mappage de tous les utilisateurs ».
+
+Lancer une sauvegarde à la main (avant une mise à jour risquée) :
+**Administration › Sauvegarde › Sauvegarder maintenant**, qui part dans les
+5 minutes, ou tout de suite :
+
 ```bash
-cd /opt/stacks/ma-cave && gunzip -c backups/cave-<date>.sql.gz | docker compose exec -T postgres psql -U cave -d cave
+cd /opt/stacks/ma-cave && docker compose exec sauvegarde /app/sauvegarder.sh
+docker compose logs --since 24h sauvegarde      # journal
 ```
 
-Les photos vivent dans le volume `photo_data` : à synchroniser vers un NAS
-chaque semaine, `db-backup` ne les couvre pas. Prévoir un test de restauration
-trimestriel.
+Elle remplace celle du jour. Un changement des valeurs `NAS_*` n'agit qu'après
+`docker compose rm -sf sauvegarde && docker volume rm ma-cave_nas`, puis
+`docker compose up -d` : Docker garde les options d'un volume existant.
+
+### Restauration complète
+
+Depuis le dossier daté voulu (`<date>`, ou `derniere`), stack arrêtée sauf
+postgres :
+
+```bash
+cd /opt/stacks/ma-cave && docker compose stop api worker sauvegarde
+# Base
+docker run --rm -v ma-cave_nas:/n:ro alpine cat /n/<date>/base/cave.dump \
+  | docker compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists'
+# Photos, rendues au compte node (1000)
+docker run --rm -v ma-cave_nas:/n:ro -v ma-cave_photo_data:/p alpine sh -c 'cp -R /n/<date>/photos/. /p/ && chown -R 1000:1000 /p'
+docker compose up -d
+```
+
+Sur une VM reconstruite, reprendre d'abord `config/` depuis le NAS (le volume
+`ma-cave_nas` se crée à la main avec les mêmes options que le compose,
+`docker volume create --driver local --opt type=nfs --opt o=<NAS_OPTIONS> --opt device=<NAS_CHEMIN> ma-cave_nas`).
+Vérifier les noms réels des volumes avec `docker volume ls`. Prévoir un test de
+restauration trimestriel.
 
 ---
 
@@ -662,9 +713,10 @@ Référence : [`.env.example`](.env.example).
 | `GEMINI_API_KEY` | Oui* | Oui | Clé Google AI Studio |
 | `GEMINI_MODEL` | Non | Non | Modèle de repli quand la liste de Google est indisponible, Flash ou Lite seulement (défaut `gemini-3.8-flash`) |
 | `GEMINI_MONTHLY_CAP_CENTS` | Non | Non | Plafond mensuel approximatif en centimes (défaut `500`) |
-| `BACKUP_DIR` | Non | Non | Dossier des sauvegardes (défaut `./backups`) |
-| `BACKUP_RETENTION_DAYS` | Non | Non | Rétention en jours (défaut `30`) |
-| `BACKUP_INTERVAL_SECONDS` | Non | Non | Intervalle entre deux dumps (défaut `86400`) |
+| `NAS_OPTIONS` | Oui | Non | Options de montage NFS du NAS de sauvegarde : `addr=<IP du NAS>,nfsvers=4.1,soft,timeo=150,retrans=3` |
+| `NAS_CHEMIN` | Oui | Non | Export NFS et dossier de sauvegarde, avec le deux-points : `:/volumeN/<partage>/<dossier>` |
+| `NAS_TYPE` | Non | Non | Type du volume `nas` (défaut `nfs` ; `none` avec `NAS_OPTIONS=bind` pour un dossier local) |
+| `SAUVEGARDE_HEURE` | Non | Non | Heure de la sauvegarde quotidienne, heure de Paris (défaut `3`) |
 | `DATABASE_URL` | Dev local | Oui | URL PostgreSQL (construite par le compose en Docker) |
 | `REDIS_URL` | Non | Non | URL Redis (défaut `redis://localhost:6379`, fixée par le compose) |
 | `PHOTO_STORAGE_DIR` | Non | Non | Dossier des photos (défaut `./data/photos`, `/data/photos` en Docker) |
@@ -679,6 +731,7 @@ Référence : [`.env.example`](.env.example).
 ma-cave/
 ├── .env.example                # Modèle de réglages (copier → .env)
 ├── docker-compose.yml          # Stack complète, sauvegarde comprise
+├── sauvegarde/                 # Image de sauvegarde vers le NAS : scripts et essai
 ├── api/                        # NestJS : api et worker (même image)
 │   ├── prisma/                 # Schéma et migrations SQL
 │   └── src/

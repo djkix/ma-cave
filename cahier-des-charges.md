@@ -558,8 +558,9 @@ Trois secrets seulement : la clé de l'API de vision, le couple identifiant / se
 
 ### Sauvegardes
 
-- `pg_dump` quotidien compressé, poussé vers un partage du NAS virtualisé (VM N), rétention 30 jours.
-- Photos synchronisées vers le même partage, hebdomadaire. Le volume reste modeste : environ 200 Ko par photo normalisée, soit moins de 2 Go pour 10 000 photos.
+- Chaque nuit, un service `sauvegarde` copie vers un partage du NAS (NFS) la base (`pg_dump`), les photos et la configuration de la stack, dans un dossier daté ; sept jours gardés, sans chiffrement.
+- Photos copiées chaque nuit avec elles, une photo inchangée en lien physique vers la veille. Le volume reste modeste : environ 200 Ko par photo normalisée, soit moins de 2 Go pour 10 000 photos.
+- Chaque tentative est inscrite en base ; l'administration signale un échec, ou l'absence de sauvegarde réussie depuis 36 h, et propose « Sauvegarder maintenant ».
 - **Test de restauration trimestriel**, à noter dans la procédure. Une sauvegarde jamais restaurée n'est pas une sauvegarde.
 
 ### Sécurité
