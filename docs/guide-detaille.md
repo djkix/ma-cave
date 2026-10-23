@@ -1208,6 +1208,15 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 À lire avant une mise à jour qui change de version mineure. Les sections
 vont de la plus récente à la plus ancienne.
 
+### Passage à la version suivant la 2.32.0 (avertissement `unaccent`)
+
+Une migration, appliquée toute seule au démarrage de l'api, sans rien modifier
+ni supprimer dans les données : `20261026000000_unaccent_schema` nomme en
+entier la fonction `public.unaccent` dans `unaccent_lower` et reconstruit
+l'index trigramme des appellations. Elle fait disparaître des journaux de
+postgres l'erreur « function unaccent(text) does not exist » notée pendant
+l'analyse automatique. Rien à faire.
+
 ### Passage à la 2.30.0 (correctifs de sécurité)
 
 Aucune migration de base. Trois points à vérifier **avant** `docker compose up -d` :
