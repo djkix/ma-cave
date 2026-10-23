@@ -11,6 +11,21 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.35.1](https://github.com/djkix/ma-cave/compare/v2.35.0...v2.35.1) (2026-10-23)
 
+### Résumé
+
+**Gemini lent ou saturé : bascule immédiate.** Chaque essai a son délai
+(45 s pour la lecture d'étiquette, les accords d'un plat et la recherche
+d'image, réglable par `GEMINI_ATTEMPT_TIMEOUT_MS` ; 2 min pour les lots
+d'accords, de descriptifs et l'analyse de plan), et la requête lente est
+interrompue. Un modèle trop lent, saturé (503) ou limité à la minute (429)
+est mis de côté 15 minutes et l'appel repart aussitôt sur le modèle suivant,
+sans pause commune ; l'Administration affiche « lent ou saturé, repris à
+HH:MM ». Le `stop_grace_period` du worker passe à 270 s dans le compose.
+Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
