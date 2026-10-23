@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.33.1-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.34.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -790,6 +790,14 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.34.0 — 23 octobre 2026
+
+Publiée ([v2.34.0](https://github.com/djkix/ma-cave/releases/tag/v2.34.0)),
+images `ghcr.io/djkix/ma-cave-api:2.34.0` et `-web:2.34.0`.
+
+**Annulations lisibles**, **journal Gemini purgé** au-delà d'un an
+(`GEMINI_JOURNAL_RETENTION_DAYS`). Aucune migration.
+
 ### 2.33.1 — 23 octobre 2026
 
 Publiée ([v2.33.1](https://github.com/djkix/ma-cave/releases/tag/v2.33.1)),
@@ -865,6 +873,9 @@ images `ghcr.io/djkix/ma-cave-api:2.26.0` et `-web:2.26.0`.
 **Plus d'icône du compte** en haut à droite (onglet Réglages), passage à la
 stack `ma-cave` depuis Dockhand. Aucune migration.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.25.0 → 1.0.0)</summary>
+
 ### 2.25.0 — 22 octobre 2026
 
 Publiée ([v2.25.0](https://github.com/djkix/ma-cave/releases/tag/v2.25.0)),
@@ -873,8 +884,6 @@ images `ghcr.io/djkix/ma-cave-api:2.25.0` et `-web:2.25.0`.
 **Onglet Réglages** dans la barre du bas, version en haut à droite des Réglages,
 heure de reprise avec le jour nommé (« jeudi à 09:00 »). Aucune migration.
 
-<details>
-<summary><strong>Versions antérieures</strong> (2.24.0 → 1.0.0)</summary>
 
 ### 2.24.0 — 22 octobre 2026
 

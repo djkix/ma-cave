@@ -1248,7 +1248,7 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 À lire avant une mise à jour qui change de version mineure. Les sections
 vont de la plus récente à la plus ancienne.
 
-### Passage à la version suivant la 2.33.1 (journal Gemini purgé, annulations lisibles)
+### Passage à la 2.34.0 (journal Gemini purgé, annulations lisibles)
 
 Aucune migration. Le worker efface chaque jour, et au démarrage, les lignes du
 journal des appels Gemini (`gemini_call`) de plus de

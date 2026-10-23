@@ -11,6 +11,21 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.34.0](https://github.com/djkix/ma-cave/compare/v2.33.1...v2.34.0) (2026-10-23)
 
+### Résumé
+
+**Annulations lisibles.** Une annulation affiche ce qu'elle annule et quand
+(« Annulation de la sortie du 23 oct. 2026, 14:02 »), sur la fiche vin, dans
+le Journal et sur l'accueil, anciennes annulations comprises.
+
+**Journal Gemini purgé.** Le worker efface chaque jour les appels de plus de
+`GEMINI_JOURNAL_RETENTION_DAYS` jours (365 par défaut, 92 au minimum).
+
+**Publication.** release-please ne tourne plus qu'une fois à la fois : le
+commit de résumé ne fait plus échouer l'automatisme. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
