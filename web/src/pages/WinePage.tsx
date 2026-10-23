@@ -20,7 +20,8 @@ import { ApiError, getWine, LocationInput, postInventory } from '../lib/api-clie
 import { EMPTY_LOCATION, NO_LOCATION, toLocationInput, useLocations, useZones } from '../lib/locations';
 import { useCurrentCave } from '../lib/use-current-cave';
 
-const fmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+/** Mouvements : jour et heure (« 23 oct. 2026, 14:05 »), heure de l'appareil. */
+const fmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const TYPE_LABEL = { IN: 'Entrée', OUT: 'Sortie', ADJUST: 'Correction', MOVE: 'Déplacé' } as const;
 
 function plural(n: number) {
@@ -116,9 +117,10 @@ export function WinePage() {
     <div key={m.id} className="list__row">
       <span className={`list__delta ${m.delta > 0 ? 'list__delta--in' : 'list__delta--out'} num`}>{m.delta > 0 ? `+${m.delta}` : m.delta}</span>
       <span className="list__meta">
-        {TYPE_LABEL[m.type]}
+        {/* Type, puis date et heure, puis la description (emplacement, note). */}
+        {TYPE_LABEL[m.type]}{' · '}{fmt.format(new Date(m.occurredAt))}
         {m.type === 'MOVE' ? ` · ${m.locationLabel ?? NO_LOCATION}` : m.locationLabel ? ` · ${m.locationLabel}` : ''}
-        {' · '}{fmt.format(new Date(m.occurredAt))}{m.note ? ` · ${m.note}` : ''}
+        {m.note ? ` · ${m.note}` : ''}
       </span>
     </div>
   );

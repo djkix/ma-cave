@@ -61,8 +61,8 @@ it('liste chaque endroit et sa quantité, et les déplacements au journal du vin
   const items = section().getAllByRole('listitem').map((li) => li.textContent);
   expect(items).toEqual(['Cave 2 / B / 3 × 2', 'Garage × 1', 'Sans emplacement × 3']);
   expect(section().queryByText('Au fond, derrière l’escalier')).not.toBeInTheDocument();
-  expect(screen.getByText(/Déplacé · Cave 2 \/ B \/ 3/)).toBeInTheDocument();
-  expect(screen.getByText(/Déplacé · Sans emplacement/)).toBeInTheDocument();
+  expect(screen.getByText(/^Déplacé · .+ · Cave 2 \/ B \/ 3/)).toBeInTheDocument();
+  expect(screen.getByText(/^Déplacé · .+ · Sans emplacement/)).toBeInTheDocument();
 });
 
 it('toucher un emplacement montre ou cache l’indication et la photo de sa zone', async () => {
