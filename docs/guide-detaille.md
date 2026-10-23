@@ -1251,7 +1251,7 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 À lire avant une mise à jour qui change de version mineure. Les sections
 vont de la plus récente à la plus ancienne.
 
-### Passage à la version suivant la 2.34.0 (sauvegarde vers le NAS)
+### Passage à la 2.35.0 (sauvegarde vers le NAS)
 
 Le service `db-backup` (dump local dans `./backups`, sans les photos) est
 remplacé par `sauvegarde` : chaque nuit dès 3 h, la base (`pg_dump -Fc`), les

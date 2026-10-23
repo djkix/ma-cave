@@ -11,6 +11,23 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.35.0](https://github.com/djkix/ma-cave/compare/v2.34.0...v2.35.0) (2026-10-23)
 
+### Résumé
+
+**Sauvegarde vers le NAS.** Le service `sauvegarde` remplace `db-backup` :
+chaque nuit dès 3 h (heure de Paris), la base (`pg_dump -Fc`), les photos
+(liens physiques vers la veille) et la configuration de la stack (compose et
+`.env`, en clair) partent dans un dossier daté du NAS, en NFS ; sept jours
+gardés, une tentative ratée ne supprime rien. *Administration › Sauvegarde*
+montre la dernière réussite, alerte au bout de 36 h sans succès et propose
+« Sauvegarder maintenant ». L'api gagne une sonde de santé. **Avant la mise à
+jour**, ajouter `NAS_OPTIONS` et `NAS_CHEMIN` au `.env` (la stack refuse de
+démarrer sans), retirer les variables `BACKUP_*`, puis `up -d
+--remove-orphans` : voir « Passage à la 2.35.0 » dans `docs/guide-detaille.md`.
+Migration additive (tables `backup_run` et `backup_request`).
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 

@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.34.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.35.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -590,7 +590,7 @@ Versions avec migration ou geste particulier :
 
 | Version | À retenir |
 |---------|-----------|
-| [Suivant la 2.34.0](docs/guide-detaille.md#passage-à-la-version-suivant-la-2340-sauvegarde-vers-le-nas) | Sauvegarde vers le NAS ; **`NAS_OPTIONS` et `NAS_CHEMIN` à ajouter au `.env`**, `db-backup` remplacé |
+| [2.35.0](docs/guide-detaille.md#passage-à-la-2350-sauvegarde-vers-le-nas) | Sauvegarde vers le NAS ; **`NAS_OPTIONS` et `NAS_CHEMIN` à ajouter au `.env`**, `db-backup` remplacé |
 | [2.27.0](docs/guide-detaille.md#passage-à-la-2270-cases-numérotées-par-casier) | Colonnes `cell_prefix` et `cell_boxes` des zones, additive ; **supprimer les zones à grille et relancer l'analyse du plan** |
 | [2.24.0](docs/guide-detaille.md#passage-à-la-2240-noms-des-cases) | Colonne `cell_names` des zones, additive |
 | [2.19.0](docs/guide-detaille.md#passage-à-la-2190-modèle-de-lia-dans-ladministration) | Colonne `model` du journal Gemini, `GEMINI_PLAN_MODEL` retirée |
@@ -843,6 +843,16 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.35.0 — 23 octobre 2026
+
+Publiée ([v2.35.0](https://github.com/djkix/ma-cave/releases/tag/v2.35.0)),
+images `ghcr.io/djkix/ma-cave-api:2.35.0`, `-web:2.35.0` et
+`-sauvegarde:2.35.0`.
+
+**Sauvegarde vers le NAS** (base, photos, configuration, sept jours) à la
+place de `db-backup` ; **`NAS_OPTIONS` et `NAS_CHEMIN` à ajouter au `.env`
+avant la mise à jour**. Migration additive.
+
 ### 2.34.0 — 23 octobre 2026
 
 Publiée ([v2.34.0](https://github.com/djkix/ma-cave/releases/tag/v2.34.0)),
@@ -918,6 +928,9 @@ images `ghcr.io/djkix/ma-cave-api:2.27.0` et `-web:2.27.0`.
 le plan, vignette du plan recadrée sur la case dans la fiche vin. Migration
 additive ; zones à grille existantes à recréer (voir le guide détaillé).
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.26.0 → 1.0.0)</summary>
+
 ### 2.26.0 — 22 octobre 2026
 
 Publiée ([v2.26.0](https://github.com/djkix/ma-cave/releases/tag/v2.26.0)),
@@ -926,8 +939,6 @@ images `ghcr.io/djkix/ma-cave-api:2.26.0` et `-web:2.26.0`.
 **Plus d'icône du compte** en haut à droite (onglet Réglages), passage à la
 stack `ma-cave` depuis Dockhand. Aucune migration.
 
-<details>
-<summary><strong>Versions antérieures</strong> (2.25.0 → 1.0.0)</summary>
 
 ### 2.25.0 — 22 octobre 2026
 
