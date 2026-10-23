@@ -9,6 +9,18 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.34.0](https://github.com/djkix/ma-cave/compare/v2.33.1...v2.34.0) (2026-10-23)
+
+
+### Fonctionnalités
+
+* **api:** journal des appels Gemini purgé chaque jour au-delà d'un an ([bec136d](https://github.com/djkix/ma-cave/commit/bec136d5eea18d9e560192611947f2c24cd28591))
+
+
+### Corrections
+
+* annulation lisible dans les mouvements, sans identifiant technique ([d1fe215](https://github.com/djkix/ma-cave/commit/d1fe2155ab2d2c94ec193067e517bcd00053291e))
+
 ## [2.33.1](https://github.com/djkix/ma-cave/compare/v2.33.0...v2.33.1) (2026-10-23)
 
 ### Résumé
