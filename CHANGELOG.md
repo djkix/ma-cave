@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.33.1](https://github.com/djkix/ma-cave/compare/v2.33.0...v2.33.1) (2026-10-23)
+
+
+### Corrections
+
+* **web:** dictée du plat proposée sur téléphone seulement, champ texte d'office sur ordinateur ([7e0f225](https://github.com/djkix/ma-cave/commit/7e0f225d69f16329f53fa183b445b0070d468f59))
+
 ## [2.33.0](https://github.com/djkix/ma-cave/compare/v2.32.0...v2.33.0) (2026-10-23)
 
 ### Résumé
