@@ -307,6 +307,8 @@ const ROUTES: Route[] = [
   { method: 'GET', path: '/api/admin/guards', kind: 'admin', req: () => ({ url: '/api/admin/guards?q=bandol' }), happy: { status: 200 } },
   { method: 'PUT', path: '/api/admin/guards', kind: 'admin', req: () => ({ url: '/api/admin/guards', body: { appellationId: uuid(), guardMin: 1, guardMax: 2 } }) },
   { method: 'DELETE', path: '/api/admin/guards/:id', kind: 'admin', req: () => ({ url: `/api/admin/guards/${uuid()}` }) },
+  { method: 'GET', path: '/api/admin/backup', kind: 'admin', req: () => ({ url: '/api/admin/backup' }), happy: { status: 200, check: (res) => expect(res.body).toMatchObject({ requested: expect.any(Boolean) }) } },
+  { method: 'POST', path: '/api/admin/backup/request', kind: 'admin', req: () => ({ url: '/api/admin/backup/request' }), happy: { status: 204 } },
   { method: 'GET', path: '/api/admin/reading-quality', kind: 'admin', req: () => ({ url: '/api/admin/reading-quality' }), happy: { status: 200 } },
   {
     method: 'PUT', path: '/api/producers/:key/description', kind: 'admin',
@@ -470,6 +472,8 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
       await prisma.producerProfile.deleteMany({ where: { displayName: { startsWith: `Domaine Iso ${run}` } } });
       await prisma.cave.deleteMany({ where: { ownerId: { in: userIds } } });
       await prisma.appUser.deleteMany({ where: { id: { in: userIds } } });
+      // Demande laissée par POST /api/admin/backup/request : base de test seulement, aucun service ne la prendrait.
+      await prisma.backupRequest.deleteMany();
     }
     if (app) await app.close();
     if (sessionRedis) await sessionRedis.quit();

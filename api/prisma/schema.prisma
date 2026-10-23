@@ -490,3 +490,26 @@ model PriceQuote {
   @@index([wineId, quotedOn])
   @@map("price_quote")
 }
+
+/// Sauvegarde vers le NAS : une ligne par tentative, écrite par le service
+/// `sauvegarde` (sauvegarde/sauvegarder.sh, en SQL), lue par l'Administration.
+/// Message technique seulement (« étape photos (code 23) »), vide si réussie.
+model BackupRun {
+  id         Int      @id @default(autoincrement())
+  startedAt  DateTime @map("started_at")
+  finishedAt DateTime @map("finished_at")
+  succeeded  Boolean
+  message    String
+
+  @@index([finishedAt])
+  @@map("backup_run")
+}
+
+/// « Sauvegarder maintenant » (Administration) : le service `sauvegarde` prend
+/// la demande dans les 5 minutes et efface la ligne (sauvegarde/planifier.sh).
+model BackupRequest {
+  id          Int      @id @default(autoincrement())
+  requestedAt DateTime @default(now()) @map("requested_at")
+
+  @@map("backup_request")
+}
