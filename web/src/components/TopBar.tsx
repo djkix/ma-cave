@@ -19,7 +19,7 @@ export function TopBar({ title, back }: { title?: string; back?: string }) {
           <Icon name="arrow_back" />
         </Link>
       ) : (
-        <img src="/icons/icon.svg" alt="" className="topbar__logo" width={32} height={32} />
+        <Link to="/" className="topbar__home" aria-label="Accueil"><img src="/icons/icon.svg" alt="" className="topbar__logo" width={32} height={32} /></Link>
       )}
       <h1 className="topbar__title">{title ?? 'Ma Cave'}</h1>
       <CaveSwitcher />

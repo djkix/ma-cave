@@ -76,7 +76,12 @@ export function LocationButton({ places }: { places: Place[] }) {
       <button type="button" className="wine-head__location" aria-label="Voir l’emplacement" onClick={() => { setOpen(true); dialog.current?.showModal(); }}>
         <Icon name="location_on" />
       </button>
-      <dialog ref={dialog} className="location-dialog" aria-labelledby={titleId} onClose={() => setOpen(false)}>
+      <dialog ref={dialog} className="location-dialog" aria-labelledby={titleId} onClose={() => setOpen(false)}
+        onClick={(e) => {
+          // Un clic hors du cadre (sur le fond) atteint le <dialog> lui-même, hors de sa boîte : il ferme.
+          const r = e.currentTarget.getBoundingClientRect();
+          if (e.target === e.currentTarget && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) e.currentTarget.close();
+        }}>
         <h2 id={titleId} style={{ fontSize: 18, marginTop: 0 }}>Emplacement</h2>
         {open && (
           <ul className="locations-list">

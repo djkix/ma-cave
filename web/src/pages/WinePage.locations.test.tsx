@@ -289,7 +289,7 @@ describe('inventaire', () => {
     const inv = screen.getByRole('group', { name: 'D\'où sortent-elles ?' });
     expect(within(inv).getByRole('radio', { name: 'Cave 2 / B / 3 · 2' })).toBeChecked();
     await userEvent.click(within(inv).getByRole('radio', { name: 'Garage · 1' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer l’inventaire' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le stock' }));
     await waitFor(() => expect(inventory).toHaveBeenCalledWith('w1', { idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/), counted: 5, locationId: 'l2' }));
   });
 
@@ -306,7 +306,7 @@ describe('inventaire', () => {
     await userEvent.selectOptions(zone, 'Garage');
     expect(where.getByText('Au fond, derrière l’escalier')).toBeInTheDocument();
     await userEvent.type(where.getByLabelText('Casier'), 'Haut');
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer l’inventaire' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le stock' }));
     await waitFor(() => expect(inventory).toHaveBeenCalledWith('w1', {
       idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/), counted: 8, location: { zoneId: 'z1', casier: 'Haut', position: null },
     }));
@@ -318,7 +318,7 @@ describe('inventaire', () => {
     const inventory = vi.spyOn(api, 'postInventory').mockResolvedValue({ movement: { id: 'a1' }, stock: 8, delta: 2, created: true });
     mount();
     await count('8');
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer l’inventaire' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le stock' }));
     await waitFor(() => expect(inventory).toHaveBeenCalledWith('w1', { idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/), counted: 8, locationId: null }));
   });
 
@@ -328,7 +328,7 @@ describe('inventaire', () => {
     vi.spyOn(api, 'postInventory').mockRejectedValue(new api.ApiError(409, 'Pas assez de bouteilles à cet emplacement'));
     mount();
     await count('3');
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer l’inventaire' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le stock' }));
     expect(await screen.findByText('Pas assez de bouteilles à cet emplacement')).toBeInTheDocument();
   });
 });

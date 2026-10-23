@@ -403,3 +403,15 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 .photo-picker__button--disabled { opacity: 0.5; cursor: not-allowed; }
 .photo-picker__input:focus-visible + .photo-picker__button { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
 .photo-picker__name { font-size: 14px; color: var(--color-secondary); overflow-wrap: anywhere; min-width: 0; }
+
+/* Logo de la barre du haut : retour à l'accueil. */
+.topbar__home { display: inline-flex; }
+/* Cote : les sites sur une ligne, à parts égales. */
+.quote-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--space-sm); margin: var(--space-sm) 0; }
+.quote-links .btn { padding: 0 var(--space-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Correction du stock, sous la sortie dans le même bloc. */
+.stock-extra { display: grid; gap: var(--space-sm); margin-top: var(--space-md); padding-top: var(--space-sm); border-top: 1px solid var(--color-outline-subtle); }
+.stock-stepper { display: flex; align-items: center; justify-content: center; gap: var(--space-md); }
+.stock-stepper__value { width: 4ch; text-align: center; font-size: 28px; border: 0; background: transparent; color: var(--color-on-surface); }
+/* Historique de la fiche vin : au-delà des trois derniers, en accordéon. */
+.history-more summary { cursor: pointer; color: var(--color-primary); font-weight: 600; padding: var(--space-sm) 0; }

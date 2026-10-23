@@ -114,15 +114,15 @@ export function QuoteBlock({ wineId, quote, searchLinks, savedUrl }: {
         </div>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', flexWrap: 'wrap' }}>
+          {/* Les sites sur une seule ligne, libellé court ; la saisie dessous. */}
+          <div className="quote-links">
             {searchLinks.map((l) => (
               <a key={l.site} className="btn btn--outline" href={l.url} target="_blank" rel="noopener noreferrer">
-                {`Voir sur ${l.label}`}
-                <span className="visually-hidden"> (nouvel onglet)</span>
+                <span className="visually-hidden">Voir sur </span>{l.label}<span className="visually-hidden"> (nouvel onglet)</span>
               </a>
             ))}
-            <Button variant="outline" onClick={open}>{quote ? 'Mettre à jour' : 'Saisir la cote'}</Button>
           </div>
+          <Button variant="outline" onClick={open}>{quote ? 'Mettre à jour' : 'Saisir la cote'}</Button>
           <p className="list__meta" style={{ margin: 'var(--space-xs) 0 0' }}>{searchLinks.map((l) => `${l.label} : ${l.hint}`).join(' · ')}</p>
         </>
       )}

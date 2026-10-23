@@ -5,6 +5,7 @@ import { ApogeeBlock } from '../components/ApogeeBlock';
 import { BottomNav } from '../components/BottomNav';
 import { Button } from '../components/Button';
 import { DomaineBlock, producerPollInterval } from '../components/DomaineBlock';
+import { Icon } from '../components/Icon';
 import { ImageSearchBlock } from '../components/ImageSearchBlock';
 import { PlacePicker } from '../components/LocationFields';
 import { PlanCellPicker } from '../components/PlanCellPicker';
@@ -27,6 +28,9 @@ function plural(n: number) {
 }
 
 const MAX_COUNTED = 100_000;
+
+/** Mouvements visibles d'emblée sur la fiche ; les autres sont repliés. */
+const RECENT_MOVEMENTS = 3;
 
 export function WinePage() {
   const { wineId = '' } = useParams();
@@ -108,6 +112,17 @@ export function WinePage() {
     }
   }
 
+  const movementRow = (m: (typeof movements)[number]) => (
+    <div key={m.id} className="list__row">
+      <span className={`list__delta ${m.delta > 0 ? 'list__delta--in' : 'list__delta--out'} num`}>{m.delta > 0 ? `+${m.delta}` : m.delta}</span>
+      <span className="list__meta">
+        {TYPE_LABEL[m.type]}
+        {m.type === 'MOVE' ? ` · ${m.locationLabel ?? NO_LOCATION}` : m.locationLabel ? ` · ${m.locationLabel}` : ''}
+        {' · '}{fmt.format(new Date(m.occurredAt))}{m.note ? ` · ${m.note}` : ''}
+      </span>
+    </div>
+  );
+
   return (
     <>
       <TopBar title="Fiche vin" back="/cave" />
@@ -147,51 +162,55 @@ export function WinePage() {
 
         {places && places.length > 0 && <LocationsBlock key={`locations-${wine.id}`} wineId={wine.id} places={places} readOnly={readOnly} />}
 
-        {/* Endroits toujours fournis (vide = inconnus) : la sortie ne relit pas la fiche que la page tient déjà. */}
-        {!readOnly && <SortieConfirmation key={wine.id} wine={wine} places={places ?? []} exitDefault={detail.data.exitDefault} />}
-
-        {!readOnly && <section className="card">
-          {inventoryMessage && <p role="status">{inventoryMessage}</p>}
-          {!counting ? (
-            <Button variant="outline" onClick={() => { setCounting(true); setCounted(String(wine.quantity)); setInventoryMessage(null); setInventoryPlace(null); setIncreaseTo(EMPTY_LOCATION); }}>
-              Corriger le stock
-            </Button>
-          ) : (
-            <>
-              <label className="field__label">
-                Bouteilles comptées
-                <input inputMode="numeric" value={counted} onChange={(e) => setCounted(e.target.value.trim())} />
-              </label>
-              {places && delta !== null && delta < 0 && places.length > 1 && (
-                <PlacePicker legend="D'où sortent-elles ?" places={places} value={decreasePlace} onChange={(id) => setInventoryPlace({ id })} />
-              )}
-              {places && delta !== null && delta > 0 && (
-                <fieldset className="move-form__to">
-                  <legend className="field__label">Emplacement</legend>
-                  <PlanCellPicker value={increaseTo} onChange={setIncreaseTo} locations={cellar.data ?? []} zones={zones.data} />
-                </fieldset>
-              )}
-              <p>{tooMany ? 'Nombre de bouteilles trop élevé' : delta === null ? 'Saisis un nombre entier' : delta === 0 ? 'Stock déjà juste' : `${delta > 0 ? '+' : '−'}${plural(Math.abs(delta))}`}</p>
-              {inventoryError && <p role="alert" className="text-error">{inventoryError}</p>}
-              <Button variant="dark" onClick={saveInventory} disabled={saving || delta === null || delta === 0}>Enregistrer l’inventaire</Button>
-              <Button variant="link" onClick={() => setCounting(false)}>Abandonner</Button>
-            </>
-          )}
-        </section>}
+        {/* Sortie et correction du stock dans un même bloc. Endroits toujours
+            fournis (vide = inconnus) : la sortie ne relit pas la fiche que la page tient déjà. */}
+        {!readOnly && (
+          <SortieConfirmation key={wine.id} wine={wine} places={places ?? []} exitDefault={detail.data.exitDefault}>
+            {inventoryMessage && <p role="status" style={{ margin: 0 }}>{inventoryMessage}</p>}
+            {!counting ? (
+              <Button variant="link" onClick={() => { setCounting(true); setCounted(String(wine.quantity)); setInventoryMessage(null); setInventoryPlace(null); setIncreaseTo(EMPTY_LOCATION); }}>
+                Corriger le stock
+              </Button>
+            ) : (
+              <>
+                <p className="field__label" style={{ margin: 0 }}>Corriger le stock : ajouter ou enlever des bouteilles</p>
+                <div className="stock-stepper">
+                  <Button variant="outline" onClick={() => setCounted(String(Math.max(0, (parsed ?? wine.quantity) - 1)))} disabled={parsed === 0} aria-label="Enlever une bouteille">
+                    <Icon name="remove" />
+                  </Button>
+                  <label className="visually-hidden" htmlFor={`counted-${wine.id}`}>Bouteilles comptées</label>
+                  <input id={`counted-${wine.id}`} className="num stock-stepper__value" inputMode="numeric" value={counted} onChange={(e) => setCounted(e.target.value.trim())} />
+                  <Button variant="outline" onClick={() => setCounted(String(Math.min(MAX_COUNTED, (parsed ?? wine.quantity) + 1)))} aria-label="Ajouter une bouteille">
+                    <Icon name="add" />
+                  </Button>
+                </div>
+                {places && delta !== null && delta < 0 && places.length > 1 && (
+                  <PlacePicker legend="D'où sortent-elles ?" places={places} value={decreasePlace} onChange={(id) => setInventoryPlace({ id })} />
+                )}
+                {places && delta !== null && delta > 0 && (
+                  <fieldset className="move-form__to">
+                    <legend className="field__label">Emplacement</legend>
+                    <PlanCellPicker value={increaseTo} onChange={setIncreaseTo} locations={cellar.data ?? []} zones={zones.data} />
+                  </fieldset>
+                )}
+                <p style={{ margin: 0, textAlign: 'center' }}>{tooMany ? 'Nombre de bouteilles trop élevé' : delta === null ? 'Saisis un nombre entier' : delta === 0 ? 'Stock déjà juste' : `${delta > 0 ? '+' : '−'}${plural(Math.abs(delta))}`}</p>
+                {inventoryError && <p role="alert" className="text-error">{inventoryError}</p>}
+                <Button variant="dark" onClick={saveInventory} disabled={saving || delta === null || delta === 0}>Enregistrer le stock</Button>
+                <Button variant="link" onClick={() => setCounting(false)}>Abandonner</Button>
+              </>
+            )}
+          </SortieConfirmation>
+        )}
 
         <h2 style={{ fontSize: 14, letterSpacing: '0.08em', color: 'var(--color-secondary)' }}>DERNIERS MOUVEMENTS</h2>
-        <div className="list">
-          {movements.map((m) => (
-            <div key={m.id} className="list__row">
-              <span className={`list__delta ${m.delta > 0 ? 'list__delta--in' : 'list__delta--out'} num`}>{m.delta > 0 ? `+${m.delta}` : m.delta}</span>
-              <span className="list__meta">
-                {TYPE_LABEL[m.type]}
-                {m.type === 'MOVE' ? ` · ${m.locationLabel ?? NO_LOCATION}` : m.locationLabel ? ` · ${m.locationLabel}` : ''}
-                {' · '}{fmt.format(new Date(m.occurredAt))}{m.note ? ` · ${m.note}` : ''}
-              </span>
-            </div>
-          ))}
-        </div>
+        {/* Les trois derniers mouvements ; les autres repliés sous « Plus d'historique ». */}
+        <div className="list">{movements.slice(0, RECENT_MOVEMENTS).map(movementRow)}</div>
+        {movements.length > RECENT_MOVEMENTS && (
+          <details className="history-more">
+            <summary>Plus d’historique ({movements.length - RECENT_MOVEMENTS})</summary>
+            <div className="list">{movements.slice(RECENT_MOVEMENTS).map(movementRow)}</div>
+          </details>
+        )}
       </main>
       <BottomNav />
     </>

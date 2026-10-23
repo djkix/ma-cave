@@ -50,7 +50,7 @@ it('annonce l’écart avant de corriger le stock', async () => {
   await userEvent.clear(screen.getByLabelText('Bouteilles comptées'));
   await userEvent.type(screen.getByLabelText('Bouteilles comptées'), '4');
   expect(screen.getByText('−2 bouteilles')).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer l’inventaire' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le stock' }));
   await waitFor(() => expect(inventory).toHaveBeenCalledWith('w1', { idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/), counted: 4 }));
 });
 
@@ -60,7 +60,7 @@ it('dit « stock déjà juste » et n’envoie rien quand le compte est identiqu
   mount();
   await userEvent.click(await screen.findByRole('button', { name: 'Corriger le stock' }));
   expect(screen.getByText('Stock déjà juste')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Enregistrer l’inventaire' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Enregistrer le stock' })).toBeDisabled();
   expect(inventory).not.toHaveBeenCalled();
 });
 
@@ -70,7 +70,7 @@ it('refuse un compte négatif ou décimal', async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'Corriger le stock' }));
   await userEvent.clear(screen.getByLabelText('Bouteilles comptées'));
   await userEvent.type(screen.getByLabelText('Bouteilles comptées'), '2.5');
-  expect(screen.getByRole('button', { name: 'Enregistrer l’inventaire' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Enregistrer le stock' })).toBeDisabled();
 });
 
 it('refuse un compte au-delà de 100 000 bouteilles', async () => {
@@ -81,8 +81,8 @@ it('refuse un compte au-delà de 100 000 bouteilles', async () => {
   await userEvent.clear(screen.getByLabelText('Bouteilles comptées'));
   await userEvent.type(screen.getByLabelText('Bouteilles comptées'), '100001');
   expect(screen.getByText('Nombre de bouteilles trop élevé')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Enregistrer l’inventaire' })).toBeDisabled();
-  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer l’inventaire' }));
+  expect(screen.getByRole('button', { name: 'Enregistrer le stock' })).toBeDisabled();
+  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le stock' }));
   expect(inventory).not.toHaveBeenCalled();
 });
 
@@ -411,4 +411,14 @@ describe('selon le rôle', () => {
     expect(await domaine.findByRole('button', { name: 'Modifier' })).toBeInTheDocument();
     expect(domaine.getByRole('button', { name: 'Régénérer' })).toBeInTheDocument();
   });
+});
+
+it('montre les trois derniers mouvements et replie les autres sous « Plus d’historique »', async () => {
+  const movements = Array.from({ length: 5 }, (_, i) => ({ id: `m${i}`, delta: 1, type: 'IN', occurredAt: `2026-09-2${i}T10:00:00Z`, note: `n${i}`, reversesId: null }));
+  vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, movements } as unknown as api.WineDetail);
+  mount();
+  const more = await screen.findByText('Plus d’historique (2)');
+  expect(more.closest('details')).not.toHaveAttribute('open');
+  expect(screen.getByText(/n0/).closest('details')).toBeNull();
+  expect(screen.getByText(/n4/).closest('details')).not.toBeNull();
 });
