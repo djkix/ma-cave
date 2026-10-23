@@ -109,6 +109,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Rien ne sort** sans confirmation
 
 ### 📒 Journal et inventaire
+- **Journal dans les Réglages** (carte *Journal*, propriétaire seulement) ; l'onglet du bas devient *Accords*, ouvert aussi aux membres
 - **20 derniers mouvements**, annulables en un tap (propriétaire)
 - Une annulation écrit un **mouvement inverse** : rien n'est supprimé
 - **Corriger le stock** : inventaire physique, écart annoncé avant d'enregistrer
@@ -128,6 +129,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Règles d'apogée réglables par l'administrateur
 
 ### 🍽️ Accords et descriptifs
+- **Accords vins** : dites (ou écrivez) le plat que vous préparez, l'onglet *Accords* propose jusqu'à 5 vins de votre cave, à boire d'abord, avec un score d'accord, une raison et l'apogée ; toucher un vin ouvre sa fiche, le retour ramène à la même liste
 - **Jusqu'à 8 plats** suggérés par Gemini pour chaque vin
 - **Descriptif du domaine** (3 à 4 phrases), partagé par toutes les caves
 - Générés **par lots de 10** en arrière-plan, **Régénérer** à la demande
