@@ -12,8 +12,8 @@ const quota = (over: Partial<api.GeminiQuotaUsage> = {}): api.GeminiQuotaUsage =
   minute: { requests: 1, tokens: 2700 },
   dayResetsAt: '2026-10-22T07:00:00.000Z',
   models: [
-    { model: 'gemini-3.5-flash', requests: 20, limits: LIMITS, exhaustedUntil: '2026-10-22T07:00:00.000Z' },
-    { model: 'gemini-3.5-flash-lite', requests: 7, limits: { rpm: 10, tpm: 250000, rpd: 1000 }, exhaustedUntil: null },
+    { model: 'gemini-3.5-flash', requests: 20, limits: LIMITS, exhaustedUntil: '2026-10-22T07:00:00.000Z', asideUntil: null },
+    { model: 'gemini-3.5-flash-lite', requests: 7, limits: { rpm: 10, tpm: 250000, rpd: 1000 }, exhaustedUntil: null, asideUntil: null },
   ],
   error: null,
   ...over,
@@ -32,7 +32,7 @@ const text = (el: Element | null) => el?.textContent?.replace(/\s/g, ' ');
 it('titre, règle du choix automatique, modèle en cours en évidence, aucun sélecteur de modèle', async () => {
   mount();
   expect(screen.getByRole('heading', { name: 'Modèle Gemini (automatique)' })).toBeInTheDocument();
-  expect(screen.getByText('L’application choisit seule le modèle : le plus récent dont le quota du jour n’est pas atteint, puis le suivant.')).toBeInTheDocument();
+  expect(screen.getByText('L’application choisit seule le modèle : le plus récent dont le quota du jour n’est pas atteint et qui répond normalement, puis le suivant. Un modèle lent ou saturé est mis de côté 15 minutes.')).toBeInTheDocument();
   expect((await screen.findByText('gemini-3.5-flash-lite', { selector: 'strong' })).tagName).toBe('STRONG');
   expect(screen.getByText((_, el) => el?.tagName === 'SPAN' && text(el) === 'Cette minute : 1 / 10 requêtes, 2 700 / 250 000 jetons')).toBeInTheDocument();
   expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
@@ -82,9 +82,22 @@ it('limites refusées par l’api : son message tel quel', async () => {
 });
 
 it('tous les modèles épuisés : heure de reprise, limites du premier', async () => {
-  mount(quota({ current: null, models: [{ model: 'gemini-3.5-flash', requests: 20, limits: LIMITS, exhaustedUntil: '2026-10-22T07:00:00.000Z' }] }));
+  mount(quota({ current: null, models: [{ model: 'gemini-3.5-flash', requests: 20, limits: LIMITS, exhaustedUntil: '2026-10-22T07:00:00.000Z', asideUntil: null }] }));
   expect(await screen.findByText('Tous les modèles ont atteint leur quota du jour : reprise à 09:00.')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Limites de gemini-3.5-flash' })).toBeInTheDocument();
+});
+
+it('modèle lent ou saturé : badge avec l’heure de reprise ; tous écartés : la reprise la plus proche', async () => {
+  mount(quota({
+    current: null,
+    models: [
+      { model: 'gemini-3.8-flash', requests: 3, limits: LIMITS, exhaustedUntil: null, asideUntil: '2026-10-21T12:20:00.000Z' },
+      { model: 'gemini-3.6-flash', requests: 20, limits: LIMITS, exhaustedUntil: '2026-10-22T07:00:00.000Z', asideUntil: null },
+    ],
+  }));
+  expect(await screen.findByText('lent ou saturé, repris à 14:20')).toHaveClass('badge');
+  expect(screen.getByText('épuisé jusqu’à 09:00')).toBeInTheDocument();
+  expect(screen.getByText('Tous les modèles sont épuisés ou mis de côté : reprise à 14:20.')).toBeInTheDocument();
 });
 
 it('liste de Google indisponible : l’erreur de l’api en clair', async () => {

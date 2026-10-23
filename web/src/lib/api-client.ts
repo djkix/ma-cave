@@ -104,10 +104,13 @@ export const getGeminiUsage = (days: number) => apiFetch<GeminiUsage>(`/admin/ge
 
 /** Limites de débit Gemini : requêtes par minute, jetons par minute, requêtes par jour. */
 export interface GeminiLimits { rpm: number; tpm: number; rpd: number }
-/** Requêtes du jour et limites d'un modèle ; `exhaustedUntil` : quota du jour atteint, jusqu'à quand. */
-export interface GeminiModelDayUsage { model: string; requests: number; limits: GeminiLimits; exhaustedUntil: string | null }
 /**
- * Modèles choisis seuls par l'api : `current`, le premier dont le quota du jour n'est pas atteint (null : tous épuisés) ;
+ * Requêtes du jour et limites d'un modèle ; `exhaustedUntil` : quota du jour atteint, jusqu'à quand ;
+ * `asideUntil` : mis de côté 15 min (lent ou saturé), jusqu'à quand.
+ */
+export interface GeminiModelDayUsage { model: string; requests: number; limits: GeminiLimits; exhaustedUntil: string | null; asideUntil: string | null }
+/**
+ * Modèles choisis seuls par l'api : `current`, le premier ni épuisé ni mis de côté (null : aucun) ;
  * `minute` : ses 60 dernières secondes ; `models` dans l'ordre d'emploi ; `dayResetsAt` : prochain minuit du Pacifique (ISO) ;
  * `error` : liste de Google indisponible (modèle du .env seul).
  */

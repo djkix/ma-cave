@@ -7,8 +7,8 @@ const parisTime = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', h
 const LIMIT_FIELDS: Array<[keyof GeminiLimits, string]> = [['rpm', 'Requêtes par minute'], ['tpm', 'Jetons par minute'], ['rpd', 'Requêtes par jour']];
 
 /**
- * Modèle Gemini choisi seul par l'api (le plus récent dont le quota du jour n'est
- * pas atteint), modèles dans l'ordre d'emploi et limites de débit de chacun
+ * Modèle Gemini choisi seul par l'api (le plus récent ni épuisé pour la journée
+ * ni mis de côté pour lenteur ou saturation), modèles dans l'ordre d'emploi et limites de débit de chacun
  * (niveau sans frais de Google, compté modèle par modèle), relus toutes les 30 s.
  */
 export function GeminiModelSection() {
@@ -28,6 +28,8 @@ export function GeminiModelSection() {
   const d = q.data;
   const selected = d?.models.find((m) => m.model === picked) ?? d?.models.find((m) => m.model === d.current) ?? d?.models[0];
   const current = d?.models.find((m) => m.model === d.current);
+  // Aucun modèle disponible : la reprise la plus proche (fin d'une mise de côté, sinon minuit du Pacifique).
+  const resumesAt = d && [d.dayResetsAt, ...d.models.flatMap((m) => (m.asideUntil ? [m.asideUntil] : []))].sort()[0];
   const value = (key: keyof GeminiLimits) => draft[key] ?? (selected ? String(selected.limits[key]) : '');
 
   function pick(model: string) {
@@ -46,7 +48,7 @@ export function GeminiModelSection() {
     <section className="card">
       <h2 style={{ fontSize: 18 }}>Modèle Gemini (automatique)</h2>
       <p className="list__meta">Sert à la lecture des étiquettes, aux accords, aux descriptifs, à la recherche d’image et à l’analyse des plans.</p>
-      <p className="list__meta">L’application choisit seule le modèle : le plus récent dont le quota du jour n’est pas atteint, puis le suivant.</p>
+      <p className="list__meta">L’application choisit seule le modèle : le plus récent dont le quota du jour n’est pas atteint et qui répond normalement, puis le suivant. Un modèle lent ou saturé est mis de côté 15 minutes.</p>
       {q.isError && <p role="alert" className="text-error">{(q.error as Error).message}</p>}
       {d?.error && <p role="alert" className="text-error">{d.error}</p>}
       {d && (
@@ -58,6 +60,8 @@ export function GeminiModelSection() {
                 {`Cette minute : ${n(d.minute.requests)} / ${n(current.limits.rpm)} requêtes, ${n(d.minute.tokens)} / ${n(current.limits.tpm)} jetons`}
               </span>
             </>
+          ) : d.models.some((m) => m.asideUntil) ? (
+            `Tous les modèles sont épuisés ou mis de côté : reprise à ${parisTime.format(new Date(resumesAt!))}.`
           ) : d.models.length > 0 ? (
             `Tous les modèles ont atteint leur quota du jour : reprise à ${parisTime.format(new Date(d.dayResetsAt))}.`
           ) : (
@@ -75,6 +79,7 @@ export function GeminiModelSection() {
                   <input type="radio" name="gemini-limits-model" checked={m.model === selected?.model} onChange={() => pick(m.model)} />
                   {`${m.model} : ${n(m.requests)} / ${n(m.limits.rpd)} requêtes aujourd’hui`}
                   {m.exhaustedUntil && <> <span className="badge badge--warn">{`épuisé jusqu’à ${parisTime.format(new Date(m.exhaustedUntil))}`}</span></>}
+                  {m.asideUntil && <> <span className="badge badge--warn">{`lent ou saturé, repris à ${parisTime.format(new Date(m.asideUntil))}`}</span></>}
                 </label>
               </li>
             ))}
