@@ -136,6 +136,22 @@ export class GeminiQuotaError extends GeminiPausedError {
   }
 }
 
+/** Un modèle lent (délai d'essai dépassé) ou saturé (503, 429 non journalier) est mis de côté ce temps-là. */
+export const MODEL_ASIDE_MS = 15 * 60_000;
+export const MODEL_ASIDE_REASON = 'modèle lent ou saturé';
+
+/**
+ * Refus du limiteur local : le modèle est mis de côté (voir
+ * GeminiQuotaService.markUnavailable) jusqu'à `until`. Rien n'est parti ; la
+ * bascule passe au modèle suivant.
+ */
+export class GeminiModelAsideError extends GeminiPausedError {
+  constructor(until: Date, now = new Date()) {
+    super(until, MODEL_ASIDE_REASON, pauseMessage(until, MODEL_ASIDE_REASON, now));
+    this.name = 'GeminiModelAsideError';
+  }
+}
+
 export interface GeminiPause {
   until: Date;
   reason: string;

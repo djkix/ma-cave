@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import type Redis from 'ioredis';
-import { GeminiQuotaError, nextPacificMidnight, pacificDay } from './gemini-pause';
+import { GeminiModelAsideError, GeminiPausedError, GeminiQuotaError, nextPacificMidnight, pacificDay } from './gemini-pause';
 
 /**
  * Réglages `app_setting` des limites de débit Gemini (niveau sans frais de
@@ -21,16 +21,20 @@ export interface GeminiLimits {
 
 export const DEFAULT_LIMITS: GeminiLimits = { rpm: 5, tpm: 250_000, rpd: 20 };
 
-/** Requêtes du jour et limites d'un modèle ; `exhaustedUntil` : quota du jour atteint, jusqu'à quand. */
+/**
+ * Requêtes du jour et limites d'un modèle ; `exhaustedUntil` : quota du jour
+ * atteint, jusqu'à quand ; `asideUntil` : mis de côté (lent ou saturé), jusqu'à quand.
+ */
 export interface GeminiModelDayUsage {
   model: string;
   requests: number;
   limits: GeminiLimits;
   exhaustedUntil: string | null;
+  asideUntil: string | null;
 }
 
 export interface GeminiQuotaUsage {
-  /** Modèle en cours : le premier dont le quota du jour n'est pas atteint ; null si tous le sont (ou aucun modèle). */
+  /** Modèle en cours : le premier ni épuisé ni mis de côté ; null si aucun (ou aucun modèle). */
   current: string | null;
   /** 60 dernières secondes du modèle en cours (à défaut, du premier). */
   minute: { requests: number; tokens: number };
@@ -53,9 +57,10 @@ const DAY_TTL_S = 26 * 3600;
  * Réservation atomique sur 60 s glissantes, pour un modèle. KEYS : requêtes
  * (ensemble trié, score = instant), jetons (ensemble trié, membre
  * « id:jetons »), requêtes du jour du Pacifique, marque « épuisé » (429
- * journalier de Google, voir `markExhausted`). ARGV : maintenant (ms), rpm, tpm, rpd, identifiant, essai
+ * journalier de Google, voir `markExhausted`), marque « mis de côté » (voir
+ * `markUnavailable`). ARGV : maintenant (ms), rpm, tpm, rpd, identifiant, essai
  * à blanc (1 : rien n'est écrit). Rend {0} (place prise), {3} (jour), ou
- * {1|2, instant} : la place se libère quand l'entrée de cet instant sort de la
+ * {4, fin de la mise de côté}, ou {1|2, instant} : la place se libère quand l'entrée de cet instant sort de la
  * fenêtre (requêtes : la plus ancienne ; jetons : celle qui ramène sous le
  * plafond). Le jour est vérifié d'abord : son attente est la plus longue.
  */
@@ -66,6 +71,8 @@ redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', from)
 redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', from)
 if redis.call('EXISTS', KEYS[4]) == 1 then return {3} end
 if tonumber(redis.call('GET', KEYS[3]) or '0') + 1 > tonumber(ARGV[4]) then return {3} end
+local aside = redis.call('PTTL', KEYS[5])
+if aside > 0 then return {4, now + aside} end
 if redis.call('ZCARD', KEYS[1]) + 1 > tonumber(ARGV[2]) then
   return {1, tonumber(redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')[2])}
 end
@@ -150,9 +157,9 @@ export class GeminiQuotaService {
     return limits;
   }
 
-  /** Avant chaque appel : une place pour ce modèle, ou `GeminiQuotaError` avec l'heure de reprise. Redis injoignable : l'appel part. */
+  /** Avant chaque appel : une place pour ce modèle, ou `GeminiQuotaError` (`GeminiModelAsideError` : mis de côté) avec l'heure de reprise. Redis injoignable : l'appel part. */
   async reserve(model: string, now = new Date(this.clock())): Promise<void> {
-    let refusal: GeminiQuotaError | null;
+    let refusal: GeminiPausedError | null;
     try {
       refusal = await this.check(model, now, false);
     } catch (e) {
@@ -164,17 +171,17 @@ export class GeminiQuotaService {
 
   /**
    * Refus qu'essuierait un appel maintenant, sans rien réserver, en suivant la
-   * bascule : le premier modèle dont le quota du jour n'est pas atteint décide
-   * (null ou son refus à la minute) ; tous épuisés : le refus du jour du
-   * premier. Redis injoignable : null (journalisé).
+   * bascule : le premier modèle ni épuisé ni mis de côté décide (null ou son
+   * refus à la minute) ; aucun : le refus dont la reprise est la plus proche
+   * (le premier à égalité). Redis injoignable : null (journalisé).
    */
-  async blocked(models: string[], now = new Date(this.clock())): Promise<GeminiQuotaError | null> {
-    let day: GeminiQuotaError | null = null;
+  async blocked(models: string[], now = new Date(this.clock())): Promise<GeminiPausedError | null> {
+    let day: GeminiPausedError | null = null;
     try {
       for (const model of models) {
         const refusal = await this.check(model, now, true);
-        if (refusal?.reason !== 'QUOTA_JOUR') return refusal;
-        day ??= refusal;
+        if (!skipsToNext(refusal)) return refusal;
+        if (!day || refusal.until < day.until) day = refusal;
       }
     } catch (e) {
       this.log.error(`Limiteur Gemini illisible : ${messageOf(e)}`);
@@ -192,10 +199,23 @@ export class GeminiQuotaService {
     }
   }
 
-  private async check(model: string, now: Date, dryRun: boolean): Promise<GeminiQuotaError | null> {
+  /**
+   * Modèle lent ou saturé : refusé jusqu'à `until` (api et worker), la bascule
+   * passe au suivant. Redis injoignable : journalisé.
+   */
+  async markUnavailable(model: string, until: Date, now = new Date(this.clock())): Promise<void> {
+    try {
+      await this.redis.set(this.keys(model, now)[4], '1', 'PX', Math.max(1, until.getTime() - now.getTime()));
+    } catch (e) {
+      this.log.error(`Modèle Gemini ${model} non mis de côté : ${messageOf(e)}`);
+    }
+  }
+
+  private async check(model: string, now: Date, dryRun: boolean): Promise<GeminiPausedError | null> {
     const limits = await this.limits(model);
-    const [code, at] = (await this.redis.eval(RESERVE, 4, ...this.keys(model, now), now.getTime(), limits.rpm, limits.tpm, limits.rpd, randomUUID(), dryRun ? 1 : 0)) as number[];
+    const [code, at] = (await this.redis.eval(RESERVE, 5, ...this.keys(model, now), now.getTime(), limits.rpm, limits.tpm, limits.rpd, randomUUID(), dryRun ? 1 : 0)) as number[];
     if (code === 3) return new GeminiQuotaError(nextPacificMidnight(now), 'QUOTA_JOUR', limits.rpd, now);
+    if (code === 4) return new GeminiModelAsideError(new Date(at), now);
     const until = new Date(at + WINDOW_MS + MARGIN_MS);
     if (code === 1) return new GeminiQuotaError(until, 'QUOTA_MINUTE', limits.rpm, now);
     if (code === 2) return new GeminiQuotaError(until, 'QUOTA_TOKENS', limits.tpm, now);
@@ -223,16 +243,20 @@ export class GeminiQuotaService {
     const resetsAt = nextPacificMidnight(now).toISOString();
     const all = await Promise.all(models.map(async (m) => ({ m, limits: await this.limits(m), keys: this.keys(m, now) })));
     let minute = { requests: 0, tokens: 0 };
-    let days: GeminiModelDayUsage[] = all.map(({ m, limits }) => ({ model: m, requests: 0, limits, exhaustedUntil: null }));
+    let days: GeminiModelDayUsage[] = all.map(({ m, limits }) => ({ model: m, requests: 0, limits, exhaustedUntil: null, asideUntil: null }));
     try {
       days = await Promise.all(
         all.map(async ({ m, limits, keys }) => {
-          const [day, marked] = await Promise.all([this.redis.get(keys[2]), this.redis.exists(keys[3])]);
+          const [day, marked, aside] = await Promise.all([this.redis.get(keys[2]), this.redis.exists(keys[3]), this.redis.pttl(keys[4])]);
           const requests = Number(day ?? 0);
-          return { model: m, requests, limits, exhaustedUntil: marked || requests >= limits.rpd ? resetsAt : null };
+          return {
+            model: m, requests, limits,
+            exhaustedUntil: marked || requests >= limits.rpd ? resetsAt : null,
+            asideUntil: aside > 0 ? new Date(now.getTime() + aside).toISOString() : null,
+          };
         }),
       );
-      const shown = all[Math.max(0, days.findIndex((d) => !d.exhaustedUntil))];
+      const shown = all[Math.max(0, days.findIndex(usable))];
       if (shown) {
         const [requestsKey, tokensKey] = shown.keys;
         const [requests, entries] = await Promise.all([this.redis.zcount(requestsKey, from, '+inf'), this.redis.zrangebyscore(tokensKey, from, '+inf')]);
@@ -241,17 +265,24 @@ export class GeminiQuotaService {
     } catch (e) {
       this.log.error(`Compteurs Gemini illisibles : ${messageOf(e)}`);
     }
-    return { current: days.find((d) => !d.exhaustedUntil)?.model ?? null, minute, dayResetsAt: resetsAt, models: days };
+    return { current: days.find(usable)?.model ?? null, minute, dayResetsAt: resetsAt, models: days };
   }
 
-  /** Requêtes et jetons des 60 dernières secondes, requêtes du jour (Pacifique), marque « épuisé » : par modèle. */
-  private keys(model: string, now: Date): [string, string, string, string] {
+  /** Requêtes et jetons des 60 dernières secondes, requêtes du jour (Pacifique), marques « épuisé » et « mis de côté » : par modèle. */
+  private keys(model: string, now: Date): [string, string, string, string, string] {
     const p = `${this.prefix}:${model}`;
-    return [`${p}:rpm`, `${p}:tpm`, `${p}:rpd:${pacificDay(now)}`, `${p}:epuise`];
+    return [`${p}:rpm`, `${p}:tpm`, `${p}:rpd:${pacificDay(now)}`, `${p}:epuise`, `${p}:de-cote`];
   }
   onModuleDestroy(): void {
     this.redis.disconnect();
   }
+}
+
+const usable = (d: GeminiModelDayUsage) => !d.exhaustedUntil && !d.asideUntil;
+
+/** Refus qui fait passer au modèle suivant : quota du jour atteint, ou modèle mis de côté. */
+export function skipsToNext(e: unknown): e is GeminiPausedError {
+  return (e instanceof GeminiQuotaError && e.reason === 'QUOTA_JOUR') || e instanceof GeminiModelAsideError;
 }
 
 function messageOf(e: unknown): string {

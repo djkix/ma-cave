@@ -34,7 +34,7 @@ import { VISION_PROVIDER } from './vision-provider.interface';
     {
       provide: VISION_PROVIDER,
       useFactory: (journal: GeminiJournal, models: GeminiModelService, quota: GeminiQuotaService) =>
-        GeminiVisionProvider.fromApiKey(loadEnv().GEMINI_API_KEY, () => models.candidates(), journal, quota),
+        GeminiVisionProvider.fromApiKey(loadEnv().GEMINI_API_KEY, () => models.candidates(), journal, quota, loadEnv().GEMINI_ATTEMPT_TIMEOUT_MS),
       inject: [GeminiJournal, GeminiModelService, GeminiQuotaService],
     },
     { provide: PAIRING_PROVIDER, useExisting: VISION_PROVIDER },

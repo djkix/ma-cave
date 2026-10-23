@@ -1,7 +1,7 @@
 import { GEMINI_PAUSE_REASON_KEY, GEMINI_PAUSE_UNTIL_KEY, GeminiJournal, GeminiPausedError } from './gemini-journal';
 import { fakeGeminiPrisma as fakePrisma } from '../test-utils/fake-gemini-prisma';
 import { GeminiVisionProvider, VisionBatchMismatchError } from './gemini-vision.provider';
-import { GeminiQuotaError } from './gemini-pause';
+import { GeminiModelAsideError, GeminiQuotaError } from './gemini-pause';
 
 const validObj = (overrides: Record<string, unknown> = {}) => ({
   producteur: { value: 'Domaine Tempier', confidence: 0.98 }, cuvee: { value: null, confidence: 0 },
@@ -416,9 +416,12 @@ describe('GeminiVisionProvider.findOfficialSite', () => {
 
   it('transmet le signal d’abandon de la recherche à Gemini', async () => {
     const model = fake('{"site": null}');
-    const signal = new AbortController().signal;
-    await gemini(model as any, 'm').findOfficialSite(query, signal);
-    expect((model.generateContent.mock.calls[0] as any)[1]).toEqual({ signal });
+    const search = new AbortController();
+    await gemini(model as any, 'm').findOfficialSite(query, search.signal);
+    const passed = (model.generateContent.mock.calls[0] as any)[1].signal as AbortSignal;
+    expect(passed.aborted).toBe(false);
+    search.abort();
+    expect(passed.aborted).toBe(true);
   });
 
   it('laisse remonter une panne de Gemini', async () => {
@@ -689,6 +692,7 @@ describe('GeminiVisionProvider — limiteur de débit', () => {
     reserve: jest.fn<Promise<void>, [string]>(async () => undefined),
     addTokens: jest.fn(async () => undefined),
     markExhausted: jest.fn(async () => undefined),
+    markUnavailable: jest.fn(async () => undefined),
     limits: jest.fn(async () => ({ rpm: 5, tpm: 250000, rpd: 20 })),
   });
   const withQuota = (model: any, quota: ReturnType<typeof limiter>, journal?: GeminiJournal) =>
@@ -763,6 +767,7 @@ describe('GeminiVisionProvider — bascule quand le quota du jour d’un modèle
       reserve: jest.fn<Promise<void>, [string]>(async () => undefined),
       addTokens: jest.fn(async () => undefined),
       markExhausted: jest.fn(async () => undefined),
+      markUnavailable: jest.fn(async () => undefined),
       limits: jest.fn(async () => ({ rpm: 5, tpm: 250000, rpd: 20 })),
     };
     const provider = new GeminiVisionProvider((name) => models[name], async () => Object.keys(models), journal, quota);
@@ -789,13 +794,22 @@ describe('GeminiVisionProvider — bascule quand le quota du jour d’un modèle
     expect(prisma.settings.has(GEMINI_PAUSE_UNTIL_KEY)).toBe(false);
   });
 
-  it('429 à la minute : pause commune comme avant, pas de bascule', async () => {
+  it('429 à la minute : noté REFUSE, modèle mis de côté 15 min, le suivant sert aussitôt, sans pause commune', async () => {
     const models = { [A]: failing(MINUTE_429), [B]: ok() };
     const { prisma, quota, provider } = setup(models);
-    await expect(provider.suggestPairingsBatch([wine])).rejects.toBe(MINUTE_429);
-    expect(models[B].generateContent).not.toHaveBeenCalled();
+    const r = await provider.suggestPairingsBatch([wine]);
+    expect(r.model).toBe(B);
     expect(quota.markExhausted).not.toHaveBeenCalled();
-    expect(prisma.settings.has(GEMINI_PAUSE_UNTIL_KEY)).toBe(true);
+    expect(quota.markUnavailable).toHaveBeenCalledWith(A, expect.any(Date), expect.any(Date));
+    expect(prisma.calls.map((c: any) => [c.outcome, c.httpStatus, c.model])).toEqual([['REFUSE', 429, A], ['OK', null, B]]);
+    expect(prisma.settings.has(GEMINI_PAUSE_UNTIL_KEY)).toBe(false);
+  });
+
+  it('429 à la minute sur le seul modèle : pause commune et erreur, comme avant', async () => {
+    const { prisma, quota, provider } = setup({ [A]: failing(MINUTE_429) });
+    await expect(provider.suggestPairingsBatch([wine])).rejects.toBe(MINUTE_429);
+    expect(quota.markUnavailable).toHaveBeenCalledWith(A, expect.any(Date), expect.any(Date));
+    expect(prisma.settings.get(GEMINI_PAUSE_REASON_KEY)).toBe('QUOTA_GOOGLE');
   });
 
   it('refus local à la minute du modèle choisi : attente, pas de bascule', async () => {
@@ -822,5 +836,95 @@ describe('GeminiVisionProvider — bascule quand le quota du jour d’un modèle
     expect(e).toBeInstanceOf(GeminiQuotaError);
     expect(e.reason).toBe('QUOTA_JOUR');
     expect(e.message).toMatch(/^Quota Gemini du jour atteint \(20 requêtes\)/);
+  });
+});
+
+describe('GeminiVisionProvider — bascule quand un modèle est lent ou saturé', () => {
+  const A = 'gemini-3.8-flash';
+  const B = 'gemini-3.6-flash';
+  const GEMINI_503 = new Error('[GoogleGenerativeAI Error]: Error fetching from https://…:generateContent: [503 Service Unavailable] The model is overloaded.');
+  const ok = () => fakeModel(validJson);
+  /** Ne répond jamais, mais s'arrête (AbortError) quand la requête est interrompue. */
+  const hanging = () => ({
+    generateContent: jest.fn((_req: unknown, opts: { signal: AbortSignal }) => new Promise((_, reject) => {
+      opts.signal.addEventListener('abort', () => reject(new Error('This operation was aborted')));
+    })),
+  });
+  const setup = (models: Record<string, any>, reserve: (m: string) => Promise<void> = async () => undefined) => {
+    const prisma = fakePrisma();
+    const journal = new GeminiJournal(prisma, { warn: jest.fn(), error: jest.fn() });
+    const quota = {
+      reserve: jest.fn(reserve),
+      addTokens: jest.fn(async () => undefined),
+      markExhausted: jest.fn(async () => undefined),
+      markUnavailable: jest.fn(async () => undefined),
+      limits: jest.fn(async () => ({ rpm: 5, tpm: 250000, rpd: 20 })),
+    };
+    const provider = new GeminiVisionProvider((name) => models[name], async () => Object.keys(models), journal, quota, 20);
+    return { prisma, quota, provider };
+  };
+  const asideFor = (quota: { markUnavailable: jest.Mock }) => {
+    const [model, until, now] = quota.markUnavailable.mock.calls[0] as unknown as [string, Date, Date];
+    return { model, ms: until.getTime() - now.getTime() };
+  };
+
+  it('délai d’essai dépassé sur le 1er modèle : requête interrompue, 2e modèle employé, 1er mis de côté 15 min, sans pause commune', async () => {
+    const models = { [A]: hanging(), [B]: ok() };
+    const { prisma, quota, provider } = setup(models);
+    const r = await provider.extractWineLabel(Buffer.from('x'), 'image/jpeg', 'ENTRY');
+    expect(r.model).toBe(B);
+    expect((models[A].generateContent.mock.calls[0] as any)[1].signal.aborted).toBe(true);
+    expect(asideFor(quota)).toEqual({ model: A, ms: 15 * 60_000 });
+    expect(prisma.calls.map((c: any) => [c.usage, c.outcome, c.model])).toEqual([['LECTURE_ENTREE', 'ERREUR', A], ['LECTURE_ENTREE', 'OK', B]]);
+    expect(prisma.calls[0].reason).toMatch(/ETIMEDOUT après 0 s, gemini-3\.8-flash/);
+    expect(prisma.settings.has(GEMINI_PAUSE_UNTIL_KEY)).toBe(false);
+  });
+
+  it('503 sur le 1er modèle : noté REFUSE avec le modèle, 2e modèle employé, 1er mis de côté 15 min, sans pause commune', async () => {
+    const { prisma, quota, provider } = setup({ [A]: { generateContent: jest.fn(async () => { throw GEMINI_503; }) }, [B]: ok() });
+    const r = await provider.extractWineLabel(Buffer.from('x'), 'image/jpeg');
+    expect(r.model).toBe(B);
+    expect(asideFor(quota)).toEqual({ model: A, ms: 15 * 60_000 });
+    expect(prisma.calls.map((c: any) => [c.outcome, c.httpStatus, c.model])).toEqual([['REFUSE', 503, A], ['OK', null, B]]);
+    expect(prisma.settings.has(GEMINI_PAUSE_UNTIL_KEY)).toBe(false);
+  });
+
+  it('tous lents : le dernier délai dépassé remonte (panne passagère, report), sans pause commune', async () => {
+    const { quota, provider } = setup({ [A]: hanging(), [B]: hanging() });
+    await expect(provider.extractWineLabel(Buffer.from('x'), 'image/jpeg')).rejects.toThrow(/ETIMEDOUT/);
+    expect(quota.markUnavailable.mock.calls.map((c: any[]) => c[0])).toEqual([A, B]);
+  });
+
+  it('tous saturés : pause commune « modèle saturé » et le 503, comme avant', async () => {
+    const failing = { generateContent: jest.fn(async () => { throw GEMINI_503; }) };
+    const { prisma, provider } = setup({ [A]: failing, [B]: failing });
+    await expect(provider.extractWineLabel(Buffer.from('x'), 'image/jpeg')).rejects.toBe(GEMINI_503);
+    expect(prisma.settings.get(GEMINI_PAUSE_REASON_KEY)).toBe('modèle saturé');
+  });
+
+  it('tous mis de côté ou épuisés : rien ne part, refus dont la reprise est la plus proche', async () => {
+    const aside = new GeminiModelAsideError(new Date('2026-10-21T12:15:00Z'));
+    const day = new GeminiQuotaError(new Date('2026-10-22T07:00:00Z'), 'QUOTA_JOUR', 20);
+    const models = { [A]: ok(), [B]: ok() };
+    const { prisma, provider } = setup(models, async (m) => { throw m === A ? day : aside; });
+    await expect(provider.extractWineLabel(Buffer.from('x'), 'image/jpeg')).rejects.toBe(aside);
+    expect(models[A].generateContent).not.toHaveBeenCalled();
+    expect(models[B].generateContent).not.toHaveBeenCalled();
+    expect(prisma.calls).toEqual([]);
+    expect(prisma.settings.has(GEMINI_PAUSE_UNTIL_KEY)).toBe(false);
+  });
+
+  it('modèle mis de côté par l’autre processus : le suivant sert sans rien envoyer au premier', async () => {
+    const models = { [A]: ok(), [B]: ok() };
+    const { provider } = setup(models, async (m) => { if (m === A) throw new GeminiModelAsideError(new Date(Date.now() + 60_000)); });
+    expect((await provider.pairDish('agneau', [])).model).toBe(B);
+    expect(models[A].generateContent).not.toHaveBeenCalled();
+  });
+
+  it('sans limiteur : pas de marque ni de bascule, le délai dépassé remonte', async () => {
+    const models = { [A]: hanging(), [B]: ok() };
+    const provider = new GeminiVisionProvider((name) => (models as any)[name], async () => Object.keys(models), undefined, undefined, 20);
+    await expect(provider.extractWineLabel(Buffer.from('x'), 'image/jpeg')).rejects.toThrow(/ETIMEDOUT/);
+    expect(models[B].generateContent).not.toHaveBeenCalled();
   });
 });

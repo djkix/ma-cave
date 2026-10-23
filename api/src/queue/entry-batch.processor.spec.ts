@@ -375,7 +375,7 @@ describe('EntryBatchProcessor.tick — résultat du lot', () => {
   });
 
   it('le délai d’appel reste bien inférieur à l’échéance de réservation', () => {
-    expect(ENTRY_BATCH_CALL_TIMEOUT_MS).toBe(2 * 60_000);
+    expect(ENTRY_BATCH_CALL_TIMEOUT_MS).toBe(4 * 60_000);
     expect(ENTRY_BATCH_CALL_TIMEOUT_MS).toBeLessThan(RESERVATION_MS);
     expect(harness().processor.callTimeoutMs).toBe(ENTRY_BATCH_CALL_TIMEOUT_MS);
   });

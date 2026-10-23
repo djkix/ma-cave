@@ -14,11 +14,13 @@ export const ENTRY_BATCH_TICK_MS = 15_000;
 export const RESERVATION_MS = 5 * 60_000;
 
 /**
- * Délai maximal d'un appel Gemini du lot (lecture groupée ou relecture). Bien
- * en deçà de l'échéance de réservation : un appel bloqué reporte le lot au lieu
- * de laisser la réservation expirer et un second passage relire les mêmes photos.
+ * Délai maximal d'un appel Gemini du lot (lecture groupée ou relecture), tous
+ * modèles essayés compris : chaque essai est borné à part (45 s par défaut,
+ * puis bascule), ceci n'est que le filet. En deçà de l'échéance de
+ * réservation : un appel bloqué reporte le lot au lieu de laisser la
+ * réservation expirer et un second passage relire les mêmes photos.
  */
-export const ENTRY_BATCH_CALL_TIMEOUT_MS = 2 * 60_000;
+export const ENTRY_BATCH_CALL_TIMEOUT_MS = 4 * 60_000;
 
 /** Nombre de candidates lues pour décider s'il faut lancer un lot. */
 export const ENTRY_CANDIDATES_SCAN = 50;

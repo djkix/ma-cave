@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Redis from 'ioredis';
-import { GeminiQuotaError, nextPacificMidnight, pacificDay, pauseAfter429, quotaMessage } from './gemini-pause';
+import { GeminiModelAsideError, GeminiQuotaError, nextPacificMidnight, pacificDay, pauseAfter429, quotaMessage } from './gemini-pause';
 import { DEFAULT_LIMITS, GEMINI_RPD_KEY, GEMINI_RPM_KEY, GEMINI_TPM_KEY, GeminiQuotaService } from './gemini-quota';
 import { fakeGeminiPrisma as fakePrisma } from '../test-utils/fake-gemini-prisma';
 
@@ -214,8 +214,8 @@ describe('GeminiQuotaService (Redis réel)', () => {
       minute: { requests: 1, tokens: 2700 },
       dayResetsAt: '2026-10-22T07:00:00.000Z',
       models: [
-        { model: M, requests: 2, limits: DEFAULT_LIMITS, exhaustedUntil: null },
-        { model: L, requests: 0, limits: DEFAULT_LIMITS, exhaustedUntil: '2026-10-22T07:00:00.000Z' },
+        { model: M, requests: 2, limits: DEFAULT_LIMITS, exhaustedUntil: null, asideUntil: null },
+        { model: L, requests: 0, limits: DEFAULT_LIMITS, exhaustedUntil: '2026-10-22T07:00:00.000Z', asideUntil: null },
       ],
     });
   });
@@ -230,6 +230,27 @@ describe('GeminiQuotaService (Redis réel)', () => {
     await quota.markExhausted(L, NOW);
     expect((await quota.usage([M, L], NOW)).current).toBeNull();
     expect(await quota.usage([], NOW)).toMatchObject({ current: null, models: [] });
+  });
+
+  it('mis de côté 15 min : réservation refusée jusqu’à l’échéance, sans rien compter, puis rendue ; exposé dans usage et blocked', async () => {
+    const { quota } = serviceWith();
+    await quota.markUnavailable(M, at(900), NOW);
+    const e = await quota.reserve(M, NOW).catch((x: any) => x);
+    expect(e).toBeInstanceOf(GeminiModelAsideError);
+    expect(Math.abs(e.until.getTime() - at(900).getTime())).toBeLessThan(2000);
+    expect(e.message).toMatch(/^Gemini en pause jusqu'à \d\d:\d\d \(modèle lent ou saturé\)$/);
+    const u = await quota.usage([M, L], NOW);
+    expect(u.current).toBe(L);
+    expect(u.models[0].requests).toBe(0);
+    expect(Math.abs(new Date(u.models[0].asideUntil!).getTime() - at(900).getTime())).toBeLessThan(2000);
+    expect(u.models[1].asideUntil).toBeNull();
+    await expect(quota.blocked([M, L], NOW)).resolves.toBeNull();
+    // Tous écartés : la reprise la plus proche (mis de côté avant le minuit du Pacifique).
+    await quota.markExhausted(L, NOW);
+    expect(await quota.blocked([L, M], NOW)).toBeInstanceOf(GeminiModelAsideError);
+    expect((await quota.usage([M, L], NOW)).current).toBeNull();
+    await redis.del(`${prefix}:${M}:de-cote`);
+    await expect(quota.reserve(M, NOW)).resolves.toBeUndefined();
   });
 
   it('blocked : le refus qu’essuierait un appel, sans rien réserver', async () => {

@@ -1,7 +1,7 @@
 import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { EXTRACTION_JSON_SCHEMA_DESCRIPTION, parseExtraction } from './extraction-schema';
-import { GeminiJournal, GeminiPausedError, GeminiQuotaError, GeminiUsage, classifyFailure, isDailyQuota, nextPacificMidnight } from './gemini-journal';
-import { GeminiQuotaService } from './gemini-quota';
+import { GeminiJournal, GeminiPausedError, GeminiQuotaError, GeminiUsage, MODEL_ASIDE_MS, classifyFailure, isDailyQuota, nextPacificMidnight } from './gemini-journal';
+import { GeminiQuotaService, skipsToNext } from './gemini-quota';
 import { parsePairingOutput } from './pairing-output';
 import { DishPairingProvider, DishPairingResult, DishPairingWine, PairingBatchItem, PairingBatchResult, PairingProvider, PairingWine } from './pairing-provider.interface';
 import { parseProducerOutput } from './producer-output';
@@ -243,6 +243,31 @@ type GroundedRequest = Parameters<GenerativeModel['generateContent']>[0] & { too
 
 type Model = Pick<GenerativeModel, 'generateContent'>;
 
+/** Délai d'un essai par défaut (lectures d'étiquette, accords d'un plat, recherche d'image) : `GEMINI_ATTEMPT_TIMEOUT_MS`. */
+export const DEFAULT_ATTEMPT_TIMEOUT_MS = 45_000;
+/** Lots d'accords ou de descriptifs (dix vins ou domaines) et analyse d'un plan : réponses longues, essai de 2 min. */
+export const LONG_ATTEMPT_TIMEOUT_MS = 2 * 60_000;
+const LONG_USAGES: readonly GeminiUsage[] = ['ACCORDS', 'DESCRIPTIF', 'ANALYSE_PLAN'];
+
+/**
+ * Essai abandonné pour lenteur (délai dépassé) ou saturation (503, 429 non
+ * journalier) : le modèle a été mis de côté, la bascule passe au suivant.
+ * `cause` : l'erreur rendue si aucun autre modèle ne prend le relais.
+ */
+class ModelSetAside extends Error {
+  constructor(readonly cause: unknown, readonly httpStatus: number | null, readonly detail: string) {
+    super(detail);
+  }
+}
+
+/** Le modèle, dont chaque requête est interrompue quand `signal` est levé (en plus du signal de l'appelant). */
+function withSignal(model: Model, signal: AbortSignal): Model {
+  return {
+    generateContent: (request, options) =>
+      model.generateContent(request, { ...options, signal: options?.signal ? AbortSignal.any([signal, options.signal]) : signal }),
+  };
+}
+
 export class GeminiVisionProvider implements VisionProvider, PairingProvider, DishPairingProvider, ProducerProvider, OfficialSiteProvider {
   /**
    * `modelFor` : le modèle Gemini d'un nom ; `models` : les modèles à essayer,
@@ -251,39 +276,60 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Di
    * `journal` : point de passage unique de tous les appels (voir `call`). Sans
    * journal (tests unitaires des consignes), les appels partent tels quels.
    * `quota` : limiteur de débit commun à l'api et au worker (voir `call`).
+   * `attemptTimeoutMs` : délai d'un essai (voir `timeoutOf`).
    */
   constructor(
     private readonly modelFor: (name: string) => Model,
     private readonly models: () => Promise<string[]>,
     private readonly journal?: GeminiJournal,
-    private readonly quota?: Pick<GeminiQuotaService, 'reserve' | 'addTokens' | 'markExhausted' | 'limits'>,
+    private readonly quota?: Pick<GeminiQuotaService, 'reserve' | 'addTokens' | 'markExhausted' | 'markUnavailable' | 'limits'>,
+    private readonly attemptTimeoutMs = DEFAULT_ATTEMPT_TIMEOUT_MS,
   ) {}
 
-  static fromApiKey(apiKey: string, models: () => Promise<string[]>, journal?: GeminiJournal, quota?: GeminiQuotaService): GeminiVisionProvider {
+  static fromApiKey(
+    apiKey: string, models: () => Promise<string[]>, journal?: GeminiJournal, quota?: GeminiQuotaService, attemptTimeoutMs?: number,
+  ): GeminiVisionProvider {
     const ai = new GoogleGenerativeAI(apiKey);
-    return new GeminiVisionProvider((model) => ai.getGenerativeModel({ model }), models, journal, quota);
+    return new GeminiVisionProvider((model) => ai.getGenerativeModel({ model }), models, journal, quota, attemptTimeoutMs);
+  }
+
+  /** Délai d'un essai : 2 min pour les lots et l'analyse de plan (jamais moins que le réglage), le réglage sinon. */
+  private timeoutOf(usage: GeminiUsage): number {
+    return LONG_USAGES.includes(usage) ? Math.max(LONG_ATTEMPT_TIMEOUT_MS, this.attemptTimeoutMs) : this.attemptTimeoutMs;
   }
 
   /**
    * Chaque méthode publique passe par ici : pendant une pause commune, aucun
-   * appel ne part (`GeminiPausedError`) et rien n'est noté. Bascule : quand le
-   * quota du jour d'un modèle est atteint (refus du limiteur, ou 429 journalier
-   * de Google), le modèle suivant est essayé aussitôt ; tous épuisés : le
-   * refus du jour (`GeminiQuotaError` QUOTA_JOUR) du premier. Les autres
-   * refus (minute, jetons, 503, 429 non journalier) remontent tels quels.
+   * appel ne part (`GeminiPausedError`) et rien n'est noté. Bascule : un
+   * modèle épuisé pour la journée (refus du limiteur, ou 429 journalier) ou
+   * mis de côté (lent ou saturé : délai d'essai dépassé, 503, 429 non
+   * journalier, voir `attempt`) cède aussitôt la place au suivant, dans le
+   * même appel. Aucun ne prend le relais : l'échec du dernier modèle essayé
+   * tel qu'avant la bascule (pause commune après un 503 ou un 429, panne
+   * passagère après un délai dépassé), sinon le refus dont la reprise est la
+   * plus proche. Les refus à la minute ou aux jetons remontent tels quels.
    */
   private async call<T extends { costCents: number }>(usage: GeminiUsage, run: (model: Model, modelName: string) => Promise<T>): Promise<T> {
     await this.journal?.assertNotPaused();
-    let day: GeminiQuotaError | null = null;
+    let skipped: GeminiPausedError | null = null;
+    let failed: ModelSetAside | null = null;
     for (const model of await this.models()) {
       try {
         return await this.attempt(usage, model, run);
       } catch (e) {
-        if (!(e instanceof GeminiQuotaError && e.reason === 'QUOTA_JOUR')) throw e;
-        day ??= e;
+        if (e instanceof ModelSetAside) {
+          failed = e;
+          continue;
+        }
+        if (!skipsToNext(e)) throw e;
+        if (!skipped || e.until < skipped.until) skipped = e;
       }
     }
-    throw day ?? new Error('Aucun modèle Gemini Flash ou Flash-Lite stable disponible');
+    if (failed) {
+      if (failed.httpStatus !== null) await this.journal?.extendPause(failed.httpStatus, undefined, failed.detail);
+      throw failed.cause;
+    }
+    throw skipped ?? new Error('Aucun modèle Gemini Flash ou Flash-Lite stable disponible');
   }
 
   /**
@@ -293,27 +339,47 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Di
    * juste avant l'envoi (voir `counted`) : refus (`GeminiQuotaError`), rien ne
    * part et rien n'est noté. 429 journalier : noté sans pause commune, le
    * modèle est marqué épuisé et l'essai rend un refus du jour (bascule).
+   * Délai d'essai dépassé (la requête est réellement interrompue), 503 ou 429
+   * non journalier : noté sans pause commune, le modèle est mis de côté
+   * `MODEL_ASIDE_MS` et l'essai rend `ModelSetAside` (bascule). Sans limiteur,
+   * pas de marque partagée : la pause commune et l'erreur, comme avant.
    */
   private async attempt<T extends { costCents: number }>(usage: GeminiUsage, model: string, run: (model: Model, modelName: string) => Promise<T>): Promise<T> {
-    const counted = this.counted(this.modelFor(model), model);
+    const ms = this.timeoutOf(usage);
+    const abort = new AbortController();
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        abort.abort();
+        reject(new Error(`Délai de réponse de Gemini dépassé (ETIMEDOUT après ${Math.round(ms / 1000)} s, ${model})`));
+      }, ms);
+    });
+    const counted = this.counted(withSignal(this.modelFor(model), abort.signal), model);
     const started = Date.now();
     let result: T;
     try {
-      result = await run(counted, model);
+      result = await Promise.race([run(counted, model), timeout]);
     } catch (e) {
       // Refus du limiteur : rien n'est parti, rien n'est noté.
       if (e instanceof GeminiPausedError) throw e;
       const detail = e instanceof Error ? e.message : String(e);
       const failure = classifyFailure(e);
-      // Sans limiteur, pas de marque « épuisé » partagée : la pause commune, comme avant.
       const daily = !!this.quota && failure.httpStatus === 429 && isDailyQuota(detail);
-      await this.journal?.record({ usage, ...failure, model, durationMs: Date.now() - started }, undefined, detail, !daily);
+      const aside = !!this.quota && !daily && (abort.signal.aborted || failure.httpStatus === 503 || failure.httpStatus === 429);
+      await this.journal?.record({ usage, ...failure, model, durationMs: Date.now() - started }, undefined, detail, !daily && !aside);
       if (daily) {
         const now = new Date();
         await this.quota!.markExhausted(model, now);
         throw new GeminiQuotaError(nextPacificMidnight(now), 'QUOTA_JOUR', (await this.quota!.limits(model)).rpd, now);
       }
+      if (aside) {
+        const now = new Date();
+        await this.quota!.markUnavailable(model, new Date(now.getTime() + MODEL_ASIDE_MS), now);
+        throw new ModelSetAside(e, abort.signal.aborted ? null : failure.httpStatus, detail);
+      }
       throw e;
+    } finally {
+      clearTimeout(timer);
     }
     await this.journal?.record({ usage, outcome: 'OK', httpStatus: null, reason: null, costCents: result.costCents, model, durationMs: Date.now() - started });
     return result;

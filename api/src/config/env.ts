@@ -36,6 +36,8 @@ const schema = z.object({
   GEMINI_MONTHLY_CAP_CENTS: z.coerce.number().int().default(500),
   // Journal des appels Gemini : purgé chaque jour au-delà de cette durée (92 jours au moins : l'Administration en lit 90).
   GEMINI_JOURNAL_RETENTION_DAYS: z.coerce.number().int().min(92).default(365),
+  // Délai d'un essai Gemini (lecture d'étiquette, accords d'un plat, recherche d'image) avant de passer au modèle suivant.
+  GEMINI_ATTEMPT_TIMEOUT_MS: z.coerce.number().int().min(1000).default(45_000),
   PHOTO_STORAGE_DIR: z.string().default('./data/photos'),
   BREAK_GLASS_EMAIL: emptyToUndefined(z.string().email().optional()),
   BREAK_GLASS_PASSWORD: emptyToUndefined(z.string().min(12).optional()),

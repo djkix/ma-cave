@@ -16,8 +16,11 @@ export const GENERATION_BATCH_TICK_MS = 15_000;
  */
 export const GENERATION_RESERVATION_MS = 5 * 60_000;
 
-/** Délai maximal d'un appel Gemini du lot, bien en deçà de l'échéance de réservation. */
-export const GENERATION_CALL_TIMEOUT_MS = 2 * 60_000;
+/**
+ * Délai maximal d'un appel Gemini du lot, tous modèles essayés compris (chaque
+ * essai est borné à 2 min, puis bascule), en deçà de l'échéance de réservation.
+ */
+export const GENERATION_CALL_TIMEOUT_MS = 4 * 60_000;
 
 /**
  * Tentatives d'une demande dont la réponse est inexploitable (absente ou
