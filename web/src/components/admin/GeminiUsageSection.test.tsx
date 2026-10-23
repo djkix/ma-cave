@@ -108,7 +108,7 @@ it('trois chiffres clés : coût, réussis, refusés en % des appels', async () 
   expect(figure('Refusés')).toHaveTextContent('10 %');
 });
 
-it('une barre empilée par jour, du plus ancien au plus récent, et la légende des six usages', async () => {
+it('une barre empilée par jour, du plus ancien au plus récent, et la légende des sept usages', async () => {
   vi.spyOn(api, 'getGeminiUsage').mockResolvedValue(chart());
   mount();
   const day18 = await screen.findByRole('img', { name: '18/10 : 14 appels, 0,35 €' });
@@ -119,7 +119,7 @@ it('une barre empilée par jour, du plus ancien au plus récent, et la légende 
   expect(segments(day17).map((s) => s.style.height)).toEqual(['50%']);
   const legend = screen.getByRole('list', { name: 'Légende' });
   expect(within(legend).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-    'Lecture à l’entrée', 'Lecture à la sortie', 'Accords', 'Descriptifs', 'Recherche d’image', 'Analyse du plan',
+    'Lecture à l’entrée', 'Lecture à la sortie', 'Accords', 'Descriptifs', 'Recherche d’image', 'Analyse du plan', 'Accords (plat)',
   ]);
 });
 
@@ -137,7 +137,7 @@ it('« Analyse du plan » : sa propre couleur dans la barre et dans la légende'
   const legend = screen.getByRole('list', { name: 'Légende' });
   const keys = within(legend).getAllByRole('listitem').map((li) => li.querySelector<HTMLElement>('.histo__key')!.style.background);
   expect(within(legend).getByText('Analyse du plan').querySelector<HTMLElement>('.histo__key')!.style.background).toBe('var(--color-warning)');
-  expect(new Set(keys).size).toBe(6);
+  expect(new Set(keys).size).toBe(7);
   expect(within(screen.getByRole('table')).getByText('Analyse du plan')).toBeInTheDocument();
 });
 

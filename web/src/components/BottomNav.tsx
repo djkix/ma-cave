@@ -7,13 +7,13 @@ const tabs = [
   { to: '/cave', icon: 'shelves', label: 'Cave', soon: false, ownerOnly: false },
   { to: '/entree', icon: 'add_circle', label: 'Entrée', soon: false, ownerOnly: true },
   { to: '/sortie', icon: 'remove_circle_outline', label: 'Sortie', soon: false, ownerOnly: true },
-  { to: '/journal', icon: 'history_edu', label: 'Journal', soon: false, ownerOnly: true },
+  { to: '/accords', icon: 'restaurant', label: 'Accords', soon: false, ownerOnly: false },
   { to: '/stats', icon: 'bar_chart', label: 'Stats', soon: false, ownerOnly: false },
   { to: '/compte', icon: 'settings', label: 'Réglages', soon: false, ownerOnly: false },
 ];
 
 export function BottomNav() {
-  // Un membre en lecture seule n'a ni entrée, ni sortie, ni journal.
+  // Un membre en lecture seule n'a ni entrée ni sortie (le journal est dans les Réglages).
   const { me, isOwner, caves } = useCurrentCave();
   const { pathname } = useLocation();
   // Sans cave (administrateur sur l'administration), Cave et Stats ne mèneraient

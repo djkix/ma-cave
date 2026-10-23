@@ -46,7 +46,7 @@ export function JournalPage() {
 
   return (
     <>
-      <TopBar title="Journal" />
+      <TopBar title="Journal" back="/compte" />
       <main className="page">
         <section className="card">
           <h2 style={{ fontSize: 18 }}>Export Excel</h2>

@@ -86,7 +86,7 @@ export const putAdminBudget = (shares: { caveShare: number; invitedShare: number
   apiFetch<AdminBudget>('/admin/budget', { method: 'PUT', body: JSON.stringify(shares) });
 
 /** Usage d'un appel Gemini, tel que noté dans le journal des appels (api `gemini_call`). */
-export type GeminiUsageKind = 'LECTURE_ENTREE' | 'LECTURE_SORTIE' | 'ACCORDS' | 'DESCRIPTIF' | 'RECHERCHE_IMAGE' | 'ANALYSE_PLAN';
+export type GeminiUsageKind = 'LECTURE_ENTREE' | 'LECTURE_SORTIE' | 'ACCORDS' | 'DESCRIPTIF' | 'RECHERCHE_IMAGE' | 'ANALYSE_PLAN' | 'ACCORDS_PLAT';
 /** Une ligne par jour (Europe/Paris, AAAA-MM-JJ), par usage et par modèle (null : appel d'avant la 2.19). */
 export interface GeminiUsageRow {
   day: string; usage: GeminiUsageKind; model: string | null; ok: number; refused503: number; refused429: number; errors: number; costCents: number;
@@ -487,3 +487,12 @@ export interface Stats {
   bestRated: StatsRankedWine[];
 }
 export const getStats = () => apiFetch<Stats>('/stats');
+
+/** « Accords vins » : un vin de la cave proposé pour le plat. */
+export interface AccordPick {
+  wineId: string; producer: string; cuvee: string | null; appellation: string; vintage: number | null; color: WineColor;
+  quantity: number; place: string | null; apogee: Apogee; score: number; reason: string;
+}
+/** `wineCount` : vins en stock (0 = cave vide) ; `ideal` : style idéal décrit par l'IA. */
+export interface AccordsResult { dish: string; wineCount: number; understood: string[]; ideal: string | null; picks: AccordPick[] }
+export const postAccords = (dish: string) => apiFetch<AccordsResult>('/accords', { method: 'POST', body: JSON.stringify({ dish }) });

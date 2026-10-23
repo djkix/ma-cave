@@ -1,5 +1,5 @@
 import { Apogee } from './api-client';
-import { apogeeRange, apogeeReasonMessage, apogeeShortLabel, apogeeStatusLabel } from './apogee';
+import { apogeePairingLabel, apogeeProgress, apogeeRange, apogeeReasonMessage, apogeeShortLabel, apogeeStatusLabel } from './apogee';
 
 const a = (over: Partial<Apogee>): Apogee => ({ min: 2024, max: 2036, confidence: 'FAIBLE', status: 'A_BOIRE', reason: null, source: 'REGLE', ...over });
 
@@ -29,4 +29,14 @@ it('explique chaque absence d’estimation', () => {
   expect(apogeeReasonMessage('NON_MILLESIME')).toBe('Vin non millésimé : saisis la fourchette si tu la connais');
   expect(apogeeReasonMessage('APPELLATION_INCONNUE')).toBe('Appellation non reconnue par le référentiel : saisis la fourchette');
   expect(apogeeReasonMessage('GARDE_INCONNUE')).toBe('Garde inconnue pour cette appellation : saisis la fourchette');
+});
+
+it('libellé et barre d’apogée des accords', () => {
+  expect(apogeePairingLabel(a({ status: 'A_BOIRE_VITE' }))).toBe('À boire cette année');
+  expect(apogeePairingLabel(a({}))).toBe('À l’apogée jusqu’en 2036');
+  expect(apogeePairingLabel(a({ status: 'TROP_JEUNE' }))).toBe('Encore jeune — à partir de 2024');
+  expect(apogeeProgress(a({ min: 2020, max: 2029 }), 2024)).toBe(50);
+  expect(apogeeProgress(a({ min: 2030, max: 2040 }), 2024)).toBe(0);
+  expect(apogeeProgress(a({ min: 2010, max: 2020 }), 2024)).toBe(100);
+  expect(apogeeProgress(a({ min: null, max: null }), 2024)).toBeNull();
 });

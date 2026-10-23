@@ -19,23 +19,26 @@ function mount(path = '/') {
 
 const labels = () => screen.getAllByRole('link').map((l) => l.textContent);
 
-it('montre les six onglets au propriétaire, Réglages en dernier', async () => {
+it('montre les six onglets au propriétaire, Accords à la place du Journal, Réglages en dernier', async () => {
   mount();
-  expect(await screen.findByRole('link', { name: /Journal/ })).toBeInTheDocument();
-  expect(labels()).toEqual(['shelvesCave', 'add_circleEntrée', 'remove_circle_outlineSortie', 'history_eduJournal', 'bar_chartStats', 'settingsRéglages']);
+  expect(await screen.findByRole('link', { name: /Entrée/ })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /Accords/ })).toHaveAttribute('href', '/accords');
+  expect(screen.queryByRole('link', { name: /Journal/ })).not.toBeInTheDocument();
+  expect(labels()).toEqual(['shelvesCave', 'add_circleEntrée', 'remove_circle_outlineSortie', 'restaurantAccords', 'bar_chartStats', 'settingsRéglages']);
 });
 
-it.each(['/compte', '/compte/a-propos', '/ma-cave', '/admin/comptes'])('allume l’onglet Réglages sur %s', async (path) => {
+it.each(['/compte', '/compte/a-propos', '/ma-cave', '/journal', '/admin/comptes'])('allume l’onglet Réglages sur %s', async (path) => {
   mount(path);
   expect(await screen.findByRole('link', { name: /Réglages/ })).toHaveAttribute('href', '/compte');
   expect(screen.getByRole('link', { name: /Réglages/ })).toHaveClass('bottomnav__tab--active');
 });
 
-it('ne garde que Cave et Stats pour un membre en lecture seule', async () => {
+it('ne garde que Cave, Accords et Stats pour un membre en lecture seule', async () => {
   vi.spyOn(api, 'getMe').mockResolvedValue(viewerMe());
   mount();
   expect(await screen.findByRole('link', { name: /Stats/ })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /Cave/ })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /Accords/ })).toHaveAttribute('href', '/accords');
   expect(screen.queryByRole('link', { name: /Entrée/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: /Sortie/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: /Journal/ })).not.toBeInTheDocument();

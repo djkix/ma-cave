@@ -39,3 +39,21 @@ export function apogeeShortLabel(a: Apogee): string | null {
 export function apogeeReasonMessage(reason: ApogeeReason): string {
   return REASON_MESSAGE[reason];
 }
+
+/** Libellé de l'apogée sur une proposition d'« Accords ». */
+export function apogeePairingLabel(a: Apogee): string | null {
+  switch (a.status) {
+    case 'TROP_JEUNE': return `Encore jeune — à partir de ${a.min}`;
+    case 'A_BOIRE': return `À l’apogée jusqu’en ${a.max}`;
+    case 'A_BOIRE_VITE': return 'À boire cette année';
+    case 'PASSEE': return `Apogée passée depuis ${a.max}`;
+    default: return null;
+  }
+}
+
+/** Avancement dans la fenêtre d'apogée, de 0 à 100 (barre) ; null sans fenêtre. */
+export function apogeeProgress(a: Apogee, year: number): number | null {
+  if (a.min == null || a.max == null) return null;
+  const ratio = (year - a.min + 1) / (a.max - a.min + 1);
+  return Math.round(Math.min(1, Math.max(0, ratio)) * 100);
+}

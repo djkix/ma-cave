@@ -4,6 +4,7 @@ import { ABoirePage } from './pages/ABoirePage';
 import { AProposPage } from './pages/AProposPage';
 import { AdminPage } from './pages/AdminPage';
 import { AConfirmerPage } from './pages/AConfirmerPage';
+import { AccordsPage } from './pages/AccordsPage';
 import { CavePage } from './pages/CavePage';
 import { ConfidentialitePage } from './pages/ConfidentialitePage';
 import { ComptePage } from './pages/ComptePage';
@@ -38,6 +39,7 @@ export const routes: RouteObject[] = [
           { path: '/compte/moi', element: <MoiPage /> },
           { path: '/compte/a-propos', element: <AProposPage /> },
           { path: '/a-boire', element: <ABoirePage /> },
+          { path: '/accords', element: <AccordsPage /> },
           { path: '/cave', element: <CavePage /> },
           { path: '/cave/:wineId', element: <WinePage /> },
           {

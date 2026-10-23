@@ -30,7 +30,7 @@ function stubSummaries() {
   vi.spyOn(api, 'getMembers').mockResolvedValue(times(2, member));
 }
 
-it('montre le profil et les quatre cartes au propriétaire administrateur', async () => {
+it('montre le profil et les cinq cartes au propriétaire administrateur', async () => {
   vi.spyOn(api, 'getMe').mockResolvedValue(meFixture({ isAdmin: true, displayName: 'djkix', caves: [OWNER_CAVE, VIEWER_CAVE] }));
   stubSummaries();
   vi.spyOn(api, 'getRegistrations').mockResolvedValue(times(2, registration));
@@ -46,6 +46,9 @@ it('montre le profil et les quatre cartes au propriétaire administrateur', asyn
   const cave = screen.getByRole('link', { name: /^Ma cave/ });
   expect(cave).toHaveAttribute('href', '/ma-cave');
   expect(await within(cave).findByText('3 plans · 12 zones · 2 membres')).toBeInTheDocument();
+
+  const journal = screen.getByRole('link', { name: /^Journal/ });
+  expect(journal).toHaveAttribute('href', '/journal');
 
   const app = screen.getByRole('link', { name: /^Application/ });
   expect(app).toHaveAttribute('href', '/admin');
@@ -88,6 +91,7 @@ it('ne montre à un invité que Moi et À propos, sans rien demander d’autre',
   expect(await screen.findByRole('link', { name: /^Moi/ })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /^À propos/ })).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: /^Ma cave/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: /^Journal/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: /^Application/ })).not.toBeInTheDocument();
   for (const c of calls) expect(c).not.toHaveBeenCalled();
 });

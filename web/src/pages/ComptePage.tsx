@@ -75,6 +75,7 @@ export function ComptePage() {
         )}
         <NavCard to="/compte/moi" icon="person" title="Moi" summary={me && count(caves.length, 'cave')} />
         {isOwner && <NavCard to="/ma-cave" icon="wine_bar" title="Ma cave" summary={caveText} />}
+        {isOwner && <NavCard to="/journal" icon="history_edu" title="Journal" summary="Entrées et sorties, annulation" />}
         {isAdmin && <NavCard to="/admin" icon="admin_panel_settings" title="Application" summary={adminText} />}
         <NavCard to="/compte/a-propos" icon="info" title="À propos" summary={`Version ${APP_VERSION}`} />
       </main>

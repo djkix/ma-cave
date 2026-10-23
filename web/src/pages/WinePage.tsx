@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { ApogeeBlock } from '../components/ApogeeBlock';
 import { BottomNav } from '../components/BottomNav';
 import { Button } from '../components/Button';
@@ -34,6 +34,9 @@ const MAX_COUNTED = 100_000;
 const RECENT_MOVEMENTS = 3;
 
 export function WinePage() {
+  // Arrivé depuis « Accords » : la flèche y ramène, sur la même liste.
+  const from = (useLocation().state as { from?: unknown } | null)?.from;
+  const back = from === '/accords' ? from : '/cave';
   const { wineId = '' } = useParams();
   const qc = useQueryClient();
   // Membre en lecture seule : tout le contenu, aucune action. Le descriptif du
@@ -68,7 +71,7 @@ export function WinePage() {
     const notFound = detail.error instanceof ApiError && detail.error.status === 404;
     return (
       <>
-        <TopBar title="Fiche vin" back="/cave" />
+        <TopBar title="Fiche vin" back={back} />
         <main className="page">
           <p className="centered">{notFound ? 'Vin introuvable' : 'Impossible de charger la fiche.'}</p>
           <Link to="/cave" className="btn btn--outline">Retour à la cave</Link>
@@ -76,7 +79,7 @@ export function WinePage() {
       </>
     );
   }
-  if (!detail.data) return <TopBar title="Fiche vin" back="/cave" />;
+  if (!detail.data) return <TopBar title="Fiche vin" back={back} />;
 
   const { wine, movements } = detail.data;
   // Même borne que l'API : au-delà, la colonne INTEGER déborderait.
@@ -127,7 +130,7 @@ export function WinePage() {
 
   return (
     <>
-      <TopBar title="Fiche vin" back="/cave" />
+      <TopBar title="Fiche vin" back={back} />
       <main className="page">
         {/* En-tête (vignette + titre) sur une ligne ; la recherche d'image et sa
             fenêtre de choix dessous, sur toute la largeur de la carte : dans la
