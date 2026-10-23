@@ -18,6 +18,7 @@ import { TopBar } from '../components/TopBar';
 import { WineThumb } from '../components/WineThumb';
 import { ApiError, getWine, LocationInput, postInventory } from '../lib/api-client';
 import { EMPTY_LOCATION, NO_LOCATION, toLocationInput, useLocations, useZones } from '../lib/locations';
+import { movementNote } from '../lib/movement-note';
 import { useCurrentCave } from '../lib/use-current-cave';
 
 /** Mouvements : jour et heure (« 23 oct. 2026, 14:05 »), heure de l'appareil. */
@@ -123,7 +124,7 @@ export function WinePage() {
         {/* Type, puis date et heure, puis la description (emplacement, note). */}
         {TYPE_LABEL[m.type]}{' · '}{fmt.format(new Date(m.occurredAt))}
         {m.type === 'MOVE' ? ` · ${m.locationLabel ?? NO_LOCATION}` : m.locationLabel ? ` · ${m.locationLabel}` : ''}
-        {m.note ? ` · ${m.note}` : ''}
+        {movementNote(m, movements) ? ` · ${movementNote(m, movements)}` : ''}
       </span>
     </div>
   );

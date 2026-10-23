@@ -6,6 +6,11 @@ permissions: { contents: write, pull-requests: write }
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Une seule exécution à la fois : le commit de résumé poussé juste après la
+    # fusion d'une PR de version relançait release-please pendant qu'il publiait
+    # encore, et la seconde exécution échouait en retirant l'étiquette
+    # « autorelease: pending » déjà retirée (« Label does not exist »).
+    concurrency: { group: release-please, cancel-in-progress: false }
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}

@@ -9,6 +9,83 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.34.0](https://github.com/djkix/ma-cave/compare/v2.33.1...v2.34.0) (2026-10-23)
+
+### Résumé
+
+**Annulations lisibles.** Une annulation affiche ce qu'elle annule et quand
+(« Annulation de la sortie du 23 oct. 2026, 14:02 »), sur la fiche vin, dans
+le Journal et sur l'accueil, anciennes annulations comprises.
+
+**Journal Gemini purgé.** Le worker efface chaque jour les appels de plus de
+`GEMINI_JOURNAL_RETENTION_DAYS` jours (365 par défaut, 92 au minimum).
+
+**Publication.** release-please ne tourne plus qu'une fois à la fois : le
+commit de résumé ne fait plus échouer l'automatisme. Aucune migration.
+
+### Détail par commit
+
+
+
+### Fonctionnalités
+
+* **api:** journal des appels Gemini purgé chaque jour au-delà d'un an ([bec136d](https://github.com/djkix/ma-cave/commit/bec136d5eea18d9e560192611947f2c24cd28591))
+
+
+### Corrections
+
+* annulation lisible dans les mouvements, sans identifiant technique ([d1fe215](https://github.com/djkix/ma-cave/commit/d1fe2155ab2d2c94ec193067e517bcd00053291e))
+
+## [2.33.1](https://github.com/djkix/ma-cave/compare/v2.33.0...v2.33.1) (2026-10-23)
+
+### Résumé
+
+**Dictée sur téléphone seulement.** Dans *Accords*, le micro n'est proposé que
+sur un écran tactile (téléphone, tablette) ; sur ordinateur, le champ texte
+s'affiche d'office. Aucune migration.
+
+### Détail par commit
+
+
+
+### Corrections
+
+* **web:** dictée du plat proposée sur téléphone seulement, champ texte d'office sur ordinateur ([7e0f225](https://github.com/djkix/ma-cave/commit/7e0f225d69f16329f53fa183b445b0070d468f59))
+
+## [2.33.0](https://github.com/djkix/ma-cave/compare/v2.32.0...v2.33.0) (2026-10-23)
+
+### Résumé
+
+**Accords vins.** Nouvel onglet *Accords* (à la place de *Journal*, qui
+devient une carte des Réglages, propriétaire seulement) : on dicte au micro ou
+on écrit le plat préparé, et l'application propose jusqu'à 5 vins de la cave,
+à boire d'abord, avec un score d'accord, une raison, l'apogée et
+l'emplacement. Toucher un vin ouvre sa fiche ; le retour ramène à la même
+liste sans nouvel appel. Un appel Gemini par plat (usage « Accords (plat) »
+dans le journal), soumis aux quotas, à la bascule de modèle et au budget ;
+ouvert aussi aux membres invités.
+
+**Corrections.** Les mouvements de la fiche vin affichent le type, puis le
+jour et l'heure, puis la description ; l'erreur `unaccent` disparaît des
+journaux de postgres. Deux petites migrations, appliquées seules au
+démarrage, sans toucher aux données (voir « Passage à la 2.33.0 » dans
+`docs/guide-detaille.md`).
+
+### Détail par commit
+
+
+
+### Fonctionnalités
+
+* **api:** accords vins, des vins de la cave proposés pour un plat ([baac969](https://github.com/djkix/ma-cave/commit/baac96925ce119e3000c458f25ee46d67255faa3))
+* **web:** onglet Accords, le plat à la voix ou par écrit, des vins de la cave proposés ([70c4186](https://github.com/djkix/ma-cave/commit/70c418694ac6b59f50e87135d17126f4dfd23b6f))
+
+
+### Corrections
+
+* **api:** unaccent nommé avec son schéma, plus d'erreur pendant l'analyse automatique de postgres ([6f345be](https://github.com/djkix/ma-cave/commit/6f345be9951745aa2ce1429f9d2aeb70192bdcce))
+* **web:** mouvements de la fiche vin : type, jour et heure, puis la description ([5658162](https://github.com/djkix/ma-cave/commit/565816209692af319b4e2868d6acae457bfbd535))
+
 ## [2.32.0](https://github.com/djkix/ma-cave/compare/v2.31.0...v2.32.0) (2026-10-23)
 
 ### Résumé

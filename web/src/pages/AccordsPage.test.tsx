@@ -29,6 +29,12 @@ class FakeRecognition {
 }
 
 beforeEach(() => sessionStorage.clear());
+/** Téléphone (écran tactile) ou ordinateur : la dictée n'est proposée que sur un écran tactile. */
+function setTouch(touch: boolean) {
+  window.matchMedia = ((q: string) => ({ matches: touch && q === '(pointer: coarse)', media: q })) as unknown as typeof window.matchMedia;
+}
+
+beforeEach(() => setTouch(true));
 afterEach(() => {
   vi.restoreAllMocks();
   delete (window as unknown as Record<string, unknown>).SpeechRecognition;
@@ -142,4 +148,12 @@ it('IA indisponible : le message de l’api, et on peut réessayer', async () =>
   await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
   expect(await screen.findByRole('link', { name: /Domaine Raveneau/ })).toBeInTheDocument();
   expect(post).toHaveBeenCalledTimes(2);
+});
+
+it('ordinateur (pas d’écran tactile) : pas de micro, le champ texte d’office', () => {
+  (window as unknown as Record<string, unknown>).SpeechRecognition = FakeRecognition;
+  setTouch(false);
+  mount();
+  expect(screen.queryByRole('button', { name: 'Dicter le plat' })).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Le plat')).toBeInTheDocument();
 });

@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.32.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.34.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -713,6 +713,7 @@ Référence : [`.env.example`](.env.example).
 | `GEMINI_API_KEY` | Oui* | Oui | Clé Google AI Studio |
 | `GEMINI_MODEL` | Non | Non | Modèle de repli quand la liste de Google est indisponible, Flash ou Lite seulement (défaut `gemini-3.8-flash`) |
 | `GEMINI_MONTHLY_CAP_CENTS` | Non | Non | Plafond mensuel approximatif en centimes (défaut `500`) |
+| `GEMINI_JOURNAL_RETENTION_DAYS` | Non | Non | Conservation du journal des appels Gemini, purgé chaque jour par le worker (défaut `365`, minimum `92`) |
 | `NAS_OPTIONS` | Oui | Non | Options de montage NFS du NAS de sauvegarde : `addr=<IP du NAS>,nfsvers=4.1,soft,timeo=150,retrans=3` |
 | `NAS_CHEMIN` | Oui | Non | Export NFS et dossier de sauvegarde, avec le deux-points : `:/volumeN/<partage>/<dossier>` |
 | `NAS_TYPE` | Non | Non | Type du volume `nas` (défaut `nfs` ; `none` avec `NAS_OPTIONS=bind` pour un dossier local) |
@@ -842,6 +843,30 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.34.0 — 23 octobre 2026
+
+Publiée ([v2.34.0](https://github.com/djkix/ma-cave/releases/tag/v2.34.0)),
+images `ghcr.io/djkix/ma-cave-api:2.34.0` et `-web:2.34.0`.
+
+**Annulations lisibles**, **journal Gemini purgé** au-delà d'un an
+(`GEMINI_JOURNAL_RETENTION_DAYS`). Aucune migration.
+
+### 2.33.1 — 23 octobre 2026
+
+Publiée ([v2.33.1](https://github.com/djkix/ma-cave/releases/tag/v2.33.1)),
+images `ghcr.io/djkix/ma-cave-api:2.33.1` et `-web:2.33.1`.
+
+**Dictée sur téléphone seulement** ; champ texte d'office sur ordinateur.
+
+### 2.33.0 — 23 octobre 2026
+
+Publiée ([v2.33.0](https://github.com/djkix/ma-cave/releases/tag/v2.33.0)),
+images `ghcr.io/djkix/ma-cave-api:2.33.0` et `-web:2.33.0`.
+
+**Accords vins** : le plat à la voix ou par écrit, 5 vins de la cave proposés ;
+Journal dans les Réglages ; mouvements datés à l'heure. Migrations
+automatiques, sans effet sur les données.
+
 ### 2.32.0 — 23 octobre 2026
 
 Publiée ([v2.32.0](https://github.com/djkix/ma-cave/releases/tag/v2.32.0)),
@@ -901,6 +926,9 @@ images `ghcr.io/djkix/ma-cave-api:2.26.0` et `-web:2.26.0`.
 **Plus d'icône du compte** en haut à droite (onglet Réglages), passage à la
 stack `ma-cave` depuis Dockhand. Aucune migration.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.25.0 → 1.0.0)</summary>
+
 ### 2.25.0 — 22 octobre 2026
 
 Publiée ([v2.25.0](https://github.com/djkix/ma-cave/releases/tag/v2.25.0)),
@@ -908,6 +936,7 @@ images `ghcr.io/djkix/ma-cave-api:2.25.0` et `-web:2.25.0`.
 
 **Onglet Réglages** dans la barre du bas, version en haut à droite des Réglages,
 heure de reprise avec le jour nommé (« jeudi à 09:00 »). Aucune migration.
+
 
 ### 2.24.0 — 22 octobre 2026
 
@@ -918,6 +947,7 @@ images `ghcr.io/djkix/ma-cave-api:2.24.0` et `-web:2.24.0`.
 noms dans la Proposition, Modifier la zone et la grille de rangement. Petite
 migration (ajout d'une colonne) ; voir « Passage à la 2.24.0 ».
 
+
 ### 2.23.0 — 22 octobre 2026
 
 Publiée ([v2.23.0](https://github.com/djkix/ma-cave/releases/tag/v2.23.0)),
@@ -927,8 +957,6 @@ images `ghcr.io/djkix/ma-cave-api:2.23.0` et `-web:2.23.0`.
 cases nommées dessinées sur la photo quand une proposition est ouverte. Aucune
 migration ; relancer l'analyse du plan.
 
-<details>
-<summary><strong>Versions antérieures</strong> (2.22.0 → 1.0.0)</summary>
 
 ### 2.22.0 — 21 octobre 2026
 

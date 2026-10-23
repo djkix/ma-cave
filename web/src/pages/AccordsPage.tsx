@@ -44,7 +44,13 @@ interface Recognition {
 }
 type RecognitionCtor = new () => Recognition;
 
+/** Écran tactile (téléphone, tablette) : la dictée n'est proposée que là ; sur ordinateur, le champ texte. */
+function isTouchDevice(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+}
+
 function speechRecognition(): RecognitionCtor | undefined {
+  if (!isTouchDevice()) return undefined;
   const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor };
   return w.SpeechRecognition ?? w.webkitSpeechRecognition;
 }

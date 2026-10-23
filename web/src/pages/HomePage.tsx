@@ -54,7 +54,7 @@ export function HomePage() {
             <DrinkSoonCard />
             <h2 style={{ fontSize: 14, letterSpacing: '0.08em', color: 'var(--color-secondary)' }}>DERNIERS MOUVEMENTS</h2>
             <div className="list">
-              {movements.data?.map((m) => <MovementRow key={m.id} m={m} />)}
+              {movements.data?.map((m) => <MovementRow key={m.id} m={m} all={movements.data} />)}
               {movements.data?.length === 0 && <p className="centered">Aucun mouvement pour l’instant.</p>}
             </div>
             <Link to="/journal" className="btn btn--link">Voir le journal</Link>
