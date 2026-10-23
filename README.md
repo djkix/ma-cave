@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.31.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.32.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -787,6 +787,14 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.32.0 — 23 octobre 2026
+
+Publiée ([v2.32.0](https://github.com/djkix/ma-cave/releases/tag/v2.32.0)),
+images `ghcr.io/djkix/ma-cave-api:2.32.0` et `-web:2.32.0`.
+
+**Menus en pastilles avec chevron**, logo vers l'accueil, cote sur une ligne,
+correction du stock dans le bloc de sortie, historique replié. Aucune migration.
+
 ### 2.31.0 — 22 octobre 2026
 
 Publiée ([v2.31.0](https://github.com/djkix/ma-cave/releases/tag/v2.31.0)),
@@ -864,6 +872,9 @@ images `ghcr.io/djkix/ma-cave-api:2.23.0` et `-web:2.23.0`.
 cases nommées dessinées sur la photo quand une proposition est ouverte. Aucune
 migration ; relancer l'analyse du plan.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.22.0 → 1.0.0)</summary>
+
 ### 2.22.0 — 21 octobre 2026
 
 Publiée ([v2.22.0](https://github.com/djkix/ma-cave/releases/tag/v2.22.0)),
@@ -872,8 +883,6 @@ images `ghcr.io/djkix/ma-cave-api:2.22.0` et `-web:2.22.0`.
 **Limites de débit Gemini** respectées avant chaque appel, attente avec heure
 de reprise, limites réglables dans l'Administration. Aucune migration.
 
-<details>
-<summary><strong>Versions antérieures</strong> (2.21.0 → 1.0.0)</summary>
 
 ### 2.21.0 — 21 octobre 2026
 

@@ -11,6 +11,22 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.32.0](https://github.com/djkix/ma-cave/compare/v2.31.0...v2.32.0) (2026-10-23)
 
+### Résumé
+
+**Interface plus agréable.** Toutes les listes déroulantes ont un chevron
+dessiné et le même habillage ; sur la page Cave, Couleur, Emplacement, Vins
+épuisés, À boire en priorité et Sans apogée deviennent des pastilles, dorées
+quand le filtre est actif. Le logo de la barre du haut ramène à l'accueil.
+
+**Fiche vin.** La cote liste iDealwine, Wine-Searcher et Vivino sur une
+ligne ; « Corriger le stock » s'ouvre dans le bloc de sortie avec − et + pour
+ajouter ou enlever des bouteilles ; seuls les trois derniers mouvements sont
+affichés, les autres sous « Plus d'historique » ; un clic hors de la fenêtre
+d'emplacement la ferme. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
