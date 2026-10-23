@@ -26,6 +26,13 @@ services:
     volumes:
       - photo_data:/data/photos
     expose: ["3000"]
+    # Saine une fois les migrations jouées et le serveur à l'écoute.
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -80,59 +87,34 @@ services:
       retries: 10
     networks: [internal]
 
-  db-backup:
-    image: postgres:16-alpine
+  # Sauvegarde vers le NAS, en NFS : chaque jour dès 3 h (heure de Paris), la
+  # base, les photos et la configuration de la stack dans un dossier daté, sept
+  # jours gardés, sans chiffrement (voir sauvegarde/). Le code est dans l'image :
+  # la stack reste autonome. Aucun service n'en dépend : NAS éteint, seul ce
+  # conteneur ne démarre pas, et l'Administration le signale au bout de 36 h.
+  sauvegarde:
+    image: ghcr.io/djkix/ma-cave-sauvegarde:${IMAGE_TAG:-latest}
+    build: ./sauvegarde
     restart: unless-stopped
     environment:
-      PGHOST: postgres
-      PGUSER: ${POSTGRES_USER}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
-      PGDATABASE: ${POSTGRES_DB}
-      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
-      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      TZ: Europe/Paris
+      HEURE: ${SAUVEGARDE_HEURE:-3}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Une base injoignable ne bloque pas la boucle de planification : 10 s pour se connecter.
+      PGCONNECT_TIMEOUT: "10"
     volumes:
-      - ${BACKUP_DIR:-./backups}:/backups
-    # Le script est écrit ici même, et non monté depuis le dépôt : Dockge crée la
-    # stack à partir de ce seul fichier, sans cloner le dépôt. Un fichier monté
-    # absent de l'hôte devient un dossier vide dans le conteneur, `sh` n'y
-    # exécute rien, sort avec le code 0, et la sauvegarde ne tourne jamais — ce
-    # qui s'est produit en production. Les `$$` sont des `$` échappés pour
-    # Docker Compose, qui interpréterait sinon les variables à sa place.
-    #
-    # Dump quotidien, jamais un fichier tronqué : le nom définitif n'apparaît
-    # qu'après un pg_dump ET un gzip réussis. Le dump est fait avec --clean
-    # --if-exists, il se restaure donc par-dessus un schéma existant.
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -eu
-        mkdir -p /backups
-        echo "sauvegarde : un dump toutes les $${BACKUP_INTERVAL_SECONDS} s, conservation $${BACKUP_RETENTION_DAYS} jours"
-        while true; do
-          ts=$$(date +%Y%m%d-%H%M%S)
-          raw="/backups/cave-$${ts}.sql.part"
-          tmp="/backups/cave-$${ts}.sql.gz.tmp"
-          final="/backups/cave-$${ts}.sql.gz"
-          # busybox ash n'a pas PIPESTATUS : on dumpe d'abord, on compresse
-          # ensuite, afin de tester chaque code de retour séparément.
-          if pg_dump --clean --if-exists > "$$raw"; then
-            if gzip -c "$$raw" > "$$tmp"; then
-              rm -f "$$raw"
-              mv "$$tmp" "$$final"
-              echo "sauvegarde écrite : $$final"
-            else
-              rm -f "$$raw" "$$tmp"
-              echo "sauvegarde échouée : compression impossible" >&2
-            fi
-          else
-            rm -f "$$raw"
-            echo "sauvegarde échouée : pg_dump en erreur" >&2
-          fi
-          find /backups -name 'cave-*.sql.gz' -mtime "+$${BACKUP_RETENTION_DAYS}" -delete
-          sleep "$${BACKUP_INTERVAL_SECONDS}"
-        done
+      - photo_data:/data/photos:ro
+      # Le dossier de la stack : son fichier compose et son .env sont copiés.
+      - .:/stack:ro
+      - nas:/nas
+    # L'api saine a joué les migrations : les tables backup_run et
+    # backup_request existent avant la première tentative.
     depends_on:
-      postgres: { condition: service_healthy }
+      api: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          memory: 128m
     networks: [internal]
 
 networks:
@@ -142,3 +124,11 @@ volumes:
   postgres_data:
   redis_data:
   photo_data:
+  # NAS du réseau local, en NFS ; adresse et chemin dans le .env, jamais dans le
+  # dépôt. La CI le remplace par un dossier local (NAS_TYPE=none, NAS_OPTIONS=bind).
+  nas:
+    driver: local
+    driver_opts:
+      type: ${NAS_TYPE:-nfs}
+      o: ${NAS_OPTIONS:?NAS_OPTIONS vide, par exemple addr=<IP du NAS>,nfsvers=4.1,soft,timeo=150,retrans=3}
+      device: ${NAS_CHEMIN:?NAS_CHEMIN vide, par exemple :/volumeN/<partage>/<dossier>}

@@ -24,6 +24,7 @@ jobs:
         include:
           - { image: api, context: ./api }
           - { image: web, context: ./web }
+          - { image: sauvegarde, context: ./sauvegarde }
     steps:
       # L'étiquette reçue (workflow_call) ou poussée n'entre jamais telle quelle
       # dans un script : elle passe par l'environnement et doit être de la forme
