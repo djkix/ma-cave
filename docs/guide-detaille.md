@@ -1037,7 +1037,7 @@ cave et celles où il est invité, comme tout compte.
 | `worker` | extraction Gemini via BullMQ (sorties) ; entrées (8 photos), accords et descriptifs (10) par lots toutes les 15 s | — | réseau Docker interne |
 | `postgres` | données (PostgreSQL 16 + `pg_trgm`) | 5432 | réseau Docker interne |
 | `redis` | file de travaux et sessions | 6379 | réseau Docker interne |
-| `db-backup` | `pg_dump` quotidien avec rotation | — | réseau Docker interne |
+| `sauvegarde` | chaque nuit : base, photos et configuration vers le NAS (NFS) | — | réseau Docker interne |
 
 Seul le port `3100` est joint par Nginx Proxy Manager, qui termine TLS et garde
 80/443. Aucune autre ouverture n'est nécessaire sur la box.
@@ -1057,9 +1057,9 @@ cette machine sur le réseau local.
 
 La stack est **autonome** : le `docker-compose.yml` et son `.env` suffisent,
 aucun autre fichier du dépôt n'est nécessaire sur l'hôte (les images portent le
-code, et le script de sauvegarde est écrit dans le YAML lui-même). L'intégration
-continue le vérifie à chaque commit en démarrant la stack dans un dossier qui ne
-contient que ces deux fichiers.
+code, sauvegarde comprise). L'intégration continue le vérifie à chaque commit en
+démarrant la stack dans un dossier qui ne contient que ces deux fichiers, jusqu'à
+une vraie sauvegarde sur un « NAS » local.
 
 **Avec Dockge** (le cas de ce serveur) : créer une stack `ma-cave`, coller le
 contenu de [`docker-compose.yml`](../docker-compose.yml) dans l'éditeur et celui du
@@ -1074,7 +1074,8 @@ curl -fsSLO https://raw.githubusercontent.com/djkix/ma-cave/main/docker-compose.
 curl -fsSL -o .env https://raw.githubusercontent.com/djkix/ma-cave/main/.env.example
 ```
 
-Les sauvegardes sont écrites dans `./backups`, à côté du YAML.
+Les sauvegardes partent chaque nuit sur le NAS, monté en NFS (`NAS_OPTIONS` et
+`NAS_CHEMIN`, étape 4) ; voir *Sauvegarde et restauration* dans le README.
 
 ### 3. Créer le client OAuth Google
 
@@ -1134,7 +1135,9 @@ openssl rand -hex 32
 | `GEMINI_API_KEY` | clé Google AI Studio |
 | `GEMINI_MODEL` | `gemini-3.8-flash` ; **valeur de départ** de tous les usages, tant qu'aucun modèle n'est choisi dans *Administration › Coûts de l’IA*. Un modèle Flash ou Lite seulement (l'api refuse de démarrer avec un modèle Pro ; les coûts sont comptés au tarif Flash) |
 | `GEMINI_MONTHLY_CAP_CENTS` | plafond mensuel approximatif en centimes (`500` = ~5 €) |
-| `BACKUP_DIR` / `BACKUP_RETENTION_DAYS` / `BACKUP_INTERVAL_SECONDS` | sauvegardes : répertoire, rétention, intervalle |
+| `NAS_OPTIONS` | options de montage NFS du NAS de sauvegarde : `addr=<IP du NAS>,nfsvers=4.1,soft,timeo=150,retrans=3` ; **obligatoire** |
+| `NAS_CHEMIN` | export NFS et dossier de sauvegarde, avec le deux-points : `:/volumeN/<partage>/<dossier>` (`showmount -e <IP du NAS>` donne l'export) ; **obligatoire** |
+| `SAUVEGARDE_HEURE` | heure de la sauvegarde quotidienne, heure de Paris (`3`) |
 
 Le `.env` n'est jamais commité et n'entre jamais dans une image.
 
@@ -1247,6 +1250,35 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 
 À lire avant une mise à jour qui change de version mineure. Les sections
 vont de la plus récente à la plus ancienne.
+
+### Passage à la version suivant la 2.34.0 (sauvegarde vers le NAS)
+
+Le service `db-backup` (dump local dans `./backups`, sans les photos) est
+remplacé par `sauvegarde` : chaque nuit dès 3 h, la base (`pg_dump -Fc`), les
+photos (liens physiques vers la veille) et la configuration de la stack
+(fichier compose et `.env`) partent dans un dossier daté du NAS, en NFS, sept
+jours gardés, sans chiffrement. Une migration additive, appliquée toute seule
+au démarrage de l'api : `20261028000000_sauvegarde_nas` (tables `backup_run` et
+`backup_request`). L'api a désormais une sonde de santé, attendue par
+`sauvegarde`.
+
+1. Ajouter au `.env` (la stack refuse de démarrer sans elles) :
+   `NAS_OPTIONS=addr=<IP du NAS>,nfsvers=4.1,soft,timeo=150,retrans=3` et
+   `NAS_CHEMIN=:/volumeN/<partage>/<dossier>` ; retirer `BACKUP_DIR`,
+   `BACKUP_RETENTION_DAYS` et `BACKUP_INTERVAL_SECONDS`.
+2. Sur le NAS : autoriser la VM en NFS sur le dossier partagé, en lecture et
+   écriture, avec « Mappage de tous les utilisateurs ».
+3. Remplacer le compose, puis `docker compose pull && docker compose up -d
+   --remove-orphans` (retire l'ancien conteneur `db-backup`). Le dossier
+   `./backups` reste sur l'hôte, intact.
+4. Lancer une première sauvegarde (**Administration › Sauvegarde ›
+   Sauvegarder maintenant**, ou `docker compose exec sauvegarde
+   /app/sauvegarder.sh`) et vérifier le dossier daté sur le NAS.
+
+Si `up -d` échoue sur `sauvegarde` seul (« mounting … failed »), le NAS est
+éteint ou refuse la VM : le reste de la stack tourne.
+**Retour arrière** vers une image précédente : les deux tables restent, ignorées ;
+remettre l'ancien compose pour retrouver `db-backup`.
 
 ### Passage à la 2.34.0 (journal Gemini purgé, annulations lisibles)
 
