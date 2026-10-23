@@ -541,10 +541,12 @@ du `.env` sert seul s'il est stable, et la carte affiche l'erreur en clair.
 L'ancien réglage `gemini_model` d'`app_setting`, laissé en base, n'est plus lu,
 et la route `PUT /api/admin/gemini-model` n'existe plus. *Administration ›
 Coûts de l’IA*, carte **Modèle Gemini (automatique)** : « L’application choisit
-seule le modèle : le plus récent dont le quota du jour n’est pas atteint, puis
-le suivant. », le **modèle en cours** en évidence avec sa minute (« Cette minute
+seule le modèle : le plus récent dont le quota du jour n’est pas atteint et qui
+répond normalement, puis le suivant. Un modèle lent ou saturé est mis de côté
+15 minutes. », le **modèle en cours** (le premier ni épuisé ni mis de côté) en évidence avec sa minute (« Cette minute
 : 1 / 5 requêtes, 2 700 / 250 000 jetons »), ou « Tous les modèles ont atteint
-leur quota du jour : reprise à 09:00. », puis la liste des modèles dans l'ordre
+leur quota du jour : reprise à 09:00. » (« Tous les modèles sont épuisés ou mis
+de côté : reprise à 14:20. » si l'un est mis de côté), puis la liste des modèles dans l'ordre
 d'emploi.
 
 **Limites de débit Gemini.** L'application reste toujours sous le quota de la
@@ -610,8 +612,8 @@ porte sur un quota journalier (`PerDay`, « per day ») → l'appel refusé est 
 au journal, le modèle est marqué **épuisé jusqu'au prochain minuit du
 Pacifique** (marque Redis partagée par l'api et le worker), **sans pause
 commune**, et le modèle suivant est essayé aussitôt dans le même appel. Les
-limites à la minute (requêtes, jetons), les 503 et les autres 429 gardent leur
-comportement : attente ou pause commune, sans bascule. Tous les modèles épuisés
+limites locales à la minute (requêtes, jetons) gardent leur comportement :
+attente, sans bascule. Tous les modèles épuisés
 pour la journée : le même refus qu'avant, « Quota Gemini du jour atteint… »,
 reprise au prochain minuit du Pacifique. Le journal `gemini_call` note le
 modèle réellement employé, et le « Détail par jour » de *Consommation Gemini*
@@ -620,6 +622,37 @@ une ligne par modèle : « gemini-… : 7 / 20 requêtes aujourd’hui », avec 
 badge « épuisé jusqu’à 09:00 » s'il l'est. Les
 compteurs d'avant ce changement (communs à tous les modèles) ne sont pas
 repris : le jour du déploiement, un 429 journalier de Google fait la bascule.
+
+**Bascule sur lenteur ou saturation.** Un modèle peut aussi être écarté parce
+que Google le sert mal (appels de plusieurs minutes, refus 503) alors que son
+quota du jour n'est pas atteint. Chaque essai sur un modèle a son propre délai :
+**45 s** par défaut pour les lectures d'étiquette (photo seule ou lot de photos
+d'entrée), les accords d'un plat et la recherche d'image
+(`GEMINI_ATTEMPT_TIMEOUT_MS`, en millisecondes, 1000 au moins), **2 min** pour les
+lots d'accords ou de descriptifs (dix vins ou domaines) et l'analyse d'un plan
+(jamais moins que le réglage). Au-delà, la requête est réellement interrompue
+(signal d'abandon transmis au SDK Gemini), notée ERREUR au journal (« Délai de
+réponse de Gemini dépassé (ETIMEDOUT après 45 s, gemini-…) »). Un délai dépassé,
+un **503** ou un **429 non journalier** (limite à la minute chez Google) **met le
+modèle de côté 15 minutes** (marque Redis à échéance partagée par l'api et le
+worker, vérifiée à chaque réservation comme la marque « épuisé ») et le modèle
+suivant est essayé **aussitôt, dans le même appel**, sans pause commune ; le
+refus reste noté REFUSE au journal avec son modèle. Tant qu'il est mis de côté,
+le modèle n'est plus essayé, ni par l'api ni par le worker. Si **aucun** modèle
+ne prend le relais, le comportement d'avant s'applique : l'échec du dernier
+modèle essayé remonte (503 ou 429 : pause commune « modèle saturé » 5 min ou
+QUOTA_GOOGLE ; délai dépassé : panne passagère, la photo ou le lot est reporté),
+et si tous étaient déjà épuisés ou mis de côté, rien ne part et la tâche est
+reportée à la reprise la plus proche (« Gemini en pause jusqu'à 14:20 (modèle
+lent ou saturé) »). Redis injoignable : l'appel part sans limiteur ni marques.
+Les filets des processeurs de lots (photos d'entrée, accords et descriptifs),
+qui bornent un appel tous modèles compris, passent de 2 à 4 min (toujours sous
+l'échéance de réservation de 5 min), et le `stop_grace_period` du worker dans
+`docker-compose.yml` de 150 s à 270 s, pour qu'un lot en cours se termine
+toujours avant l'arrêt. La carte **Modèle Gemini (automatique)**
+montre pour un modèle mis de côté le badge « lent ou saturé, repris à 14:20 » ;
+`GET /api/admin/gemini-quota` rend `asideUntil` (ISO ou null) pour chaque modèle,
+et `current` est le premier modèle ni épuisé ni mis de côté.
 
 **Photos plus nettes.** Une version d'affichage est fabriquée par le serveur,
 sans aucun coût supplémentaire : la lecture Gemini d'une photo renvoie déjà le
