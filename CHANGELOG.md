@@ -9,6 +9,20 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.33.0](https://github.com/djkix/ma-cave/compare/v2.32.0...v2.33.0) (2026-10-23)
+
+
+### Fonctionnalités
+
+* **api:** accords vins, des vins de la cave proposés pour un plat ([baac969](https://github.com/djkix/ma-cave/commit/baac96925ce119e3000c458f25ee46d67255faa3))
+* **web:** onglet Accords, le plat à la voix ou par écrit, des vins de la cave proposés ([70c4186](https://github.com/djkix/ma-cave/commit/70c418694ac6b59f50e87135d17126f4dfd23b6f))
+
+
+### Corrections
+
+* **api:** unaccent nommé avec son schéma, plus d'erreur pendant l'analyse automatique de postgres ([6f345be](https://github.com/djkix/ma-cave/commit/6f345be9951745aa2ce1429f9d2aeb70192bdcce))
+* **web:** mouvements de la fiche vin : type, jour et heure, puis la description ([5658162](https://github.com/djkix/ma-cave/commit/565816209692af319b4e2868d6acae457bfbd535))
+
 ## [2.32.0](https://github.com/djkix/ma-cave/compare/v2.31.0...v2.32.0) (2026-10-23)
 
 ### Résumé
