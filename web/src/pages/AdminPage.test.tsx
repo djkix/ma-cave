@@ -30,6 +30,7 @@ beforeEach(() => {
   vi.spyOn(api, 'getGeminiQuota').mockResolvedValue({ current: null, minute: { requests: 0, tokens: 0 }, dayResetsAt: '2026-10-22T07:00:00.000Z', models: [], error: null });
   vi.spyOn(api, 'getVintages').mockResolvedValue({ regions: [], qualities: [] });
   vi.spyOn(api, 'searchGuards').mockResolvedValue([]);
+  vi.spyOn(api, 'getBackupStatus').mockResolvedValue({ lastSuccessAt: null, lastRun: null, requested: false, alert: null });
 });
 
 const rowOf = (text: string) => screen.getAllByText(text)[0].closest<HTMLElement>('.list__row')!;
@@ -56,7 +57,7 @@ async function choose(email: string, action: string) {
 }
 
 describe('Onglets', () => {
-  it('montre les trois onglets, l’actif marqué, et le nombre d’inscriptions sur Comptes', async () => {
+  it('montre les quatre onglets, l’actif marqué, et le nombre d’inscriptions sur Comptes', async () => {
     vi.spyOn(api, 'getMe').mockResolvedValue(me);
     vi.spyOn(api, 'getAdminUsers').mockResolvedValue(users);
     vi.spyOn(api, 'getRegistrations').mockResolvedValue([
@@ -82,6 +83,20 @@ describe('Onglets', () => {
     expect(screen.getByRole('heading', { name: 'Consommation Gemini' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Comptes' })).not.toBeInTheDocument();
     expect(list).not.toHaveBeenCalled();
+  });
+
+  it('Sauvegarde : section, et alerte signalée sur l’onglet depuis les autres', async () => {
+    vi.spyOn(api, 'getMe').mockResolvedValue(me);
+    vi.spyOn(api, 'getBackupStatus').mockResolvedValue({ lastSuccessAt: null, lastRun: null, requested: false, alert: 'Aucune sauvegarde réussie depuis 36 h.' });
+    mount('/admin/donnees');
+    const tabs = within(await screen.findByRole('navigation', { name: 'Administration' }));
+    const onglet = tabs.getByRole('link', { name: /Sauvegarde/ });
+    expect(onglet).toHaveAttribute('href', '/admin/sauvegarde');
+    expect(await within(onglet).findByText('à voir')).toHaveClass('badge', 'badge--warn');
+    cleanup();
+    mount('/admin/sauvegarde');
+    expect(await screen.findByRole('heading', { name: 'Sauvegarde' })).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Aucune sauvegarde réussie depuis 36 h.');
   });
 
   it('Données du vin : lecture, millésimes et gardes', async () => {

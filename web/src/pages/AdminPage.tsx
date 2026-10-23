@@ -4,6 +4,7 @@ import { ActionMenu } from '../components/ActionMenu';
 import { BottomNav } from '../components/BottomNav';
 import { PersonRow } from '../components/PersonRow';
 import { TopBar } from '../components/TopBar';
+import { BackupSection } from '../components/admin/BackupSection';
 import { BudgetSection } from '../components/admin/BudgetSection';
 import { GeminiModelSection } from '../components/admin/GeminiModelSection';
 import { GeminiUsageSection } from '../components/admin/GeminiUsageSection';
@@ -11,7 +12,7 @@ import { GuardsSection } from '../components/admin/GuardsSection';
 import { ReadingQualitySection } from '../components/admin/ReadingQualitySection';
 import { RegistrationsSection } from '../components/admin/RegistrationsSection';
 import { VintagesSection } from '../components/admin/VintagesSection';
-import { AdminUser, createUserCave, getAdminUsers, getRegistrations, updateAdminUser } from '../lib/api-client';
+import { AdminUser, createUserCave, getAdminUsers, getBackupStatus, getRegistrations, updateAdminUser } from '../lib/api-client';
 import { useMe } from '../lib/use-current-cave';
 
 const fmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -20,6 +21,7 @@ const TABS = [
   { id: 'comptes', label: 'Comptes' },
   { id: 'couts', label: 'Coûts de l’IA' },
   { id: 'donnees', label: 'Données du vin' },
+  { id: 'sauvegarde', label: 'Sauvegarde' },
 ] as const;
 
 type Patch = { status?: AdminUser['status']; isAdmin?: boolean };
@@ -107,13 +109,15 @@ function AccountsCard({ meId }: { meId: string }) {
   );
 }
 
-/** Administration (« Application » du hub) : un onglet par adresse, /admin/comptes, /admin/couts, /admin/donnees. */
+/** Administration (« Application » du hub) : un onglet par adresse, /admin/comptes, /admin/couts, /admin/donnees, /admin/sauvegarde. */
 export function AdminPage() {
   const { tab } = useParams();
   const me = useMe();
   const isAdmin = me.data?.isAdmin === true;
   // Même clé que la carte Inscriptions : le badge de l'onglet Comptes ne coûte pas de requête de plus.
   const regs = useQuery({ queryKey: ['admin', 'registrations'], queryFn: getRegistrations, enabled: isAdmin });
+  // Même clé que la section Sauvegarde : une alerte (échec, ou rien depuis 36 h) se voit depuis chaque onglet.
+  const backup = useQuery({ queryKey: ['admin', 'backup'], queryFn: getBackupStatus, enabled: isAdmin });
 
   if (!TABS.some((t) => t.id === tab)) return <Navigate to="/admin/comptes" replace />;
 
@@ -129,6 +133,7 @@ export function AdminPage() {
                 <Link key={t.id} to={`/admin/${t.id}`} className="plan-tabs__tab" aria-current={t.id === tab ? 'page' : undefined}>
                   {t.label}
                   {t.id === 'comptes' && !!regs.data?.length && <span className="badge badge--warn">{regs.data.length}</span>}
+                  {t.id === 'sauvegarde' && backup.data?.alert && <span className="badge badge--warn">à voir</span>}
                 </Link>
               ))}
             </nav>
@@ -145,6 +150,7 @@ export function AdminPage() {
                 <GeminiUsageSection />
               </>
             )}
+            {tab === 'sauvegarde' && <BackupSection />}
             {tab === 'donnees' && (
               <>
                 <ReadingQualitySection />

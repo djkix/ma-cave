@@ -118,6 +118,18 @@ export interface GeminiQuotaUsage {
   models: GeminiModelDayUsage[];
   error: string | null;
 }
+/** Sauvegarde vers le NAS (service `sauvegarde`) : état vu par l'administrateur. */
+export interface BackupStatus {
+  lastSuccessAt: string | null;
+  lastRun: { finishedAt: string; succeeded: boolean; message: string } | null;
+  /** Une demande « Sauvegarder maintenant » attend le service (5 minutes au plus). */
+  requested: boolean;
+  /** Dernière tentative en échec, ou aucune réussie depuis 36 h ; `null` sinon. */
+  alert: string | null;
+}
+export const getBackupStatus = () => apiFetch<BackupStatus>('/admin/backup');
+export const requestBackup = () => apiFetch<void>('/admin/backup/request', { method: 'POST' });
+
 export const getGeminiQuota = () => apiFetch<GeminiQuotaUsage>('/admin/gemini-quota');
 export const putGeminiQuota = (model: string, limits: GeminiLimits) =>
   apiFetch<GeminiQuotaUsage>('/admin/gemini-quota', { method: 'PUT', body: JSON.stringify({ model, ...limits }) });
