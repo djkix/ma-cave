@@ -590,7 +590,7 @@ Versions avec migration ou geste particulier :
 
 | Version | À retenir |
 |---------|-----------|
-| [Suivant la 2.32.0](docs/guide-detaille.md#passage-à-la-version-suivant-la-2320-sauvegarde-vers-le-nas) | Sauvegarde vers le NAS ; **`NAS_OPTIONS` et `NAS_CHEMIN` à ajouter au `.env`**, `db-backup` remplacé |
+| [Suivant la 2.34.0](docs/guide-detaille.md#passage-à-la-version-suivant-la-2340-sauvegarde-vers-le-nas) | Sauvegarde vers le NAS ; **`NAS_OPTIONS` et `NAS_CHEMIN` à ajouter au `.env`**, `db-backup` remplacé |
 | [2.27.0](docs/guide-detaille.md#passage-à-la-2270-cases-numérotées-par-casier) | Colonnes `cell_prefix` et `cell_boxes` des zones, additive ; **supprimer les zones à grille et relancer l'analyse du plan** |
 | [2.24.0](docs/guide-detaille.md#passage-à-la-2240-noms-des-cases) | Colonne `cell_names` des zones, additive |
 | [2.19.0](docs/guide-detaille.md#passage-à-la-2190-modèle-de-lia-dans-ladministration) | Colonne `model` du journal Gemini, `GEMINI_PLAN_MODEL` retirée |
