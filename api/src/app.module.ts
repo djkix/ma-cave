@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { AccordsModule } from './accords/accords.module';
 import { AdminModule } from './admin/admin.module';
 import { AppellationsModule } from './appellations/appellations.module';
 import { ApogeeModule } from './apogee/apogee.module';
@@ -46,6 +47,7 @@ import { ZonesModule } from './zones/zones.module';
     CaveModule,
     ImageSearchModule,
     ZonesModule,
+    AccordsModule,
   ],
   controllers: [HealthController],
 })

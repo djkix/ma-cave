@@ -10,6 +10,7 @@ import supertest from 'supertest';
 import { PLAN_ANALYSIS_QUEUE_TOKEN } from './queue/plan-analysis';
 import { PRICE_KEYS } from './stats/stats';
 import { createTestCave, deleteTestCaves } from './test-utils/cave';
+import { DISH_PAIRING_PROVIDER, DishPairingWine } from './vision/pairing-provider.interface';
 
 /*
  * Étanchéité entre caves, route par route (spec multi-caves, section 8).
@@ -95,6 +96,11 @@ const ROUTES: Route[] = [
   {
     method: 'GET', path: '/api/stats', kind: 'cave-viewer-read', req: () => ({ url: '/api/stats' }), foreign: 'own',
     readable: (res) => expect(res.body.bottles).toBeGreaterThan(0),
+  },
+  {
+    // « Accords vins » : Gemini remplacé (il choisit chaque vin reçu) ; B, sans vin de A, ne reçoit que les siens.
+    method: 'POST', path: '/api/accords', kind: 'cave-viewer-read', req: () => ({ url: '/api/accords', body: { dish: 'Daube provençale' } }), foreign: 'own',
+    readable: contains('wineA'),
   },
 
   // ── Propriétaire : fiche vin ────────────────────────────────────────────────
@@ -362,6 +368,14 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PLAN_ANALYSIS_QUEUE_TOKEN)
       .useValue(analysisQueue)
+      .overrideProvider(DISH_PAIRING_PROVIDER)
+      .useValue({
+        pairDish: async (_dish: string, wines: DishPairingWine[]) => ({
+          raw: { compris: ['Rouge'], ideal: 'Un rouge', choix: wines.map((_, i) => ({ vin: i + 1, score: 80, raison: 'Iso' })) },
+          model: 'faux',
+          costCents: 0,
+        }),
+      })
       .compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');

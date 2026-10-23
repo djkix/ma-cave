@@ -29,3 +29,25 @@ export interface PairingBatchResult {
 export interface PairingProvider {
   suggestPairingsBatch(wines: PairingWine[]): Promise<PairingBatchResult>;
 }
+
+export const DISH_PAIRING_PROVIDER = 'DISH_PAIRING_PROVIDER';
+
+/** Un vin en stock proposé au modèle pour un plat (« Accords vins »). */
+export interface DishPairingWine extends Omit<PairingWine, 'region'> {
+  /** « 2024-2029 », « jusqu'en 2026 », null sans estimation. */
+  apogee: string | null;
+}
+
+/**
+ * Réponse brute du modèle (objet JSON lu, non validé : l'appelant la valide et
+ * ne garde que les numéros de vins envoyés). `costCents` : coût de l'appel.
+ */
+export interface DishPairingResult {
+  raw: unknown;
+  model: string;
+  costCents: number;
+}
+
+export interface DishPairingProvider {
+  pairDish(dish: string, wines: DishPairingWine[]): Promise<DishPairingResult>;
+}

@@ -3,7 +3,7 @@ import { EXTRACTION_JSON_SCHEMA_DESCRIPTION, parseExtraction } from './extractio
 import { GeminiJournal, GeminiPausedError, GeminiQuotaError, GeminiUsage, classifyFailure, isDailyQuota, nextPacificMidnight } from './gemini-journal';
 import { GeminiQuotaService } from './gemini-quota';
 import { parsePairingOutput } from './pairing-output';
-import { PairingBatchItem, PairingBatchResult, PairingProvider, PairingWine } from './pairing-provider.interface';
+import { DishPairingProvider, DishPairingResult, DishPairingWine, PairingBatchItem, PairingBatchResult, PairingProvider, PairingWine } from './pairing-provider.interface';
 import { parseProducerOutput } from './producer-output';
 import { OfficialSiteProvider, OfficialSiteQuery, OfficialSiteResult } from './official-site-provider.interface';
 import { ProducerBatchItem, ProducerBatchResult, ProducerProvider, ProducerQuery } from './producer-provider.interface';
@@ -159,6 +159,22 @@ Chaque plat : un nom court en français (60 caractères au plus), sans phrase ni
 ${wines.map((w, i) => `Vin ${i + 1} : ${pairingLine(w)}`).join('\n')}`;
 }
 
+/**
+ * Consigne « Accords vins » : un plat, les vins en stock numérotés (une ligne
+ * compacte chacun), réponse en un objet. Les numéros évitent d'envoyer les
+ * identifiants : l'appelant ne garde que les numéros de la liste.
+ */
+function dishPairingPrompt(dish: string, wines: DishPairingWine[]): string {
+  return `Tu es sommelier. On prépare ce plat : « ${dish} ».
+Choisis dans la cave ci-dessous, numérotée de 1 à ${wines.length}, jusqu'à 5 vins qui s'accordent avec ce plat, du meilleur au moins bon. À accord égal, préfère un vin à boire bientôt (apogée qui se termine) à un vin encore jeune.
+Réponds UNIQUEMENT par un objet JSON strict de la forme {"compris": string[], "ideal": string, "choix": [{"vin": number, "score": number, "raison": string}]}, en français :
+- "compris" : 2 à 4 pastilles courtes (3 mots au plus chacune) sur le style de vin recherché, ex. « Blanc sec », « Belle acidité », « À boire d'abord ».
+- "ideal" : le style de vin idéal pour ce plat, en une phrase.
+- "choix" : "vin" est le numéro du vin dans la liste, "score" l'accord de 0 à 100, "raison" une phrase de 120 caractères au plus. Liste vide si aucun vin ne convient vraiment.
+Cave (numéro : producteur ; cuvée ; appellation ; couleur ; millésime ; apogée) :
+${wines.map((w, i) => `${i + 1} : ${w.producer} ; ${w.cuvee ?? '-'} ; ${w.appellation} ; ${COLOR_WORD[w.color] ?? w.color} ; ${w.vintage ?? 'NM'} ; ${w.apogee ?? '?'}`).join('\n')}`;
+}
+
 /** Un domaine, tel que décrit au modèle. */
 function producerLine(q: ProducerQuery): string {
   return `« ${q.producer} » ; appellation(s) de ses vins : ${q.appellations.length ? q.appellations.map((a) => `« ${a} »`).join(', ') : 'inconnue'} ; région « ${q.region ?? 'inconnue'} ».`;
@@ -227,7 +243,7 @@ type GroundedRequest = Parameters<GenerativeModel['generateContent']>[0] & { too
 
 type Model = Pick<GenerativeModel, 'generateContent'>;
 
-export class GeminiVisionProvider implements VisionProvider, PairingProvider, ProducerProvider, OfficialSiteProvider {
+export class GeminiVisionProvider implements VisionProvider, PairingProvider, DishPairingProvider, ProducerProvider, OfficialSiteProvider {
   /**
    * `modelFor` : le modèle Gemini d'un nom ; `models` : les modèles à essayer,
    * lus à chaque appel (du plus récent au plus ancien, voir
@@ -431,6 +447,24 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Pr
       }
     });
     return { items, model: modelName, costCents };
+  }
+
+  /** « Accords vins » : vins de la cave pour un plat, un appel, une ligne `ACCORDS_PLAT` au journal. JSON illisible : `VisionInvalidOutputError`. */
+  pairDish(dish: string, wines: DishPairingWine[]): Promise<DishPairingResult> {
+    return this.call('ACCORDS_PLAT', (model, name) => this.dishPairing(model, name, dish, wines));
+  }
+
+  private async dishPairing(model: Model, modelName: string, dish: string, wines: DishPairingWine[]): Promise<DishPairingResult> {
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: dishPairingPrompt(dish, wines) }] }],
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const costCents = pairingCostCentsOf(result.response.usageMetadata);
+    try {
+      return { raw: JSON.parse(stripFences(result.response.text())), model: modelName, costCents };
+    } catch {
+      throw new VisionInvalidOutputError('Sortie du modèle invalide (JSON illisible)', costCents);
+    }
   }
 
   /** Descriptifs de tout un lot de domaines (dix au plus) en un seul appel : une ligne `DESCRIPTIF` au journal. */

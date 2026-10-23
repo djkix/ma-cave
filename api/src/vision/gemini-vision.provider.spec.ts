@@ -631,6 +631,28 @@ describe('GeminiVisionProvider.analyzePlan', () => {
   });
 });
 
+describe('GeminiVisionProvider — accords pour un plat', () => {
+  const NOW = new Date('2026-10-23T12:00:00.000Z');
+  const wines = [{ producer: 'Domaine A', cuvee: null, appellation: 'Chablis', color: 'BLANC', vintage: 2020, apogee: '2022-2028' }];
+
+  it('envoie le plat et une ligne compacte par vin, rend l’objet lu, journalisé sous ACCORDS_PLAT', async () => {
+    const prisma = fakePrisma();
+    const journal = new GeminiJournal(prisma, { warn: jest.fn(), error: jest.fn() }, () => NOW);
+    const raw = { compris: ['Blanc sec'], ideal: 'Un blanc sec', choix: [{ vin: 1, score: 90, raison: 'Vif' }] };
+    const model = fakeModel('```json\n' + JSON.stringify(raw) + '\n```');
+    const res = await gemini(model as any, 'm', journal).pairDish('Sole meunière', wines);
+    expect(res.raw).toEqual(raw);
+    const prompt = (model.generateContent as jest.Mock).mock.calls[0][0].contents[0].parts[0].text;
+    expect(prompt).toContain('« Sole meunière »');
+    expect(prompt).toContain('1 : Domaine A ; - ; Chablis ; blanc ; 2020 ; 2022-2028');
+    expect(prisma.calls).toEqual([expect.objectContaining({ usage: 'ACCORDS_PLAT', outcome: 'OK', model: 'm' })]);
+  });
+
+  it('JSON illisible : sortie du modèle invalide', async () => {
+    await expect(gemini(fakeModel('non') as any, 'm').pairDish('Sole', wines)).rejects.toThrow(/Sortie du modèle invalide/);
+  });
+});
+
 describe('GeminiVisionProvider — modèle en vigueur', () => {
   it('lu à chaque appel, pour tous les usages : un changement sert dès l’appel suivant', async () => {
     let current = 'gemini-3.5-flash';
