@@ -169,6 +169,8 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Identifiant d'une autre cave : réponse **404**
 
 ### 🛡️ Comptes et administration
+- **Inscriptions signalées** : pastille sur l'onglet Réglages et bandeau « N inscriptions à valider » sur l'accueil, vers *Administration › Comptes* (relu à l'ouverture et toutes les 5 minutes)
+- **Notification push des nouvelles inscriptions**, à activer sur chaque appareil dans *Administration › Comptes › Notifications* (iPhone : application installée, iOS 16.4+) ; clés VAPID générées seules, variables `VAPID_*` facultatives
 - Connexion **Google** ; **compte de secours** local par `/login?secours`
 - **Inscription validée** par un administrateur, qui crée la cave
 - `ADMIN_EMAILS` : **administrateurs garantis**, ni blocables ni rétrogradables
