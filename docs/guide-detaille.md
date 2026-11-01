@@ -709,7 +709,10 @@ leurs écrans (Moi, Ma cave, Journal, Application, À propos), la version de l'a
 - **Application** (administrateur seulement) : l'Administration, en trois
   onglets (voir *Comptes et administration*), avec le nombre d'inscriptions en
   attente (la page d'accueil garde aussi un lien *Administration* pour les
-  administrateurs) ;
+  administrateurs). Ce nombre s'affiche aussi en pastille sur l'onglet
+  *Réglages* de la barre du bas et, sur l'accueil, en bandeau « N inscriptions à
+  valider » qui mène à *Administration › Comptes* ; il est relu à l'ouverture,
+  au retour sur l'application et toutes les 5 minutes ;
 - **À propos** (`/compte/a-propos`) : **numéro de version**, état de
   l'installation et lien vers les **Règles de confidentialité**.
 
@@ -1016,6 +1019,17 @@ administrateurs, trois onglets : *Comptes* (`/admin/comptes`, ouvert par défaut
   d'inscription), avec *Valider* — le compte devient actif et reçoit sa cave,
   « Cave de {nom affiché ou e-mail} », dont il est propriétaire — et
   *Refuser* — le compte est bloqué.
+- *Comptes* — **Notifications** : *Me prévenir des nouvelles inscriptions sur
+  cet appareil* demande la permission du navigateur et abonne l'appareil
+  (Web Push) ; chaque nouveau compte en attente y fait alors apparaître
+  « Nouvelle inscription — {nom ou e-mail} attend votre validation », qui ouvre
+  *Administration › Comptes*. La carte dit si les notifications sont activées,
+  refusées par le navigateur ou non prises en charge, et propose *Désactiver sur
+  cet appareil*. Sur iPhone, seulement depuis l'application installée sur
+  l'écran d'accueil (iOS 16.4 ou plus récent). À activer sur chaque appareil.
+  Rien d'autre n'est envoyé (aucune donnée de cave) ; un envoi raté ne gêne
+  jamais l'inscription, et un appareil que le service push déclare disparu
+  (404/410) est oublié.
 - *Comptes* — **Comptes** : liste des comptes ; les actions sont dans un menu ⋯
   par compte (blocage/réactivation, promotion/retrait des droits
   d'administration, avec confirmation pour *Bloquer* et *Retirer les droits*, et *Créer sa cave*) pour un
@@ -1171,6 +1185,8 @@ openssl rand -hex 32
 | `NAS_OPTIONS` | options de montage NFS du NAS de sauvegarde : `addr=<IP du NAS>,nfsvers=4.1,soft,timeo=150,retrans=3` ; **obligatoire** |
 | `NAS_CHEMIN` | export NFS et dossier de sauvegarde, avec le deux-points : `:/volumeN/<partage>/<dossier>` (`showmount -e <IP du NAS>` donne l'export) ; **obligatoire** |
 | `SAUVEGARDE_HEURE` | heure de la sauvegarde quotidienne, heure de Paris (`3`) |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | facultatives, **laisser vides** : les clés des notifications push sont générées au premier démarrage et gardées en base (`app_setting`, `push_vapid_keys`). Ne les remplir (les deux) que pour imposer des clés ; en changer désabonne tous les appareils |
+| `VAPID_SUBJECT` | facultative : contact donné aux services push, `mailto:…` ou `https://…` ; défaut `WEB_ORIGIN` s'il est en https, sinon `mailto:admin@example.com` |
 
 Le `.env` n'est jamais commité et n'entre jamais dans une image.
 
@@ -1283,6 +1299,24 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 
 À lire avant une mise à jour qui change de version mineure. Les sections
 vont de la plus récente à la plus ancienne.
+
+### Passage à la 2.36.0 (inscriptions signalées à l'administrateur)
+
+Une migration additive, appliquée toute seule au démarrage de l'api :
+`20261101000000_push_subscription` (table `push_subscription`, un abonnement
+Web Push par appareil). Les clés VAPID sont créées au premier démarrage, sans
+rien ajouter au `.env` (`VAPID_*` facultatives, voir *Renseigner le `.env`*).
+Aucun réglage de Nginx Proxy Manager : c'est le navigateur qui joint le service
+push, et le serveur envoie ses notifications en https sortant.
+
+1. `docker compose pull && docker compose up -d`.
+2. Sur le téléphone de chaque administrateur, application installée et mise à
+   jour (bandeau « Nouvelle version »), ouvrir **Réglages › Application ›
+   Comptes › Notifications** et appuyer sur *Me prévenir des nouvelles
+   inscriptions sur cet appareil*, puis accepter la demande du téléphone.
+
+**Retour arrière** vers une image précédente : la table et le réglage
+`push_vapid_keys` restent, ignorés ; les appareils ne reçoivent plus rien.
 
 ### Passage à la 2.35.0 (sauvegarde vers le NAS)
 
@@ -1788,6 +1822,13 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
 - **Pas d'e-mail** : ni l'inscription validée, ni l'invitation ne sont
   annoncées par e-mail ; la personne invitée se connecte simplement avec
   l'adresse invitée.
+- **Notifications push : nouvelles inscriptions seulement, appareil par
+  appareil** : rien pour la personne inscrite (ni validation, ni refus), rien
+  d'autre pour l'administrateur ; l'iPhone exige l'application installée sur
+  l'écran d'accueil (iOS 16.4+), et les notifications refusées se rétablissent
+  dans les réglages du navigateur ou du téléphone, pas dans l'application. Le
+  nom ou l'e-mail du nouveau compte transite chiffré par le service push du
+  navigateur (Google, Apple ou Mozilla).
 - **Mesure « zéro saisie » à partir de la 1.5.0** : les entrées antérieures
   n'ont pas gardé leur fiche confirmée et ne comptent pas. Une entrée confirmée
   avant la fin de l'analyse est comparée à un formulaire vide : la lecture
