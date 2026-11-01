@@ -309,6 +309,13 @@ const ROUTES: Route[] = [
   { method: 'DELETE', path: '/api/admin/guards/:id', kind: 'admin', req: () => ({ url: `/api/admin/guards/${uuid()}` }) },
   { method: 'GET', path: '/api/admin/backup', kind: 'admin', req: () => ({ url: '/api/admin/backup' }), happy: { status: 200, check: (res) => expect(res.body).toMatchObject({ requested: expect.any(Boolean) }) } },
   { method: 'POST', path: '/api/admin/backup/request', kind: 'admin', req: () => ({ url: '/api/admin/backup/request' }), happy: { status: 204 } },
+  // Web Push : abonnements de l'appareil de l'administrateur (nouvelles inscriptions). Supprimés avec les comptes de la suite.
+  { method: 'GET', path: '/api/push/key', kind: 'admin', req: () => ({ url: '/api/push/key' }), happy: { status: 200, check: (res) => expect(res.body.publicKey).toEqual(expect.any(String)) } },
+  {
+    method: 'POST', path: '/api/push/subscriptions', kind: 'admin',
+    req: () => ({ url: '/api/push/subscriptions', body: { endpoint: `https://push.example.test/iso-${run}`, keys: { p256dh: 'cle', auth: 'secret' } } }), happy: { status: 204 },
+  },
+  { method: 'DELETE', path: '/api/push/subscriptions', kind: 'admin', req: () => ({ url: '/api/push/subscriptions', body: { endpoint: `https://push.example.test/iso-${run}` } }), happy: { status: 204 } },
   { method: 'GET', path: '/api/admin/reading-quality', kind: 'admin', req: () => ({ url: '/api/admin/reading-quality' }), happy: { status: 200 } },
   {
     method: 'PUT', path: '/api/producers/:key/description', kind: 'admin',

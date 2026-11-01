@@ -174,21 +174,22 @@ model Photo {
 }
 
 model AppUser {
-  id               String            @id @default(uuid())
-  googleSub        String?           @unique @map("google_sub")
-  email            String            @unique
-  displayName      String?           @map("display_name")
-  isBreakGlass     Boolean           @default(false) @map("is_break_glass")
-  passwordHash     String?           @map("password_hash")
-  status           AccountStatus     @default(ACTIVE)
-  isAdmin          Boolean           @default(false) @map("is_admin")
-  lastLoginAt      DateTime?         @map("last_login_at")
-  createdAt        DateTime          @default(now()) @map("created_at")
-  ratedWines       Wine[]
-  producerProfiles ProducerProfile[]
-  ownedCaves       Cave[]            @relation("CaveOwner")
-  caveMemberships  CaveMember[]
-  priceQuotes      PriceQuote[]
+  id                String             @id @default(uuid())
+  googleSub         String?            @unique @map("google_sub")
+  email             String             @unique
+  displayName       String?            @map("display_name")
+  isBreakGlass      Boolean            @default(false) @map("is_break_glass")
+  passwordHash      String?            @map("password_hash")
+  status            AccountStatus      @default(ACTIVE)
+  isAdmin           Boolean            @default(false) @map("is_admin")
+  lastLoginAt       DateTime?          @map("last_login_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  ratedWines        Wine[]
+  producerProfiles  ProducerProfile[]
+  ownedCaves        Cave[]             @relation("CaveOwner")
+  caveMemberships   CaveMember[]
+  priceQuotes       PriceQuote[]
+  pushSubscriptions PushSubscription[]
 
   @@map("app_user")
 }
@@ -237,6 +238,22 @@ model CaveMember {
 }
 
 /// Réglages d'administration (clé, valeur texte), par ex. cave_budget_share = 0.2.
+/// Abonnement Web Push d'un appareil (administrateurs : nouvelles inscriptions).
+/// Supprimé quand le service push répond 404 ou 410.
+model PushSubscription {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  user          AppUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint      String    @unique
+  p256dh        String
+  auth          String
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastSuccessAt DateTime? @map("last_success_at")
+
+  @@index([userId])
+  @@map("push_subscription")
+}
+
 model AppSetting {
   key   String @id
   value String

@@ -46,6 +46,12 @@ const schema = z.object({
   // désigner un administrateur sans passer par /admin. Adresses séparées par
   // des virgules.
   ADMIN_EMAILS: z.string().default(''),
+  // Web Push (nouvelles inscriptions) : clés générées au premier démarrage et
+  // gardées en base ; ces variables, facultatives, les imposent (les deux clés ensemble).
+  VAPID_PUBLIC_KEY: emptyToUndefined(z.string().optional()),
+  VAPID_PRIVATE_KEY: emptyToUndefined(z.string().optional()),
+  // Contact transmis aux services push : par défaut WEB_ORIGIN s'il est en https, sinon mailto:admin@example.com.
+  VAPID_SUBJECT: emptyToUndefined(z.string().regex(/^(mailto:|https:\/\/)/, 'mailto:… ou https://…').optional()),
 });
 
 export type Env = z.infer<typeof schema>;

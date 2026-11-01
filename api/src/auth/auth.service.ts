@@ -4,6 +4,7 @@ import * as argon2 from 'argon2';
 import { loadEnv } from '../config/env';
 import { CavesService } from '../caves/caves.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PushService } from '../push/push.service';
 import { adminEmailsFromEnv } from './admin-emails';
 
 export interface GoogleProfile {
@@ -19,6 +20,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly caves: CavesService,
+    private readonly push: PushService,
   ) {}
 
   // ADMIN_EMAILS est un plancher garanti, jamais un plafond : une adresse listée
@@ -83,7 +85,7 @@ export class AuthService {
    * rattachées dans tous les cas (un administrateur peut aussi être invité).
    */
   private async createGoogleUser(profile: GoogleProfile, email: string): Promise<AppUser> {
-    return this.prisma.$transaction(async (tx) => {
+    const user = await this.prisma.$transaction(async (tx) => {
       const isAdmin = this.resolveIsAdmin(email, false);
       const invitations = await tx.caveMember.count({ where: { invitedEmail: email, userId: null } });
       const user = await tx.appUser.create({
@@ -101,6 +103,9 @@ export class AuthService {
       }
       return user;
     });
+    // Sans attendre : une panne ou une lenteur du service push ne touche jamais l'inscription.
+    if (user.status === 'PENDING') void this.push.notifyNewRegistration(user);
+    return user;
   }
 
   async verifyLocalLogin(email: string, password: string): Promise<AppUser | null> {

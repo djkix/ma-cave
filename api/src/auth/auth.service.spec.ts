@@ -50,11 +50,28 @@ function fakeCaves() {
   return { claimOrphanCave: jest.fn(async () => null) };
 }
 
-function serviceWith(prisma: any, caves = fakeCaves()) {
-  return new AuthService(prisma, caves as any);
+function fakePush() {
+  return { notifyNewRegistration: jest.fn(async (): Promise<void> => undefined) };
+}
+
+function serviceWith(prisma: any, caves = fakeCaves(), push = fakePush()) {
+  return new AuthService(prisma, caves as any, push as any);
 }
 
 describe('AuthService', () => {
+  it('prévient les administrateurs d’une inscription en attente, sans attendre l’envoi', async () => {
+    const push = { notifyNewRegistration: jest.fn(() => new Promise<void>(() => undefined)) };
+    const user = await serviceWith(fakePrisma(), fakeCaves(), push).findOrCreateGoogleUser({ sub: 'n', email: 'new@example.com', displayName: 'Nouveau' });
+    expect(user.status).toBe('PENDING');
+    expect(push.notifyNewRegistration).toHaveBeenCalledWith(expect.objectContaining({ email: 'new@example.com', displayName: 'Nouveau' }));
+  });
+
+  it('ne prévient personne pour un compte actif (administrateur ou invité)', async () => {
+    const push = fakePush();
+    await serviceWith(fakePrisma(), fakeCaves(), push).findOrCreateGoogleUser({ sub: 'a', email: 'admin@example.com', displayName: 'Admin' });
+    expect(push.notifyNewRegistration).not.toHaveBeenCalled();
+  });
+
   it('creates an unknown Google address as PENDING (inscription à valider)', async () => {
     const prisma = fakePrisma();
     const service = serviceWith(prisma);
