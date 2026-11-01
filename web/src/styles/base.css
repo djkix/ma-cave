@@ -39,6 +39,8 @@ h1, h2, h3, .serif { font-family: var(--font-serif); font-weight: 500; margin: 0
 .bottomnav__tab { flex: 1; min-height: var(--size-touch-target); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; letter-spacing: 0.06em; text-decoration: none; color: var(--color-secondary); }
 .bottomnav__tab--active { color: var(--color-primary); font-weight: 600; }
 .bottomnav__tab--soon { opacity: 0.45; }
+.bottomnav__icon { position: relative; display: inline-flex; }
+.bottomnav__badge { position: absolute; top: -4px; left: 14px; padding: 0 5px; font-size: 10px; line-height: 16px; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--space-sm);

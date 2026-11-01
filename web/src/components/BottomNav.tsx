@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { useCurrentCave } from '../lib/use-current-cave';
+import { useCurrentCave, usePendingRegistrations } from '../lib/use-current-cave';
 import { Icon } from './Icon';
 import { SETTINGS_PATH } from './TopBar';
 
@@ -16,6 +16,7 @@ export function BottomNav() {
   // Un membre en lecture seule n'a ni entrée ni sortie (le journal est dans les Réglages).
   const { me, isOwner, caves } = useCurrentCave();
   const { pathname } = useLocation();
+  const pending = usePendingRegistrations() ?? 0;
   // Sans cave (administrateur sur l'administration), Cave et Stats ne mèneraient
   // qu'à l'écran « pas encore de cave » : pas d'onglets du tout.
   if (me && caves.length === 0) return null;
@@ -29,7 +30,12 @@ export function BottomNav() {
           </span>
         ) : (
           <NavLink key={t.to} to={t.to} className={({ isActive }) => `bottomnav__tab${isActive || (t.to === '/compte' && SETTINGS_PATH.test(pathname)) ? ' bottomnav__tab--active' : ''}`}>
-            <Icon name={t.icon} />
+            <span className="bottomnav__icon">
+              <Icon name={t.icon} />
+              {t.to === '/compte' && pending > 0 && (
+                <span className="badge badge--warn bottomnav__badge" aria-label={`${pending} inscription${pending > 1 ? 's' : ''} à valider`}>{pending}</span>
+              )}
+            </span>
             <span>{t.label}</span>
           </NavLink>
         ),

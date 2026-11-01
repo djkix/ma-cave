@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { CaveRole, CaveSummary, getMe, Me } from './api-client';
+import { CaveRole, CaveSummary, getMe, getRegistrations, Me } from './api-client';
 
 /** Session courante (`/auth/me`), partagée par toute l'application sous la clé `['me']`. */
 export function useMe() {
@@ -35,4 +35,18 @@ export function useCurrentCave(): CurrentCave {
     isOwner: cave?.role === 'OWNER',
     isAdmin: me?.isAdmin === true,
   };
+}
+
+/** Relecture des inscriptions en attente, application ouverte (et à chaque retour au premier plan). */
+const REGISTRATIONS_POLL_MS = 5 * 60_000;
+
+/**
+ * Nombre d'inscriptions en attente, pour l'administrateur seulement (`undefined`
+ * pendant le chargement, et toujours pour un autre compte : aucune requête ne part).
+ * Même clé que l'écran Administration › Comptes : une validation y met tout à jour.
+ */
+export function usePendingRegistrations(): number | undefined {
+  const { isAdmin } = useCurrentCave();
+  const regs = useQuery({ queryKey: ['admin', 'registrations'], queryFn: getRegistrations, enabled: isAdmin, retry: false, refetchInterval: REGISTRATIONS_POLL_MS });
+  return isAdmin ? regs.data?.length : undefined;
 }

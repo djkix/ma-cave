@@ -100,3 +100,24 @@ it('montre l’administration seulement à un administrateur', async () => {
   expect(screen.queryByRole('link', { name: 'Administration' })).not.toBeInTheDocument();
 });
 
+
+const pending = (id: string): api.Registration => ({ id, email: `${id}@example.com`, displayName: null, createdAt: '2026-11-01T10:00:00Z' });
+
+it('administrateur : bandeau des inscriptions à valider, vers Administration › Comptes', async () => {
+  vi.spyOn(api, 'getMe').mockResolvedValue(meFixture({ isAdmin: true }));
+  vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
+  vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [], inProgress: [], failed: [] });
+  vi.spyOn(api, 'getRegistrations').mockResolvedValue([pending('a'), pending('b')]);
+  mount();
+  expect(await screen.findByRole('link', { name: '2 inscriptions à valider' })).toHaveAttribute('href', '/admin/comptes');
+});
+
+it('non-administrateur : ni bandeau ni lecture des inscriptions', async () => {
+  vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
+  const inbox = vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [], inProgress: [], failed: [] });
+  const regs = vi.spyOn(api, 'getRegistrations').mockResolvedValue([pending('a')]);
+  mount();
+  await waitFor(() => expect(inbox).toHaveBeenCalled());
+  expect(regs).not.toHaveBeenCalled();
+  expect(screen.queryByText(/à valider/)).not.toBeInTheDocument();
+});

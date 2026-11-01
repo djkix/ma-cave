@@ -4,9 +4,9 @@ import { Link } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { Icon } from '../components/Icon';
 import { TopBar } from '../components/TopBar';
-import { getMembers, getRegistrations } from '../lib/api-client';
+import { getMembers } from '../lib/api-client';
 import { usePlans, useZones } from '../lib/locations';
-import { useCurrentCave } from '../lib/use-current-cave';
+import { useCurrentCave, usePendingRegistrations } from '../lib/use-current-cave';
 import { APP_VERSION } from '../lib/version';
 
 // Zéro reste au singulier, comme d'usage en français (« 0 zone »).
@@ -47,19 +47,18 @@ function useCaveSummary(enabled: boolean): string | undefined {
   return caveSummary(plans.data.plans.length, zones.data.length, members.data.length);
 }
 
-function useAdminSummary(enabled: boolean): ReactNode {
-  // Même clé que la carte Inscriptions de l'administration.
-  const regs = useQuery({ queryKey: ['admin', 'registrations'], queryFn: getRegistrations, enabled, retry: false });
-  if (!regs.data) return undefined;
-  if (regs.data.length === 0) return 'Comptes, coûts de l’IA, données du vin';
-  return <span className="badge badge--warn">{count(regs.data.length, 'inscription')} en attente</span>;
+function useAdminSummary(): ReactNode {
+  const pending = usePendingRegistrations();
+  if (pending === undefined) return undefined;
+  if (pending === 0) return 'Comptes, coûts de l’IA, données du vin';
+  return <span className="badge badge--warn">{count(pending, 'inscription')} en attente</span>;
 }
 
 /** Hub « Réglages » (onglet du bas) : profil, puis une carte par écran de réglage permis à ce compte. */
 export function ComptePage() {
   const { me, caves, isOwner, isAdmin } = useCurrentCave();
   const caveText = useCaveSummary(isOwner);
-  const adminText = useAdminSummary(isAdmin);
+  const adminText = useAdminSummary();
   return (
     <>
       <TopBar title="Réglages" />

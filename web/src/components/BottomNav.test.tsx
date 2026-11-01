@@ -51,3 +51,23 @@ it('disparaît pour un compte sans cave (administrateur sans cave dans l’admin
   await new Promise((r) => setTimeout(r, 20));
   expect(screen.queryByLabelText('Navigation principale')).not.toBeInTheDocument();
 });
+
+it('administrateur : pastille du nombre d’inscriptions en attente sur Réglages', async () => {
+  vi.spyOn(api, 'getMe').mockResolvedValue(meFixture({ isAdmin: true }));
+  vi.spyOn(api, 'getRegistrations').mockResolvedValue([
+    { id: 'r1', email: 'a@example.com', displayName: null, createdAt: '' },
+    { id: 'r2', email: 'b@example.com', displayName: null, createdAt: '' },
+    { id: 'r3', email: 'c@example.com', displayName: null, createdAt: '' },
+  ]);
+  mount();
+  expect(await screen.findByLabelText('3 inscriptions à valider')).toHaveTextContent('3');
+  expect(screen.getByRole('link', { name: /Réglages/ })).toContainElement(screen.getByLabelText('3 inscriptions à valider'));
+});
+
+it('non-administrateur : aucune pastille, aucune lecture des inscriptions', async () => {
+  const regs = vi.spyOn(api, 'getRegistrations').mockResolvedValue([{ id: 'r1', email: 'a@example.com', displayName: null, createdAt: '' }]);
+  mount();
+  expect(await screen.findByRole('link', { name: /Réglages/ })).toBeInTheDocument();
+  expect(regs).not.toHaveBeenCalled();
+  expect(screen.queryByLabelText(/inscription/)).not.toBeInTheDocument();
+});

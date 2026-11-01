@@ -7,7 +7,7 @@ import { Icon } from '../components/Icon';
 import { OfflineQueueBanner } from '../components/OfflineQueueBanner';
 import { TopBar } from '../components/TopBar';
 import { getEntryInbox, getRecentMovements } from '../lib/api-client';
-import { useCurrentCave } from '../lib/use-current-cave';
+import { useCurrentCave, usePendingRegistrations } from '../lib/use-current-cave';
 import { MovementRow } from './JournalPage';
 
 export function HomePage() {
@@ -18,10 +18,17 @@ export function HomePage() {
   // Fiches à valider et photos illisibles : tout ce qui attend une décision.
   const inbox = useQuery({ queryKey: ['entry-inbox'], queryFn: getEntryInbox, refetchInterval: 30_000, enabled: isOwner });
   const toConfirm = isOwner ? (inbox.data?.toConfirm.length ?? 0) + (inbox.data?.failed.length ?? 0) : 0;
+  const registrations = usePendingRegistrations() ?? 0;
   return (
     <>
       <TopBar />
       <main className="page">
+        {registrations > 0 && (
+          <Link to="/admin/comptes" className="btn btn--outline">
+            <Icon name="how_to_reg" />
+            <span className="num">{registrations}</span> inscription{registrations > 1 ? 's' : ''} à valider
+          </Link>
+        )}
         {/* Photos d'un autre compte sur ce téléphone : signalées à tous, envoyées par leur seul auteur. */}
         <OfflineQueueBanner readOnly={!isOwner} />
         {isOwner && (
