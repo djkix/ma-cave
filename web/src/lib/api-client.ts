@@ -131,6 +131,13 @@ export interface BackupStatus {
   alert: string | null;
 }
 export const getBackupStatus = () => apiFetch<BackupStatus>('/admin/backup');
+
+/** Web Push (administrateur) : clé publique VAPID, et abonnement de l'appareil courant (forme de PushSubscription.toJSON()). */
+export const getPushKey = () => apiFetch<{ publicKey: string }>('/push/key');
+export const savePushSubscription = (sub: PushSubscriptionJSON) =>
+  apiFetch<void>('/push/subscriptions', { method: 'POST', body: JSON.stringify(sub) });
+export const deletePushSubscription = (endpoint: string) =>
+  apiFetch<void>('/push/subscriptions', { method: 'DELETE', body: JSON.stringify({ endpoint }) });
 export const requestBackup = () => apiFetch<void>('/admin/backup/request', { method: 'POST' });
 
 export const getGeminiQuota = () => apiFetch<GeminiQuotaUsage>('/admin/gemini-quota');

@@ -9,6 +9,7 @@ import { BudgetSection } from '../components/admin/BudgetSection';
 import { GeminiModelSection } from '../components/admin/GeminiModelSection';
 import { GeminiUsageSection } from '../components/admin/GeminiUsageSection';
 import { GuardsSection } from '../components/admin/GuardsSection';
+import { NotificationsSection } from '../components/admin/NotificationsSection';
 import { ReadingQualitySection } from '../components/admin/ReadingQualitySection';
 import { RegistrationsSection } from '../components/admin/RegistrationsSection';
 import { VintagesSection } from '../components/admin/VintagesSection';
@@ -140,6 +141,7 @@ export function AdminPage() {
             {tab === 'comptes' && (
               <>
                 <RegistrationsSection />
+                <NotificationsSection />
                 <AccountsCard meId={me.data.id} />
               </>
             )}

@@ -32,6 +32,8 @@ export default defineConfig({
       },
       workbox: {
         navigateFallbackDenylist: [/^\/api\//],
+        // Notifications Web Push (nouvelles inscriptions) : public/push-sw.js, chargé par le service worker généré.
+        importScripts: ['push-sw.js'],
         runtimeCaching: [{ urlPattern: ({ url }) => url.pathname.startsWith('/api/'), handler: 'NetworkOnly' }],
       },
     }),
