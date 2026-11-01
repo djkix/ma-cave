@@ -9,6 +9,20 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.36.0](https://github.com/djkix/ma-cave/compare/v2.35.1...v2.36.0) (2026-11-01)
+
+
+### Fonctionnalités
+
+* **api:** notification push des administrateurs à chaque nouvelle inscription ([59d7b30](https://github.com/djkix/ma-cave/commit/59d7b30cb76cb324e9f647e1daf4325eb3801824))
+* **web:** notifications push des nouvelles inscriptions sur l'appareil ([ad0dfd7](https://github.com/djkix/ma-cave/commit/ad0dfd7449e4dda81d386f1190cb49d3a6807cd5))
+* **web:** pastille et bandeau des inscriptions à valider pour l'administrateur ([e2bffb4](https://github.com/djkix/ma-cave/commit/e2bffb40d2ee0f9c8c27e155924a808d0d6bee86))
+
+
+### Corrections
+
+* **api:** verrou des dépendances en phase avec npm 10 (Node 22 de la CI et des images) ([2541a99](https://github.com/djkix/ma-cave/commit/2541a993dc122dcf346fa4c1563fed215969799e))
+
 ## [2.35.1](https://github.com/djkix/ma-cave/compare/v2.35.0...v2.35.1) (2026-10-23)
 
 ### Résumé
