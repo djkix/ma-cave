@@ -11,6 +11,20 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.36.0](https://github.com/djkix/ma-cave/compare/v2.35.1...v2.36.0) (2026-11-01)
 
+### Résumé
+
+**Nouvelles inscriptions signalées à l'administrateur.** Dans l'application :
+une pastille sur l'onglet Réglages et un bandeau « N inscriptions à valider »
+sur l'accueil, vers *Administration › Comptes*. Sur le téléphone : une
+notification push « Nouvelle inscription » à activer sur chaque appareil
+(*Administration › Comptes › Notifications* ; iPhone : application installée,
+iOS 16.4+). Les clés VAPID sont générées seules au premier démarrage
+(variables `VAPID_*` facultatives) ; l'envoi ne bloque jamais l'inscription.
+Migration additive (table `push_subscription`), appliquée seule au démarrage.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 

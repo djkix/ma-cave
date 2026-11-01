@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.35.1-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.36.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -846,6 +846,15 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.36.0 — 1er novembre 2026
+
+Publiée ([v2.36.0](https://github.com/djkix/ma-cave/releases/tag/v2.36.0)),
+images `ghcr.io/djkix/ma-cave-api:2.36.0`, `-web:2.36.0` et
+`-sauvegarde:2.36.0`.
+
+**Inscriptions signalées** (pastille, bandeau) et **notification push** des
+nouvelles inscriptions. Migration additive.
+
 ### 2.35.1 — 23 octobre 2026
 
 Publiée ([v2.35.1](https://github.com/djkix/ma-cave/releases/tag/v2.35.1)),
@@ -923,6 +932,9 @@ images `ghcr.io/djkix/ma-cave-api:2.29.0` et `-web:2.29.0`.
 **Quotas Gemini par modèle** et **bascule automatique** vers un autre modèle
 Flash ou Flash-Lite quand le quota du jour est atteint. Aucune migration.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.28.0 → 1.0.0)</summary>
+
 ### 2.28.0 — 22 octobre 2026
 
 Publiée ([v2.28.0](https://github.com/djkix/ma-cave/releases/tag/v2.28.0)),
@@ -932,8 +944,6 @@ images `ghcr.io/djkix/ma-cave-api:2.28.0` et `-web:2.28.0`.
 les cases sur le plan** (déplacer, ajouter, voir tout le plan). Aucune
 migration.
 
-<details>
-<summary><strong>Versions antérieures</strong> (2.27.0 → 1.0.0)</summary>
 
 ### 2.27.0 — 22 octobre 2026
 
