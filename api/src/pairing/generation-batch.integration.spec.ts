@@ -114,7 +114,7 @@ describeIfDb('descriptifs par lots (base réelle)', () => {
     describeProducersBatch: async (queries: Array<{ producer: string }>) => {
       calls.push(queries.map((q) => q.producer));
       await slow();
-      return { items: queries.map((_, index) => ({ index, known: false, description: null })), model: 'faux', costCents: 0 };
+      return { items: queries.map((_, index) => ({ index, known: false, fields: null })), model: 'faux', costCents: 0 };
     },
   };
   const processor = new ProducerBatchProcessor(prisma as never, provider, noBudgetLimit as never, idle as never);

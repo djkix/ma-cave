@@ -4,19 +4,20 @@ import { BatchAnswer, GenerationBatchProcessor, Prepared, QueueTable, QueueWhere
 import { PrismaService } from '../prisma/prisma.service';
 import { VisionBudgetService } from '../queue/vision-budget.service';
 import { GeminiJournal } from '../vision/gemini-journal';
-import { PRODUCER_PROVIDER, ProducerProvider, ProducerQuery } from '../vision/producer-provider.interface';
+import { PRODUCER_FIELDS } from '../vision/producer-output';
+import { PRODUCER_PROVIDER, ProducerBatchItem, ProducerProvider, ProducerQuery } from '../vision/producer-provider.interface';
 import { findWinesByProducer } from './producer-wines';
 
-type Description = { known: boolean; description: string | null };
+type Description = Omit<ProducerBatchItem, 'index'>;
 
 /** Domaine sans plus aucun vin : réexaminé au plus tôt après ce délai. */
 export const ORPHAN_RECHECK_MS = 6 * 60 * 60_000;
 
 /**
- * Descriptifs de domaine par lots de dix domaines au plus (voir
- * GenerationBatchProcessor). Seuls les descriptifs Gemini sont dans la file :
- * chaque lecture et écriture exige source = GEMINI, un texte saisi à la main
- * (même pendant la génération) n'est jamais écrasé.
+ * Fiches de domaine (cinq champs) par lots de dix domaines au plus (voir
+ * GenerationBatchProcessor). Chaque lecture et écriture exige source = GEMINI.
+ * Un champ corrigé à la main (`manualFields`) n'est jamais écrasé ; un domaine
+ * inconnu de Gemini garde ses champs.
  */
 @Injectable()
 export class ProducerBatchProcessor extends GenerationBatchProcessor<ProducerQuery, Description> {
@@ -75,11 +76,14 @@ export class ProducerBatchProcessor extends GenerationBatchProcessor<ProducerQue
   }
 
   protected async save(request: ReservedRequest, item: Description, meta: { model: string; costCents: number }, deadline: Date): Promise<void> {
+    const [row] = await this.prisma.producerProfile.findMany({ where: { id: request.id }, select: { manualFields: true }, take: 1 });
+    const manual = new Set(row?.manualFields ?? []);
+    const fields = item.known && item.fields ? item.fields : null;
     await this.prisma.producerProfile.updateMany({
       where: { id: request.id, source: 'GEMINI', reservedUntil: deadline },
       data: {
-        status: item.known ? 'DONE' : 'UNKNOWN',
-        description: item.known ? item.description : null,
+        ...(fields ? Object.fromEntries(PRODUCER_FIELDS.filter((f) => !manual.has(f)).map((f) => [f, fields[f]])) : {}),
+        status: fields ? 'DONE' : 'UNKNOWN',
         model: meta.model,
         costCents: meta.costCents,
         errorMessage: null,

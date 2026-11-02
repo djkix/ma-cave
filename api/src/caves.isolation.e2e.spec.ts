@@ -91,6 +91,11 @@ const ROUTES: Route[] = [
   // ── Lecture de cave (membre compris, sans prix) ─────────────────────────────
   { method: 'GET', path: '/api/cave', kind: 'cave-viewer-read', req: () => ({ url: '/api/cave?includeEmpty=true' }), foreign: 'own', readable: contains('wineA') },
   { method: 'GET', path: '/api/wines/:id', kind: 'cave-viewer-read', req: (i) => ({ url: `/api/wines/${i.wineA}` }), foreign: NOT_FOUND_WINE, readable: contains('wineA') },
+  // Domaine partagé, mais ses vins se lisent dans la cave courante : B ne voit pas le domaine de A.
+  {
+    method: 'GET', path: '/api/producers/:key', kind: 'cave-viewer-read', req: (i) => ({ url: `/api/producers/${encodeURIComponent(i.producerKeyA)}` }),
+    foreign: { status: 404, message: 'Domaine introuvable' }, readable: contains('wineA'),
+  },
   { method: 'GET', path: '/api/locations', kind: 'cave-viewer-read', req: () => ({ url: '/api/locations' }), foreign: 'own', readable: contains('locationA') },
   { method: 'GET', path: '/api/caves/current/zones', kind: 'cave-viewer-read', req: () => ({ url: '/api/caves/current/zones' }), foreign: 'own', readable: contains('zoneA') },
   {
@@ -319,8 +324,8 @@ const ROUTES: Route[] = [
   { method: 'DELETE', path: '/api/push/subscriptions', kind: 'admin', req: () => ({ url: '/api/push/subscriptions', body: { endpoint: `https://push.example.test/iso-${run}` } }), happy: { status: 204 } },
   { method: 'GET', path: '/api/admin/reading-quality', kind: 'admin', req: () => ({ url: '/api/admin/reading-quality' }), happy: { status: 200 } },
   {
-    method: 'PUT', path: '/api/producers/:key/description', kind: 'admin',
-    req: (i) => ({ url: `/api/producers/${encodeURIComponent(i.producerKeyA)}/description`, body: { description: 'Autre texte' } }),
+    method: 'PUT', path: '/api/producers/:key/fields/:field', kind: 'admin',
+    req: (i) => ({ url: `/api/producers/${encodeURIComponent(i.producerKeyA)}/fields/histoire`, body: { value: 'Autre texte' } }),
   },
   { method: 'POST', path: '/api/producers/:key/regenerate', kind: 'admin', req: (i) => ({ url: `/api/producers/${encodeURIComponent(i.producerKeyA)}/regenerate` }) },
 
@@ -458,7 +463,7 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
     ids.candidateA = candidateFor(ids.wineA);
 
     ids.producerKeyA = producerKeyOf(a.producer);
-    await prisma.producerProfile.create({ data: { producerKey: ids.producerKeyA, displayName: a.producer, status: 'DONE', source: 'MANUEL', description: 'Texte' } });
+    await prisma.producerProfile.create({ data: { producerKey: ids.producerKeyA, displayName: a.producer, status: 'DONE', description: 'Texte', histoire: 'Texte', manualFields: ['histoire'] } });
 
     const signedIn = async (u: AppUser) => {
       const agent = supertest.agent(app.getHttpServer());

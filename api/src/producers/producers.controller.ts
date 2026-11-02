@@ -1,29 +1,44 @@
-import { BadRequestException, Body, Controller, HttpCode, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { AppUser } from '@prisma/client';
 import { AdminGuard } from '../auth/admin.guard';
 import { AuthenticatedGuard } from '../auth/authenticated.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { producerDescriptionSchema } from './producer-description.dto';
+import { CaveRole, CurrentCave } from '../caves/cave-access.decorators';
+import { CaveAccessGuard } from '../caves/cave-access.guard';
+import type { CaveAccess } from '../caves/cave-context.service';
+import { PRODUCER_FIELDS, ProducerField } from '../vision/producer-output';
+import { producerFieldSchema } from './producer-field.dto';
 import { ProducersService } from './producers.service';
 
 /**
  * `:key` = clé normalisée du domaine (normalizeLabel), encodée dans l'URL.
- * Descriptifs communs à toutes les caves : écrire et régénérer sont réservés à
- * l'administrateur (403 sinon) ; la lecture passe par la fiche vin.
+ * La page se lit par tout membre de la cave courante (ses vins seulement).
+ * Fiches communes à toutes les caves : corriger et régénérer sont réservés à
+ * l'administrateur (403 sinon).
  */
 @Controller('producers')
-@UseGuards(AuthenticatedGuard, AdminGuard)
+@UseGuards(AuthenticatedGuard)
 export class ProducersController {
   constructor(private readonly producers: ProducersService) {}
 
-  @Put(':key/description')
-  setDescription(@Param('key') key: string, @Body() body: unknown, @CurrentUser() user: AppUser) {
-    const parsed = producerDescriptionSchema.safeParse(body);
+  @Get(':key')
+  @UseGuards(CaveAccessGuard)
+  @CaveRole('VIEWER')
+  page(@CurrentCave() cave: CaveAccess, @Param('key') key: string) {
+    return this.producers.page(cave.caveId, key, cave.role);
+  }
+
+  @Put(':key/fields/:field')
+  @UseGuards(AdminGuard)
+  setField(@Param('key') key: string, @Param('field') field: string, @Body() body: unknown, @CurrentUser() user: AppUser) {
+    if (!(PRODUCER_FIELDS as readonly string[]).includes(field)) throw new BadRequestException('Champ inconnu');
+    const parsed = producerFieldSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues.map((i) => i.message).join(' ; '));
-    return this.producers.setDescription(key, parsed.data.description, user.id);
+    return this.producers.setField(key, field as ProducerField, parsed.data.value, user.id);
   }
 
   @Post(':key/regenerate')
+  @UseGuards(AdminGuard)
   @HttpCode(202)
   regenerate(@Param('key') key: string) {
     return this.producers.regenerate(key);

@@ -7,7 +7,13 @@ import { ProducerBatchProcessor } from './producer-batch.processor';
 const NOW = new Date('2026-10-16T12:00:00.000Z');
 const at = (ms: number) => new Date(NOW.getTime() + ms);
 const MIN = 60_000;
-const TEXT = 'Domaine familial du Castellet, au cœur de l’appellation Bandol, réputé pour ses mourvèdres de garde.';
+const FIELDS = {
+  histoire: 'Domaine familial fondé en 1834 au Castellet.',
+  terroir: 'Restanques argilo-calcaires face à la mer.',
+  cepages: 'Mourvèdre majoritaire, grenache et cinsault.',
+  style: 'Rouges de garde, rosés de gastronomie.',
+  nez: 'Fruits noirs, garrigue, cuir avec l’âge.',
+};
 
 const WINES = [
   { producer: 'Domaine Tempier', appellationRaw: 'Bandol', appellation: { canonicalName: 'Bandol', region: 'Provence' } },
@@ -15,14 +21,14 @@ const WINES = [
   { producer: 'Trimbach', appellationRaw: 'Alsace', appellation: null },
 ];
 
-type Answer = { items: Array<{ index: number; known: boolean; description: string | null }>; model: string; costCents: number };
+type Answer = { items: Array<{ index: number; known: boolean; fields: typeof FIELDS | null }>; model: string; costCents: number };
 
 function harness(opts: { answer?: (queries: unknown[]) => Promise<Answer>; overCap?: boolean } = {}) {
   const q = fakeGenerationQueue('producerProfile', { producerWines: WINES });
   q.clock.now = NOW;
   const provider = {
     describeProducersBatch: jest.fn(opts.answer ?? (async (queries: unknown[]) => ({
-      items: queries.map((_, index) => ({ index, known: index === 0, description: index === 0 ? TEXT : null })),
+      items: queries.map((_, index) => ({ index, known: index === 0, fields: index === 0 ? FIELDS : null })),
       model: 'gemini-test',
       costCents: 3,
     }))),
@@ -44,15 +50,15 @@ describe('ProducerBatchProcessor', () => {
       { producer: 'Domaine Tempier', appellations: ['Bandol', 'Bandol rosé'], region: 'Provence' },
       { producer: 'Trimbach', appellations: ['Alsace'], region: null },
     ]);
-    expect(h.row('a')).toMatchObject({ status: 'DONE', description: TEXT, model: 'gemini-test', costCents: 2, attempts: 0, reservedUntil: null, generatedAt: expect.any(Date) });
-    expect(h.row('b')).toMatchObject({ status: 'UNKNOWN', description: null, costCents: 1, reservedUntil: null });
+    expect(h.row('a')).toMatchObject({ status: 'DONE', ...FIELDS, model: 'gemini-test', costCents: 2, attempts: 0, reservedUntil: null, generatedAt: expect.any(Date) });
+    expect(h.row('b')).toMatchObject({ status: 'UNKNOWN', costCents: 1, reservedUntil: null });
   });
 
   it('ne prend jamais un descriptif saisi à la main, et ne l’écrase pas s’il est saisi pendant la génération', async () => {
     const h = harness({
       answer: async (queries) => {
-        Object.assign(h.row('b'), { source: 'MANUEL', status: 'DONE', description: 'Texte saisi' });
-        return { items: queries.map((_, index) => ({ index, known: true, description: TEXT })), model: 'm', costCents: 0 };
+        Object.assign(h.row('b'), { source: 'MANUEL', status: 'DONE', histoire: 'Texte saisi' });
+        return { items: queries.map((_, index) => ({ index, known: true, fields: FIELDS })), model: 'm', costCents: 0 };
       },
     });
     h.add({ id: 'm', producerKey: 'trimbach', source: 'MANUEL', status: 'PENDING', requestedAt: at(-10 * MIN) });
@@ -60,7 +66,21 @@ describe('ProducerBatchProcessor', () => {
     await h.processor.tick(NOW);
     expect(h.provider.describeProducersBatch.mock.calls[0][0]).toHaveLength(1);
     expect(h.row('m')).toMatchObject({ source: 'MANUEL', reservedUntil: null });
-    expect(h.row('b')).toMatchObject({ source: 'MANUEL', description: 'Texte saisi' });
+    expect(h.row('b')).toMatchObject({ source: 'MANUEL', histoire: 'Texte saisi' });
+  });
+
+  it('save n’écrase pas un champ manuel', async () => {
+    const h = harness({ answer: async (queries) => ({ items: queries.map((_, index) => ({ index, known: true, fields: FIELDS })), model: 'm', costCents: 0 }) });
+    h.add({ id: 'a', producerKey: 'domaine tempier', manualFields: ['histoire'], histoire: 'Histoire corrigée' });
+    await h.processor.tick(NOW);
+    expect(h.row('a')).toMatchObject({ status: 'DONE', ...FIELDS, histoire: 'Histoire corrigée', manualFields: ['histoire'] });
+  });
+
+  it('domaine inconnu : UNKNOWN, champs intacts', async () => {
+    const h = harness({ answer: async (queries) => ({ items: queries.map((_, index) => ({ index, known: false, fields: null })), model: 'm', costCents: 0 }) });
+    h.add({ id: 'a', producerKey: 'domaine tempier', histoire: 'Ancien descriptif' });
+    await h.processor.tick(NOW);
+    expect(h.row('a')).toMatchObject({ status: 'UNKNOWN', histoire: 'Ancien descriptif' });
   });
 
   it('laisse en attente, sans appel ni tentative, un domaine qui n’a plus aucun vin, réexaminé 6 h plus tard', async () => {
@@ -73,7 +93,7 @@ describe('ProducerBatchProcessor', () => {
 
   it('un domaine absent de la réponse revient en attente avec une tentative ; échec après cinq', async () => {
     // Seul le premier domaine de chaque lot revient dans la réponse.
-    const h = harness({ answer: async (queries) => ({ items: queries.length > 1 ? [{ index: 0, known: false, description: null }] : [], model: 'm', costCents: 0 }) });
+    const h = harness({ answer: async (queries) => ({ items: queries.length > 1 ? [{ index: 0, known: false, fields: null }] : [], model: 'm', costCents: 0 }) });
     h.add({ id: 'a', producerKey: 'domaine tempier', requestedAt: at(-3 * MIN) });
     h.add({ id: 'b', producerKey: 'trimbach', requestedAt: at(-3 * MIN + 1), attempts: 3 });
     await h.processor.tick(NOW);

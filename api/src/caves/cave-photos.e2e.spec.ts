@@ -302,10 +302,10 @@ describeIfInfra('photos, recherche d’image, accords et descriptifs par cave (H
   });
 
   describe('descriptifs de domaine et qualité de lecture (administrateur)', () => {
-    it('écrire ou régénérer un descriptif : 403 pour un compte non administrateur, même propriétaire', async () => {
+    it('corriger ou régénérer une fiche de domaine : 403 pour un compte non administrateur, même propriétaire', async () => {
       const url = (suffix: string) => `/api/producers/${encodeURIComponent(producerKeyA)}/${suffix}`;
       for (const agent of [ownerA, viewerA, ownerB]) {
-        expectStatus(await agent.put(url('description')).send({ description: 'Autre texte' }), 403, 'Réservé à l’administrateur');
+        expectStatus(await agent.put(url('fields/histoire')).send({ value: 'Autre texte' }), 403, 'Réservé à l’administrateur');
         expectStatus(await agent.post(url('regenerate')), 403, 'Réservé à l’administrateur');
       }
       expect(await prisma.producerProfile.findUniqueOrThrow({ where: { producerKey: producerKeyA } })).toMatchObject({ description: 'Texte', status: 'DONE' });

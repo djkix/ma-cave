@@ -231,13 +231,15 @@ describe('CaveService — apogée', () => {
     const generatedAt = new Date('2026-10-05T10:00:00Z');
     const profile = {
       id: 'p1', producerKey: 'chateau de beaucastel', displayName: 'Château de Beaucastel', status: 'DONE', description: 'Texte',
-      source: 'MANUEL', model: null, costCents: null, errorMessage: null, generatedAt, updatedById: 'u1',
+      histoire: 'Texte', terroir: 'Galets roulés', cepages: null, style: null, nez: null, manualFields: ['histoire'],
+      source: 'GEMINI', model: null, costCents: null, errorMessage: null, generatedAt, updatedById: 'u1',
       updatedBy: { displayName: 'djkix', email: 'proprietaire@example.com' }, updatedAt: generatedAt,
     };
     const s = service(null, [cdp], undefined, profile);
     expect((await s.detail('c1', 'w16')).wine.producerProfile).toEqual({
       key: 'chateau de beaucastel', displayName: 'Château de Beaucastel', status: 'DONE', description: 'Texte',
-      source: 'MANUEL', errorMessage: null, generatedAt, updatedBy: 'djkix',
+      fields: { histoire: 'Texte', terroir: 'Galets roulés', cepages: null, style: null, nez: null }, manualFields: ['histoire'],
+      source: 'GEMINI', errorMessage: null, generatedAt, updatedBy: 'djkix',
     });
     expect(s.mockPrisma.producerProfile.findUnique).toHaveBeenCalledWith({
       where: { producerKey: 'chateau de beaucastel' },

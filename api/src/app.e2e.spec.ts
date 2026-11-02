@@ -347,13 +347,13 @@ describeIfInfra('api HTTP', () => {
     }
   });
 
-  it('saves a hand-written producer description, shows it on the wine, and regenerates it', async () => {
+  it('opens the producer page (queued once), corrects one field by hand, shows it on the wine, and regenerates it', async () => {
     const { producerKeyOf } = await import('./producers/producer-key');
     const producer = `Domaine e2e Descriptif ${Date.now()}`;
     const key = producerKeyOf(producer);
-    const url = (suffix: string) => `/api/producers/${encodeURIComponent(key)}/${suffix}`;
+    const url = (suffix: string) => `/api/producers/${encodeURIComponent(key)}${suffix}`;
     const wine = await prisma.wine.create({
-      data: { caveId, matchKey: `e2e-producer-${Date.now()}`, producer, appellationRaw: 'Bandol', color: 'ROUGE' },
+      data: { caveId, matchKey: `e2e-producer-${Date.now()}`, producer, appellationRaw: 'Bandol', color: 'ROUGE', vintage: 2015 },
     });
     try {
       const before = (await agent.get(`/api/wines/${wine.id}`)).body.wine;
@@ -361,31 +361,43 @@ describeIfInfra('api HTTP', () => {
       expect(before.producerProfile).toBeNull();
 
       const anonymous = supertest(app.getHttpServer());
-      expect((await anonymous.put(url('description')).send({ description: 'Texte' })).status).toBe(401);
-      expect((await anonymous.post(url('regenerate'))).status).toBe(401);
+      expect((await anonymous.get(url(''))).status).toBe(401);
+      expect((await anonymous.put(url('/fields/histoire')).send({ value: 'Texte' })).status).toBe(401);
+      expect((await anonymous.post(url('/regenerate'))).status).toBe(401);
 
-      const tooLong = await agent.put(url('description')).send({ description: 'x'.repeat(2001) });
+      // Première ouverture : la fiche est mise en file, une seule fois, sans appel à Gemini.
+      const page = await agent.get(url(''));
+      expect(page.status).toBe(200);
+      expect(page.body.profile).toMatchObject({ key, status: 'PENDING', fields: { histoire: null, terroir: null, cepages: null, style: null, nez: null }, manualFields: [] });
+      expect(page.body.wines).toEqual([{ id: wine.id, cuvee: null, vintage: 2015, color: 'ROUGE', quantity: 0, referencePhotoId: null }]);
+      expect((await agent.get(url(''))).status).toBe(200);
+      expect(await prisma.producerProfile.count({ where: { producerKey: key } })).toBe(1);
+
+      const tooLong = await agent.put(url('/fields/histoire')).send({ value: 'x'.repeat(601) });
       expect(tooLong.status).toBe(400);
-      expect(tooLong.body.message).toBe('Le descriptif doit faire entre 1 et 2000 caractères');
+      expect(tooLong.body.message).toBe('Le texte doit faire entre 1 et 600 caractères');
+      expect((await agent.put(url('/fields/description')).send({ value: 'Texte' })).status).toBe(400);
 
-      const saved = await agent.put(url('description')).send({ description: '  Un domaine de Bandol, écrit à la main.  ' });
+      const saved = await agent.put(url('/fields/histoire')).send({ value: '  Un domaine de Bandol, écrit à la main.  ' });
       expect(saved.status).toBe(200);
       const detail = await agent.get(`/api/wines/${wine.id}`);
       expect(detail.body.wine.producerProfile).toMatchObject({
-        key, displayName: producer, status: 'DONE', description: 'Un domaine de Bandol, écrit à la main.', source: 'MANUEL',
-        errorMessage: null, updatedBy: expect.any(String),
+        key, displayName: producer, status: 'PENDING', source: 'GEMINI', manualFields: ['histoire'],
+        fields: { histoire: 'Un domaine de Bandol, écrit à la main.' }, updatedBy: expect.any(String),
       });
 
-      const regen = await agent.post(url('regenerate'));
+      const regen = await agent.post(url('/regenerate'));
       expect(regen.status).toBe(202);
       expect((await agent.get(`/api/wines/${wine.id}`)).body.wine.producerProfile).toMatchObject({
-        status: 'PENDING', source: 'GEMINI', description: null, updatedBy: null,
+        status: 'PENDING', source: 'GEMINI', manualFields: [], updatedBy: null,
       });
 
-      const missing = await agent.post(`/api/producers/${encodeURIComponent('domaine inexistant e2e')}/regenerate`);
+      const other = `/api/producers/${encodeURIComponent('domaine inexistant e2e')}`;
+      const missing = await agent.post(`${other}/regenerate`);
       expect(missing.status).toBe(404);
       expect(missing.body.message).toBe('Domaine introuvable');
-      expect((await agent.put(`/api/producers/${encodeURIComponent('domaine inexistant e2e')}/description`).send({ description: 'Texte' })).status).toBe(404);
+      expect((await agent.put(`${other}/fields/histoire`).send({ value: 'Texte' })).status).toBe(404);
+      expect((await agent.get(other)).status).toBe(404);
     } finally {
       await prisma.producerProfile.deleteMany({ where: { producerKey: key } });
       await prisma.wine.delete({ where: { id: wine.id } });
