@@ -414,8 +414,8 @@ confirme « Sorti — il en reste N » (le message survit au rafraîchissement d
 stock, y compris pour la dernière bouteille) ; *Corriger le stock* permet un
 inventaire physique — le nombre compté, l'écart annoncé avant d'enregistrer
 (« −2 bouteilles », « Stock déjà juste »), écrit comme un mouvement `ADJUST`
-daté (« Inventaire : N comptées »). La **sortie par photo** (bouton *Sortir une
-bouteille* sur l'accueil, ou onglet *Sortie*) ne reconnaît que les vins en
+daté (« Inventaire : N comptées »). La **sortie par photo** (onglet *Sortie* de la
+barre du bas) ne reconnaît que les vins en
 stock : l'étiquette est lue par Gemini puis comparée sur domaine/cuvée/
 appellation, le millésime pesant fortement. Un candidat clair déclenche une
 confirmation ; plusieurs candidats (ou un candidat incertain) affichent 1 à 4

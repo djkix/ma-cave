@@ -38,24 +38,6 @@ export function HomePage() {
         {isOwner && (
           <>
             <AnalysisQueueBanner />
-            <section className="actions">
-              <Link to="/entree" className="action action--in">
-                <Icon name="qr_code_scanner" />
-                <span className="action__text">
-                  <strong>Rentrer du vin</strong>
-                  <small>Arrivage de cartons (6, 12, 18) ou bouteilles</small>
-                </span>
-                <Icon name="arrow_forward" />
-              </Link>
-              <Link to="/sortie" className="action action--out">
-                <Icon name="remove_circle_outline" />
-                <span className="action__text">
-                  <strong>Sortir une bouteille</strong>
-                  <small>Photo de l’étiquette, ou recherche dans la cave</small>
-                </span>
-                <Icon name="arrow_forward" />
-              </Link>
-            </section>
             <CaveMap />
             {toConfirm > 0 && (
               <Link to="/a-confirmer" className="btn btn--outline">

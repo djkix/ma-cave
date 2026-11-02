@@ -25,15 +25,15 @@ function mount() {
 
 const photo = (id: string, status: api.PhotoDto['status']): api.PhotoDto => ({ id, status, createdAt: '' });
 
-it('propose Rentrer et Sortir, sans mode campagne', async () => {
+it('sans boutons Rentrer et Sortir (dans la barre du bas), ni mode campagne', async () => {
   vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
   const inbox = vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [], inProgress: [], failed: [] });
   mount();
-  expect(await screen.findByRole('link', { name: /Rentrer du vin/ })).toHaveAttribute('href', '/entree');
-  expect(screen.getByRole('link', { name: /Sortir une bouteille/ })).toHaveAttribute('href', '/sortie');
+  await waitFor(() => expect(inbox).toHaveBeenCalled());
+  expect(screen.queryByRole('link', { name: /Rentrer du vin/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: /Sortir une bouteille/ })).not.toBeInTheDocument();
   expect(screen.queryByText(/Bientôt/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Mode campagne/)).not.toBeInTheDocument();
-  await waitFor(() => expect(inbox).toHaveBeenCalled());
 });
 
 it('affiche le badge des vins à confirmer (à valider + lecture impossible)', async () => {

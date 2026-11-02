@@ -16,26 +16,24 @@
 ┌──────────────────────────────────────────────────────┐
 │ ▣ Ma Cave                          Cave principale ▾ │
 ├──────────────────────────────────────────────────────┤
+│ MA CAVE EN FRANCE · 64 bouteilles                    │
 │ ┌──────────────────────────────────────────────────┐ │
-│ │ + Rentrer du vin                               → │ │
-│ │   Arrivage de cartons ou bouteilles              │ │
-│ └──────────────────────────────────────────────────┘ │
-│ ┌──────────────────────────────────────────────────┐ │
-│ │ − Sortir une bouteille                         → │ │
-│ │   Photo de l’étiquette, ou recherche             │ │
+│ │   Carte des régions, colorée selon le stock      │ │
+│ │   Bourgogne 21 · Bordeaux 14 · Rhône 12 …        │ │
+│ │                    [ Hors de France 3 ]          │ │
 │ └──────────────────────────────────────────────────┘ │
 │ [ ✓ 3 vins à confirmer ]                             │
 │                                                      │
 │ À boire prochainement                                │
 │   Domaine A · Cuvée 2014                  Cave 1 / A │
-│   Domaine B · 2016          Garage / Champagnes (C15) │
+│   Domaine B · 2016         Garage / Champagnes (C15) │
 │                                        Tout voir (7) │
 │                                                      │
 │ DERNIERS MOUVEMENTS                                  │
 │   Entrée · Domaine C 2019                        + 6 │
 │                                      Voir le journal │
 ├──────────────────────────────────────────────────────┤
-│ Cave · Entrée · Sortie · Journal · Stats · Réglages  │
+│ Cave · Entrée · Sortie · Accords · Stats · Réglages  │
 └──────────────────────────────────────────────────────┘
 ```
 
