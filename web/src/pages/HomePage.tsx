@@ -1,12 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnalysisQueueBanner } from '../components/AnalysisQueueBanner';
 import { BottomNav } from '../components/BottomNav';
+import { BottomSheet } from '../components/BottomSheet';
 import { DrinkSoonCard } from '../components/DrinkSoonCard';
+import { FranceMap, HORS_FRANCE } from '../components/FranceMap';
 import { Icon } from '../components/Icon';
 import { OfflineQueueBanner } from '../components/OfflineQueueBanner';
 import { TopBar } from '../components/TopBar';
-import { getEntryInbox, getRecentMovements } from '../lib/api-client';
+import { getCave, getEntryInbox, getRecentMovements } from '../lib/api-client';
+import { regionCounts } from '../lib/region-counts';
 import { useCurrentCave, usePendingRegistrations } from '../lib/use-current-cave';
 import { MovementRow } from './JournalPage';
 
@@ -52,6 +56,7 @@ export function HomePage() {
                 <Icon name="arrow_forward" />
               </Link>
             </section>
+            <CaveMap />
             {toConfirm > 0 && (
               <Link to="/a-confirmer" className="btn btn--outline">
                 <Icon name="fact_check" />
@@ -88,10 +93,59 @@ export function HomePage() {
             </Link>
           </section>
         )}
+        {role === 'VIEWER' && <CaveMap />}
         {role === 'VIEWER' && <DrinkSoonCard />}
         {isAdmin && <Link to="/admin" className="btn btn--link">Administration</Link>}
       </main>
       <BottomNav />
     </>
+  );
+}
+
+/**
+ * « Ma cave en France » : bouteilles par région, lues dans la même requête que la cave
+ * (`['cave', {}]`). Une région touchée ouvre ses domaines et le lien vers la cave filtrée.
+ */
+function CaveMap() {
+  const cave = useQuery({ queryKey: ['cave', {}], queryFn: () => getCave({}) });
+  const [selected, setSelected] = useState<string | null>(null);
+  if (!cave.data) return null;
+  const counts = regionCounts(cave.data);
+  const detail = selected === HORS_FRANCE ? counts.horsFrance : selected ? counts.byRegion.get(selected) : undefined;
+  const bottles = detail?.bottles ?? 0;
+  // Le lien mène à une liste de vins (lignes), pas de bouteilles.
+  const wines = cave.data.filter((r) => r.quantity > 0 && (selected === HORS_FRANCE ? !r.region && r.country === 'AUTRE' : r.region === selected)).length;
+  return (
+    <section>
+      <h2 style={{ fontSize: 14, letterSpacing: '0.08em', color: 'var(--color-secondary)', marginBottom: 'var(--space-sm)' }}>
+        MA CAVE EN FRANCE · <span className="num">{counts.total}</span> bouteille{counts.total > 1 ? 's' : ''}
+      </h2>
+      <FranceMap counts={counts} onSelect={setSelected} />
+      <BottomSheet
+        open={selected !== null}
+        title={`${selected === HORS_FRANCE ? 'Hors de France' : selected} · ${bottles} bouteille${bottles > 1 ? 's' : ''}`}
+        onClose={() => setSelected(null)}
+      >
+        {bottles === 0 ? (
+          <p className="centered">Aucune bouteille de cette région.</p>
+        ) : (
+          <>
+            <ul className="region-sheet__list">
+              {detail?.producers.map((p) => (
+                <li key={p.producerKey}>
+                  <Link to={`/domaine/${encodeURIComponent(p.producerKey)}`}>
+                    <span>{p.producer}</span>
+                    <span className="num">{p.bottles}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <Link to={`/cave?region=${encodeURIComponent(selected ?? '')}`} className="btn btn--link">
+              {wines > 1 ? `Voir ces ${wines} vins dans la cave` : 'Voir ce vin dans la cave'} →
+            </Link>
+          </>
+        )}
+      </BottomSheet>
+    </section>
   );
 }

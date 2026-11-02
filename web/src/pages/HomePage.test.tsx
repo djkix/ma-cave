@@ -1,10 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as api from '../lib/api-client';
 import { meFixture, viewerMe } from '../test-fixtures';
 import { HomePage } from './HomePage';
 
+// jsdom n'a ni showModal ni close : simulés comme dans les tests de BottomSheet.
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.open = true; };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) { this.open = false; };
+});
 afterEach(() => vi.restoreAllMocks());
 
 function mount() {
@@ -120,4 +126,32 @@ it('non-administrateur : ni bandeau ni lecture des inscriptions', async () => {
   await waitFor(() => expect(inbox).toHaveBeenCalled());
   expect(regs).not.toHaveBeenCalled();
   expect(screen.queryByText(/à valider/)).not.toBeInTheDocument();
+});
+
+const caveRow = (o: Partial<api.CaveRow>): api.CaveRow => ({
+  id: 'x', producer: 'P', cuvee: null, appellationRaw: '', vintage: null, color: 'ROUGE', formatCl: 75, referencePhotoId: null, quantity: 1, ...o,
+});
+
+it('carte de France : toucher Bourgogne ouvre le volet des domaines et le lien vers la cave filtrée', async () => {
+  vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
+  vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [], inProgress: [], failed: [] });
+  const cave = vi.spyOn(api, 'getCave').mockResolvedValue([
+    caveRow({ id: 'a', region: 'Bourgogne', producer: 'Domaine Faiveley', producerKey: 'domaine faiveley', quantity: 8 }),
+    caveRow({ id: 'b', region: 'Bourgogne', producer: 'Louis Jadot', producerKey: 'louis jadot', quantity: 2 }),
+    caveRow({ id: 'c', region: 'Loire', quantity: 3 }),
+  ]);
+  mount();
+  expect(await screen.findByRole('heading', { name: 'MA CAVE EN FRANCE · 13 bouteilles' })).toBeInTheDocument();
+  expect(cave).toHaveBeenCalledWith({});
+  await userEvent.click(screen.getByRole('button', { name: 'Bourgogne, 10 bouteilles' }));
+  const sheet = screen.getByRole('dialog', { name: 'Bourgogne · 10 bouteilles' });
+  expect(within(sheet).getByRole('link', { name: /Domaine Faiveley/ })).toHaveAttribute('href', '/domaine/domaine%20faiveley');
+  expect(within(sheet).getByRole('link', { name: /Voir ces 2 vins dans la cave/ })).toHaveAttribute('href', '/cave?region=Bourgogne');
+});
+
+it('carte de France aussi pour un membre en lecture seule', async () => {
+  vi.spyOn(api, 'getMe').mockResolvedValue(viewerMe());
+  vi.spyOn(api, 'getCave').mockResolvedValue([caveRow({ region: 'Loire', quantity: 3 })]);
+  mount();
+  expect(await screen.findByRole('heading', { name: 'MA CAVE EN FRANCE · 3 bouteilles' })).toBeInTheDocument();
 });

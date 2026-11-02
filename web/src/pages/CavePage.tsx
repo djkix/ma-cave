@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BottomSheet } from '../components/BottomSheet';
 import { BottomNav } from '../components/BottomNav';
+import { HORS_FRANCE } from '../components/FranceMap';
 import { TopBar } from '../components/TopBar';
 import { WineThumb } from '../components/WineThumb';
 import { CaveFilter, getCave, Tannin, WineColor } from '../lib/api-client';
@@ -19,8 +20,6 @@ const COLORS: Array<{ value: WineColor | ''; label: string }> = [
 /** Filtre d'apogée demandé par un lien (page Statistiques) : `?filtre=priorite` ou `?filtre=sans-apogee`. */
 const FILTER_FROM_URL: Record<string, 'drinkSoon' | 'noApogee'> = { priorite: 'drinkSoon', 'sans-apogee': 'noApogee' };
 
-/** Valeur de `region` pour les vins hors de France. */
-const HORS_FRANCE = 'HORS_FRANCE';
 
 export function CavePage() {
   const [params, setParams] = useSearchParams();
