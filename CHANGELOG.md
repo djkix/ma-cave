@@ -11,6 +11,19 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.40.0](https://github.com/djkix/ma-cave/compare/v2.39.0...v2.40.0) (2026-11-02)
 
+### Résumé
+
+**Accords plus lisibles** : plus de score en %. Chaque vin montre l'accord
+avec le plat en trois niveaux (●●● Excellent, ●●○ Bon, ●○○ Correct) et sa
+raison, puis le moment du vin (frise d'apogée commune, trait « aujourd'hui »,
+libellé en couleur). Les vins sont rangés en groupes : *À ouvrir ce soir*, *À
+surveiller : apogée dépassée*, *Bel accord, mais à garder* ; une vue
+d'ensemble repliable croise accord et moment. L'IA juge désormais l'accord
+seul, sans l'apogée. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
