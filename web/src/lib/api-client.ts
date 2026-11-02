@@ -350,8 +350,14 @@ export interface Pairing { status: 'PENDING' | 'DONE' | 'FAILED'; dishes: string
 
 export type ProducerProfileStatus = 'PENDING' | 'DONE' | 'UNKNOWN' | 'FAILED';
 export type ProducerProfileSource = 'GEMINI' | 'MANUEL';
+export type ProducerField = 'histoire' | 'terroir' | 'cepages' | 'style' | 'nez';
+export type Tannin = 'LEGER' | 'MOYEN' | 'PUISSANT';
+export type Country = 'FR' | 'AUTRE';
+export interface WineTraits { status: string; tannin: Tannin | null; aromas: string[]; country: Country | null; manualFields: string[] }
 export interface ProducerProfile {
   key: string; displayName: string; status: ProducerProfileStatus; description: string | null;
+  /** Les cinq champs de la fiche ; `manualFields` : ceux corrigés à la main. */
+  fields: Record<ProducerField, string | null>; manualFields: string[];
   source: ProducerProfileSource; errorMessage: string | null; generatedAt: string | null; updatedBy: string | null;
 }
 
@@ -365,9 +371,11 @@ export interface CaveRow {
   matchedDish?: string;
   /** Endroits du vin : seulement dans la liste « à boire en priorité » (`drinkSoon`). */
   places?: Place[];
+  /** Fournis par la liste et la fiche ; absents des candidats de sortie. */
+  region?: string | null; country?: Country | null; tannin?: Tannin | null; aromas?: string[]; producerKey?: string | null;
 }
 /** `location` : id d'emplacement, ou `none` pour « Sans emplacement ». */
-export interface CaveFilter { q?: string; color?: WineColor; includeEmpty?: boolean; drinkSoon?: boolean; noApogee?: boolean; dish?: string; location?: string }
+export interface CaveFilter { q?: string; color?: WineColor; includeEmpty?: boolean; drinkSoon?: boolean; noApogee?: boolean; dish?: string; location?: string; aromas?: string[]; vintageMin?: number; vintageMax?: number; tannin?: Tannin; region?: string }
 export function getCave(filter: CaveFilter) {
   const q = new URLSearchParams();
   if (filter.q) q.set('q', filter.q);
@@ -377,13 +385,18 @@ export function getCave(filter: CaveFilter) {
   if (filter.noApogee) q.set('noApogee', 'true');
   if (filter.dish) q.set('dish', filter.dish);
   if (filter.location) q.set('location', filter.location);
+  for (const a of filter.aromas ?? []) q.append('aromas', a);
+  if (filter.vintageMin != null) q.set('vintageMin', String(filter.vintageMin));
+  if (filter.vintageMax != null) q.set('vintageMax', String(filter.vintageMax));
+  if (filter.tannin) q.set('tannin', filter.tannin);
+  if (filter.region) q.set('region', filter.region);
   const s = q.toString();
   return apiFetch<CaveRow[]>(`/cave${s ? `?${s}` : ''}`);
 }
 
 export interface WineDetail {
   wine: CaveRow & {
-    pairing?: Pairing | null; producerKey: string | null; producerProfile?: ProducerProfile | null;
+    pairing?: Pairing | null; producerKey: string | null; producerProfile?: ProducerProfile | null; traits?: WineTraits | null;
     /** Non nuls ⇔ la vignette vient d'une recherche web (afficher la source et « Revenir à ma photo »). */
     referencePhotoSource: string | null; referencePhotoSourceUrl: string | null;
   };
@@ -433,8 +446,14 @@ export const setRating = (wineId: string, rating: number) =>
 export const clearRating = (wineId: string) => apiFetch<null>(`/wines/${wineId}/rating`, { method: 'DELETE' });
 export const regeneratePairing = (wineId: string) => apiFetch<void>(`/wines/${wineId}/pairing/regenerate`, { method: 'POST' });
 
-export const setProducerDescription = (producerKey: string, description: string) =>
-  apiFetch<ProducerProfile>(`/producers/${encodeURIComponent(producerKey)}/description`, { method: 'PUT', body: JSON.stringify({ description }) });
+export const setWineTraits = (id: string, body: { tannin?: Tannin | null; aromas?: string[]; country?: Country | null }) =>
+  apiFetch<WineTraits>(`/wines/${id}/traits`, { method: 'PUT', body: JSON.stringify(body) });
+
+export interface ProducerPageWine { id: string; cuvee: string | null; vintage: number | null; color: WineColor; quantity: number; referencePhotoId: string | null }
+export interface ProducerPage { profile: ProducerProfile | null; wines: ProducerPageWine[] }
+export const getProducer = (key: string) => apiFetch<ProducerPage>(`/producers/${encodeURIComponent(key)}`);
+export const setProducerField = (key: string, field: ProducerField, value: string) =>
+  apiFetch<ProducerProfile>(`/producers/${encodeURIComponent(key)}/fields/${field}`, { method: 'PUT', body: JSON.stringify({ value }) });
 export const regenerateProducer = (producerKey: string) =>
   apiFetch<void>(`/producers/${encodeURIComponent(producerKey)}/regenerate`, { method: 'POST' });
 

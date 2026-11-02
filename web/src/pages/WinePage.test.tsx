@@ -16,6 +16,7 @@ const detail: api.WineDetail = {
     producerKey: 'domaine tempier',
     producerProfile: {
       key: 'domaine tempier', displayName: 'Domaine Tempier', status: 'DONE', description: 'Un domaine du Var…',
+      fields: { histoire: 'Un domaine du Var…', terroir: null, cepages: null, style: null, nez: null }, manualFields: [],
       source: 'GEMINI', errorMessage: null, generatedAt: '2026-10-05T10:00:00Z', updatedBy: null,
     },
   },
@@ -402,14 +403,14 @@ describe('selon le rôle', () => {
     expect(domaine.queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('montre les actions du domaine à un administrateur', async () => {
+  it('renvoie vers la page Domaine, sans action de domaine, même pour un administrateur', async () => {
     vi.spyOn(api, 'getMe').mockResolvedValue(meFixture({ isAdmin: true }));
     vi.spyOn(api, 'getWine').mockResolvedValue(full);
     mount();
     const heading = await screen.findByRole('heading', { name: 'Le domaine' });
     const domaine = within(heading.closest('section')!);
-    expect(await domaine.findByRole('button', { name: 'Modifier' })).toBeInTheDocument();
-    expect(domaine.getByRole('button', { name: 'Régénérer' })).toBeInTheDocument();
+    expect(domaine.getByRole('link', { name: 'Voir le domaine' })).toBeInTheDocument();
+    expect(domaine.queryByRole('button')).not.toBeInTheDocument();
   });
 });
 

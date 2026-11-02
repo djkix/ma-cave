@@ -42,7 +42,7 @@ export function WinePage() {
   const qc = useQueryClient();
   // Membre en lecture seule : tout le contenu, aucune action. Le descriptif du
   // domaine, commun à toutes les caves, ne s'écrit que par un administrateur.
-  const { isOwner, isAdmin } = useCurrentCave();
+  const { isOwner } = useCurrentCave();
   const readOnly = !isOwner;
   const detail = useQuery({
     queryKey: ['wine', wineId],
@@ -152,7 +152,7 @@ export function WinePage() {
         </section>
 
         {/* Le domaine, puis les accords, juste sous la photo du vin. */}
-        <DomaineBlock key={`domaine-${wine.id}`} wineId={wine.id} producerKey={wine.producerKey} producerProfile={wine.producerProfile} canEdit={isAdmin} />
+        <DomaineBlock key={`domaine-${wine.id}`} producerKey={wine.producerKey} producerProfile={wine.producerProfile} />
         <PairingBlock key={`pairing-${wine.id}`} wineId={wine.id} pairing={wine.pairing} readOnly={readOnly} />
 
         {/* Clé distincte de celle de SortieConfirmation : deux enfants du même

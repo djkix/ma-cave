@@ -7,6 +7,7 @@ import { AConfirmerPage } from './pages/AConfirmerPage';
 import { AccordsPage } from './pages/AccordsPage';
 import { CavePage } from './pages/CavePage';
 import { ConfidentialitePage } from './pages/ConfidentialitePage';
+import { DomainePage } from './pages/DomainePage';
 import { ComptePage } from './pages/ComptePage';
 import { EntreeCapturePage } from './pages/EntreeCapturePage';
 import { EntreeConfirmationPage } from './pages/EntreeConfirmationPage';
@@ -42,6 +43,7 @@ export const routes: RouteObject[] = [
           { path: '/accords', element: <AccordsPage /> },
           { path: '/cave', element: <CavePage /> },
           { path: '/cave/:wineId', element: <WinePage /> },
+          { path: '/domaine/:key', element: <DomainePage /> },
           {
             // Réservé au propriétaire de la cave courante : un membre en lecture
             // seule qui y arrive (lien direct, changement de cave) revient à l'accueil.
