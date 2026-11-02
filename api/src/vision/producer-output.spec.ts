@@ -1,32 +1,43 @@
 import { isTransientVisionFailure } from '../queue/transient-failure';
-import { ProducerInvalidOutputError, parseProducerOutput } from './producer-output';
+import { PRODUCER_FIELDS, ProducerInvalidOutputError, parseProducerOutput } from './producer-output';
 
 const text = (n: number) => 'a'.repeat(n);
+const FIELDS = {
+  histoire: 'Domaine familial fondé en 1834 au Castellet.',
+  terroir: 'Restanques argilo-calcaires face à la mer.',
+  cepages: 'Mourvèdre majoritaire, grenache et cinsault.',
+  style: 'Rouges de garde, rosés de gastronomie.',
+  nez: 'Fruits noirs, garrigue, cuir avec l’âge.',
+};
 
 describe('parseProducerOutput', () => {
-  it('rend le descriptif rogné d’un domaine connu', () => {
-    const description = `  ${'Domaine familial du Castellet, au cœur de Bandol. '.repeat(2).trim()}  `;
-    expect(parseProducerOutput({ connu: true, description })).toEqual({ known: true, description: description.trim() });
+  it('rend les cinq champs rognés d’un domaine connu', () => {
+    const raw = { connu: true, ...FIELDS, histoire: `  ${FIELDS.histoire}  ` };
+    expect(parseProducerOutput(raw)).toEqual({ known: true, fields: FIELDS });
+  });
+
+  it('nomme les cinq champs dans l’ordre', () => {
+    expect(PRODUCER_FIELDS).toEqual(['histoire', 'terroir', 'cepages', 'style', 'nez']);
   });
 
   it('rend « inconnu » pour un domaine peu documenté', () => {
     expect(parseProducerOutput({ connu: false })).toEqual({ known: false });
-    expect(parseProducerOutput({ connu: false, description: 'ignoré' })).toEqual({ known: false });
+    expect(parseProducerOutput({ connu: false, histoire: 'ignoré' })).toEqual({ known: false });
   });
 
-  it('accepte les bornes : 40 et 1200 caractères', () => {
-    expect(parseProducerOutput({ connu: true, description: text(40) })).toEqual({ known: true, description: text(40) });
-    expect(parseProducerOutput({ connu: true, description: text(1200) })).toEqual({ known: true, description: text(1200) });
+  it('accepte les bornes : 20 et 600 caractères', () => {
+    const raw = { connu: true, ...FIELDS, terroir: text(20), nez: text(600) };
+    expect(parseProducerOutput(raw)).toEqual({ known: true, fields: { ...FIELDS, terroir: text(20), nez: text(600) } });
   });
 
   it.each([
-    ['trop court', { connu: true, description: text(39) }],
-    ['trop long', { connu: true, description: text(1201) }],
-    ['vide', { connu: true, description: '   ' }],
-    ['sans descriptif', { connu: true }],
-    ['descriptif non textuel', { connu: true, description: 42 }],
-    ['sans champ connu', { description: text(100) }],
-    ['champ connu non booléen', { connu: 'oui', description: text(100) }],
+    ['champ manquant', { connu: true, ...FIELDS, nez: undefined }],
+    ['champ trop court', { connu: true, ...FIELDS, style: text(19) }],
+    ['champ trop long', { connu: true, ...FIELDS, cepages: text(601) }],
+    ['champ vide', { connu: true, ...FIELDS, histoire: '   ' }],
+    ['champ non textuel', { connu: true, ...FIELDS, terroir: 42 }],
+    ['sans champ connu', { ...FIELDS }],
+    ['champ connu non booléen', { connu: 'oui', ...FIELDS }],
     ['réponse non objet', 'Domaine Tempier'],
     ['réponse nulle', null],
   ])('refuse une réponse inexploitable : %s', (_label, raw) => {
@@ -36,7 +47,7 @@ describe('parseProducerOutput', () => {
 
   it('classe une réponse inexploitable en échec définitif', () => {
     let error: unknown;
-    try { parseProducerOutput({ connu: true, description: 'court' }); } catch (e) { error = e; }
+    try { parseProducerOutput({ connu: true, ...FIELDS, nez: 'court' }); } catch (e) { error = e; }
     expect(isTransientVisionFailure(error)).toBe(false);
   });
 });

@@ -300,26 +300,34 @@ describe('GeminiVisionProvider.extractWineLabels', () => {
 describe('GeminiVisionProvider.describeProducersBatch', () => {
   const tempier = { producer: 'Domaine Tempier', appellations: ['Bandol'], region: 'Provence' };
   const closX = { producer: 'Clos X', appellations: [], region: null };
-  const description = 'Domaine familial du Castellet, au cœur de l’appellation Bandol, réputé pour ses mourvèdres de garde.';
+  const fields = {
+    histoire: 'Domaine familial fondé en 1834 au Castellet.',
+    terroir: 'Restanques argilo-calcaires face à la mer.',
+    cepages: 'Mourvèdre majoritaire, grenache et cinsault.',
+    style: 'Rouges de garde, rosés de gastronomie.',
+    nez: 'Fruits noirs, garrigue, cuir avec l’âge.',
+  };
   const fake = (body: string, usage = { promptTokenCount: 200, candidatesTokenCount: 120 }) => ({
     generateContent: jest.fn(async () => ({ response: { text: () => body, usageMetadata: usage } })),
   });
   const promptOf = (model: ReturnType<typeof fake>) => (model.generateContent.mock.calls[0] as any)[0].contents[0].parts[0].text as string;
 
-  it('demande en un seul appel un tableau numéroté de descriptifs en français et rend chacun à la position de son domaine', async () => {
-    const model = fake(JSON.stringify([{ domaine: 2, connu: false }, { domaine: 1, connu: true, description }]));
+  it('demande en un seul appel un tableau numéroté de fiches en cinq champs, en français, et rend chacun à la position de son domaine', async () => {
+    const model = fake(JSON.stringify([{ domaine: 2, connu: false }, { domaine: 1, connu: true, ...fields }]));
     const r = await gemini(model as any, 'gemini-test').describeProducersBatch([tempier, closX]);
     expect(r).toEqual({
       items: [
-        { index: 0, known: true, description },
-        { index: 1, known: false, description: null },
+        { index: 0, known: true, fields },
+        { index: 1, known: false, fields: null },
       ],
       model: 'gemini-test',
       costCents: 0,
     });
     expect(model.generateContent).toHaveBeenCalledTimes(1);
     const prompt = promptOf(model);
-    expect(prompt).toMatch(/3 à 4 phrases/);
+    expect(prompt).toMatch(/1 à 3 phrases/);
+    expect(prompt).toContain('{"domaine": number, "connu": true, "histoire": string, "terroir": string, "cepages": string, "style": string, "nez": string}');
+    expect(prompt).toMatch(/arômes typiques/);
     expect(prompt).toContain('n\'invente rien');
     expect(prompt).toContain('"connu": false');
     expect(prompt).toContain('tableau JSON de 2 éléments');
@@ -328,10 +336,10 @@ describe('GeminiVisionProvider.describeProducersBatch', () => {
     expect((model.generateContent.mock.calls[0] as any)[0].generationConfig.responseMimeType).toBe('application/json');
   });
 
-  it('valide chaque domaine avec les règles habituelles : un descriptif trop court est seulement absent du résultat', async () => {
-    const model = fake(JSON.stringify([{ domaine: 1, connu: true, description: 'Bandol.' }, { domaine: 2, connu: false }]));
+  it('valide chaque domaine avec les règles habituelles : un champ trop court est seulement absent du résultat', async () => {
+    const model = fake(JSON.stringify([{ domaine: 1, connu: true, ...fields, nez: 'Bandol.' }, { domaine: 2, connu: false }]));
     const r = await gemini(model as any, 'm').describeProducersBatch([tempier, closX]);
-    expect(r.items).toEqual([{ index: 1, known: false, description: null }]);
+    expect(r.items).toEqual([{ index: 1, known: false, fields: null }]);
   });
 
   it.each([

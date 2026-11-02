@@ -1,5 +1,10 @@
-export const MIN_PRODUCER_DESCRIPTION = 40;
-export const MAX_PRODUCER_DESCRIPTION = 1200;
+export const MIN_PRODUCER_FIELD = 20;
+export const MAX_PRODUCER_FIELD = 600;
+
+/** Les cinq champs de la fiche d'un domaine, dans l'ordre d'affichage. */
+export const PRODUCER_FIELDS = ['histoire', 'terroir', 'cepages', 'style', 'nez'] as const;
+export type ProducerField = (typeof PRODUCER_FIELDS)[number];
+export type ProducerFields = Record<ProducerField, string>;
 
 /**
  * Réponse de Gemini inexploitable pour un descriptif de domaine. Le message
@@ -15,17 +20,22 @@ export class ProducerInvalidOutputError extends Error {
 
 const invalid = (why: string) => new ProducerInvalidOutputError(`Sortie du modèle invalide : ${why}`);
 
-export type ProducerOutput = { known: true; description: string } | { known: false };
+export type ProducerOutput = { known: true; fields: ProducerFields } | { known: false };
 
-/** `{"connu": false}` ou `{"connu": true, "description": …}` de 40 à 1200 caractères après rognage. */
+/** `{"connu": false}` ou `{"connu": true, "histoire": …, …, "nez": …}`, chaque champ de 20 à 600 caractères après rognage. */
 export function parseProducerOutput(raw: unknown): ProducerOutput {
   if (!raw || typeof raw !== 'object') throw invalid('réponse non objet');
-  const { connu, description } = raw as { connu?: unknown; description?: unknown };
-  if (connu === false) return { known: false };
-  if (connu !== true) throw invalid('champ « connu » absent');
-  if (typeof description !== 'string') throw invalid('descriptif absent');
-  const text = description.trim();
-  if (text.length < MIN_PRODUCER_DESCRIPTION) throw invalid('descriptif trop court');
-  if (text.length > MAX_PRODUCER_DESCRIPTION) throw invalid('descriptif trop long');
-  return { known: true, description: text };
+  const obj = raw as Record<string, unknown>;
+  if (obj.connu === false) return { known: false };
+  if (obj.connu !== true) throw invalid('champ « connu » absent');
+  const fields = {} as ProducerFields;
+  for (const name of PRODUCER_FIELDS) {
+    const value = obj[name];
+    if (typeof value !== 'string') throw invalid(`champ « ${name} » absent`);
+    const text = value.trim();
+    if (text.length < MIN_PRODUCER_FIELD) throw invalid(`champ « ${name} » trop court`);
+    if (text.length > MAX_PRODUCER_FIELD) throw invalid(`champ « ${name} » trop long`);
+    fields[name] = text;
+  }
+  return { known: true, fields };
 }

@@ -193,12 +193,12 @@ function producerLine(q: ProducerQuery): string {
   return `« ${q.producer} » ; appellation(s) de ses vins : ${q.appellations.length ? q.appellations.map((a) => `« ${a} »`).join(', ') : 'inconnue'} ; région « ${q.region ?? 'inconnue'} ».`;
 }
 
-/** Consigne de lot des descriptifs : les règles de l'ancienne consigne d'un domaine, réponse en tableau numéroté. */
+/** Consigne de lot des fiches de domaine : cinq champs par domaine, réponse en tableau numéroté. */
 function producersBatchPrompt(queries: ProducerQuery[]): string {
   const n = queries.length;
-  return `Tu es sommelier. Pour chacun des ${n} domaines viticoles ci-dessous, numérotés de 1 à ${n}, présente ce domaine en 3 à 4 phrases en français : le lieu (région, village), quelques repères d'histoire, le style de ses vins (cépages).
+  return `Tu es sommelier. Pour chacun des ${n} domaines viticoles ci-dessous, numérotés de 1 à ${n}, rédige en français une fiche en cinq champs, chacun en 1 à 3 phrases : "histoire" (fondation, familles, repères), "terroir" (lieu, sols, climat), "cepages" (cépages cultivés), "style" (style de ses vins), "nez" (les arômes typiques des vins du domaine).
 Réponds UNIQUEMENT par un tableau JSON de ${n} éléments, un par domaine, dans l'ordre des domaines.
-Chaque élément est un objet strict de la forme {"domaine": number, "connu": true, "description": string}, où "domaine" est le numéro du domaine (de 1 à ${n}).
+Chaque élément est un objet strict de la forme {"domaine": number, "connu": true, "histoire": string, "terroir": string, "cepages": string, "style": string, "nez": string}, où "domaine" est le numéro du domaine (de 1 à ${n}).
 Si tu ne connais pas un domaine de façon fiable, n'invente rien et réponds pour lui exactement {"domaine": <numéro>, "connu": false}.
 ${queries.map((q, i) => `Domaine ${i + 1} : ${producerLine(q)}`).join('\n')}`;
 }
@@ -561,7 +561,7 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Di
     indexedItems(result.response.text(), queries.length, 'domaine', costCents).forEach((obj, index) => {
       try {
         const output = parseProducerOutput(obj);
-        items.push({ index, known: output.known, description: output.known ? output.description : null });
+        items.push({ index, known: output.known, fields: output.known ? output.fields : null });
       } catch {
         // Domaine inexploitable : absent du résultat, redemandé par le lot suivant.
       }

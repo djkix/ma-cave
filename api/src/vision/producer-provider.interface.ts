@@ -1,3 +1,5 @@
+import { ProducerFields } from './producer-output';
+
 export const PRODUCER_PROVIDER = 'PRODUCER_PROVIDER';
 
 export interface ProducerQuery {
@@ -8,12 +10,12 @@ export interface ProducerQuery {
   region: string | null;
 }
 
-/** Descriptif d'un domaine du lot ; `index` : sa position dans le tableau envoyé (à partir de 0). */
+/** Fiche d'un domaine du lot ; `index` : sa position dans le tableau envoyé (à partir de 0). */
 export interface ProducerBatchItem {
   index: number;
   /** false : Gemini n'a pas d'information fiable sur ce domaine. */
   known: boolean;
-  description: string | null;
+  fields: ProducerFields | null;
 }
 
 /**
