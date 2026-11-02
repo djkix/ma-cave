@@ -11,6 +11,16 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.39.0](https://github.com/djkix/ma-cave/compare/v2.38.0...v2.39.0) (2026-11-02)
 
+### Résumé
+
+**Fiche vin sans bloc de sortie** : la sortie se fait par l'onglet Sortie ; le
+crayon à côté du stock ouvre la correction du stock (inventaire, casse,
+oubli). **Recherche d'accords visible** : barre animée, secondes écoulées et,
+au-delà de 20 s, explication quand l'IA est lente. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 

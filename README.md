@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.38.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.39.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -849,6 +849,15 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.39.0 — 2 novembre 2026
+
+Publiée ([v2.39.0](https://github.com/djkix/ma-cave/releases/tag/v2.39.0)),
+images `ghcr.io/djkix/ma-cave-api:2.39.0`, `-web:2.39.0` et
+`-sauvegarde:2.39.0`.
+
+**Fiche vin allégée** (correction du stock par le crayon, plus de bloc de
+sortie) et **recherche d'accords visible** (barre, secondes). Aucune migration.
+
 ### 2.38.0 — 2 novembre 2026
 
 Publiée ([v2.38.0](https://github.com/djkix/ma-cave/releases/tag/v2.38.0)),
@@ -930,6 +939,9 @@ images `ghcr.io/djkix/ma-cave-api:2.33.0` et `-web:2.33.0`.
 Journal dans les Réglages ; mouvements datés à l'heure. Migrations
 automatiques, sans effet sur les données.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.32.0 → 1.0.0)</summary>
+
 ### 2.32.0 — 23 octobre 2026
 
 Publiée ([v2.32.0](https://github.com/djkix/ma-cave/releases/tag/v2.32.0)),
@@ -937,9 +949,6 @@ images `ghcr.io/djkix/ma-cave-api:2.32.0` et `-web:2.32.0`.
 
 **Menus en pastilles avec chevron**, logo vers l'accueil, cote sur une ligne,
 correction du stock dans le bloc de sortie, historique replié. Aucune migration.
-
-<details>
-<summary><strong>Versions antérieures</strong> (2.31.0 → 1.0.0)</summary>
 
 ### 2.31.0 — 22 octobre 2026
 
