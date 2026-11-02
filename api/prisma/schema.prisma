@@ -115,6 +115,7 @@ model Wine {
   ratedById                String?      @map("rated_by")
   ratedBy                  AppUser?     @relation(fields: [ratedById], references: [id], onDelete: SetNull)
   pairing                  Pairing?
+  traits                   WineTraits?
   movements                Movement[]
   priceQuotes              PriceQuote[]
 
@@ -348,6 +349,32 @@ model Pairing {
   @@map("pairing")
 }
 
+/// Caractéristiques d'un vin (tanin, arômes, pays), générées par lots comme les accords.
+model WineTraits {
+  id            String        @id @default(uuid())
+  wineId        String        @unique @map("wine_id")
+  wine          Wine          @relation(fields: [wineId], references: [id], onDelete: Cascade)
+  status        PairingStatus @default(PENDING)
+  tannin        String?
+  aromas        String[]      @default([])
+  country       String?
+  /// Champs corrigés à la main : la génération automatique ne les écrase jamais.
+  manualFields  String[]      @default([]) @map("manual_fields")
+  model         String?
+  costCents     Int?          @map("cost_cents")
+  errorMessage  String?       @map("error_message")
+  generatedAt   DateTime?     @map("generated_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  /// File des lots de caractéristiques : demande, tentatives, reprise, réservation.
+  requestedAt   DateTime      @default(now()) @map("requested_at")
+  attempts      Int           @default(0)
+  nextAttemptAt DateTime?     @map("next_attempt_at")
+  reservedUntil DateTime?     @map("reserved_until")
+
+  @@index([status, requestedAt])
+  @@map("wine_traits")
+}
+
 /// Descriptif d'un domaine, partagé par tous ses vins : lien par la clé
 /// normalisée du producteur (normalizeLabel), sans clé étrangère vers wine.
 model ProducerProfile {
@@ -356,6 +383,13 @@ model ProducerProfile {
   displayName   String                @map("display_name")
   status        ProducerProfileStatus @default(PENDING)
   description   String?
+  histoire      String?
+  terroir       String?
+  cepages       String?
+  style         String?
+  nez           String?
+  /// Champs corrigés à la main : la génération automatique ne les écrase jamais.
+  manualFields  String[]              @default([]) @map("manual_fields")
   source        String                @default("GEMINI")
   model         String?
   costCents     Int?                  @map("cost_cents")
