@@ -14,6 +14,7 @@ const USAGE_LABEL: Record<GeminiUsageKind, string> = {
   RECHERCHE_IMAGE: 'Recherche d’image',
   ANALYSE_PLAN: 'Analyse du plan',
   ACCORDS_PLAT: 'Accords (plat)',
+  CARACTERISATION: 'Caractéristiques',
 };
 
 /** Une couleur de la charte par usage, assez éloignées pour se distinguer dans une barre empilée. */
@@ -25,6 +26,7 @@ const USAGE_COLOR: Record<GeminiUsageKind, string> = {
   RECHERCHE_IMAGE: 'var(--color-wine-rose)',
   ANALYSE_PLAN: 'var(--color-warning)',
   ACCORDS_PLAT: 'var(--color-wine-petillant)',
+  CARACTERISATION: 'var(--color-secondary)',
 };
 const USAGES = Object.keys(USAGE_LABEL) as GeminiUsageKind[];
 

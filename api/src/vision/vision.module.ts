@@ -9,6 +9,7 @@ import { GeminiVisionProvider } from './gemini-vision.provider';
 import { OFFICIAL_SITE_PROVIDER } from './official-site-provider.interface';
 import { DISH_PAIRING_PROVIDER, PAIRING_PROVIDER } from './pairing-provider.interface';
 import { PRODUCER_PROVIDER } from './producer-provider.interface';
+import { TRAITS_PROVIDER } from './traits-provider.interface';
 import { VISION_PROVIDER } from './vision-provider.interface';
 
 @Module({
@@ -40,8 +41,9 @@ import { VISION_PROVIDER } from './vision-provider.interface';
     { provide: PAIRING_PROVIDER, useExisting: VISION_PROVIDER },
     { provide: DISH_PAIRING_PROVIDER, useExisting: VISION_PROVIDER },
     { provide: PRODUCER_PROVIDER, useExisting: VISION_PROVIDER },
+    { provide: TRAITS_PROVIDER, useExisting: VISION_PROVIDER },
     { provide: OFFICIAL_SITE_PROVIDER, useExisting: VISION_PROVIDER },
   ],
-  exports: [GeminiJournal, GeminiModelService, GeminiQuotaService, VISION_PROVIDER, PAIRING_PROVIDER, DISH_PAIRING_PROVIDER, PRODUCER_PROVIDER, OFFICIAL_SITE_PROVIDER],
+  exports: [GeminiJournal, GeminiModelService, GeminiQuotaService, VISION_PROVIDER, PAIRING_PROVIDER, DISH_PAIRING_PROVIDER, PRODUCER_PROVIDER, TRAITS_PROVIDER, OFFICIAL_SITE_PROVIDER],
 })
 export class VisionModule {}

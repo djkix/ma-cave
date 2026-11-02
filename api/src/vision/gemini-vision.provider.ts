@@ -4,9 +4,11 @@ import { GeminiJournal, GeminiPausedError, GeminiQuotaError, GeminiUsage, MODEL_
 import { GeminiQuotaService, skipsToNext } from './gemini-quota';
 import { parsePairingOutput } from './pairing-output';
 import { DishPairingProvider, DishPairingResult, DishPairingWine, PairingBatchItem, PairingBatchResult, PairingProvider, PairingWine } from './pairing-provider.interface';
+import { AROMAS, MAX_AROMAS, parseTraitsOutput } from '../traits/traits';
 import { parseProducerOutput } from './producer-output';
 import { OfficialSiteProvider, OfficialSiteQuery, OfficialSiteResult } from './official-site-provider.interface';
 import { ProducerBatchItem, ProducerBatchResult, ProducerProvider, ProducerQuery } from './producer-provider.interface';
+import { TraitsBatchItem, TraitsBatchResult, TraitsProvider, TraitsWine } from './traits-provider.interface';
 import { BatchVisionResult, LabelPurpose, VisionProvider, VisionResult } from './vision-provider.interface';
 
 export class VisionInvalidOutputError extends Error {
@@ -159,6 +161,17 @@ Chaque plat : un nom court en français (60 caractères au plus), sans phrase ni
 ${wines.map((w, i) => `Vin ${i + 1} : ${pairingLine(w)}`).join('\n')}`;
 }
 
+/** Consigne de lot des caractéristiques : tanin, arômes (liste fermée) et pays, réponse en tableau numéroté. */
+function traitsBatchPrompt(wines: TraitsWine[]): string {
+  const n = wines.length;
+  return `Tu es sommelier. Pour chacun des ${n} vins ci-dessous, numérotés de 1 à ${n}, donne le tanin, les arômes dominants et le pays.
+Réponds UNIQUEMENT par un tableau JSON de ${n} éléments, un par vin, dans l'ordre des vins.
+Chaque élément est un objet strict de la forme {"vin": number, "tanin": "léger"|"moyen"|"puissant"|null, "aromes": string[], "pays": "France"|"<autre pays>"}, où "vin" est le numéro du vin (de 1 à ${n}).
+"aromes" : ${MAX_AROMAS} au plus, choisis UNIQUEMENT dans cette liste fermée : ${AROMAS.join(', ')}.
+"tanin" : null pour un blanc, un rosé ou un effervescent sauf exception.
+${wines.map((w, i) => `Vin ${i + 1} : producteur « ${w.producer} » ; cuvée « ${w.cuvee ?? 'aucune'} » ; appellation « ${w.appellation} » ; couleur ${COLOR_WORD[w.color] ?? w.color} ; ${w.vintage == null ? 'non millésimé' : `millésime ${w.vintage}`}.`).join('\n')}`;
+}
+
 /**
  * Consigne « Accords vins » : un plat, les vins en stock numérotés (une ligne
  * compacte chacun), réponse en un objet. Les numéros évitent d'envoyer les
@@ -268,7 +281,7 @@ function withSignal(model: Model, signal: AbortSignal): Model {
   };
 }
 
-export class GeminiVisionProvider implements VisionProvider, PairingProvider, DishPairingProvider, ProducerProvider, OfficialSiteProvider {
+export class GeminiVisionProvider implements VisionProvider, PairingProvider, DishPairingProvider, ProducerProvider, TraitsProvider, OfficialSiteProvider {
   /**
    * `modelFor` : le modèle Gemini d'un nom ; `models` : les modèles à essayer,
    * lus à chaque appel (du plus récent au plus ancien, voir
@@ -551,6 +564,28 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Di
         items.push({ index, known: output.known, description: output.known ? output.description : null });
       } catch {
         // Domaine inexploitable : absent du résultat, redemandé par le lot suivant.
+      }
+    });
+    return { items, model: modelName, costCents };
+  }
+
+  /** Caractéristiques de tout un lot de vins (dix au plus) en un seul appel : une ligne `CARACTERISATION` au journal. */
+  characterizeWinesBatch(wines: TraitsWine[]): Promise<TraitsBatchResult> {
+    return this.call('CARACTERISATION', (model, name) => this.traitsBatch(model, name, wines));
+  }
+
+  private async traitsBatch(model: Model, modelName: string, wines: TraitsWine[]): Promise<TraitsBatchResult> {
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: traitsBatchPrompt(wines) }] }],
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const costCents = pairingCostCentsOf(result.response.usageMetadata);
+    const items: TraitsBatchItem[] = [];
+    indexedItems(result.response.text(), wines.length, 'vin', costCents).forEach((obj, index) => {
+      try {
+        items.push({ index, ...parseTraitsOutput(obj) });
+      } catch {
+        // Vin inexploitable : absent du résultat, redemandé par le lot suivant.
       }
     });
     return { items, model: modelName, costCents };

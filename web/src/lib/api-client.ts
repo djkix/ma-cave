@@ -86,7 +86,7 @@ export const putAdminBudget = (shares: { caveShare: number; invitedShare: number
   apiFetch<AdminBudget>('/admin/budget', { method: 'PUT', body: JSON.stringify(shares) });
 
 /** Usage d'un appel Gemini, tel que noté dans le journal des appels (api `gemini_call`). */
-export type GeminiUsageKind = 'LECTURE_ENTREE' | 'LECTURE_SORTIE' | 'ACCORDS' | 'DESCRIPTIF' | 'RECHERCHE_IMAGE' | 'ANALYSE_PLAN' | 'ACCORDS_PLAT';
+export type GeminiUsageKind = 'LECTURE_ENTREE' | 'LECTURE_SORTIE' | 'ACCORDS' | 'DESCRIPTIF' | 'RECHERCHE_IMAGE' | 'ANALYSE_PLAN' | 'ACCORDS_PLAT' | 'CARACTERISATION';
 /** Une ligne par jour (Europe/Paris, AAAA-MM-JJ), par usage et par modèle (null : appel d'avant la 2.19). */
 export interface GeminiUsageRow {
   day: string; usage: GeminiUsageKind; model: string | null; ok: number; refused503: number; refused429: number; errors: number; costCents: number;
