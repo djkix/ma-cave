@@ -18,6 +18,8 @@ import { requeueOrphanPhotos } from './queue/orphan-recovery';
 import { clearPlanAnalysisDeferral, PLAN_ANALYSIS_QUEUE, PLAN_ANALYSIS_QUEUE_TOKEN, PlanAnalysisJobData, requeuePendingPlans } from './queue/plan-analysis';
 import { PlanAnalysisProcessor } from './queue/plan-analysis.processor';
 import { GEMINI_JOURNAL_PURGE_TICK_MS, purgeGeminiJournal } from './vision/gemini-journal-purge';
+import { TraitsBatchProcessor } from './traits/traits-batch.processor';
+import { requeueMissingTraits } from './traits/traits-recovery';
 import { loadEnv } from './config/env';
 
 async function main() {
@@ -91,6 +93,11 @@ async function main() {
   } catch (e) {
     console.error(`rattrapage des descriptifs de domaine impossible : ${(e as Error).message}`);
   }
+  try {
+    await requeueMissingTraits(prisma, (m) => console.log(m));
+  } catch (e) {
+    console.error(`rattrapage des caractéristiques impossible : ${(e as Error).message}`);
+  }
   // Photos d'entrée : pas de travail BullMQ, la table photo sert de file. Un
   // passage au démarrage reprend aussi les réservations échues d'un arrêt brutal.
   const entryBatchLoop = createEntryBatchLoop(
@@ -113,7 +120,13 @@ async function main() {
     GENERATION_BATCH_TICK_MS,
     (e) => console.error(`lot de descriptifs : ${(e as Error).message}`),
   );
+  const traitsLoop = createEntryBatchLoop(
+    () => app.get(TraitsBatchProcessor).tick(),
+    GENERATION_BATCH_TICK_MS,
+    (e) => console.error(`lot de caractéristiques : ${(e as Error).message}`),
+  );
   pairingLoop.start();
+  traitsLoop.start();
   producerLoop.start();
   // Journal des appels Gemini : les lignes trop anciennes sont effacées au démarrage puis chaque jour.
   const retentionDays = loadEnv().GEMINI_JOURNAL_RETENTION_DAYS;
@@ -132,7 +145,7 @@ async function main() {
   const stop = async () => {
     if (stopping) return;
     stopping = true;
-    await Promise.all([entryBatchLoop.stop(), pairingLoop.stop(), producerLoop.stop(), journalPurgeLoop.stop()]);
+    await Promise.all([entryBatchLoop.stop(), pairingLoop.stop(), traitsLoop.stop(), producerLoop.stop(), journalPurgeLoop.stop()]);
     await legacyPairingWorker.close();
     await planWorker.close();
     await worker.close();

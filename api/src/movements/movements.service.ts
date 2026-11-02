@@ -3,6 +3,7 @@ import { Movement, Prisma, Wine } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { CANCEL_MOVED, labelOf, normalizeLocation, NOT_ENOUGH_AT_LOCATION, partsOf, Place, SAME_LOCATION } from '../locations/location';
 import { Db, LocationsService } from '../locations/locations.service';
+import { requestTraits } from '../pairing/generation-requests';
 import { PairingScheduler } from '../pairing/pairing.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { STATS_TIME_ZONE } from '../stats/stats';
@@ -179,6 +180,12 @@ export class MovementsService {
       if (wineCreated && this.pairings) {
         void this.pairings.schedule(wine.id).catch((e: unknown) =>
           this.logger.warn(`Accords de ${wine.id} non demandés : ${e instanceof Error ? e.message : String(e)}`),
+        );
+      }
+      // Et pour ses caractéristiques (tanin, arômes, pays).
+      if (wineCreated) {
+        void requestTraits(this.prisma, [wine.id]).catch((e: unknown) =>
+          this.logger.warn(`Caractéristiques de ${wine.id} non demandées : ${e instanceof Error ? e.message : String(e)}`),
         );
       }
       // Même règle pour le descriptif de son domaine, demandé seulement s'il n'existe pas encore.

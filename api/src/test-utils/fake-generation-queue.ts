@@ -43,7 +43,7 @@ function apply(row: any, data: any) {
 }
 
 export function fakeGenerationQueue(
-  tableKey: 'pairing' | 'producerProfile',
+  tableKey: 'pairing' | 'producerProfile' | 'wineTraits',
   opts: { wines?: Record<string, unknown>; producerWines?: unknown[] } = {},
 ) {
   const rows: QueueRow[] = [];
@@ -53,6 +53,7 @@ export function fakeGenerationQueue(
     findMany: jest.fn(async ({ where, take, select }: any) => {
       const hit = sorted(rows.filter((r) => matches(r, where))).slice(0, take ?? Infinity);
       if (select?.requestedAt) return hit.map((r) => ({ requestedAt: r.requestedAt }));
+      if (select?.manualFields) return hit.map((r) => ({ manualFields: r.manualFields ?? [] }));
       if (select?.wine) return hit.map((r) => ({ id: r.id, wine: opts.wines?.[r.wineId!] }));
       return hit.map((r) => ({ id: r.id, producerKey: r.producerKey }));
     }),
@@ -72,7 +73,7 @@ export function fakeGenerationQueue(
     r.reservedUntil === null &&
     r.requestedAt.getTime() <= clock.now.getTime() &&
     (r.nextAttemptAt === null || r.nextAttemptAt.getTime() <= clock.now.getTime()) &&
-    (tableKey === 'pairing' || r.source === 'GEMINI');
+    (tableKey !== 'producerProfile' || r.source === 'GEMINI');
   const prisma: any = {
     [tableKey]: table,
     wine: { findMany: jest.fn(async () => opts.producerWines ?? []) },

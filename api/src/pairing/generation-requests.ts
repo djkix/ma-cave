@@ -13,6 +13,12 @@ export async function requestPairings(prisma: Pick<PrismaService, 'pairing'>, wi
   return count;
 }
 
+export async function requestTraits(prisma: Pick<PrismaService, 'wineTraits'>, wineIds: string[], now = new Date()): Promise<number> {
+  if (wineIds.length === 0) return 0;
+  const { count } = await prisma.wineTraits.createMany({ data: wineIds.map((wineId) => ({ wineId, requestedAt: now })), skipDuplicates: true });
+  return count;
+}
+
 export async function requestProducerProfiles(
   prisma: Pick<PrismaService, 'producerProfile'>,
   producers: Array<{ producerKey: string; displayName: string }>,

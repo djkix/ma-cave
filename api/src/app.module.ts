@@ -19,6 +19,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { QuotesModule } from './quotes/quotes.module';
 import { ReadingQualityModule } from './reading-quality/reading-quality.module';
+import { TraitsModule } from './traits/traits.module';
 import { StatsModule } from './stats/stats.module';
 import { WinesModule } from './wines/wines.module';
 import { ZonesModule } from './zones/zones.module';
@@ -43,6 +44,7 @@ import { ZonesModule } from './zones/zones.module';
     QuotesModule,
     MovementsModule,
     PairingModule,
+    TraitsModule,
     ProducersModule,
     ExportModule,
     BackupModule,

@@ -96,7 +96,7 @@ export abstract class GenerationBatchProcessor<Input, Out> {
   /** « Accords », « Descriptifs » : pour les logs. */
   protected abstract readonly label: string;
   /** Nom SQL de la table (constante, jamais une saisie). */
-  protected abstract readonly tableName: 'pairing' | 'producer_profile';
+  protected abstract readonly tableName: 'pairing' | 'producer_profile' | 'wine_traits';
   /** Condition propre à la table, ajoutée à toute lecture ou écriture de la file. */
   protected readonly scope: QueueWhere = {};
   protected readonly scopeSql: Prisma.Sql = Prisma.empty;
