@@ -11,6 +11,16 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.37.1](https://github.com/djkix/ma-cave/compare/v2.37.0...v2.37.1) (2026-11-02)
 
+### Résumé
+
+**Journal des appels Gemini** : les appels « Caractéristiques » (tanin,
+arômes, pays) y sont de nouveau inscrits ; la 2.37.0 les refusait à
+l'écriture, sans effet sur les calculs eux-mêmes. Migration additive (la
+contrainte des usages accepte `CARACTERISATION`), appliquée seule au démarrage.
+
+### Détail par commit
+
+
 
 ### Corrections
 
