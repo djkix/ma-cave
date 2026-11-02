@@ -11,6 +11,23 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.37.0](https://github.com/djkix/ma-cave/compare/v2.36.0...v2.37.0) (2026-11-02)
 
+### Résumé
+
+**Carte de France sur l'accueil** : les régions viticoles colorées selon le
+nombre de bouteilles en stock, une case « Hors de France » ; toucher une
+région ouvre ses domaines et la cave filtrée sur cette région. **Page
+Domaine** : histoire, terroir, cépages, style et nez, remplis par Gemini et
+corrigeables champ par champ par l'administrateur (une correction n'est
+jamais écrasée, sauf « Régénérer »). **Tanin, arômes et pays** de chaque vin,
+estimés par Gemini en tâche de fond et corrigeables sur la fiche. **Filtres de
+la cave** : arômes, millésime, tanin, région, dans un nouvel ordre. **Accords
+« J'ai un vin »** : les plats déjà générés pour une bouteille, sans nouvel
+appel. Migration additive ; au démarrage, le worker met en file les vins et
+les domaines existants, traités par lots de 10 selon les quotas.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 

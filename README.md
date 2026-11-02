@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.36.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.37.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -851,6 +851,16 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.37.0 — 2 novembre 2026
+
+Publiée ([v2.37.0](https://github.com/djkix/ma-cave/releases/tag/v2.37.0)),
+images `ghcr.io/djkix/ma-cave-api:2.37.0`, `-web:2.37.0` et
+`-sauvegarde:2.37.0`.
+
+**Carte de France** sur l'accueil, **page Domaine** en cinq champs,
+**tanin et arômes** par vin, **nouveaux filtres** de la cave, accords
+**« J'ai un vin »**. Migration additive ; rattrapage par lots en tâche de fond.
+
 ### 2.36.0 — 1er novembre 2026
 
 Publiée ([v2.36.0](https://github.com/djkix/ma-cave/releases/tag/v2.36.0)),
@@ -929,6 +939,9 @@ images `ghcr.io/djkix/ma-cave-api:2.30.0` et `-web:2.30.0`.
 `127.0.0.1` : `WEB_BIND` à renseigner si NPM vise l'IP de la VM) et **modèle
 Gemini choisi automatiquement**, affiché dans l'Administration. Aucune migration.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.29.0 → 1.0.0)</summary>
+
 ### 2.29.0 — 22 octobre 2026
 
 Publiée ([v2.29.0](https://github.com/djkix/ma-cave/releases/tag/v2.29.0)),
@@ -936,9 +949,6 @@ images `ghcr.io/djkix/ma-cave-api:2.29.0` et `-web:2.29.0`.
 
 **Quotas Gemini par modèle** et **bascule automatique** vers un autre modèle
 Flash ou Flash-Lite quand le quota du jour est atteint. Aucune migration.
-
-<details>
-<summary><strong>Versions antérieures</strong> (2.28.0 → 1.0.0)</summary>
 
 ### 2.28.0 — 22 octobre 2026
 
