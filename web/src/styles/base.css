@@ -456,3 +456,6 @@ select:focus-visible { outline: 3px solid var(--color-primary-container); outlin
 .accord-row__score { flex: none; min-width: 52px; text-align: right; font: 700 18px var(--font-sans); color: var(--color-primary); }
 .apogee-bar { display: block; height: 4px; margin-top: 6px; border-radius: 999px; background: var(--color-surface-container-high); overflow: hidden; max-width: 200px; }
 .apogee-bar > span { display: block; height: 100%; background: var(--color-primary-container); }
+.filter-pill--btn { padding-right: 14px; cursor: pointer; overflow: hidden; white-space: nowrap; max-width: 100%; }
+.filter-vintage { display: inline-flex; gap: var(--space-xs); max-width: 100%; }
+.filter-vintage input { width: 7.5em; min-width: 0; min-height: 40px; box-sizing: border-box; border-radius: 999px; border: 1px solid var(--color-outline-variant); padding: 0 12px; font-size: 16px; }

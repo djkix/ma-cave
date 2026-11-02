@@ -5,6 +5,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import * as api from '../lib/api-client';
 import { CavePage } from './CavePage';
 
+// jsdom n'a ni showModal ni close : simulés comme dans les tests de BottomSheet.
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.open = true; };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) { this.open = false; };
+});
 afterEach(() => vi.restoreAllMocks());
 
 const rows: api.CaveRow[] = [
@@ -183,4 +188,35 @@ it('passe le filtre d’emplacement dans l’adresse de l’api', async () => {
   const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('[]', { status: 200 }));
   await api.getCave({ location: 'none' });
   expect(fetchSpy.mock.calls[0][0]).toBe('/api/cave?location=none');
+});
+
+it('les filtres sont dans l’ordre demandé', async () => {
+  vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  const { container } = mount();
+  await screen.findByText(/Domaine Tempier/);
+  const names = Array.from(container.querySelectorAll('.cave-filters input, .cave-filters select, .cave-filters button')).map((el) =>
+    el.getAttribute('aria-label') ?? el.textContent ?? '');
+  const wanted = ['Rechercher', 'Couleur', 'Arômes', 'Millésime de', 'Millésime à', 'Tanin', 'Emplacement', 'À boire en priorité', 'Sans apogée', 'Afficher les vins épuisés', 'Accompagner un plat'];
+  const pos = wanted.map((n) => names.findIndex((x) => x.startsWith(n)));
+  expect(pos.every((p) => p >= 0)).toBe(true);
+  expect(pos).toEqual([...pos].sort((a, b) => a - b));
+});
+
+it('?region=Bourgogne envoie region et affiche la pastille retirable', async () => {
+  const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  mount('/cave?region=Bourgogne');
+  await waitFor(() => expect(getCave).toHaveBeenCalledWith(expect.objectContaining({ region: 'Bourgogne' })));
+  await userEvent.click(screen.getByRole('button', { name: /Région : Bourgogne/ }));
+  await waitFor(() => expect(getCave).toHaveBeenLastCalledWith(expect.not.objectContaining({ region: 'Bourgogne' })));
+  expect(screen.queryByRole('button', { name: /Région/ })).toBeNull();
+});
+
+it('cocher boisé et noisette envoie deux aromas', async () => {
+  const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  mount();
+  await screen.findByText(/Domaine Tempier/);
+  await userEvent.click(screen.getByRole('button', { name: /Arômes : tous/ }));
+  await userEvent.click(screen.getByLabelText('boisé'));
+  await userEvent.click(screen.getByLabelText('noisette'));
+  await waitFor(() => expect(getCave).toHaveBeenLastCalledWith(expect.objectContaining({ aromas: ['boisé', 'noisette'] })));
 });

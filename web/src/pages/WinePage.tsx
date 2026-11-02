@@ -12,6 +12,7 @@ import { PlanCellPicker } from '../components/PlanCellPicker';
 import { LocationButton, LocationsBlock } from '../components/LocationsBlock';
 import { PairingBlock, pairingPollInterval } from '../components/PairingBlock';
 import { QuoteBlock } from '../components/QuoteBlock';
+import { TraitsBlock, traitsPollInterval } from '../components/TraitsBlock';
 import { RatingBlock } from '../components/RatingBlock';
 import { SortieConfirmation } from '../components/SortieConfirmation';
 import { TopBar } from '../components/TopBar';
@@ -51,7 +52,7 @@ export function WinePage() {
       const wine = q.state.data?.wine;
       const pairing = pairingPollInterval(wine?.pairing);
       const producer = producerPollInterval(wine?.producerKey ?? null, wine?.producerProfile);
-      return pairing || producer;
+      return pairing || producer || traitsPollInterval(wine?.traits);
     },
   });
   const [counting, setCounting] = useState(false);
@@ -154,6 +155,7 @@ export function WinePage() {
         {/* Le domaine, puis les accords, juste sous la photo du vin. */}
         <DomaineBlock key={`domaine-${wine.id}`} producerKey={wine.producerKey} producerProfile={wine.producerProfile} />
         <PairingBlock key={`pairing-${wine.id}`} wineId={wine.id} pairing={wine.pairing} readOnly={readOnly} />
+        <TraitsBlock key={`traits-${wine.id}`} wineId={wine.id} traits={wine.traits} readOnly={readOnly} />
 
         {/* Clé distincte de celle de SortieConfirmation : deux enfants du même
             <main> partageant la même clé troublent la réconciliation de React
