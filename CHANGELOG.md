@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.37.1](https://github.com/djkix/ma-cave/compare/v2.37.0...v2.37.1) (2026-11-02)
+
+
+### Corrections
+
+* **api:** usage CARACTERISATION accepté par le journal des appels Gemini ([fe7edb6](https://github.com/djkix/ma-cave/commit/fe7edb6644a4c6dc61354cbdda83cc1cc9f749c4))
+
 ## [2.37.0](https://github.com/djkix/ma-cave/compare/v2.36.0...v2.37.0) (2026-11-02)
 
 ### Résumé
