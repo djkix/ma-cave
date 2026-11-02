@@ -199,3 +199,22 @@ describe('J’ai un vin', () => {
     expect(await screen.findByRole('list', { name: 'Plats conseillés' })).toBeInTheDocument();
   });
 });
+
+it('recherche en cours : secondes écoulées, puis explication si l’IA est lente', async () => {
+  setTouch(false);
+  vi.spyOn(api, 'postAccords').mockReturnValue(new Promise(() => undefined));
+  mount();
+  await userEvent.type(await screen.findByLabelText('Le plat'), 'côte de bœuf');
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
+    expect(await screen.findByText(/Je cherche dans votre cave/)).toBeInTheDocument();
+    expect(screen.getByText('0 s')).toBeInTheDocument();
+    expect(screen.queryByText(/L’IA est lente/)).not.toBeInTheDocument();
+    await act(async () => { vi.advanceTimersByTime(21_000); });
+    expect(screen.getByText('21 s')).toBeInTheDocument();
+    expect(screen.getByText(/L’IA est lente/)).toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});

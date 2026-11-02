@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { AccordsParVin } from '../components/AccordsParVin';
@@ -85,6 +85,29 @@ function errorText(e: unknown): string {
   if (e instanceof ApiError && e.status === 429) return 'Trop de demandes, réessayez dans une minute';
   if (e instanceof ApiError && (e.status === 502 || e.status === 504)) return 'Accords indisponibles pour le moment (le serveur n’a pas répondu)';
   return e instanceof Error ? e.message : 'Une erreur est survenue';
+}
+
+/** Au-delà, on explique l'attente : Gemini saturé, l'api essaie un modèle après l'autre (45 s au plus chacun). */
+export const SLOW_SEARCH_S = 20;
+
+/** Recherche en cours : barre animée et secondes écoulées, pour voir qu'elle avance et n'a pas planté. */
+function SearchProgress() {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div role="status" style={{ display: 'grid', gap: 'var(--space-sm)' }}>
+      <div className="progress" aria-hidden="true"><span /></div>
+      <p className="centered" style={{ margin: 0 }}>Je cherche dans votre cave… <span className="num">{seconds} s</span></p>
+      {seconds >= SLOW_SEARCH_S && (
+        <p className="centered list__meta" style={{ margin: 0 }}>
+          L’IA est lente en ce moment : j’essaie un autre modèle si besoin. Cela peut prendre une à deux minutes.
+        </p>
+      )}
+    </div>
+  );
 }
 
 /** « Accords » : on dit (ou écrit) le plat, l'IA propose des vins de la cave, à boire d'abord. */
@@ -210,7 +233,7 @@ export function AccordsPage() {
         </section>
 
         <section aria-live="polite" aria-busy={query.isFetching} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          {query.isFetching && <p className="centered" role="status">Je cherche dans votre cave…</p>}
+          {query.isFetching && <SearchProgress />}
           {query.isError && !query.isFetching && <p role="alert" className="text-error">{errorText(query.error)}</p>}
           {result && !query.isFetching && (
             <>
