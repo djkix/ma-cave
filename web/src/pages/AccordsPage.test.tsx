@@ -157,3 +157,45 @@ it('ordinateur (pas d’écran tactile) : pas de micro, le champ texte d’offic
   expect(screen.queryByRole('button', { name: 'Dicter le plat' })).not.toBeInTheDocument();
   expect(screen.getByLabelText('Le plat')).toBeInTheDocument();
 });
+
+describe('J’ai un vin', () => {
+  const row = (over: Partial<api.CaveRow> = {}): api.CaveRow => ({
+    id: 'v1', producer: 'Domaine Raveneau', cuvee: 'Montée de Tonnerre', appellationRaw: 'Chablis 1er cru', vintage: 2019,
+    color: 'BLANC', formatCl: 75, referencePhotoId: null, quantity: 2, ...over,
+  });
+  const detail = (pairing: unknown) => ({ wine: { ...row(), pairing } }) as unknown as api.WineDetail;
+
+  it('choisir un vin affiche ses plats en cartes', async () => {
+    vi.spyOn(api, 'getCave').mockResolvedValue([row()]);
+    vi.spyOn(api, 'getWine').mockResolvedValue(detail({ status: 'DONE', dishes: ['Sole meunière', 'Volaille rôtie'], errorMessage: null, generatedAt: null }));
+    mount();
+    await userEvent.click(screen.getByRole('button', { name: 'J’ai un vin' }));
+    await userEvent.click(await screen.findByRole('button', { name: /Raveneau/ }));
+    const plats = await screen.findByRole('list', { name: 'Plats conseillés' });
+    expect(within(plats).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Sole meunière', 'Volaille rôtie']);
+    expect(screen.getByRole('link', { name: /Raveneau/ })).toHaveAttribute('href', '/cave/v1');
+  });
+
+  it('vin sans accords : message et lien, aucun POST', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const post = vi.spyOn(api, 'postAccords');
+    vi.spyOn(api, 'getCave').mockResolvedValue([row()]);
+    vi.spyOn(api, 'getWine').mockResolvedValue(detail(null));
+    mount();
+    await userEvent.click(screen.getByRole('button', { name: 'J’ai un vin' }));
+    await userEvent.click(await screen.findByRole('button', { name: /Raveneau/ }));
+    expect(await screen.findByText('Pas encore d’accords pour ce vin')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /fiche/i })[0]).toHaveAttribute('href', '/cave/v1');
+    expect(post).not.toHaveBeenCalled();
+    expect(fetchSpy.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+  });
+
+  it('retour sur la page : le vin choisi est restauré', async () => {
+    sessionStorage.setItem('accords:entree', JSON.stringify({ mode: 'vin', wineId: 'v1' }));
+    vi.spyOn(api, 'getCave').mockResolvedValue([row()]);
+    vi.spyOn(api, 'getWine').mockResolvedValue(detail({ status: 'DONE', dishes: ['Sole meunière'], errorMessage: null, generatedAt: null }));
+    mount();
+    expect(screen.getByRole('button', { name: 'J’ai un vin' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByRole('list', { name: 'Plats conseillés' })).toBeInTheDocument();
+  });
+});

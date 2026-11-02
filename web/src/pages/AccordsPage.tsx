@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FormEvent, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
+import { AccordsParVin } from '../components/AccordsParVin';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { TopBar } from '../components/TopBar';
@@ -28,6 +29,28 @@ function writeStored(value: Stored) {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value));
   } catch {
     /* stockage indisponible (navigation privée) : la liste sera simplement redemandée */
+  }
+}
+
+/** Onglet et vin choisis : on les retrouve au retour de la fiche. */
+const ENTREE_KEY = 'accords:entree';
+type Entree = { mode: 'plat' | 'vin'; wineId?: string };
+
+function readEntree(): Entree {
+  try {
+    const raw = sessionStorage.getItem(ENTREE_KEY);
+    const v = raw ? (JSON.parse(raw) as Entree) : null;
+    return v && (v.mode === 'plat' || v.mode === 'vin') ? v : { mode: 'plat' };
+  } catch {
+    return { mode: 'plat' };
+  }
+}
+
+function writeEntree(value: Entree) {
+  try {
+    sessionStorage.setItem(ENTREE_KEY, JSON.stringify(value));
+  } catch {
+    /* stockage indisponible : on repartira de l'onglet « plat » */
   }
 }
 
@@ -67,6 +90,8 @@ function errorText(e: unknown): string {
 /** « Accords » : on dit (ou écrit) le plat, l'IA propose des vins de la cave, à boire d'abord. */
 export function AccordsPage() {
   const Speech = speechRecognition();
+  const [entree, setEntree] = useState(readEntree);
+  const choose = (next: Entree) => { setEntree(next); writeEntree(next); };
   const [stored] = useState(readStored);
   const [dish, setDish] = useState<string | null>(stored?.dish ?? null);
   const [text, setText] = useState(stored?.dish ?? '');
@@ -151,6 +176,17 @@ export function AccordsPage() {
     <>
       <TopBar title="Accords" />
       <main className="page">
+        <div className="accords-tabs">
+          {(['plat', 'vin'] as const).map((m) => (
+            <Button key={m} variant={entree.mode === m ? 'primary' : 'outline'} aria-pressed={entree.mode === m} onClick={() => choose({ mode: m, wineId: entree.wineId })}>
+              {m === 'plat' ? 'J’ai un plat' : 'J’ai un vin'}
+            </Button>
+          ))}
+        </div>
+        {entree.mode === 'vin' ? (
+          <AccordsParVin wineId={entree.wineId ?? null} onPick={(id) => choose({ mode: 'vin', wineId: id ?? undefined })} />
+        ) : (
+        <>
         <section className="accords-head">
           <h2>Qu’est-ce qu’on mange ?</h2>
           {Speech && (
@@ -227,6 +263,8 @@ export function AccordsPage() {
             </>
           )}
         </section>
+        </>
+        )}
       </main>
       <BottomNav />
     </>
