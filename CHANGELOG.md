@@ -9,6 +9,14 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.39.0](https://github.com/djkix/ma-cave/compare/v2.38.0...v2.39.0) (2026-11-02)
+
+
+### Fonctionnalités
+
+* **web:** fiche vin sans bloc de sortie, correction du stock depuis le crayon de l'en-tête ([e64b1cc](https://github.com/djkix/ma-cave/commit/e64b1cc5cc33ede600aad6b827cc5a4bd86f0493))
+* **web:** recherche d'accords visible (barre, secondes écoulées, explication si l'IA est lente) ([bf30062](https://github.com/djkix/ma-cave/commit/bf30062eca4ddcf5310b66ee3f018aae431816dd))
+
 ## [2.38.0](https://github.com/djkix/ma-cave/compare/v2.37.1...v2.38.0) (2026-11-02)
 
 ### Résumé
