@@ -11,6 +11,15 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.38.0](https://github.com/djkix/ma-cave/compare/v2.37.1...v2.38.0) (2026-11-02)
 
+### Résumé
+
+**Accueil allégé** : les boutons « Rentrer du vin » et « Sortir une
+bouteille » disparaissent de l'accueil, puisqu'Entrée et Sortie sont dans la
+barre du bas ; la carte de France vient en tête. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
