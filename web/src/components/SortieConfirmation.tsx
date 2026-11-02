@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ReactNode, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ApiError, cancelMovement, CaveRow, createOut, getWine, MovementResult, Place } from '../lib/api-client';
 import { useBoundedWait } from '../lib/locations';
 import { Button } from './Button';
@@ -12,10 +12,8 @@ import { WineThumb } from './WineThumb';
  * Une clé d'idempotence par affichage, un verrou contre le double tap : une
  * confirmation ne débite qu'une fois.
  */
-export function SortieConfirmation({ wine, photoId, onDone, places: givenPlaces, exitDefault: givenDefault, children }: {
+export function SortieConfirmation({ wine, photoId, onDone, places: givenPlaces, exitDefault: givenDefault }: {
   wine: CaveRow; photoId?: string | null; onDone?: () => void;
-  /** Fiche vin : la correction du stock, dans le même bloc que la sortie. */
-  children?: ReactNode;
   /** Endroits du vin et pré-sélection, tels que la fiche les donne ; lus sur la fiche s'ils manquent (sortie par photo). */
   places?: Place[]; exitDefault?: string | null;
 }) {
@@ -93,8 +91,7 @@ export function SortieConfirmation({ wine, photoId, onDone, places: givenPlaces,
     }
   }
 
-  const extra = children ? <div className="stock-extra">{children}</div> : null;
-  if (cancelled !== null) return <section className="card"><p role="status" style={{ margin: 0 }}>Sortie annulée — {cancelled} en stock</p>{extra}</section>;
+  if (cancelled !== null) return <section className="card"><p role="status" style={{ margin: 0 }}>Sortie annulée — {cancelled} en stock</p></section>;
   if (result) {
     return (
       <section className="card" role="status">
@@ -105,7 +102,6 @@ export function SortieConfirmation({ wine, photoId, onDone, places: givenPlaces,
         </p>
         <Button variant="link" onClick={annuler} disabled={busy} aria-label="Annuler la sortie">Annuler</Button>
         {error && <p role="alert" className="text-error">{error}</p>}
-        {extra}
       </section>
     );
   }
@@ -113,7 +109,7 @@ export function SortieConfirmation({ wine, photoId, onDone, places: givenPlaces,
   // Un vin épuisé n'a pas de sortie à proposer — mais on n'atteint ce point que
   // si aucune sortie n'a encore été confirmée : le panneau de résultat, lui,
   // reste affiché même quand la sortie vient de vider le stock.
-  if (wine.quantity < 1) return extra ? <section className="card">{extra}</section> : null;
+  if (wine.quantity < 1) return null;
 
   return (
     <section className="card">
@@ -144,7 +140,6 @@ export function SortieConfirmation({ wine, photoId, onDone, places: givenPlaces,
         <Icon name="remove_circle_outline" />
         {busy ? 'Sortie…' : `Sortir ${safeQuantity} bouteille${safeQuantity > 1 ? 's' : ''}`}
       </Button>
-      {extra}
     </section>
   );
 }

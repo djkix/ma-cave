@@ -14,7 +14,6 @@ import { PairingBlock, pairingPollInterval } from '../components/PairingBlock';
 import { QuoteBlock } from '../components/QuoteBlock';
 import { TraitsBlock, traitsPollInterval } from '../components/TraitsBlock';
 import { RatingBlock } from '../components/RatingBlock';
-import { SortieConfirmation } from '../components/SortieConfirmation';
 import { TopBar } from '../components/TopBar';
 import { WineThumb } from '../components/WineThumb';
 import { ApiError, getWine, LocationInput, postInventory } from '../lib/api-client';
@@ -145,10 +144,48 @@ export function WinePage() {
                 {wine.producer}{wine.cuvee ? ` — ${wine.cuvee}` : ''}
               </h2>
               <p className="list__meta">{wine.appellationRaw} · {wine.vintage ?? 'NV'} · {wine.formatCl} cl</p>
-              <p className="num" style={{ fontSize: 22, margin: 0 }}>{wine.quantity} en stock</p>
+              <p className="num wine-head__stock" style={{ fontSize: 22, margin: 0 }}>
+                <span>{wine.quantity} en stock</span>
+                {!readOnly && !counting && (
+                  <button type="button" className="wine-head__edit" aria-label="Corriger le stock"
+                    onClick={() => { setCounting(true); setCounted(String(wine.quantity)); setInventoryMessage(null); setInventoryPlace(null); setIncreaseTo(EMPTY_LOCATION); }}>
+                    <Icon name="edit" />
+                  </button>
+                )}
+              </p>
+              {inventoryMessage && <p role="status" className="list__meta" style={{ margin: 0 }}>{inventoryMessage}</p>}
             </div>
             {places && places.length > 0 && <LocationButton places={places} />}
           </div>
+          {/* Correction du stock (inventaire, casse, oubli) : ouverte par le crayon à côté du stock. */}
+          {!readOnly && counting && (
+            <div className="stock-edit">
+              <p className="field__label" style={{ margin: 0 }}>Corriger le stock : ajouter ou enlever des bouteilles</p>
+              <div className="stock-stepper">
+                <Button variant="outline" onClick={() => setCounted(String(Math.max(0, (parsed ?? wine.quantity) - 1)))} disabled={parsed === 0} aria-label="Enlever une bouteille">
+                  <Icon name="remove" />
+                </Button>
+                <label className="visually-hidden" htmlFor={`counted-${wine.id}`}>Bouteilles comptées</label>
+                <input id={`counted-${wine.id}`} className="num stock-stepper__value" inputMode="numeric" value={counted} onChange={(e) => setCounted(e.target.value.trim())} />
+                <Button variant="outline" onClick={() => setCounted(String(Math.min(MAX_COUNTED, (parsed ?? wine.quantity) + 1)))} aria-label="Ajouter une bouteille">
+                  <Icon name="add" />
+                </Button>
+              </div>
+              {places && delta !== null && delta < 0 && places.length > 1 && (
+                <PlacePicker legend="D'où sortent-elles ?" places={places} value={decreasePlace} onChange={(id) => setInventoryPlace({ id })} />
+              )}
+              {places && delta !== null && delta > 0 && (
+                <fieldset className="move-form__to">
+                  <legend className="field__label">Emplacement</legend>
+                  <PlanCellPicker value={increaseTo} onChange={setIncreaseTo} locations={cellar.data ?? []} zones={zones.data} />
+                </fieldset>
+              )}
+              <p style={{ margin: 0, textAlign: 'center' }}>{tooMany ? 'Nombre de bouteilles trop élevé' : delta === null ? 'Saisis un nombre entier' : delta === 0 ? 'Stock déjà juste' : `${delta > 0 ? '+' : '−'}${plural(Math.abs(delta))}`}</p>
+              {inventoryError && <p role="alert" className="text-error">{inventoryError}</p>}
+              <Button variant="dark" onClick={saveInventory} disabled={saving || delta === null || delta === 0}>Enregistrer le stock</Button>
+              <Button variant="link" onClick={() => setCounting(false)}>Abandonner</Button>
+            </div>
+          )}
           <ImageSearchBlock wine={wine} readOnly={readOnly} />
         </section>
 
@@ -157,9 +194,6 @@ export function WinePage() {
         <PairingBlock key={`pairing-${wine.id}`} wineId={wine.id} pairing={wine.pairing} readOnly={readOnly} />
         <TraitsBlock key={`traits-${wine.id}`} wineId={wine.id} traits={wine.traits} readOnly={readOnly} />
 
-        {/* Clé distincte de celle de SortieConfirmation : deux enfants du même
-            <main> partageant la même clé troublent la réconciliation de React
-            (avertissement « two children with the same key », rendu dupliqué). */}
         <ApogeeBlock key={`apogee-${wine.id}`} wine={wine} readOnly={readOnly} />
         <RatingBlock key={`rating-${wine.id}`} wine={wine} readOnly={readOnly} />
         {/* Cote : un prix, propriétaire seulement ; un membre ne reçoit pas les clés et le bloc n'est pas monté. */}
@@ -170,45 +204,6 @@ export function WinePage() {
 
         {places && places.length > 0 && <LocationsBlock key={`locations-${wine.id}`} wineId={wine.id} places={places} readOnly={readOnly} />}
 
-        {/* Sortie et correction du stock dans un même bloc. Endroits toujours
-            fournis (vide = inconnus) : la sortie ne relit pas la fiche que la page tient déjà. */}
-        {!readOnly && (
-          <SortieConfirmation key={wine.id} wine={wine} places={places ?? []} exitDefault={detail.data.exitDefault}>
-            {inventoryMessage && <p role="status" style={{ margin: 0 }}>{inventoryMessage}</p>}
-            {!counting ? (
-              <Button variant="link" onClick={() => { setCounting(true); setCounted(String(wine.quantity)); setInventoryMessage(null); setInventoryPlace(null); setIncreaseTo(EMPTY_LOCATION); }}>
-                Corriger le stock
-              </Button>
-            ) : (
-              <>
-                <p className="field__label" style={{ margin: 0 }}>Corriger le stock : ajouter ou enlever des bouteilles</p>
-                <div className="stock-stepper">
-                  <Button variant="outline" onClick={() => setCounted(String(Math.max(0, (parsed ?? wine.quantity) - 1)))} disabled={parsed === 0} aria-label="Enlever une bouteille">
-                    <Icon name="remove" />
-                  </Button>
-                  <label className="visually-hidden" htmlFor={`counted-${wine.id}`}>Bouteilles comptées</label>
-                  <input id={`counted-${wine.id}`} className="num stock-stepper__value" inputMode="numeric" value={counted} onChange={(e) => setCounted(e.target.value.trim())} />
-                  <Button variant="outline" onClick={() => setCounted(String(Math.min(MAX_COUNTED, (parsed ?? wine.quantity) + 1)))} aria-label="Ajouter une bouteille">
-                    <Icon name="add" />
-                  </Button>
-                </div>
-                {places && delta !== null && delta < 0 && places.length > 1 && (
-                  <PlacePicker legend="D'où sortent-elles ?" places={places} value={decreasePlace} onChange={(id) => setInventoryPlace({ id })} />
-                )}
-                {places && delta !== null && delta > 0 && (
-                  <fieldset className="move-form__to">
-                    <legend className="field__label">Emplacement</legend>
-                    <PlanCellPicker value={increaseTo} onChange={setIncreaseTo} locations={cellar.data ?? []} zones={zones.data} />
-                  </fieldset>
-                )}
-                <p style={{ margin: 0, textAlign: 'center' }}>{tooMany ? 'Nombre de bouteilles trop élevé' : delta === null ? 'Saisis un nombre entier' : delta === 0 ? 'Stock déjà juste' : `${delta > 0 ? '+' : '−'}${plural(Math.abs(delta))}`}</p>
-                {inventoryError && <p role="alert" className="text-error">{inventoryError}</p>}
-                <Button variant="dark" onClick={saveInventory} disabled={saving || delta === null || delta === 0}>Enregistrer le stock</Button>
-                <Button variant="link" onClick={() => setCounting(false)}>Abandonner</Button>
-              </>
-            )}
-          </SortieConfirmation>
-        )}
 
         <h2 style={{ fontSize: 14, letterSpacing: '0.08em', color: 'var(--color-secondary)' }}>DERNIERS MOUVEMENTS</h2>
         {/* Les trois derniers mouvements ; les autres repliés sous « Plus d'historique ». */}

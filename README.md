@@ -111,7 +111,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Journal dans les Réglages** (carte *Journal*, propriétaire seulement) ; l'onglet du bas devient *Accords*, ouvert aussi aux membres
 - **20 derniers mouvements**, annulables en un tap (propriétaire)
 - Une annulation écrit un **mouvement inverse** : rien n'est supprimé
-- **Corriger le stock** : inventaire physique, écart annoncé avant d'enregistrer
+- **Corriger le stock** (crayon à côté du stock, sur la fiche) : inventaire physique, écart annoncé avant d'enregistrer
 - Stock **calculé à la lecture** depuis le journal, **jamais négatif**
 
 ### 🍾 Cave et fiche vin

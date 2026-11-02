@@ -409,10 +409,9 @@ l'ordre : la photo de référence (celle de la première entrée) avec le stock 
 en bas à droite, une icône d'emplacement (elle ouvre une fenêtre avec la photo
 de la zone, son indication et le plan) ; le descriptif du domaine ; les accords
 mets-vins ; puis l'apogée, la note, la cote, les emplacements et les 10
-derniers mouvements ; *Sortir* propose un sélecteur de quantité borné par le stock puis
-confirme « Sorti — il en reste N » (le message survit au rafraîchissement du
-stock, y compris pour la dernière bouteille) ; *Corriger le stock* permet un
-inventaire physique — le nombre compté, l'écart annoncé avant d'enregistrer
+derniers mouvements. La fiche ne porte plus de bouton de sortie (onglet
+*Sortie* de la barre du bas) ; le crayon à côté du stock (*Corriger le stock*)
+ouvre un inventaire physique — le nombre compté, l'écart annoncé avant d'enregistrer
 (« −2 bouteilles », « Stock déjà juste »), écrit comme un mouvement `ADJUST`
 daté (« Inventaire : N comptées »). La **sortie par photo** (onglet *Sortie* de la
 barre du bas) ne reconnaît que les vins en

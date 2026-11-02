@@ -226,13 +226,6 @@ describe('plan de la cave', () => {
   });
 });
 
-it('sortie depuis la fiche : question avec la pré-sélection de la fiche', async () => {
-  vi.spyOn(api, 'getWine').mockResolvedValue(detail);
-  mount();
-  const group = await screen.findByRole('group', { name: 'D\'où sort-elle ?' });
-  expect(within(group).getByRole('radio', { name: 'Cave 2 / B / 3 · 2' })).toBeChecked();
-});
-
 describe('Ranger / déplacer', () => {
   it('déplace depuis l’endroit choisi vers la zone choisie et le casier saisi, avec la datalist', async () => {
     const getWine = vi.spyOn(api, 'getWine').mockResolvedValue(detail);

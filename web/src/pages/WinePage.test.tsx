@@ -94,48 +94,16 @@ it('montre « Vin introuvable » pour un identifiant inconnu', async () => {
   expect(screen.getByRole('link', { name: 'Retour à la cave' })).toHaveAttribute('href', '/cave');
 });
 
-it('garde le résultat de la sortie affiché après le rafraîchissement du stock', async () => {
-  const getWine = vi.spyOn(api, 'getWine')
-    .mockResolvedValueOnce(detail)
-    .mockResolvedValue({ ...detail, wine: { ...detail.wine, quantity: 5 } });
-  vi.spyOn(api, 'createOut').mockResolvedValue({
-    movement: { id: 'm2', delta: -1, type: 'OUT', occurredAt: '' },
-    wine: detail.wine,
-    stock: 5,
-    created: true,
-  });
-  mount();
-  await userEvent.click(await screen.findByRole('button', { name: /Sortir 1 bouteille/ }));
-  await screen.findByText('Sorti — il en reste 5');
-  await waitFor(() => expect(getWine).toHaveBeenCalledTimes(2));
-  expect(screen.getByText('Sorti — il en reste 5')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Annuler la sortie' })).toBeInTheDocument();
-});
-
-it('garde le résultat affiché quand la sortie vide le stock', async () => {
-  const last = { ...detail, wine: { ...detail.wine, quantity: 1 } };
-  const getWine = vi.spyOn(api, 'getWine')
-    .mockResolvedValueOnce(last)
-    .mockResolvedValue({ ...last, wine: { ...last.wine, quantity: 0 } });
-  vi.spyOn(api, 'createOut').mockResolvedValue({
-    movement: { id: 'm3', delta: -1, type: 'OUT', occurredAt: '' },
-    wine: last.wine,
-    stock: 0,
-    created: true,
-  });
-  mount();
-  await userEvent.click(await screen.findByRole('button', { name: /Sortir 1 bouteille/ }));
-  await screen.findByText('Sorti — il en reste 0');
-  await waitFor(() => expect(getWine).toHaveBeenCalledTimes(2));
-  expect(screen.getByText('Sorti — il en reste 0')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Annuler la sortie' })).toBeInTheDocument();
-});
-
-it('ne propose pas de sortie pour un vin déjà épuisé', async () => {
-  vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, wine: { ...detail.wine, quantity: 0 } });
+it('n’a plus de bloc de sortie : la correction du stock s’ouvre depuis le crayon de l’en-tête', async () => {
+  vi.spyOn(api, 'getWine').mockResolvedValue(detail);
   mount();
   await screen.findByRole('heading', { name: /Domaine Tempier/ });
   expect(screen.queryByRole('button', { name: /Sortir/ })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Bouteilles comptées')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Corriger le stock' }));
+  expect(screen.getByLabelText('Bouteilles comptées')).toHaveValue('6');
+  await userEvent.click(screen.getByRole('button', { name: 'Abandonner' }));
+  expect(screen.getByRole('button', { name: 'Corriger le stock' })).toBeInTheDocument();
 });
 
 it('montre le bloc « Le domaine » au-dessus des accords mets-vins', async () => {
@@ -386,7 +354,7 @@ describe('selon le rôle', () => {
     expect(screen.getByText(/notée le/)).toBeInTheDocument();
     expect(screen.queryByText(/null/)).not.toBeInTheDocument();
     expect(screen.queryAllByRole('button')).toHaveLength(0);
-    for (const name of ['Noter ce vin', 'Modifier', 'Retirer', 'Corriger', 'Régénérer', 'Chercher une image', 'Revenir à ma photo', 'Corriger le stock', /Sortir/]) {
+    for (const name of ['Noter ce vin', 'Modifier', 'Retirer', 'Corriger', 'Régénérer', 'Chercher une image', 'Revenir à ma photo', 'Corriger le stock']) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     }
   });
@@ -398,7 +366,6 @@ describe('selon le rôle', () => {
     expect(await screen.findByRole('button', { name: 'Corriger le stock' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Corriger' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Revenir à ma photo' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Sortir/ })).toBeInTheDocument();
     const domaine = within(screen.getByRole('heading', { name: 'Le domaine' }).closest('section')!);
     expect(domaine.queryByRole('button')).not.toBeInTheDocument();
   });

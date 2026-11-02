@@ -412,7 +412,9 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 .quote-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--space-sm); margin: var(--space-sm) 0; }
 .quote-links .btn { padding: 0 var(--space-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Correction du stock, sous la sortie dans le même bloc. */
-.stock-extra { display: grid; gap: var(--space-sm); margin-top: var(--space-md); padding-top: var(--space-sm); border-top: 1px solid var(--color-outline-subtle); }
+.stock-edit { display: grid; gap: var(--space-sm); margin-top: var(--space-md); padding-top: var(--space-sm); border-top: 1px solid var(--color-outline-subtle); }
+.wine-head__stock { display: flex; align-items: center; gap: var(--space-xs); }
+.wine-head__edit { display: inline-flex; align-items: center; justify-content: center; width: var(--size-touch-target); height: var(--size-touch-target); border: 0; border-radius: 50%; background: transparent; color: var(--color-primary); cursor: pointer; }
 .stock-stepper { display: flex; align-items: center; justify-content: center; gap: var(--space-md); }
 .stock-stepper__value { width: 4ch; text-align: center; font-size: 28px; border: 0; background: transparent; color: var(--color-on-surface); }
 /* Historique de la fiche vin : au-delà des trois derniers, en accordéon. */
