@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.40.0](https://github.com/djkix/ma-cave/compare/v2.39.0...v2.40.0) (2026-11-02)
+
+
+### Fonctionnalités
+
+* **web:** accords en groupes (ce soir, à surveiller, à garder), accord en trois niveaux, frise d'apogée et vue d'ensemble accord × moment ([7dfba61](https://github.com/djkix/ma-cave/commit/7dfba61eabdb88d0a44f8bfade6db3371d4ae714))
+
 ## [2.39.0](https://github.com/djkix/ma-cave/compare/v2.38.0...v2.39.0) (2026-11-02)
 
 ### Résumé
