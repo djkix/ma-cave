@@ -9,6 +9,27 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.37.0](https://github.com/djkix/ma-cave/compare/v2.36.0...v2.37.0) (2026-11-02)
+
+
+### Fonctionnalités
+
+* **api:** caractéristiques d'un vin par Gemini (tanin, arômes, pays) ([43bdfd5](https://github.com/djkix/ma-cave/commit/43bdfd5bedc65b44e7e9a666a4615fa1633bbbf6))
+* **api:** caractéristiques des vins générées par lots, rattrapage des vins existants ([295baa8](https://github.com/djkix/ma-cave/commit/295baa87fc3d7d4049cc03d31a0c961b267fcad1))
+* **api:** descriptif de domaine en cinq champs ([beb877d](https://github.com/djkix/ma-cave/commit/beb877d77891ef76ccb0283afbc5205574436d12))
+* **api:** page Domaine et correction champ par champ ([7d43453](https://github.com/djkix/ma-cave/commit/7d434533cf6d60332b50ff77dab10f4511adaac5))
+* **api:** tables des caractéristiques de vin et champs du domaine ([3063241](https://github.com/djkix/ma-cave/commit/3063241ab9bccf65a13e91a9fbe3754b76e33ce7))
+* **api:** tanin, arômes et pays lisibles, corrigeables et filtrables ([1a5711e](https://github.com/djkix/ma-cave/commit/1a5711edac122bf2a0079885abc59578b7459585))
+* **web:** accords à partir d'un vin de la cave ([a0b0d2c](https://github.com/djkix/ma-cave/commit/a0b0d2c829b86d6e31f18eaff0b8a2322d524830))
+* **web:** carte de France de la cave sur l'accueil ([c573c79](https://github.com/djkix/ma-cave/commit/c573c793309428bb1468bb1bca2ac8e69a5e3f9e))
+* **web:** page Domaine ([616b17a](https://github.com/djkix/ma-cave/commit/616b17a893bac483574890a165b7db413d716760))
+* **web:** tanin et arômes sur la fiche, nouveaux filtres de la cave ([5f6f721](https://github.com/djkix/ma-cave/commit/5f6f721a48300412c987921530ca4595be542551))
+
+
+### Corrections
+
+* une fiche domaine en échec n'est plus remise en file par un affichage, Corriger les caractéristiques sans ligne, millésime entier ([37e4190](https://github.com/djkix/ma-cave/commit/37e4190d978bd664d8c8b64e26309196609ccc6c))
+
 ## [2.36.0](https://github.com/djkix/ma-cave/compare/v2.35.1...v2.36.0) (2026-11-01)
 
 ### Résumé
