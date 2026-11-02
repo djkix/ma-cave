@@ -1908,10 +1908,10 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
 - **Une seule note par vin**, sans commentaire ni historique.
 - **Descriptif du domaine limité par ce que Gemini sait** : pour un petit
   domaine, la connaissance de Gemini est parfois incomplète ou erronée — d'où
-  le disclaimer et la possibilité de saisir un texte manuel. Un seul texte par
-  domaine, partagé par clé d'orthographe (accents et casse ignorés) : deux
-  producteurs réellement distincts mais portant le même nom partagent le même
-  descriptif.
+  le disclaimer et la correction champ par champ par l'administrateur. Une
+  seule fiche par domaine, partagée par clé d'orthographe (accents et casse
+  ignorés) : deux producteurs réellement distincts mais portant le même nom
+  partagent la même fiche.
 - **Référentiel des appellations** : 145 AOC sont chargées au démarrage (sur
   environ 360 reconnues par l'INAO). Une appellation absente du référentiel est
   conservée telle qu'elle a été lue ou saisie ; seule une correspondance quasi
