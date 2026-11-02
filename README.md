@@ -117,8 +117,8 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Stock **calculé à la lecture** depuis le journal, **jamais négatif**
 
 ### 🍾 Cave et fiche vin
-- Recherche **sans accents ni casse**, filtres couleur, emplacement, vins épuisés
-- Fiche : photo, **descriptif du domaine**, **accords**, apogée, note, cote, emplacements, mouvements
+- Recherche **sans accents ni casse**, filtres couleur, **arômes**, millésime (de… à…), **tanin**, emplacement, vins épuisés ; filtre région posé depuis la carte (pastille retirable)
+- Fiche : photo, **descriptif du domaine** avec **Voir le domaine**, **tanin et arômes**, **accords**, apogée, note, cote, emplacements, mouvements
 - **Note sur 20**, par demi-point
 - **Chercher une image** : Open Food Facts, puis site officiel du domaine (source citée)
 
@@ -131,11 +131,14 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 
 ### 🍽️ Accords et descriptifs
 - **Accords vins** : dites (ou écrivez) le plat que vous préparez, l'onglet *Accords* propose jusqu'à 5 vins de votre cave, à boire d'abord, avec un score d'accord, une raison et l'apogée ; toucher un vin ouvre sa fiche, le retour ramène à la même liste
+- **J'ai un vin** : choisissez un vin en stock, l'onglet *Accords* montre ses plats déjà générés, en cartes (aucun nouvel appel à l'IA)
 - **Jusqu'à 8 plats** suggérés par Gemini pour chaque vin
 - **Descriptif du domaine** (3 à 4 phrases), partagé par toutes les caves
 - Générés **par lots de 10** en arrière-plan, **Régénérer** à la demande
 - Recherche **Accompagner un plat** dans l'onglet Cave
 - Texte du domaine modifiable par un **administrateur**
+- **Page Domaine** (`/domaine/…`) : histoire, terroir, cépages, style, nez, remplis par l'IA, corrigeables champ par champ par l'administrateur, **Régénérer** ; vins du domaine dans votre cave
+- **Tanin** (léger, moyen, puissant), jusqu'à **5 arômes** d'une liste de 20 et **pays** estimés par l'IA en tâche de fond, corrigeables sur la fiche : une correction n'est jamais écrasée
 
 ### 💶 Cote
 - **Saisie à la main** : l'application ne lit jamais les sites de cote, elle n'offre que des liens
@@ -157,6 +160,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Ajuster les cases sur le plan** (*Modifier la zone*) : toucher une case puis son endroit, poser les cases oubliées
 
 ### 📊 Statistiques
+- **Carte de France** sur l'accueil : régions viticoles colorées selon le nombre de bouteilles, case « Hors de France », mention « dont N sans région » ; toucher une région ouvre ses domaines et un lien vers la cave filtrée
 - Bouteilles, références, **valeur au prix d'achat** et **à la cote** (propriétaire)
 - Répartition par **apogée**, **couleur**, **région**, **décennie**
 - **Mouvements sur 12 mois** et rythme de consommation

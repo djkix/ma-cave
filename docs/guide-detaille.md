@@ -1300,6 +1300,25 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 À lire avant une mise à jour qui change de version mineure. Les sections
 vont de la plus récente à la plus ancienne.
 
+### Passage à la prochaine version (accords par vin, domaine, arômes, carte)
+
+Une migration additive, appliquée toute seule au démarrage de l'api : rien n'est
+supprimé ni renommé (nouveaux champs sur les vins et les domaines, et l'usage
+Gemini `CARACTERISATION`, « Caractéristiques » dans l'administration des
+appels). Rien à changer dans le YAML.
+
+Au premier démarrage, le worker met en file **tous les vins existants**
+(tanin, arômes, pays) et **tous les domaines** (histoire, terroir, cépages,
+style, nez). Ils sont traités en tâche de fond, par lots de 10 : un appel Gemini
+pour 10 vins, ou pour 10 domaines, selon les quotas. Une grande cave se remplit
+donc en plusieurs heures, sans rien bloquer ; un vin sans résultat reste
+simplement sans tanin ni arôme, et une correction du propriétaire n'est jamais
+écrasée.
+
+1. `docker compose pull && docker compose up -d`.
+2. Laisser tourner : la carte de France, les filtres *Arômes* et *Tanin* et les
+   pages Domaine se complètent au fil des lots.
+
 ### Passage à la 2.36.0 (inscriptions signalées à l'administrateur)
 
 Une migration additive, appliquée toute seule au démarrage de l'api :
