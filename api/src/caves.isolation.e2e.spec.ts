@@ -122,6 +122,7 @@ const ROUTES: Route[] = [
   { method: 'PUT', path: '/api/wines/:id/apogee', kind: 'cave-owner', req: (i) => ({ url: `/api/wines/${i.wineA}/apogee`, body: { min: 2030, max: 2035 } }), foreign: NOT_FOUND_WINE, happy: { status: 200 } },
   { method: 'DELETE', path: '/api/wines/:id/apogee', kind: 'cave-owner', req: (i) => ({ url: `/api/wines/${i.wineA}/apogee` }), foreign: NOT_FOUND_WINE, happy: { status: 200 } },
   { method: 'PUT', path: '/api/wines/:id/rating', kind: 'cave-owner', req: (i) => ({ url: `/api/wines/${i.wineA}/rating`, body: { rating: 15 } }), foreign: NOT_FOUND_WINE, happy: { status: 200 } },
+  { method: 'PUT', path: '/api/wines/:id/traits', kind: 'cave-owner', req: (i) => ({ url: `/api/wines/${i.wineA}/traits`, body: { tannin: 'MOYEN', aromas: ['boisé'] } }), foreign: NOT_FOUND_WINE, happy: { status: 200 } },
   { method: 'DELETE', path: '/api/wines/:id/rating', kind: 'cave-owner', req: (i) => ({ url: `/api/wines/${i.wineA}/rating` }), foreign: NOT_FOUND_WINE, happy: { status: 200 } },
   { method: 'POST', path: '/api/wines/:id/pairing/regenerate', kind: 'cave-owner', req: (i) => ({ url: `/api/wines/${i.wineA}/pairing/regenerate` }), foreign: NOT_FOUND_WINE, happy: { status: 202 } },
 

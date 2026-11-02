@@ -11,7 +11,8 @@ import { producerKeyOf } from '../producers/producer-key';
 import { PRODUCER_PROFILE_INCLUDE, producerProfileOf } from '../producers/producer-profile.view';
 import { parseExtraction } from '../vision/extraction-schema';
 import { ExitCandidate, ExitOutcome, ExitRead, rankExitCandidates } from '../wines/exit-ranking';
-import { CaveFilter, CaveRow, filterCave } from './cave-filter';
+import { CaveFilter, CaveRow, countryOf, filterCave } from './cave-filter';
+import { TraitsInput } from '../traits/traits.dto';
 import { matchDish } from './dish-filter';
 
 export type ExitCandidatesResponse =
@@ -66,13 +67,22 @@ export function pairingOf(row: CaveDbRow): PairingView | null {
 function toItem(row: CaveDbRow, rules: CompiledApogeeRules, currentYear: number): CaveItem {
   const {
     /* eslint-disable @typescript-eslint/no-unused-vars -- champs internes retirés de la réponse */
-    appellationId, region, referenceGuardMin, referenceGuardMax, apogeeMin, apogeeMax, apogeeSource,
+    appellationId, referenceGuardMin, referenceGuardMax, apogeeMin, apogeeMax, apogeeSource,
     rating, ratedAt, ratedBy, pairingStatus, pairingDishes, pairingError, pairingGeneratedAt,
     referencePhotoSource, referencePhotoSourceUrl,
     /* eslint-enable @typescript-eslint/no-unused-vars */
     ...pub
   } = row;
-  return { ...pub, apogee: apogeeOf(row, rules, currentYear), rating: ratingOf(row) };
+  return {
+    ...pub,
+    region: row.region ?? null,
+    country: countryOf(row),
+    tannin: row.tannin ?? null,
+    aromas: row.aromas ?? [],
+    producerKey: producerKeyOf(row.producer),
+    apogee: apogeeOf(row, rules, currentYear),
+    rating: ratingOf(row),
+  };
 }
 
 /**
@@ -109,12 +119,14 @@ export class CaveService {
              , w.rating::FLOAT8 AS rating, w.rated_at AS "ratedAt", ${ratedBy} AS "ratedBy",
              p.status::TEXT AS "pairingStatus", p.dishes AS "pairingDishes", p.error_message AS "pairingError",
              p.generated_at AS "pairingGeneratedAt",
-             w.reference_photo_source AS "referencePhotoSource", w.reference_photo_source_url AS "referencePhotoSourceUrl"
+             w.reference_photo_source AS "referencePhotoSource", w.reference_photo_source_url AS "referencePhotoSourceUrl",
+             t.tannin, t.aromas, t.country
       FROM wine w
       LEFT JOIN stock_courant s ON s.wine_id = w.id
       LEFT JOIN appellation a ON a.id = w.appellation_id
       LEFT JOIN app_user u ON u.id = w.rated_by
       LEFT JOIN pairing p ON p.wine_id = w.id
+      LEFT JOIN wine_traits t ON t.wine_id = w.id
       WHERE w.cave_id = ${caveId}
       ORDER BY w.producer ASC, w.vintage ASC NULLS FIRST`;
   }
@@ -158,7 +170,7 @@ export class CaveService {
     if (!row) throw new NotFoundException('Vin introuvable');
     const producerKey = producerKeyOf(row.producer);
     const locations = await this.locations.stockByLocation(caveId, id);
-    const [movements, profile, exitDefault, quotes] = await Promise.all([
+    const [movements, profile, exitDefault, quotes, traits] = await Promise.all([
       this.prisma.movement.findMany({
         where: { wineId: id },
         orderBy: { occurredAt: 'desc' },
@@ -174,6 +186,7 @@ export class CaveService {
       this.locations.exitDefault(caveId, id, undefined, locations),
       // Cote : un prix, jamais lue pour un membre.
       role === 'OWNER' && withQuote ? this.prisma.priceQuote.findMany({ where: { wineId: id }, select: QUOTE_SELECT }) : null,
+      this.prisma.wineTraits.findUnique({ where: { wineId: id } }),
     ]);
     let cote: { quote: QuoteView | null; searchLinks: SearchLink[]; idealwineUrl: string; savedUrl: string | null } | undefined;
     if (quotes) {
@@ -197,6 +210,7 @@ export class CaveService {
         // Toujours présente (sauf nom sans lettre ni chiffre) : la fiche peut écrire ou régénérer avant tout profil.
         producerKey: producerKey || null,
         producerProfile: producerProfileOf(profile, role),
+        traits: traits && { status: traits.status, tannin: traits.tannin, aromas: traits.aromas, country: traits.country, manualFields: traits.manualFields },
       },
       movements: movements.map(({ location, ...m }) => ({ ...m, locationLabel: location ? labelOf(partsOf(location)) : null })),
       /** Endroits du vin et leur quantité (> 0) ; « Sans emplacement » : id null, en dernier. */
@@ -254,6 +268,25 @@ export class CaveService {
   async setRating(caveId: string, id: string, value: number, userId: string): Promise<Rating | null> {
     await this.updateWine(caveId, id, { rating: value, ratedAt: new Date(), ratedById: userId });
     return (await this.detail(caveId, id, 'OWNER', NO_QUOTE)).wine.rating;
+  }
+
+  /**
+   * Correction manuelle : chaque clé présente rejoint `manualFields` (la génération
+   * ne l'écrase plus) et la réservation est levée, pour qu'un lot en cours
+   * n'écrase pas la correction. Sans ligne, elle est créée en attente.
+   */
+  async setTraits(caveId: string, id: string, input: TraitsInput) {
+    if (!(await this.prisma.wine.findFirst({ where: { id, caveId }, select: { id: true } }))) throw new NotFoundException('Vin introuvable');
+    const edited = (['tannin', 'aromas', 'country'] as const).filter((k) => input[k] !== undefined);
+    const fields = { ...(input.tannin !== undefined && { tannin: input.tannin }), ...(input.aromas !== undefined && { aromas: input.aromas }), ...(input.country !== undefined && { country: input.country }) };
+    const current = await this.prisma.wineTraits.findUnique({ where: { wineId: id }, select: { manualFields: true } });
+    const manualFields = [...new Set([...(current?.manualFields ?? []), ...edited])];
+    const t = await this.prisma.wineTraits.upsert({
+      where: { wineId: id },
+      create: { wineId: id, ...fields, manualFields },
+      update: { ...fields, manualFields, reservedUntil: null },
+    });
+    return { status: t.status, tannin: t.tannin, aromas: t.aromas, country: t.country, manualFields: t.manualFields };
   }
 
   async clearRating(caveId: string, id: string): Promise<null> {

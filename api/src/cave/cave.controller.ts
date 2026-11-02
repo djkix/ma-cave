@@ -10,6 +10,8 @@ import type { CaveAccess } from '../caves/cave-context.service';
 import { inventorySchema, moveSchema } from '../movements/dto';
 import { MovementsService } from '../movements/movements.service';
 import { CaveService } from './cave.service';
+import { traitsSchema } from '../traits/traits.dto';
+import { TANNINS } from '../traits/traits';
 import { ratingSchema } from './rating.dto';
 
 const listQuerySchema = z.object({
@@ -20,6 +22,12 @@ const listQuerySchema = z.object({
   noApogee: z.enum(['true', 'false']).optional(),
   dish: z.string().trim().max(100).optional(),
   location: z.union([z.literal('none'), z.string().uuid()]).optional(),
+  // `?aromas=a&aromas=b` arrive en tableau, `?aromas=a` en chaîne.
+  aromas: z.union([z.string().max(50), z.array(z.string().max(50)).max(20)]).transform((a) => (Array.isArray(a) ? a : [a])).optional(),
+  vintageMin: z.coerce.number().int().optional(),
+  vintageMax: z.coerce.number().int().optional(),
+  tannin: z.enum(TANNINS).optional(),
+  region: z.string().trim().max(100).optional(),
 });
 
 /** Lecture (liste, filtres, recherche par plat, fiche) : VIEWER ; toute écriture : OWNER. */
@@ -36,11 +44,11 @@ export class CaveController {
   list(@CurrentCave() cave: CaveAccess, @Query() query: unknown) {
     const parsed = listQuerySchema.safeParse(query);
     if (!parsed.success) throw new BadRequestException('Filtre de cave invalide');
-    const { q, color, includeEmpty, drinkSoon, noApogee, dish, location } = parsed.data;
+    const { q, color, includeEmpty, drinkSoon, noApogee, dish, location, aromas, vintageMin, vintageMax, tannin, region } = parsed.data;
     if (drinkSoon === 'true' && noApogee === 'true') {
       throw new BadRequestException('Choisis « à boire en priorité » ou « sans apogée », pas les deux');
     }
-    return this.cave.list(cave.caveId, { q, color, includeEmpty: includeEmpty === 'true', drinkSoon: drinkSoon === 'true', noApogee: noApogee === 'true', dish: dish || undefined, location }, cave.role);
+    return this.cave.list(cave.caveId, { q, color, includeEmpty: includeEmpty === 'true', drinkSoon: drinkSoon === 'true', noApogee: noApogee === 'true', dish: dish || undefined, location, aromas, vintageMin, vintageMax, tannin, region: region || undefined }, cave.role);
   }
 
   @Get('wines/:id')
@@ -93,6 +101,14 @@ export class CaveController {
     const parsed = ratingSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues.map((i) => i.message).join(' ; '));
     return this.cave.setRating(cave.caveId, id, parsed.data.rating, user.id);
+  }
+
+  @Put('wines/:id/traits')
+  @CaveRole('OWNER')
+  setTraits(@CurrentCave() cave: CaveAccess, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown) {
+    const parsed = traitsSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues.map((i) => i.message).join(' ; '));
+    return this.cave.setTraits(cave.caveId, id, parsed.data);
   }
 
   @Delete('wines/:id/rating')

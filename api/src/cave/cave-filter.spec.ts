@@ -1,4 +1,4 @@
-import { CaveRow, filterCave } from './cave-filter';
+import { CaveRow, countryOf, filterCave } from './cave-filter';
 
 const row = (id: string, producer: string, appellationRaw: string, quantity: number, extra: Partial<CaveRow> = {}): CaveRow => ({
   id, producer, cuvee: null, appellationRaw, vintage: 2019, color: 'ROUGE', formatCl: 75, referencePhotoId: null, quantity, ...extra,
@@ -34,5 +34,25 @@ describe('filterCave', () => {
 
   it('filtre par couleur', () => {
     expect(filterCave(rows, { color: 'BLANC' }).map((r) => r.id)).toEqual(['c']);
+  });
+
+  describe('caractéristiques', () => {
+    const w = [
+      row('a', 'A', 'x', 1, { vintage: 2012, aromas: ['boisé', 'noisette'], tannin: 'MOYEN', region: 'Bourgogne', appellationId: 'ap' }),
+      row('b', 'B', 'x', 1, { vintage: 2015, aromas: ['boisé'], tannin: 'LEGER', region: 'Rhône' }),
+      row('c', 'C', 'x', 1, { vintage: 2018, aromas: [], tannin: null, country: 'AUTRE' }),
+      row('d', 'D', 'x', 1, { vintage: null }),
+    ];
+    const ids = (f: Parameters<typeof filterCave>[1]) => filterCave(w, f).map((r) => r.id);
+    it('arômes : tous requis', () => expect(ids({ aromas: ['boisé', 'noisette'] })).toEqual(['a']));
+    it('millésime minimum seul', () => expect(ids({ vintageMin: 2015 })).toEqual(['b', 'c']));
+    it('millésime maximum seul', () => expect(ids({ vintageMax: 2015 })).toEqual(['a', 'b']));
+    it('tanin', () => expect(ids({ tannin: 'MOYEN' })).toEqual(['a']));
+    it('région', () => expect(ids({ region: 'Bourgogne' })).toEqual(['a']));
+    it('hors France', () => expect(ids({ region: 'HORS_FRANCE' })).toEqual(['c']));
+    it('pays : appellation reconnue = FR', () => {
+      expect(countryOf({ appellationId: 'x', country: 'AUTRE' })).toBe('FR');
+      expect(countryOf({ appellationId: null, country: null })).toBeNull();
+    });
   });
 });

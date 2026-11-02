@@ -18,6 +18,7 @@ const raw = (vintage: number | null) => ({
 function service(photo: any, rows: any[] = [tempier19], rules = compileApogeeRules({ guardOverrides: [], vintageQualities: [] }), profile: unknown = null, quotes: any[] = []) {
   const prisma = {
     producerProfile: { findUnique: jest.fn(async () => profile) },
+    wineTraits: { findUnique: jest.fn(async () => null) },
     $queryRaw: jest.fn(async () => rows),
     photo: { findFirst: jest.fn(async () => photo) },
     movement: { findMany: jest.fn(async () => []) },
@@ -195,7 +196,7 @@ describe('CaveService — apogée', () => {
     const [item] = await service(null, [cdp]).list('c1', {});
     expect(item).not.toHaveProperty('referenceGuardMin');
     expect(item).not.toHaveProperty('apogeeSource');
-    expect(item).not.toHaveProperty('region');
+    expect(item).toMatchObject({ region: 'Rhône', producerKey: expect.any(String), aromas: [], tannin: null });
   });
 
   it('applique immédiatement une règle modifiée (aucun cache entre deux requêtes)', async () => {
@@ -206,6 +207,7 @@ describe('CaveService — apogée', () => {
     const prisma = {
       $queryRaw: jest.fn(async () => [cdp]), movement: { findMany: jest.fn(async () => []) },
       producerProfile: { findUnique: jest.fn(async () => null) },
+      wineTraits: { findUnique: jest.fn(async () => null) },
     };
     const s = new CaveService(prisma as any, { load: async () => loads.shift()! } as any, new LocationsService(prisma as any));
     expect((await s.detail('c1', 'w16')).wine.apogee).toMatchObject({ min: 2024, max: 2036 });
