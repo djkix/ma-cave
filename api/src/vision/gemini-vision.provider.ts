@@ -181,9 +181,9 @@ function dishPairingPrompt(dish: string, wines: DishPairingWine[]): string {
   return `Tu es sommelier. On prépare ce plat : « ${dish} ».
 Choisis dans la cave ci-dessous, numérotée de 1 à ${wines.length}, jusqu'à 5 vins qui s'accordent avec ce plat, du meilleur au moins bon. À accord égal, préfère un vin à boire bientôt (apogée qui se termine) à un vin encore jeune.
 Réponds UNIQUEMENT par un objet JSON strict de la forme {"compris": string[], "ideal": string, "choix": [{"vin": number, "score": number, "raison": string}]}, en français :
-- "compris" : 2 à 4 pastilles courtes (3 mots au plus chacune) sur le style de vin recherché, ex. « Blanc sec », « Belle acidité », « À boire d'abord ».
+- "compris" : 2 à 4 pastilles courtes (3 mots au plus chacune) sur le style de vin recherché, ex. « Blanc sec », « Belle acidité », « Tanins souples ».
 - "ideal" : le style de vin idéal pour ce plat, en une phrase.
-- "choix" : "vin" est le numéro du vin dans la liste, "score" l'accord de 0 à 100, "raison" une phrase de 120 caractères au plus. Liste vide si aucun vin ne convient vraiment.
+- "choix" : "vin" est le numéro du vin dans la liste, "score" l'accord avec le plat seul de 0 à 100 (sans tenir compte de l'apogée, affichée à part), "raison" une phrase de 120 caractères au plus. Liste vide si aucun vin ne convient vraiment.
 Cave (numéro : producteur ; cuvée ; appellation ; couleur ; millésime ; apogée) :
 ${wines.map((w, i) => `${i + 1} : ${w.producer} ; ${w.cuvee ?? '-'} ; ${w.appellation} ; ${COLOR_WORD[w.color] ?? w.color} ; ${w.vintage ?? 'NM'} ; ${w.apogee ?? '?'}`).join('\n')}`;
 }

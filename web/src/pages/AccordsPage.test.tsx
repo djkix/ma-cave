@@ -62,12 +62,13 @@ it('sans API vocale : champ texte d’office, pas de micro ; texte → vins clas
   await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
   expect(post).toHaveBeenCalledWith('Sole meunière');
 
-  const wines = await screen.findByRole('list', { name: 'Vins proposés' });
-  const link = within(wines).getByRole('link', { name: /Domaine Raveneau — Montée de Tonnerre, 2019/ });
+  const wines = await screen.findByRole('list', { name: 'À ouvrir ce soir' });
+  const link = within(wines).getByRole('link', { name: /^Domaine Raveneau — Montée de Tonnerre, 2019/ });
   expect(link).toHaveAttribute('href', '/cave/w1');
   expect(within(link).getByText('Chablis 1er cru · Blanc · 2 btl · Cave 1 / A')).toBeInTheDocument();
-  expect(within(link).getByText('À boire cette année')).toBeInTheDocument();
-  expect(within(link).getByText('92 %')).toBeInTheDocument();
+  expect(within(link).getByText(`À boire vite, fin d’apogée en ${year}`)).toBeInTheDocument();
+  expect(within(link).getByText(/Excellent accord/)).toBeInTheDocument();
+  expect(screen.queryByText('92 %')).not.toBeInTheDocument();
   expect(within(screen.getByRole('list', { name: 'Ce que l’IA a compris' })).getAllByRole('listitem').map((l) => l.textContent)).toEqual(['Blanc sec', 'Belle acidité']);
 });
 
@@ -76,18 +77,18 @@ it('retour depuis la fiche : la même liste, sans nouvel appel (cache puis sessi
   const { router, client } = mount();
   await userEvent.type(screen.getByLabelText('Le plat'), 'Sole meunière');
   await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
-  await userEvent.click(await screen.findByRole('link', { name: /Domaine Raveneau/ }));
+  await userEvent.click(await screen.findByRole('link', { name: /^Domaine Raveneau/ }));
   expect(await screen.findByText('Fiche')).toBeInTheDocument();
   expect(router.state.location.state).toEqual({ from: '/accords' });
   await act(() => router.navigate('/accords'));
-  expect(await screen.findByRole('link', { name: /Domaine Raveneau/ })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /^Domaine Raveneau/ })).toBeInTheDocument();
   expect(post).toHaveBeenCalledTimes(1);
 
   // Application rechargée (cache vidé) : la liste revient de sessionStorage.
   client.clear();
   document.body.innerHTML = '';
   mount();
-  expect(await screen.findByRole('link', { name: /Domaine Raveneau/ })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /^Domaine Raveneau/ })).toBeInTheDocument();
   expect(post).toHaveBeenCalledTimes(1);
 });
 
@@ -107,7 +108,7 @@ it('dictée : texte intermédiaire en direct, la fin de la dictée lance la rech
   expect(screen.getByText('Daube provençale')).toBeInTheDocument();
   act(() => rec.onend!());
   expect(post).toHaveBeenCalledWith('Daube provençale');
-  expect(await screen.findByRole('link', { name: /Domaine Raveneau/ })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /^Domaine Raveneau/ })).toBeInTheDocument();
 });
 
 it('micro refusé : message clair et champ texte', async () => {
@@ -146,7 +147,7 @@ it('IA indisponible : le message de l’api, et on peut réessayer', async () =>
   await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Accords impossibles : quota Gemini épuisé');
   await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
-  expect(await screen.findByRole('link', { name: /Domaine Raveneau/ })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /^Domaine Raveneau/ })).toBeInTheDocument();
   expect(post).toHaveBeenCalledTimes(2);
 });
 
@@ -217,4 +218,25 @@ it('recherche en cours : secondes écoulées, puis explication si l’IA est len
   } finally {
     vi.useRealTimers();
   }
+});
+
+it('groupes selon le moment du vin et vue d’ensemble repliable avec un point par vin', async () => {
+  vi.spyOn(api, 'postAccords').mockResolvedValue(result({ picks: [
+    pick({ wineId: 'passe', producer: 'Château Lieujean', cuvee: null, vintage: 2005, score: 95, apogee: { min: 2012, max: year - 1, confidence: null, status: 'PASSEE', reason: null, source: 'REGLE' } }),
+    pick({ wineId: 'jeune', producer: 'Pauillac', cuvee: null, score: 90, apogee: { min: year + 3, max: year + 20, confidence: null, status: 'TROP_JEUNE', reason: null, source: 'REGLE' } }),
+    pick({ wineId: 'point', producer: 'Pommard', cuvee: null, score: 72, apogee: { min: year - 4, max: year + 6, confidence: null, status: 'A_BOIRE', reason: null, source: 'REGLE' } }),
+  ] }));
+  mount();
+  await userEvent.type(screen.getByLabelText('Le plat'), 'Magret');
+  await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
+  const lists = await screen.findAllByRole('list');
+  expect(lists.map((l) => l.getAttribute('aria-label')).filter((n) => n !== 'Ce que l’IA a compris'))
+    .toEqual(['À ouvrir ce soir', 'À surveiller : apogée dépassée', 'Bel accord, mais à garder']);
+  const tonight = screen.getByRole('list', { name: 'À ouvrir ce soir' });
+  expect(within(tonight).getByText(/Bon accord/)).toBeInTheDocument();
+  expect(within(tonight).getByText(`À son apogée, jusqu’en ${year + 6}`)).toBeInTheDocument();
+  expect(within(screen.getByRole('list', { name: 'À surveiller : apogée dépassée' })).getByText(`Apogée dépassée depuis ${year - 1}, risque de déclin`)).toBeInTheDocument();
+  expect(within(screen.getByRole('list', { name: 'Bel accord, mais à garder' })).getByText(`Trop jeune, attendre ${year + 3}`)).toBeInTheDocument();
+  expect(screen.getByText('Vue d’ensemble')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '1. Château Lieujean, 2005' })).toHaveAttribute('href', '/cave/passe');
 });

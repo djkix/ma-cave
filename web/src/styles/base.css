@@ -454,10 +454,28 @@ select:focus-visible { outline: 3px solid var(--color-primary-container); outlin
 @keyframes mic-pulse { 50% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--color-primary-action) 20%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .mic--on { animation: none; } }
 .accords-form { display: flex; flex-direction: column; gap: var(--space-sm); width: 100%; }
-.accord-row { align-items: flex-start; min-height: var(--size-touch-target); }
-.accord-row__score { flex: none; min-width: 52px; text-align: right; font: 700 18px var(--font-sans); color: var(--color-primary); }
-.apogee-bar { display: block; height: 4px; margin-top: 6px; border-radius: 999px; background: var(--color-surface-container-high); overflow: hidden; max-width: 200px; }
-.apogee-bar > span { display: block; height: 100%; background: var(--color-primary-container); }
+.accord-row { align-items: flex-start; gap: var(--space-sm); min-height: var(--size-touch-target); }
+.accord-row__num { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font: 600 13px var(--font-sans); color: #fff; }
+.accord-row__dots { letter-spacing: 2px; color: var(--color-primary); }
+.accord-row__moment { display: block; font-size: 13px; font-weight: 600; }
+.accord-group { display: flex; flex-direction: column; gap: var(--space-xs); }
+/* Frise d'apogée : la fenêtre en couleur sur une échelle commune à tous les vins, trait = aujourd'hui. */
+.accord-timeline { position: relative; display: block; height: 6px; margin: 8px 0 4px; border-radius: 999px; background: var(--color-surface-container-high); max-width: 260px; }
+.accord-timeline > span { position: absolute; top: 0; height: 100%; border-radius: 999px; }
+.accord-timeline > i { position: absolute; top: -4px; width: 2px; height: 14px; background: var(--color-on-surface); }
+.moment--JEUNE { background: var(--color-outline-variant); fill: var(--color-outline-variant); }
+.moment--A_POINT { background: var(--color-success); fill: var(--color-success); }
+.moment--VITE { background: var(--color-warning); fill: var(--color-warning); }
+.moment--PASSE { background: var(--color-error); fill: var(--color-error); }
+.moment-text--JEUNE { color: var(--color-secondary); }
+.moment-text--A_POINT { color: var(--color-success); }
+.moment-text--VITE { color: var(--color-warning); }
+.moment-text--PASSE { color: var(--color-error); }
+.accord-matrix summary { cursor: pointer; font-weight: 600; min-height: var(--size-touch-target); display: flex; align-items: center; }
+.accord-matrix text { font: 11px var(--font-sans); fill: var(--color-secondary); }
+.accord-matrix .accord-matrix__num { font-weight: 700; fill: #fff; pointer-events: none; }
+.accord-matrix__grid { fill: none; stroke: var(--color-outline-variant); stroke-width: 0.5; }
+.accord-matrix__tonight { fill: var(--color-success); fill-opacity: 0.12; }
 .filter-pill--btn { padding-right: 14px; cursor: pointer; overflow: hidden; white-space: nowrap; max-width: 100%; }
 .filter-vintage { display: inline-flex; gap: var(--space-xs); max-width: 100%; }
 .filter-vintage input { width: 7.5em; min-width: 0; min-height: 40px; box-sizing: border-box; border-radius: 999px; border: 1px solid var(--color-outline-variant); padding: 0 12px; font-size: 16px; }

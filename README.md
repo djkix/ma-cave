@@ -128,7 +128,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Règles d'apogée réglables par l'administrateur
 
 ### 🍽️ Accords et descriptifs
-- **Accords vins** : dites (ou écrivez) le plat que vous préparez, l'onglet *Accords* propose jusqu'à 5 vins de votre cave, à boire d'abord, avec un score d'accord, une raison et l'apogée ; toucher un vin ouvre sa fiche, le retour ramène à la même liste
+- **Accords vins** : dites (ou écrivez) le plat que vous préparez, l'onglet *Accords* propose jusqu'à 5 vins de votre cave, rangés en groupes (*À ouvrir ce soir*, *À surveiller*, *À garder*), chacun avec l'accord en trois niveaux, sa raison et une frise d'apogée, plus une vue d'ensemble accord × moment repliable ; toucher un vin ouvre sa fiche, le retour ramène à la même liste
 - **J'ai un vin** : choisissez un vin en stock, l'onglet *Accords* montre ses plats déjà générés, en cartes (aucun nouvel appel à l'IA)
 - **Jusqu'à 8 plats** suggérés par Gemini pour chaque vin
 - Générés **par lots de 10** en arrière-plan, **Régénérer** à la demande

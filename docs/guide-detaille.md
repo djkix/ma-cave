@@ -921,12 +921,22 @@ fin de la dictée lance la recherche (toucher à nouveau le micro arrête
 l'écoute). *Écrire plutôt* ouvre un champ texte et *Proposer des vins* ; sans
 dictée dans le navigateur (Firefox…) ou micro refusé, le champ texte est
 affiché d'office. La réponse montre « Ce que l'IA a compris » en pastilles
-(« Blanc sec », « Belle acidité », « À boire d'abord ») puis **jusqu'à 5 vins
-en stock**, chacun avec son score d'accord en %, domaine — cuvée, millésime,
-appellation · couleur · quantité · emplacement principal (celui qui tient le
-plus de bouteilles), une raison en une ligne et une barre d'apogée avec son
-libellé (« À boire cette année », « À l'apogée jusqu'en 2029 », « Encore
-jeune — à partir de 2027 », « Apogée passée depuis 2020 »). Toucher un vin
+(« Blanc sec », « Belle acidité », « Tanins souples ») puis **jusqu'à 5 vins
+en stock**, numérotés dans l'ordre de l'IA. Deux critères séparés par vin :
+**l'accord avec le plat** en trois niveaux (●●● Excellent dès un score de 85,
+●●○ Bon dès 70, ●○○ Correct en dessous ; l'IA juge l'accord seul, sans
+l'apogée) avec sa raison en une ligne, et **le moment du vin** : une frise de
+la fenêtre d'apogée sur une échelle commune à tous les vins, un trait pour
+aujourd'hui, et un libellé en couleur (« À son apogée, jusqu'en 2032 », « À
+boire vite, fin d'apogée en 2026 », « Apogée dépassée depuis 2025, risque de
+déclin », « Trop jeune, attendre 2029 », « Sans apogée connue »). Les vins sont
+rangés en trois groupes : **À ouvrir ce soir** (à point, à boire vite ou sans
+apogée), **À surveiller : apogée dépassée**, **Bel accord, mais à garder**
+(trop jeune). En tête, une **vue d'ensemble** repliable croise l'accord (lignes)
+et le moment (colonnes) : un point numéroté par vin, la zone « ce soir »
+grisée ; toucher un point ouvre la fiche. Chaque ligne donne aussi domaine —
+cuvée, millésime, appellation · couleur · quantité · emplacement principal
+(celui qui tient le plus de bouteilles). Toucher un vin
 ouvre sa fiche ; la flèche retour ramène à la même liste, sans nouvel appel (le
 dernier plat et sa réponse sont gardés le temps de la session du navigateur).
 Cave vide : « Votre cave est vide », sans appel à l'IA ; aucun vin adapté : un

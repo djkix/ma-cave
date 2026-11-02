@@ -1,15 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { AccordsParVin } from '../components/AccordsParVin';
+import { AccordsResults } from '../components/AccordsResults';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { TopBar } from '../components/TopBar';
-import { AccordsResult, ApiError, postAccords, WineColor } from '../lib/api-client';
-import { apogeePairingLabel, apogeeProgress } from '../lib/apogee';
-
-const COLOR_LABEL: Record<WineColor, string> = { ROUGE: 'Rouge', BLANC: 'Blanc', ROSE: 'Rosé', PETILLANT: 'Pétillant' };
+import { AccordsResult, ApiError, postAccords } from '../lib/api-client';
 
 /** Dernier plat et sa réponse : la liste revient telle quelle au retour de la fiche, sans nouvel appel. */
 const STORAGE_KEY = 'accords:dernier';
@@ -256,30 +253,7 @@ export function AccordsPage() {
                       {result.ideal && <p className="list__meta" style={{ margin: 'var(--space-xs) 0 0', fontSize: 13 }}>{`L’idéal : ${result.ideal}`}</p>}
                     </div>
                   ) : (
-                    <ol className="list" aria-label="Vins proposés" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-                      {result.picks.map((p) => {
-                        const label = apogeePairingLabel(p.apogee);
-                        const progress = apogeeProgress(p.apogee, year);
-                        return (
-                          <li key={p.wineId}>
-                            <Link to={`/cave/${p.wineId}`} state={{ from: '/accords' }} className="cave-row accord-row">
-                              <span style={{ minWidth: 0 }}>
-                                <span className="list__title" style={{ display: 'block' }}>
-                                  {p.producer}{p.cuvee ? ` — ${p.cuvee}` : ''}, {p.vintage ?? 'NV'}
-                                </span>
-                                <span className="list__meta" style={{ display: 'block' }}>
-                                  {[p.appellation, COLOR_LABEL[p.color], `${p.quantity} btl`, p.place].filter(Boolean).join(' · ')}
-                                </span>
-                                {p.reason && <span style={{ display: 'block', fontSize: 13, marginTop: 2 }}>{p.reason}</span>}
-                                {progress != null && <span className="apogee-bar" aria-hidden="true"><span style={{ width: `${progress}%` }} /></span>}
-                                {label && <span className="list__meta" style={{ display: 'block' }}>{label}</span>}
-                              </span>
-                              <span className="accord-row__score num" aria-label={`Accord ${p.score} %`}>{p.score} %</span>
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ol>
+                    <AccordsResults picks={result.picks} year={year} />
                   )}
                 </>
               )}
