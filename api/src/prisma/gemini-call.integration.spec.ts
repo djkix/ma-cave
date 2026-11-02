@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { GeminiUsageService } from '../admin/gemini-usage.service';
-import { GEMINI_PAUSE_REASON_KEY, GEMINI_PAUSE_UNTIL_KEY, GeminiJournal } from '../vision/gemini-journal';
+import { GEMINI_PAUSE_REASON_KEY, GEMINI_PAUSE_UNTIL_KEY, GEMINI_USAGES, GeminiJournal } from '../vision/gemini-journal';
 
 /**
  * Migration 20261014000000_gemini_call et agrégation de la consommation sur
@@ -27,6 +27,14 @@ describeIfDb('journal des appels Gemini (base réelle)', () => {
     await prisma.appSetting.deleteMany({ where: { key: { in: [GEMINI_PAUSE_UNTIL_KEY, GEMINI_PAUSE_REASON_KEY] } } });
     if (saved.length) await prisma.appSetting.createMany({ data: saved });
     await prisma.$disconnect();
+  });
+
+  it('accepte chaque usage du code (contrainte gemini_call_usage_check à jour)', async () => {
+    for (const usage of GEMINI_USAGES) {
+      const id = `usage-${usage}-${Date.now()}`;
+      created.push(id);
+      await prisma.geminiCall.create({ data: { id, usage, outcome: 'OK', durationMs: 1 } });
+    }
   });
 
   it('crée la table avec ses colonnes, son index sur created_at et une date par défaut en UTC', async () => {
