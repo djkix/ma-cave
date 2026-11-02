@@ -39,9 +39,9 @@ export class ProducersService {
    * Page Domaine : la fiche partagée et les vins de ce domaine dans la cave
    * courante, épuisés compris ; 404 si aucun vin de la cave ne porte la clé.
    * Seul effet de bord, sans appel à Gemini : une fiche absente, ou sans aucun
-   * des cinq champs (ancien format, échec), est mise en file une seule fois.
-   * Un domaine inconnu de Gemini (UNKNOWN) n'y retourne pas à chaque affichage :
-   * c'est le rôle de « Régénérer ».
+   * des cinq champs alors qu'elle est terminée (ancien format), est mise en file
+   * une seule fois. Un domaine en échec (FAILED) ou inconnu de Gemini (UNKNOWN)
+   * n'y retourne jamais depuis un affichage : c'est le rôle de « Régénérer ».
    */
   async page(caveId: string, producerKey: string, role: CaveRole): Promise<{ profile: ProducerProfileView | null; wines: PageWine[] }> {
     // Stock de la vue stock_courant, jointe par le vin (elle n'a pas de cave), comme CaveService.allWithStock.
@@ -61,7 +61,7 @@ export class ProducersService {
     if (!profile) {
       await requestProducerProfiles(this.prisma, [{ producerKey, displayName: mine[0].producer }]);
       profile = await read();
-    } else if (profile.status !== 'PENDING' && profile.status !== 'UNKNOWN' && Object.values(producerFieldsOf(profile)).every((v) => v === null)) {
+    } else if (profile.status === 'DONE' && Object.values(producerFieldsOf(profile)).every((v) => v === null)) {
       const requeue = { status: 'PENDING' as const, requestedAt: new Date(), attempts: 0, nextAttemptAt: null, reservedUntil: null, errorMessage: null };
       await this.prisma.producerProfile.updateMany({ where: { producerKey, status: { not: 'PENDING' } }, data: requeue });
       profile = { ...profile, ...requeue };

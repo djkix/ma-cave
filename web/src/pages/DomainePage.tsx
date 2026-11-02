@@ -54,7 +54,8 @@ export function DomainePage() {
         {q.data && (
           <>
             {empty && profile?.status === 'UNKNOWN' && <p className="list__meta">Domaine inconnu de l’IA</p>}
-            {empty && profile?.status !== 'UNKNOWN' && <p className="list__meta">Fiche du domaine en préparation</p>}
+            {empty && profile?.status === 'FAILED' && <p className="list__meta">Fiche du domaine indisponible</p>}
+            {empty && profile?.status !== 'UNKNOWN' && profile?.status !== 'FAILED' && <p className="list__meta">Fiche du domaine en préparation</p>}
             {error && <p role="alert" className="text-error">{error}</p>}
             {profile && FIELDS.map(([f, title]) => (
               <section key={f} className="card">

@@ -71,6 +71,13 @@ it('annonce la préparation et l’ignorance de l’IA', async () => {
   expect(await screen.findByText('Fiche du domaine en préparation')).toBeInTheDocument();
 });
 
+it('fiche en échec : indisponible, pas en préparation', async () => {
+  vi.spyOn(api, 'getProducer').mockResolvedValue({ ...page, profile: { ...page.profile!, status: 'FAILED', fields: { histoire: null, terroir: null, cepages: null, style: null, nez: null } } });
+  mount();
+  expect(await screen.findByText('Fiche du domaine indisponible')).toBeInTheDocument();
+  expect(screen.queryByText('Fiche du domaine en préparation')).toBeNull();
+});
+
 it('Domaine inconnu de l’IA', async () => {
   vi.spyOn(api, 'getProducer').mockResolvedValue({ ...page, profile: { ...page.profile!, status: 'UNKNOWN', fields: { histoire: null, terroir: null, cepages: null, style: null, nez: null } } });
   mount();

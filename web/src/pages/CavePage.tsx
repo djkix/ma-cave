@@ -39,7 +39,8 @@ export function CavePage() {
   // Un seul filtre d'apogée à la fois : « à boire en priorité » exclut par définition les vins sans estimation.
   const [apogeeFilter, setApogeeFilter] = useState<'' | 'drinkSoon' | 'noApogee'>(FILTER_FROM_URL[params.get('filtre') ?? ''] ?? '');
   const base: CaveFilter = { q, color: color || undefined, includeEmpty, ...(dish.trim() ? { dish: dish.trim() } : {}), ...(location ? { location } : {}),
-    ...(aromas.length ? { aromas } : {}), ...(vintageMin ? { vintageMin: Number(vintageMin) } : {}), ...(vintageMax ? { vintageMax: Number(vintageMax) } : {}),
+    ...(aromas.length ? { aromas } : {}), ...(Number.isFinite(Number(vintageMin)) && vintageMin ? { vintageMin: Math.trunc(Number(vintageMin)) } : {}),
+    ...(Number.isFinite(Number(vintageMax)) && vintageMax ? { vintageMax: Math.trunc(Number(vintageMax)) } : {}),
     ...(tannin ? { tannin } : {}), ...(region ? { region } : {}) };
   const clearRegion = () => setParams((p) => { p.delete('region'); return p; }, { replace: true });
   const aromasLabel = aromas.length ? `Arômes : ${aromas.join(', ')}` : 'Arômes : tous';

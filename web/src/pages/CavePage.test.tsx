@@ -55,6 +55,13 @@ it('transmet la recherche pré-remplie par l’URL', async () => {
   expect(screen.getByLabelText('Rechercher')).toHaveValue('tempier');
 });
 
+it('envoie un millésime décimal tronqué en entier', async () => {
+  const getCave = vi.spyOn(api, 'getCave').mockResolvedValue([]);
+  mount('/cave');
+  await userEvent.type(await screen.findByLabelText('Millésime de'), '2010.5');
+  await waitFor(() => expect(getCave).toHaveBeenLastCalledWith(expect.objectContaining({ vintageMin: 2010 })));
+});
+
 it('filtre par couleur et montre les épuisés sur demande', async () => {
   const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(rows);
   mount();

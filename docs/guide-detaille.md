@@ -950,31 +950,54 @@ en pause jusqu'à HH:MM… », « quota Gemini épuisé »), part de la cave att
 réponse inexploitable ou panne répondent 503 avec un message lisible, affiché
 tel quel, et l'on peut réessayer.
 
-**Descriptif du domaine.** Chaque domaine (producteur) reçoit un seul texte,
-partagé par tous ses vins et millésimes, **dans toutes les caves**, généré en arrière-plan par Gemini (3
-à 4 phrases : lieu, histoire, style) — par lots de **10 domaines au plus par
-appel**, avec la même attente de 2 minutes, les mêmes reprises et la même part
-de 80 % du plafond mensuel que les accords mets-vins (deux sortes de lots
-distinctes : un appel ne mélange jamais accords et descriptifs), déclenché à la création
-d'un vin dont le domaine n'a pas encore de descriptif et, pour les domaines
-déjà existants, au démarrage du worker. Quand Gemini n'a pas d'information
-fiable sur un petit domaine, la fiche affiche « Domaine peu documenté » plutôt
-qu'un texte inventé. Un descriptif généré par Gemini porte toujours la mention
-« Généré par Gemini, peut contenir des erreurs ». Tout le monde le lit ;
-**seuls les administrateurs l'écrivent** (403 « Réservé à l’administrateur »
-pour les autres, propriétaires compris) : un texte saisi à la main
-(2 000 caractères maximum) prend le pas sur celui de Gemini et le remplace
-tant qu'on ne choisit pas *Revenir au texte généré*, qui relance une
-génération ; *Régénérer* relance aussi une génération à tout moment — le
-descriptif repasse en attente et rejoint le lot suivant, la fiche affiche
-aussitôt « Descriptif en préparation… ». Le bloc
-*Le domaine* s'affiche sur la fiche du vin, au-dessus des accords mets-vins.
-API : `PUT /api/producers/:key/description`, `POST
-/api/producers/:key/regenerate`, et `producerKey` / `producerProfile` ajoutés
-à `GET /api/wines/:id`. Au démarrage du worker, tous les domaines sans
-descriptif sont mis en attente : ils partent dix par dix, au plus un lot de
-descriptifs (et un d'accords) par passage du worker, toutes les 15 s environ —
-un passage dont l'appel Gemini dure encore fait sauter le suivant.
+**Page Domaine.** Chaque domaine (producteur) a une fiche de cinq champs :
+*histoire*, *terroir*, *cépages*, *style* et *nez*, partagée par tous ses vins et
+millésimes, **dans toutes les caves**. Elle est générée en arrière-plan par
+Gemini, par lots de **10 domaines au plus par appel** (mêmes reprises, même part
+de 80 % du plafond mensuel que les accords ; un appel ne mélange jamais deux
+sortes de lots), à la création d'un vin dont le domaine n'a pas de fiche et,
+pour les domaines existants, au démarrage du worker. Un affichage ne déclenche
+jamais d'appel : une fiche absente est mise en file une seule fois, une fiche en
+échec ou « peu documentée » n'est relancée que par *Régénérer*. Un champ généré
+porte la mention « Généré par Gemini, peut contenir des erreurs ». Tout le
+monde lit la page ; **seuls les administrateurs corrigent** un champ, un par un
+(403 « Réservé à l’administrateur » pour les autres, propriétaires compris).
+Une correction n'est jamais écrasée par la génération : seul *Régénérer* la
+remplace. L'ancien descriptif devient le champ « Histoire » et, s'il avait été
+saisi à la main, reste protégé. La fiche du vin garde un aperçu *Le domaine*
+(trois lignes d'histoire) avec un lien vers la page, qui liste aussi les vins du
+domaine dans la cave courante. API : `GET /api/producers/:key`,
+`PUT /api/producers/:key/fields/:field`, `POST /api/producers/:key/regenerate`,
+et `producerKey` / `producerProfile` dans `GET /api/wines/:id`. Au démarrage du
+worker, les domaines sans fiche partent dix par dix, au plus un lot de fiches (et
+un d'accords) par passage, toutes les 15 s environ.
+
+**Caractéristiques des vins.** Chaque vin porte un *tanin* (léger, moyen,
+puissant), jusqu'à **5 arômes** pris dans une liste fermée de 20 (fruits rouges,
+fruits noirs, agrumes, fruits blancs, fruits exotiques, fruits secs, noisette,
+floral, épicé, poivré, vanille, boisé, toasté, beurré, miel, minéral, végétal,
+sous-bois, cuir, réglisse) et un *pays* (France ou hors de France ; un vin à
+appellation reconnue est toujours français). L'IA les estime en tâche de fond,
+par lots de 10 ; un échec laisse simplement le vin sans tanin ni arôme. Le
+propriétaire les corrige sur la fiche (bloc *Caractéristiques*, aussi quand rien
+n'a encore été estimé) et une correction n'est jamais écrasée ; un membre les lit
+seulement. API : `PUT /api/wines/:id/traits`.
+
+**Filtres de la cave.** Dans l'ordre : recherche, couleur, arômes, millésime,
+tanin, emplacement, à boire en priorité, sans apogée, vins épuisés, plat.
+Paramètres de `GET /api/cave` : `aromas` (liste), `vintageMin`, `vintageMax`
+(entiers), `tannin` (`LEGER`, `MOYEN`, `PUISSANT`) et `region` (une région du
+référentiel, ou `HORS_FRANCE`), tous lus dans la cave courante.
+
+**Carte de France de l'accueil.** Une carte des régions viticoles, colorée selon
+le nombre de bouteilles ; toucher une région ouvre la cave filtrée. Règles de
+comptage : seules les bouteilles **en stock** comptent ; un vin est rangé dans la
+région de son appellation (référentiel) ; sans région, il va dans « Hors de
+France » si son pays est étranger ; sinon il n'est pas placé et la carte indique
+« dont N sans région ».
+
+**Accords « J'ai un vin ».** Dans l'onglet *Accords*, on choisit un vin en stock
+et l'on voit ses plats déjà générés, en cartes, sans aucun appel à l'IA.
 
 **Export Excel.** Réservé au propriétaire de la cave : un classeur `.xlsx` à la demande, limité à la cave courante, régénéré intégralement à
 chaque fois, avec trois feuilles (`Stock`, `Mouvements`, `Référence`), un filtre
@@ -1314,6 +1337,9 @@ pour 10 vins, ou pour 10 domaines, selon les quotas. Une grande cave se remplit
 donc en plusieurs heures, sans rien bloquer ; un vin sans résultat reste
 simplement sans tanin ni arôme, et une correction du propriétaire n'est jamais
 écrasée.
+
+Un descriptif de domaine saisi à la main est conservé comme champ « Histoire » et
+reste protégé : la génération ne l'écrase pas.
 
 1. `docker compose pull && docker compose up -d`.
 2. Laisser tourner : la carte de France, les filtres *Arômes* et *Tanin* et les

@@ -133,11 +133,9 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Accords vins** : dites (ou écrivez) le plat que vous préparez, l'onglet *Accords* propose jusqu'à 5 vins de votre cave, à boire d'abord, avec un score d'accord, une raison et l'apogée ; toucher un vin ouvre sa fiche, le retour ramène à la même liste
 - **J'ai un vin** : choisissez un vin en stock, l'onglet *Accords* montre ses plats déjà générés, en cartes (aucun nouvel appel à l'IA)
 - **Jusqu'à 8 plats** suggérés par Gemini pour chaque vin
-- **Descriptif du domaine** (3 à 4 phrases), partagé par toutes les caves
 - Générés **par lots de 10** en arrière-plan, **Régénérer** à la demande
 - Recherche **Accompagner un plat** dans l'onglet Cave
-- Texte du domaine modifiable par un **administrateur**
-- **Page Domaine** (`/domaine/…`) : histoire, terroir, cépages, style, nez, remplis par l'IA, corrigeables champ par champ par l'administrateur, **Régénérer** ; vins du domaine dans votre cave
+- **Page Domaine** (`/domaine/…`), partagée par toutes les caves : histoire, terroir, cépages, style, nez, remplis par l'IA, corrigeables champ par champ par l'**administrateur**, **Régénérer** ; vins du domaine dans votre cave
 - **Tanin** (léger, moyen, puissant), jusqu'à **5 arômes** d'une liste de 20 et **pays** estimés par l'IA en tâche de fond, corrigeables sur la fiche : une correction n'est jamais écrasée
 
 ### 💶 Cote
@@ -783,7 +781,7 @@ celles de `/api/admin` aux administrateurs.
 | `POST` | `/api/movements` · `/bulk` · `/out` | Entrée, entrées groupées, sortie |
 | `POST` | `/api/movements/:id/cancel` | Annule un mouvement |
 | `GET` | `/api/movements/recent` | Derniers mouvements |
-| `GET` | `/api/cave` | Liste (`drinkSoon`, `noApogee`, `dish`…) |
+| `GET` | `/api/cave` | Liste (`drinkSoon`, `noApogee`, `dish`, `aromas`, `vintageMin`, `vintageMax`, `tannin`, `region`…) |
 | `GET` | `/api/wines/:id` | Fiche vin |
 | `POST` | `/api/wines/:id/inventory` · `/move` | Inventaire, déplacement |
 | `PUT/DELETE` | `/api/wines/:id/apogee` · `/rating` | Apogée manuelle, note |
@@ -791,7 +789,10 @@ celles de `/api/admin` aux administrateurs.
 | `POST` | `/api/wines/:id/pairing/regenerate` | Régénère les accords |
 | `POST` | `/api/wines/:id/image-search` | Recherche d'image d'étiquette |
 | `POST/DELETE` | `/api/wines/:id/reference-image` | Choisir ou retirer l'image trouvée |
-| `PUT` | `/api/producers/:key/description` | Descriptif du domaine *(admin)* |
+| `PUT` | `/api/wines/:id/traits` | Corriger tanin, arômes, pays |
+| `GET` | `/api/producers/:key` | Page Domaine (fiche et vins de la cave) |
+| `PUT` | `/api/producers/:key/fields/:field` | Corriger un champ du domaine *(admin)* |
+| `POST` | `/api/producers/:key/regenerate` | Régénérer la fiche du domaine *(admin)* |
 | `GET` | `/api/locations` | Emplacements de la cave |
 | `GET/POST/PATCH/DELETE` | `/api/caves/current/zones` | Zones (ordre, grille, photo, repère) |
 | `GET/POST/PATCH/DELETE` | `/api/caves/current/plans` | Plans, image, analyse, propositions |

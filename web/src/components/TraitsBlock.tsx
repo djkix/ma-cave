@@ -20,18 +20,20 @@ export function TraitsBlock({ wineId, traits, readOnly = false }: { wineId: stri
   const [country, setCountry] = useState<Country | ''>('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  if (!traits) return null;
+  // Sans ligne de caractéristiques, seul le propriétaire voit le bloc (le PUT la crée) ; un membre ne voit rien.
+  if (!traits && readOnly) return null;
+  const view: WineTraits = traits ?? { status: 'DONE', tannin: null, aromas: [], country: null, manualFields: [] };
 
   function open() {
-    setTannin(traits!.tannin ?? '');
-    setAromas(traits!.aromas);
-    setCountry(traits!.country ?? '');
+    setTannin(view.tannin ?? '');
+    setAromas(view.aromas);
+    setCountry(view.country ?? '');
     setError(null);
     setEditing(true);
   }
 
   async function save() {
-    const t = traits!;
+    const t = view;
     const body: { tannin?: Tannin | null; aromas?: string[]; country?: Country | null } = {};
     if ((tannin || null) !== t.tannin) body.tannin = tannin || null;
     if (aromas.join('|') !== t.aromas.join('|')) body.aromas = aromas;
@@ -52,18 +54,18 @@ export function TraitsBlock({ wineId, traits, readOnly = false }: { wineId: stri
   }
 
   const toggle = (a: string) => setAromas((cur) => (cur.includes(a) ? cur.filter((x) => x !== a) : [...cur, a]));
-  const pending = traits.status === 'PENDING' && traitsEmpty(traits);
+  const pending = view.status === 'PENDING' && traitsEmpty(view);
   return (
     <section className="card">
       <h3 style={{ fontSize: 16, margin: 0 }}>Caractéristiques</h3>
       {!editing && (
         <>
           {pending && <p className="list__meta">Caractéristiques en préparation</p>}
-          {traits.tannin && <p style={{ margin: 'var(--space-xs) 0' }}>{`Tanin : ${TANNIN_LABEL[traits.tannin]}`}</p>}
-          {traits.aromas.length > 0 && (
-            <ul className="dish-pills">{traits.aromas.map((a) => <li key={a} className="dish-pill">{a}</li>)}</ul>
+          {view.tannin && <p style={{ margin: 'var(--space-xs) 0' }}>{`Tanin : ${TANNIN_LABEL[view.tannin]}`}</p>}
+          {view.aromas.length > 0 && (
+            <ul className="dish-pills">{view.aromas.map((a) => <li key={a} className="dish-pill">{a}</li>)}</ul>
           )}
-          {traits.country === 'AUTRE' && <p style={{ margin: 'var(--space-xs) 0' }}>Hors de France</p>}
+          {view.country === 'AUTRE' && <p style={{ margin: 'var(--space-xs) 0' }}>Hors de France</p>}
           {!readOnly && <Button variant="link" onClick={open}>Corriger</Button>}
         </>
       )}

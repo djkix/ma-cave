@@ -173,7 +173,7 @@ it('referme la correction d’apogée en cours quand on change de vin', async ()
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  await userEvent.click(await screen.findByRole('button', { name: 'Corriger' }));
+  await userEvent.click((await screen.findAllByRole('button', { name: 'Corriger' })).at(-1)!);
   await userEvent.clear(screen.getByLabelText('Année de début'));
   await userEvent.type(screen.getByLabelText('Année de début'), '2099');
   expect(screen.getByLabelText('Année de début')).toHaveValue('2099');
@@ -396,7 +396,7 @@ describe('selon le rôle', () => {
     vi.spyOn(api, 'getWine').mockResolvedValue(full);
     mount();
     expect(await screen.findByRole('button', { name: 'Corriger le stock' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Corriger' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Corriger' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Revenir à ma photo' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Sortir/ })).toBeInTheDocument();
     const domaine = within(screen.getByRole('heading', { name: 'Le domaine' }).closest('section')!);

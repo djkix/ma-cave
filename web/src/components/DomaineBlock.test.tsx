@@ -41,6 +41,12 @@ it('dit que le domaine est peu documenté', () => {
   expect(screen.getByText('Domaine peu documenté : Gemini n’a pas d’information fiable.')).toBeInTheDocument();
 });
 
+it('dit que la fiche est indisponible quand la génération a échoué', () => {
+  mount('domaine tempier', gemini({ status: 'FAILED', fields: { histoire: null, terroir: null, cepages: null, style: null, nez: null } }));
+  expect(screen.getByText('Fiche du domaine indisponible')).toBeInTheDocument();
+  expect(screen.queryByText('Descriptif en préparation…')).toBeNull();
+});
+
 it('rafraîchit la fiche toutes les 5 s tant que le descriptif est en préparation, pas sinon', () => {
   expect(producerPollInterval('domaine tempier', null)).toBe(5000);
   expect(producerPollInterval('domaine tempier', gemini({ status: 'PENDING' }))).toBe(5000);

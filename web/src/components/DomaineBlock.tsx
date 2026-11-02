@@ -31,6 +31,8 @@ export function DomaineBlock({
         <p style={{ margin: 'var(--space-xs) 0', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{histoire}</p>
       ) : unknown ? (
         <p className="list__meta">Domaine peu documenté : Gemini n’a pas d’information fiable.</p>
+      ) : producerProfile?.status === 'FAILED' ? (
+        <p className="list__meta">Fiche du domaine indisponible</p>
       ) : (
         <p className="list__meta">Descriptif en préparation…</p>
       )}

@@ -88,11 +88,19 @@ describe('ProducersService.page', () => {
     expect(h.prisma.producerProfile.updateMany).not.toHaveBeenCalled();
   });
 
-  it('une fiche sans aucun des cinq champs (ancien format, échec) repasse en attente', async () => {
-    const h = pageHarness([{ producerKey: KEY, displayName: 'Domaine Tempier', status: 'FAILED', source: 'GEMINI', description: null, ...EMPTY, manualFields: [], errorMessage: 'x', generatedAt: null, updatedBy: null }]);
+  it('une fiche terminée sans aucun des cinq champs (ancien format) repasse en attente', async () => {
+    const h = pageHarness([{ producerKey: KEY, displayName: 'Domaine Tempier', status: 'DONE', source: 'GEMINI', description: null, ...EMPTY, manualFields: [], errorMessage: null, generatedAt: null, updatedBy: null }]);
     const { profile } = await h.service.page('c1', KEY, 'VIEWER');
     expect(profile).toMatchObject({ status: 'PENDING' });
     expect(h.profiles[0]).toMatchObject({ status: 'PENDING', attempts: 0, nextAttemptAt: null, reservedUntil: null, errorMessage: null });
+  });
+
+  it('une fiche en échec reste en échec, quel que soit le nombre d’affichages', async () => {
+    const h = pageHarness([{ producerKey: KEY, displayName: 'Domaine Tempier', status: 'FAILED', source: 'GEMINI', description: null, ...EMPTY, manualFields: [], errorMessage: 'x', generatedAt: null, updatedBy: null }]);
+    await h.service.page('c1', KEY, 'VIEWER');
+    const { profile } = await h.service.page('c1', KEY, 'VIEWER');
+    expect(profile).toMatchObject({ status: 'FAILED' });
+    expect(h.prisma.producerProfile.updateMany).not.toHaveBeenCalled();
   });
 
   it('un domaine inconnu de Gemini n’est pas remis en file à chaque affichage', async () => {
