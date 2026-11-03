@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.42.0](https://github.com/djkix/ma-cave/compare/v2.41.0...v2.42.0) (2026-11-03)
+
+
+### Fonctionnalités
+
+* **web:** nouvelle charte « Ma Cave Design Language » et refonte de l'accueil, de la cave, de la fiche vin et de « À confirmer » ([f728df3](https://github.com/djkix/ma-cave/commit/f728df3551d8ecc912dbbc6b7eff19ba7345351c))
+
 ## [2.41.0](https://github.com/djkix/ma-cave/compare/v2.40.0...v2.41.0) (2026-11-03)
 
 ### Résumé
