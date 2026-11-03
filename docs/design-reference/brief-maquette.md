@@ -5,6 +5,11 @@ aujourd'hui : produit, utilisateurs, charte, composants, navigation et écrans,
 avec les libellés exacts. Les maquettes d'origine (`01` à `04` dans ce dossier)
 datent des premières versions et ne montrent plus l'application actuelle.
 
+> **Mise à jour :** la charte décrite plus bas (bronze/doré, Noto Serif +
+> Manrope) a été remplacée par la charte « Ma Cave Design Language »
+> (`05-design-language.md`) ; les jetons à jour sont dans
+> `web/src/design-tokens/tokens.json`.
+
 ## 1. Le produit
 
 - **Ma Cave** : application web installable (PWA) pour gérer une cave à vin
