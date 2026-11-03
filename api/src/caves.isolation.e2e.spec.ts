@@ -744,6 +744,11 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
       expect((await agents.anonymous.get('/api/auth/me')).status).toBe(401);
     });
 
+    it('/appellations : connexion requise, mais aucune cave', async () => {
+      expect((await agents.anonymous.get('/api/appellations?q=pom')).status).toBe(401);
+      expect((await agents.noCave.get('/api/appellations?q=pom')).status).toBe(200);
+    });
+
     it('/auth/current-cave : la cave d’un autre est introuvable ; refusée au compte en attente', async () => {
       const route: Route = { method: 'PUT', path: '/api/auth/current-cave', kind: 'auth-public', req: (i) => ({ url: '/api/auth/current-cave', body: { caveId: i.caveA } }) };
       await refused(agents.ownerB, route, { status: 404, message: 'Cave introuvable' });

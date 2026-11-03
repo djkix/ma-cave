@@ -30,3 +30,11 @@ it('ne signale rien pour une appellation reconnue', async () => {
   await waitFor(() => expect(document.querySelectorAll('datalist option')).toHaveLength(1));
   expect(screen.queryByText(MSG)).toBeNull();
 });
+
+it('reste éditable et muet si les suggestions échouent', async () => {
+  const spy = vi.spyOn(api, 'getAppellations').mockRejectedValue(new Error('réseau'));
+  render(<AppellationField id="a" value="Barolo" onChange={() => {}} />);
+  await waitFor(() => expect(spy).toHaveBeenCalled());
+  expect(screen.getByRole('combobox')).toBeEnabled();
+  expect(screen.queryByText(MSG)).toBeNull();
+});
