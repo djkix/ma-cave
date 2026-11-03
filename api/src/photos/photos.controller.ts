@@ -15,6 +15,7 @@ import { safeParseExtraction } from '../vision/extraction-schema';
 import { PhotosService } from './photos.service';
 
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const quantitySchema = z.coerce.number().int().min(1).max(120);
 const purposeSchema = z.enum(['ENTRY', 'EXIT']).default('ENTRY');
 
 /**
@@ -41,12 +42,15 @@ export class PhotosController {
   @CaveRole('OWNER')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }))
-  async upload(@CurrentCave() cave: CaveAccess, @UploadedFile() file?: Express.Multer.File, @Body('purpose') rawPurpose?: string) {
+  async upload(@CurrentCave() cave: CaveAccess, @UploadedFile() file?: Express.Multer.File, @Body('purpose') rawPurpose?: string, @Body('quantity') rawQuantity?: string) {
     if (!file) throw new BadRequestException('Fichier « file » manquant');
     if (!ALLOWED.has(file.mimetype)) throw new BadRequestException('Format d’image non pris en charge');
     const purpose = purposeSchema.safeParse(rawPurpose ?? undefined);
     if (!purpose.success) throw new BadRequestException('Destination de photo inconnue');
-    const { photo, duplicate } = await this.photos.ingest(cave.caveId, file.buffer, file.mimetype, purpose.data);
+    // Nombre de bouteilles choisi à la prise de vue : facultatif, absent = inconnu.
+    const quantity = rawQuantity === undefined || rawQuantity === '' ? null : quantitySchema.safeParse(rawQuantity);
+    if (quantity && !quantity.success) throw new BadRequestException('Quantité invalide');
+    const { photo, duplicate } = await this.photos.ingest(cave.caveId, file.buffer, file.mimetype, purpose.data, quantity ? quantity.data : null);
     return { id: photo.id, status: photo.status, duplicate };
   }
 

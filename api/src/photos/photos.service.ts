@@ -42,7 +42,7 @@ export class PhotosService {
    * chacune leur photo (fichiers nommés par identifiant de photo, jamais
    * partagés sur le disque).
    */
-  async ingest(caveId: string, input: Buffer, mimeType: string, purpose: PhotoPurpose = 'ENTRY'): Promise<{ photo: Photo; duplicate: boolean }> {
+  async ingest(caveId: string, input: Buffer, mimeType: string, purpose: PhotoPurpose = 'ENTRY', requestedQuantity: number | null = null): Promise<{ photo: Photo; duplicate: boolean }> {
     const contentHash = createHash('sha256').update(input).digest('hex');
     const existing = await this.prisma.photo.findUnique({ where: { caveId_contentHash: { caveId, contentHash } } });
     if (existing) return { photo: await this.reclaimForEntry(existing, purpose), duplicate: true };
@@ -67,7 +67,7 @@ export class PhotosService {
     let photo: Photo;
     try {
       photo = await this.prisma.photo.create({
-        data: { id, caveId, contentHash, storagePath: normalizedPath, mimeType: 'image/jpeg', purpose },
+        data: { id, caveId, contentHash, storagePath: normalizedPath, mimeType: 'image/jpeg', purpose, requestedQuantity },
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {

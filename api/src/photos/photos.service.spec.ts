@@ -72,6 +72,17 @@ describe('PhotosService.ingest', () => {
     expect(queue.add).not.toHaveBeenCalled();
   });
 
+  it('stocke la quantité demandée ; un doublon garde sa valeur d’origine', async () => {
+    const prisma = fakePrisma();
+    const service = new PhotosService(prisma as any, new ImageNormalizationService(), dir, { add: jest.fn() } as any);
+    const img = await sharp({ create: { width: 54, height: 54, channels: 3, background: '#321' } }).jpeg().toBuffer();
+    const a = await service.ingest('c1', img, 'image/jpeg', 'ENTRY', 6);
+    const b = await service.ingest('c1', img, 'image/jpeg', 'ENTRY', 2);
+    expect(a.photo.requestedQuantity).toBe(6);
+    expect(b.duplicate).toBe(true);
+    expect(b.photo.requestedQuantity).toBe(6);
+  });
+
   it('dédoublonne par cave : les mêmes octets dans deux caves donnent deux photos, chacune avec ses fichiers', async () => {
     const prisma = fakePrisma();
     const service = new PhotosService(prisma as any, new ImageNormalizationService(), dir, { add: jest.fn() } as any);

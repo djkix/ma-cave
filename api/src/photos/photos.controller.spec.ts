@@ -64,3 +64,30 @@ describe('PhotosController — GET :id/image', () => {
     expect(res.send).not.toHaveBeenCalled();
   });
 });
+
+describe('PhotosController — POST / quantité', () => {
+  const cave = { caveId: 'c1' } as any;
+  const file = { buffer: Buffer.from('x'), mimetype: 'image/jpeg' } as any;
+  function setup() {
+    const photos = { ingest: jest.fn(async () => ({ photo: { id: 'p1', status: 'PENDING' }, duplicate: false })) };
+    return { controller: new PhotosController(photos as any, {} as any), photos };
+  }
+
+  it('quantity=6 : transmise à l’ingestion', async () => {
+    const { controller, photos } = setup();
+    await controller.upload(cave, file, undefined, '6');
+    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', 6);
+  });
+
+  it('sans champ : null', async () => {
+    const { controller, photos } = setup();
+    await controller.upload(cave, file);
+    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', null);
+  });
+
+  it.each(['0', '121', '2.5', 'abc'])('quantity=%s : 400 « Quantité invalide »', async (q) => {
+    const { controller, photos } = setup();
+    await expect(controller.upload(cave, file, undefined, q)).rejects.toThrow(new BadRequestException('Quantité invalide'));
+    expect(photos.ingest).not.toHaveBeenCalled();
+  });
+});
