@@ -9,6 +9,30 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.41.0](https://github.com/djkix/ma-cave/compare/v2.40.0...v2.41.0) (2026-11-03)
+
+
+### Fonctionnalités
+
+* **api:** la caractérisation devine aussi la région et la garde des vins ([c0f7937](https://github.com/djkix/ma-cave/commit/c0f79376ee49a5552e9d1bf1285f763bd94cfebf))
+* **api:** modifier un vin, avec fusion quand il en double un autre ([54b12b9](https://github.com/djkix/ma-cave/commit/54b12b9461dd8d737d9bdaeb6b8ca9594a3d4bf0))
+* **api:** quantité de bouteilles transmise avec la photo ([946da64](https://github.com/djkix/ma-cave/commit/946da64718c3b08930cd3fc9de3247aca9ce5343))
+* **api:** région publiée (manuelle, référentiel, IA) et apogée estimée par l'IA ([76e7987](https://github.com/djkix/ma-cave/commit/76e79871bddea609bac274dc9f85f4c4444111b8))
+* suggestions d'appellations du référentiel et appellation inconnue signalée ([059b135](https://github.com/djkix/ma-cave/commit/059b1359a281f59283e54f186620542e81307faa))
+* **web:** filtre région, filtre millésime sur une année, stats par année et hors de France ([11bb083](https://github.com/djkix/ma-cave/commit/11bb0830587bd18888b2951e3dfdee6b08d7e21f))
+* **web:** modifier un vin depuis sa fiche, fusion des doublons, région corrigeable ([5085e43](https://github.com/djkix/ma-cave/commit/5085e43ef2a0e7259307e056e1491226dc36d284))
+* **web:** nombre de bouteilles choisi dès la prise de photo ([ea70276](https://github.com/djkix/ma-cave/commit/ea70276c4a75052739bf45c0ec602b3e85362265))
+* **web:** suggestions d'appellations à la confirmation d'un vin ([547c421](https://github.com/djkix/ma-cave/commit/547c4219fbcdf7e5059a29a951426b46674eb8b4))
+
+
+### Corrections
+
+* **api:** caractéristiques relancées au changement de millésime ou de couleur, quantité de photo sans maximum, suggestions sur les noms à trait d'union ([f88bba1](https://github.com/djkix/ma-cave/commit/f88bba15560881b5bd1bbd22be438f4387345b6a))
+* **api:** région et pays cohérents, un seul libellé « Hors de France » ([64e1e23](https://github.com/djkix/ma-cave/commit/64e1e234a4f53d92f141c27987ae67b699338a31))
+* **web:** la quantité choisie à la photo survit à une analyse en échec ([e39c906](https://github.com/djkix/ma-cave/commit/e39c906092033726eba8c042d6b9aa5cf7db33ef))
+* **web:** millésime ou format mal tapé bloque la modification d'un vin ([336b7c0](https://github.com/djkix/ma-cave/commit/336b7c0d6b9db1e12530504eca8cb8f483dec0b1))
+* **web:** région de la fiche selon le pays publié, stats rafraîchies après modification d'un vin ([0ad336c](https://github.com/djkix/ma-cave/commit/0ad336c0a9e4552b746250ecece8e3cf00f52ffc))
+
 ## [2.40.0](https://github.com/djkix/ma-cave/compare/v2.39.0...v2.40.0) (2026-11-02)
 
 ### Résumé
