@@ -67,3 +67,17 @@ it('domaine vide : enregistrement impossible', async () => {
   await userEvent.clear(screen.getByLabelText('Domaine'));
   expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
 });
+
+it('millésime ou format mal tapé : enregistrement impossible, rien n’est envoyé', async () => {
+  const update = vi.spyOn(api, 'updateWine');
+  mount();
+  await userEvent.clear(screen.getByLabelText('Millésime'));
+  await userEvent.type(screen.getByLabelText('Millésime'), '2O18');
+  expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
+  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+  await userEvent.clear(screen.getByLabelText('Millésime'));
+  await userEvent.clear(screen.getByLabelText('Format (cl)'));
+  await userEvent.type(screen.getByLabelText('Format (cl)'), '0');
+  expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
+  expect(update).not.toHaveBeenCalled();
+});

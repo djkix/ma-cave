@@ -32,7 +32,9 @@ export function WineEditForm({ wine, onClose }: { wine: CaveRow; onClose: () => 
   const [busy, setBusy] = useState(false);
 
   // Mêmes exigences que la saisie : domaine et appellation non vides ; le reste est validé par l'api.
-  const valid = producer.trim() !== '' && appellation.trim() !== '';
+  // Jamais de NaN envoyé (il deviendrait null en JSON : un millésime mal tapé passerait pour NV).
+  const valid = producer.trim() !== '' && appellation.trim() !== ''
+    && /^(\d{4})?$/.test(vintage) && /^[1-9]\d*$/.test(formatCl);
 
   async function save(merge: boolean) {
     setBusy(true);
