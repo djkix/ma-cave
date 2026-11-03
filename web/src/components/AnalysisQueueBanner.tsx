@@ -19,18 +19,17 @@ export function AnalysisQueueBanner({ hideLink = false }: { hideLink?: boolean }
   const waiting = isOwner ? (status.data?.waiting ?? 0) : 0;
   if (waiting === 0) return null;
   return (
-    <aside className="banner" role="status">
-      <Icon name="hourglass_top" />
-      <span>
+    <aside className="banner analysis-banner" role="status">
+      <span className="analysis-banner__icon"><Icon name="hourglass_top" /></span>
+      <span className="analysis-banner__text">
         <strong className="num">
           {waiting} photo{waiting > 1 ? 's' : ''} en attente d’analyse
         </strong>
-        <br />
         <small>{status.data?.lastReason ?? 'Analyse automatique dès que le service de lecture répond'}</small>
       </span>
       {!hideLink && (
-        <Link to="/a-confirmer" className="btn btn--outline">
-          Voir la liste
+        <Link to="/a-confirmer" className="btn btn--outline" aria-label="Voir la liste">
+          Voir <Icon name="arrow_forward" />
         </Link>
       )}
     </aside>

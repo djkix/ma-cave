@@ -21,7 +21,11 @@ export function TopBar({ title, back }: { title?: string; back?: string }) {
       ) : (
         <Link to="/" className="topbar__home" aria-label="Accueil"><img src="/icons/icon.svg" alt="" className="topbar__logo" width={32} height={32} /></Link>
       )}
-      <h1 className="topbar__title">{title ?? 'Ma Cave'}</h1>
+      <div className="topbar__heading">
+        {/* Sur-titre de marque au-dessus du titre d'écran ; inutile quand le titre est déjà « Ma Cave ». */}
+        {title && title !== 'Ma Cave' && <span className="topbar__eyebrow" aria-hidden="true">Ma Cave</span>}
+        <h1 className="topbar__title">{title ?? 'Ma Cave'}</h1>
+      </div>
       <CaveSwitcher />
       {/* Dans les Réglages, la version remplace le lien vers les Réglages eux-mêmes. */}
       {inSettings && (

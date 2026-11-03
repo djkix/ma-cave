@@ -18,7 +18,7 @@ it('lists movements, cancels with an inverse movement and never shows Annuler on
       <MemoryRouter><JournalPage /></MemoryRouter>
     </QueryClientProvider>,
   );
-  expect(await screen.findByText('+12')).toBeInTheDocument();
+  expect(await screen.findByText('+12 btl')).toBeInTheDocument();
   expect(screen.getAllByRole('button', { name: /Annuler/ })).toHaveLength(1);
   await userEvent.click(screen.getByRole('button', { name: /Annuler/ }));
   await waitFor(() => expect(cancel).toHaveBeenCalledWith('m1', expect.stringMatching(/^[0-9a-f-]{36}$/)));

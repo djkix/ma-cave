@@ -1,0 +1,61 @@
+/* Refonte « Ma Cave Design Language » — écran home. */
+
+/* Sur-titres et titres de carte */
+.home-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-sm); margin-bottom: var(--space-md); }
+.home-eyebrow { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-secondary); }
+.home-title { margin: 2px 0 0; font-size: 20px; font-weight: 700; color: var(--color-primary); }
+.home-head__link { display: inline-flex; align-items: center; gap: 4px; min-height: 48px; font-size: 13px; font-weight: 600; color: var(--color-primary); text-decoration: none; white-space: nowrap; }
+.home-head__link .material-symbols-outlined { font-size: 16px; }
+.home-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; vertical-align: middle; background: var(--color-surface-container-high); color: var(--color-secondary); }
+.home-chip--lichen { background: var(--color-primary-fixed); color: var(--color-primary-container); }
+
+/* Bandeau d'analyse */
+.analysis-banner { background: var(--color-surface-container); border-color: var(--color-outline-subtle); }
+.analysis-banner__icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-xl); background: var(--color-primary-fixed); color: var(--color-primary-container); }
+.analysis-banner__text { display: flex; flex-direction: column; min-width: 0; }
+.analysis-banner__text small { font-size: 12px; color: var(--color-secondary); }
+.analysis-banner .btn { min-height: 48px; gap: 4px; background: var(--color-surface-container-high); border-color: transparent; }
+.analysis-banner .btn .material-symbols-outlined { font-size: 16px; }
+
+/* Grandes cartes d'action */
+.home-actions { display: flex; flex-direction: column; gap: var(--space-sm); }
+.home-action { display: flex; align-items: center; gap: var(--space-md); min-height: 72px; padding: var(--space-md); border: 1px solid var(--color-outline-subtle); border-radius: var(--radius-xl); background: var(--color-surface-lowest); color: var(--color-primary); text-decoration: none; }
+.home-action__icon { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: var(--radius-xl); background: var(--color-surface-container-high); }
+.home-action__icon--out { background: var(--color-primary-fixed); color: var(--color-primary-container); }
+.home-action__text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.home-action__text strong { font-size: 17px; font-weight: 700; }
+.home-action__text small { font-size: 13px; color: var(--color-secondary); }
+
+/* « N vins à confirmer » */
+.home-confirm { display: flex; align-items: center; gap: var(--space-sm); min-height: 56px; padding: var(--space-sm) var(--space-md); border-radius: var(--radius-xl); background: var(--color-ferronnerie); color: var(--color-on-primary); text-decoration: none; font-weight: 600; }
+.home-confirm__text { flex: 1; }
+
+/* Carte de France */
+.geo__terroirs { margin: var(--space-sm) 0; text-align: right; font-size: 12px; color: var(--color-secondary); }
+.geo__chips { display: flex; gap: var(--space-sm); overflow-x: auto; padding-bottom: var(--space-xs); scrollbar-width: none; }
+.geo__chip { flex: none; min-height: 48px; padding: 0 var(--space-md); border: 0; border-radius: 999px; background: var(--color-surface-container); color: var(--color-primary); font: 600 14px var(--font-sans); cursor: pointer; }
+.geo__chip--active { background: var(--color-primary); color: var(--color-on-primary); }
+
+/* À boire prochainement */
+.drink-soon__list { display: flex; flex-direction: column; gap: var(--space-sm); }
+.drink-soon__item { display: flex; flex-direction: column; gap: 4px; padding: var(--space-md); border-radius: var(--radius-xl); background: var(--color-surface-container-low); color: inherit; text-decoration: none; }
+.drink-soon__top, .drink-soon__bottom { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); }
+.drink-soon__producer { font-size: 16px; font-weight: 700; color: var(--color-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drink-soon__wine { font-size: 13px; color: var(--color-secondary); }
+.drink-soon__where { display: inline-flex; align-items: center; gap: 4px; min-width: 0; font-size: 12px; color: var(--color-secondary); }
+.drink-soon__where .material-symbols-outlined { font-size: 16px; }
+.drink-soon__bottom .num { font-weight: 700; white-space: nowrap; }
+
+/* Mouvements (accueil et journal) */
+.mv { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) 0; border-bottom: 1px solid var(--color-outline-subtle); }
+.mv:last-child { border-bottom: 0; }
+.mv__badge { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--color-surface-container-high); color: var(--color-secondary); }
+.mv__badge--in { background: var(--color-primary-fixed); color: var(--color-primary-container); }
+.mv__body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mv__title { margin: 0; font-size: 15px; font-weight: 700; color: var(--color-primary); }
+.mv__meta { font-size: 12px; color: var(--color-secondary); }
+.mv__side { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-xs); }
+.mv__delta { font-size: 14px; font-weight: 700; white-space: nowrap; color: var(--color-secondary); }
+.mv__delta--in { color: var(--color-primary-container); }
+.home-wide-btn { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); min-height: 48px; margin-top: var(--space-sm); border-radius: var(--radius-xl); background: var(--color-surface-container); color: var(--color-primary); font-weight: 600; text-decoration: none; }
+.home-wide-btn .material-symbols-outlined { font-size: 18px; }

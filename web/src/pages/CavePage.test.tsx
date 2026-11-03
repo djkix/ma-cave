@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import * as api from '../lib/api-client';
+import { viewerMe } from '../test-fixtures';
 import { CavePage } from './CavePage';
 
 // jsdom n'a ni showModal ni close : simulés comme dans les tests de BottomSheet.
@@ -213,7 +214,7 @@ it('les filtres sont dans l’ordre demandé', async () => {
   await screen.findByText(/Domaine Leflaive/);
   const names = Array.from(container.querySelectorAll('.cave-filters input, .cave-filters select, .cave-filters button')).map((el) =>
     el.getAttribute('aria-label') ?? el.textContent ?? '');
-  const wanted = ['Rechercher', 'Couleur', 'Arômes', 'Millésime', 'Bourgogne', 'Hors de France', 'Tanin', 'Emplacement', 'À boire en priorité', 'Sans apogée', 'Afficher les vins épuisés', 'Accompagner un plat'];
+  const wanted = ['Rechercher', 'Accompagner un plat', 'Couleur', 'Arômes', 'Millésime', 'Tanin', 'Emplacement', 'Bourgogne', 'Hors de France', 'À boire en priorité', 'Afficher les vins épuisés', 'Sans apogée'];
   const pos = wanted.map((n) => names.findIndex((x) => x.startsWith(n)));
   expect(pos.every((p) => p >= 0)).toBe(true);
   expect(pos).toEqual([...pos].sort((a, b) => a - b));
@@ -249,4 +250,36 @@ it('cocher boisé et noisette envoie deux aromas', async () => {
   await userEvent.click(screen.getByLabelText('boisé'));
   await userEvent.click(screen.getByLabelText('noisette'));
   await waitFor(() => expect(getCave).toHaveBeenLastCalledWith(expect.objectContaining({ aromas: ['boisé', 'noisette'] })));
+});
+
+it('résume les bouteilles et références, et marque la ligne épuisée', async () => {
+  vi.spyOn(api, 'getCave').mockResolvedValue([rows[0], { ...rows[1], quantity: 0 }]);
+  mount();
+  expect(await screen.findByText('3 bouteilles')).toBeInTheDocument();
+  expect(screen.getByText('2 références')).toBeInTheDocument();
+  const row = screen.getByRole('link', { name: /Leflaive/ });
+  expect(within(row).getByText('Épuisé')).toBeInTheDocument();
+  expect(row).toHaveClass('cave-row--empty');
+});
+
+it('signale une apogée estimée par l’IA', async () => {
+  vi.spyOn(api, 'getCave').mockResolvedValue([{ ...rows[0], apogee: { ...rows[0].apogee!, source: 'IA' } }]);
+  mount();
+  expect(await screen.findByText('(estimée IA)')).toBeInTheDocument();
+});
+
+it('réserve la photo d’étiquette et l’ajout d’un vin au propriétaire', async () => {
+  vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  vi.spyOn(api, 'getMe').mockResolvedValue(viewerMe());
+  mount();
+  await screen.findByText(/Domaine Tempier/);
+  expect(screen.queryByRole('link', { name: 'Ajouter un vin' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Reconnaître une étiquette par photo' })).toBeNull();
+});
+
+it('propose photo et ajout au propriétaire', async () => {
+  vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  mount();
+  expect(await screen.findByRole('link', { name: 'Ajouter un vin' })).toHaveAttribute('href', '/entree');
+  expect(screen.getByRole('link', { name: 'Reconnaître une étiquette par photo' })).toHaveAttribute('href', '/sortie');
 });

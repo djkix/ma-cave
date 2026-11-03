@@ -36,7 +36,10 @@ function renderPage() {
   return { invalidate };
 }
 
-const section = (name: RegExp) => screen.getByRole('region', { name });
+const section = async (name: RegExp) => {
+  await userEvent.click(screen.getByRole('tab', { name }));
+  return screen.getByRole('tabpanel');
+};
 
 it('montre les trois sections : à valider, en cours d’analyse, lecture impossible', async () => {
   vi.spyOn(api, 'getEntryInbox').mockResolvedValue(inbox({
@@ -49,11 +52,11 @@ it('montre les trois sections : à valider, en cours d’analyse, lecture imposs
   }));
   renderPage();
   expect(await screen.findByDisplayValue('Domaine Sûr')).toBeInTheDocument();
-  expect(within(section(/À valider/)).getAllByRole('article')).toHaveLength(1);
-  const progress = section(/En cours d’analyse/);
+  expect(within(await section(/À valider/)).getAllByRole('article')).toHaveLength(1);
+  const progress = await section(/En cours d’analyse/);
   expect(within(progress).getByText('Analyse en cours (environ 1 min)')).toBeInTheDocument();
   expect(within(progress).getByText('Analyse reportée : service saturé')).toBeInTheDocument();
-  const failed = section(/Lecture impossible/);
+  const failed = await section(/Lecture impossible/);
   expect(within(failed).getByText('Étiquette illisible')).toBeInTheDocument();
   expect(within(failed).getByRole('link', { name: /Saisir à la main/ })).toHaveAttribute('href', '/entree/p-ko');
   expect(within(failed).getByRole('button', { name: /Écarter/ })).toBeInTheDocument();
@@ -80,7 +83,7 @@ it('valide une seule fiche et rafraîchit la liste, la cave et le journal', asyn
   const { invalidate } = renderPage();
   await screen.findAllByRole('article');
   const card = screen.getAllByRole('article').find((a) => within(a).queryByDisplayValue('Domaine B'))!;
-  await userEvent.click(within(card).getByRole('button', { name: /^Valider$/ }));
+  await userEvent.click(within(card).getByRole('button', { name: /^Valider ce vin$/ }));
   await waitFor(() => expect(bulk).toHaveBeenCalledTimes(1));
   const items = bulk.mock.calls[0][0];
   expect(items).toHaveLength(1);
@@ -101,7 +104,7 @@ it('liste la confiance la plus basse en premier et « Tout valider » envoie les
   const rows = await screen.findAllByRole('article');
   expect(within(rows[0]).getByDisplayValue('Domaine Douteux')).toBeInTheDocument();
   await userEvent.click(within(rows[0]).getByRole('button', { name: /Mettre de côté/ }));
-  await userEvent.click(screen.getByRole('button', { name: /Tout valider \(1\)/ }));
+  await userEvent.click(screen.getByRole('button', { name: /Tout valider \(1 vin/ }));
   await waitFor(() => expect(bulk).toHaveBeenCalledTimes(1));
   const items = bulk.mock.calls[0][0];
   expect(items).toHaveLength(1);
@@ -135,9 +138,9 @@ it('signale une fiche incomplète, ne la rend pas validable et la laisse hors de
   renderPage();
   await screen.findAllByRole('article');
   const card = screen.getByText('Producteur requis').closest('article')!;
-  expect(within(card).getByRole('button', { name: /^Valider$/ })).toBeDisabled();
+  expect(within(card).getByRole('button', { name: /^Valider ce vin$/ })).toBeDisabled();
   expect(screen.getByText(/1 fiche incomplète/)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: /Tout valider \(1\)/ }));
+  await userEvent.click(screen.getByRole('button', { name: /Tout valider \(1 vin/ }));
   await waitFor(() => expect(bulk).toHaveBeenCalledTimes(1));
   const items = bulk.mock.calls[0][0];
   expect(items).toHaveLength(1);
@@ -156,7 +159,7 @@ it('écarte une fiche à valider et une photo illisible', async () => {
   await userEvent.click(within(card).getByRole('button', { name: /Écarter/ }));
   await waitFor(() => expect(dismiss).toHaveBeenCalledWith('p-a'));
   await waitFor(() => expect(screen.queryByDisplayValue('Domaine A')).not.toBeInTheDocument());
-  await userEvent.click(within(section(/Lecture impossible/)).getByRole('button', { name: /Écarter/ }));
+  await userEvent.click(within(await section(/Lecture impossible/)).getByRole('button', { name: /Écarter/ }));
   await waitFor(() => expect(dismiss).toHaveBeenCalledWith('p-ko'));
   await waitFor(() => expect(screen.queryByText('Étiquette illisible')).not.toBeInTheDocument());
   const keys = invalidate.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey));
@@ -173,12 +176,13 @@ it('demande confirmation avant d’écarter : annuler ne fait rien', async () =>
   renderPage();
   const card = (await screen.findAllByRole('article'))[0];
   await userEvent.click(within(card).getByRole('button', { name: /Écarter/ }));
-  await userEvent.click(within(section(/Lecture impossible/)).getByRole('button', { name: /Écarter/ }));
+  await userEvent.click(within(await section(/Lecture impossible/)).getByRole('button', { name: /Écarter/ }));
   expect(confirm).toHaveBeenCalledTimes(2);
   expect(confirm).toHaveBeenCalledWith('Écarter cette photo ? Elle ne sera plus proposée.');
   expect(dismiss).not.toHaveBeenCalled();
-  expect(screen.getByDisplayValue('Domaine A')).toBeInTheDocument();
   expect(screen.getByText('Étiquette illisible')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('tab', { name: /À valider/ }));
+  expect(screen.getByDisplayValue('Domaine A')).toBeInTheDocument();
 });
 
 it('écarte après confirmation acceptée', async () => {
@@ -202,8 +206,8 @@ it('nomme le vin dans le libellé de chaque bouton « Écarter », sinon « cett
   renderPage();
   await screen.findAllByRole('article');
   expect(screen.getByRole('button', { name: 'Écarter Domaine A 2019' })).toBeInTheDocument();
-  expect(within(section(/À valider/)).getByRole('button', { name: 'Écarter cette photo' })).toBeInTheDocument();
-  expect(within(section(/Lecture impossible/)).getByRole('button', { name: 'Écarter cette photo' })).toBeInTheDocument();
+  expect(within(await section(/À valider/)).getByRole('button', { name: 'Écarter cette photo' })).toBeInTheDocument();
+  expect(within(await section(/Lecture impossible/)).getByRole('button', { name: 'Écarter cette photo' })).toBeInTheDocument();
 });
 
 it('« Mettre de côté » retire la fiche de « Tout valider » pour cette visite seulement', async () => {
@@ -213,11 +217,11 @@ it('« Mettre de côté » retire la fiche de « Tout valider » pour cette visi
   const card = (await screen.findAllByRole('article'))[0];
   expect(screen.queryByRole('button', { name: /Ignorer/ })).not.toBeInTheDocument();
   await userEvent.click(within(card).getByRole('button', { name: 'Mettre de côté' }));
-  expect(screen.getByRole('button', { name: /Tout valider \(0\)/ })).toBeDisabled();
+  expect(screen.getByRole('button', { name: /Tout valider \(0 vin/ })).toBeDisabled();
   expect(screen.getByText(/les fiches mises de côté restent à confirmer/)).toBeInTheDocument();
   expect(dismiss).not.toHaveBeenCalled();
   await userEvent.click(within(card).getByRole('button', { name: 'Reprendre' }));
-  expect(screen.getByRole('button', { name: /Tout valider \(1\)/ })).toBeEnabled();
+  expect(screen.getByRole('button', { name: /Tout valider \(1 vin/ })).toBeEnabled();
 });
 
 it('affiche le refus d’écarter une photo déjà utilisée', async () => {
@@ -287,7 +291,7 @@ it('ne laisse pas valider tant que les emplacements ne sont pas lus', async () =
   vi.spyOn(api, 'getLocations').mockImplementation(() => new Promise(() => {}));
   renderPage();
   await screen.findAllByRole('article');
-  expect(screen.getByRole('button', { name: /^Valider$/ })).toBeDisabled();
+  expect(screen.getByRole('button', { name: /^Valider ce vin$/ })).toBeDisabled();
   expect(screen.getByRole('button', { name: /Tout valider/ })).toBeDisabled();
 });
 
@@ -307,9 +311,9 @@ describe('emplacements illisibles ou sans réponse : la validation n’attend ja
     const bulk = vi.spyOn(api, 'createMovementsBulk').mockImplementation(async (items) => items.map((i) => okResult(i.idempotencyKey)));
     renderWithRetries();
     await screen.findAllByRole('article');
-    await waitFor(() => expect(screen.getByRole('button', { name: /^Valider$/ })).toBeEnabled(), { timeout: 900 });
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Valider ce vin$/ })).toBeEnabled(), { timeout: 900 });
     expect(list).toHaveBeenCalledTimes(1);
-    await userEvent.click(screen.getByRole('button', { name: /^Valider$/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Valider ce vin$/ }));
     await waitFor(() => expect(bulk).toHaveBeenCalledTimes(1));
     expect(bulk.mock.calls[0][0][0].location).toBeNull();
   });
@@ -328,7 +332,7 @@ describe('emplacements illisibles ou sans réponse : la validation n’attend ja
         vi.advanceTimersByTime(2000);
       });
       expect(all).toBeEnabled();
-      expect(screen.getByRole('button', { name: /^Valider$/ })).toBeEnabled();
+      expect(screen.getByRole('button', { name: /^Valider ce vin$/ })).toBeEnabled();
       fireEvent.click(all);
       await waitFor(() => expect(bulk).toHaveBeenCalledTimes(1));
       expect(bulk.mock.calls[0][0][0].location).toBeNull();
@@ -350,5 +354,23 @@ it('propose les appellations sur chaque photo, ids distincts, et signale une app
   await userEvent.clear(fields[0]);
   await userEvent.type(fields[0], 'Zzzz');
   expect(await screen.findByText(/Appellation inconnue du référentiel/)).toBeInTheDocument();
-  expect(screen.getAllByRole('button', { name: /^Valider$/ })[0]).toBeEnabled();
+  expect(screen.getAllByRole('button', { name: /^Valider ce vin$/ })[0]).toBeEnabled();
+});
+
+it('onglets : « À valider » par défaut, premier non vide sinon, flèches du clavier, dock en vins et bouteilles', async () => {
+  vi.spyOn(api, 'getEntryInbox').mockResolvedValue(inbox({ failed: [{ id: 'p-ko', status: 'FAILED', createdAt: '', errorMessage: 'Étiquette illisible' }] }));
+  const first = renderPage;
+  first();
+  expect(await screen.findByRole('tab', { name: 'Lecture impossible (1)' })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('tab', { name: 'À valider (0)' })).toHaveAttribute('aria-selected', 'false');
+  screen.getByRole('tab', { name: 'Lecture impossible (1)' }).focus();
+  await userEvent.keyboard('{ArrowRight}');
+  expect(screen.getByRole('tab', { name: 'À valider (0)' })).toHaveAttribute('aria-selected', 'true');
+});
+
+it('dock : « Tout valider (N vins · M bouteilles) » somme les quantités des fiches gardées', async () => {
+  vi.spyOn(api, 'getEntryInbox').mockResolvedValue(inbox({ toConfirm: [done('p-a', ext('Domaine A', 0.95, 6)), done('p-b', ext('Domaine B', 0.95, 12))] }));
+  renderPage();
+  expect(await screen.findByRole('button', { name: 'Tout valider (2 vins · 18 bouteilles)' })).toBeInTheDocument();
+  expect(screen.getByText('2 prêts')).toBeInTheDocument();
 });

@@ -39,7 +39,7 @@ it('affiche le vin, son stock et ses derniers mouvements', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue(detail);
   mount();
   expect(await screen.findByRole('heading', { name: /Domaine Tempier/ })).toBeInTheDocument();
-  expect(screen.getByText('6 en stock')).toBeInTheDocument();
+  expect(screen.getByText('en stock').parentElement).toHaveTextContent('6 en stock');
   expect(screen.getByText('+6')).toBeInTheDocument();
 });
 
@@ -379,10 +379,10 @@ describe('selon le rôle', () => {
     expect(await screen.findByRole('heading', { name: /Domaine Tempier/ })).toBeInTheDocument();
     await waitFor(() => expect(me).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 20));
-    expect(screen.getByText('6 en stock')).toBeInTheDocument();
+    expect(screen.getByText('en stock').parentElement).toHaveTextContent('6 en stock');
     expect(screen.getByText('Un domaine du Var…')).toBeInTheDocument();
-    expect(screen.getByText('Accords mets-vins')).toBeInTheDocument();
-    expect(screen.getByText('Apogée')).toBeInTheDocument();
+    expect(screen.getByText('Accords conseillés')).toBeInTheDocument();
+    expect(screen.getByText('Période d’apogée')).toBeInTheDocument();
     expect(screen.getByText(/notée le/)).toBeInTheDocument();
     expect(screen.queryByText(/null/)).not.toBeInTheDocument();
     expect(screen.queryAllByRole('button')).toHaveLength(0);

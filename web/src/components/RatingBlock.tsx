@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { CaveRow, clearRating, setRating } from '../lib/api-client';
 import { formatRating, parseRating } from '../lib/rating';
 import { Button } from './Button';
+import { Icon } from './Icon';
 
 const DATE = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -40,10 +41,10 @@ export function RatingBlock({ wine, readOnly = false }: { wine: CaveRow; readOnl
   if (readOnly && !rating) return null;
   return (
     <section className="card">
-      <h3 style={{ fontSize: 16, margin: 0 }}>{readOnly ? 'Note' : 'Ma note'}</h3>
+      <h3 className="wine-card__title"><Icon name="star" />Évaluation personnelle</h3>
       {rating && !editing && (
         <>
-          <p className="num" style={{ fontSize: 22, margin: 'var(--space-xs) 0' }}>{formatRating(rating.value)}</p>
+          <p className="num wine-rating__value">{formatRating(rating.value)}</p>
           <p className="list__meta" style={{ margin: 0 }}>
             {`notée le ${DATE.format(new Date(rating.ratedAt))}${rating.ratedBy ? ` par ${rating.ratedBy}` : ''}`}
           </p>

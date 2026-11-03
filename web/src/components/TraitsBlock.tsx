@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Country, setWineTraits, Tannin, WineTraits } from '../lib/api-client';
 import { AROMAS, MAX_AROMAS, REGIONS, TANNIN_LABEL } from '../lib/traits';
 import { Button } from './Button';
+import { Icon } from './Icon';
 
 /** Valeur du sélecteur de région pour un vin hors de France (envoyée comme `country: 'AUTRE'`). */
 const HORS_FRANCE = 'HORS_FRANCE';
@@ -76,17 +77,24 @@ export function TraitsBlock({ wineId, traits, region = null, regionSource = null
   const pending = view.status === 'PENDING' && traitsEmpty(view);
   return (
     <section className="card">
-      <h3 style={{ fontSize: 16, margin: 0 }}>Caractéristiques</h3>
+      <h3 className="wine-card__title"><Icon name="tune" />Caractéristiques</h3>
       {!editing && (
         <>
           {pending && <p className="list__meta">Caractéristiques en préparation</p>}
-          {view.tannin && <p style={{ margin: 'var(--space-xs) 0' }}>{`Tanin : ${TANNIN_LABEL[view.tannin]}`}</p>}
-          {view.aromas.length > 0 && (
-            <ul className="dish-pills">{view.aromas.map((a) => <li key={a} className="dish-pill">{a}</li>)}</ul>
+          {view.tannin && (
+            <div className="wine-tile"><p className="wine-tile__label">Tanin</p><p className="wine-tile__value">{TANNIN_LABEL[view.tannin]}</p></div>
           )}
-          {country === 'AUTRE' ? <p style={{ margin: 'var(--space-xs) 0' }}>Hors de France</p>
-            : region && <p style={{ margin: 'var(--space-xs) 0' }}>{`Région : ${region}${regionSource === 'IA' ? ' (estimée par l’IA)' : ''}`}</p>}
-          {!readOnly && <Button variant="link" onClick={open}>Corriger</Button>}
+          {view.aromas.length > 0 && (
+            <div className="wine-tile">
+              <p className="wine-tile__label">Palette aromatique</p>
+              <ul className="dish-pills">{view.aromas.map((a) => <li key={a} className="dish-pill">{a}</li>)}</ul>
+            </div>
+          )}
+          <div className="wine-traits__foot">
+            {country === 'AUTRE' ? <p className="wine-traits__region">Hors de France</p>
+              : region ? <p className="wine-traits__region">{`Région : ${region}${regionSource === 'IA' ? ' (estimée par l’IA)' : ''}`}</p> : <span />}
+            {!readOnly && <Button variant="link" onClick={open}>Corriger</Button>}
+          </div>
         </>
       )}
       {editing && (

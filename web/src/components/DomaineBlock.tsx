@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ProducerProfile } from '../lib/api-client';
+import { Icon } from './Icon';
 
 export const PRODUCER_POLL_MS = 5000;
 
@@ -26,9 +27,9 @@ export function DomaineBlock({
 
   return (
     <section className="card">
-      <h3 style={{ fontSize: 16, margin: 0 }}>Le domaine</h3>
+      <h3 className="wine-card__title"><Icon name="storefront" />Le domaine</h3>
       {histoire ? (
-        <p style={{ margin: 'var(--space-xs) 0', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{histoire}</p>
+        <p className="wine-clamp">{histoire}</p>
       ) : unknown ? (
         <p className="list__meta">Domaine peu documenté : Gemini n’a pas d’information fiable.</p>
       ) : producerProfile?.status === 'FAILED' ? (
@@ -36,7 +37,7 @@ export function DomaineBlock({
       ) : (
         <p className="list__meta">Descriptif en préparation…</p>
       )}
-      <Link to={`/domaine/${encodeURIComponent(producerKey)}`}>Voir le domaine</Link>
+      <Link className="wine-card__link" to={`/domaine/${encodeURIComponent(producerKey)}`}>Voir le domaine <Icon name="arrow_forward" /></Link>
     </section>
   );
 }

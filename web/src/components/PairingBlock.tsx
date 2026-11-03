@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Pairing, regeneratePairing } from '../lib/api-client';
 import { Button } from './Button';
+import { Icon } from './Icon';
 
 export const PAIRING_POLL_MS = 5000;
 
@@ -32,7 +33,7 @@ export function PairingBlock({ wineId, pairing, readOnly = false }: { wineId: st
   const pending = !pairing || pairing.status === 'PENDING';
   return (
     <section className="card">
-      <h3 style={{ fontSize: 16, margin: 0 }}>Accords mets-vins</h3>
+      <h3 className="wine-card__title"><Icon name="restaurant" />Accords conseillés</h3>
       {pending && (
         <>
           <p className="list__meta">Suggestions en préparation…</p>

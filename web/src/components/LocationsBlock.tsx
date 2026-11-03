@@ -66,7 +66,7 @@ function PlaceDetails({ place, zone }: { place: Place; zone: Zone | undefined })
  * de l'emplacement (zone), son indication et le plan. `<dialog>` natif : focus,
  * Échap et fond gérés par le navigateur.
  */
-export function LocationButton({ places }: { places: Place[] }) {
+export function LocationButton({ places, label }: { places: Place[]; label?: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
   const zones = useZones();
@@ -74,7 +74,7 @@ export function LocationButton({ places }: { places: Place[] }) {
   return (
     <>
       <button type="button" className="wine-head__location" aria-label="Voir l’emplacement" onClick={() => { setOpen(true); dialog.current?.showModal(); }}>
-        <Icon name="location_on" />
+        <Icon name="location_on" />{label && <span className="wine-head__place">{label}</span>}
       </button>
       <dialog ref={dialog} className="location-dialog" aria-labelledby={titleId} onClose={() => setOpen(false)}
         onClick={(e) => {
@@ -104,7 +104,7 @@ export function LocationsBlock({ wineId, places, readOnly }: { wineId: string; p
   const zones = useZones();
   return (
     <section className="card" aria-labelledby={titleId}>
-      <h2 id={titleId} style={{ fontSize: 18, margin: 0 }}>Emplacements</h2>
+      <h2 id={titleId} className="wine-card__title"><Icon name="warehouse" />Emplacement en cave</h2>
       {places.length > 0 && (
         <ul className="locations-list">
           {places.map((p) => <PlaceItem key={p.id ?? ''} place={p} zone={zones.data?.find((z) => z.id === p.zoneId)} />)}

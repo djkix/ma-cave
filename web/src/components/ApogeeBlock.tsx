@@ -1,10 +1,29 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { CaveRow, clearApogee, setApogee } from '../lib/api-client';
+import { Apogee, CaveRow, clearApogee, setApogee } from '../lib/api-client';
 import { apogeeRange, apogeeReasonMessage, apogeeStatusLabel, CONFIDENCE_LABEL } from '../lib/apogee';
+import { at } from '../lib/accord-view';
 import { Button } from './Button';
+import { Icon } from './Icon';
 
 const YEAR = /^\d{4}$/;
+
+const STATUS_CHIP: Record<NonNullable<Apogee['status']>, { label: string; tone: string }> = {
+  TROP_JEUNE: { label: 'Trop jeune', tone: 'neutral' },
+  A_BOIRE: { label: 'À son apogée', tone: 'ok' },
+  A_BOIRE_VITE: { label: 'À boire vite', tone: 'warn' },
+  PASSEE: { label: 'Apogée passée', tone: 'past' },
+};
+
+/**
+ * Frise de l'apogée : du millésime (sinon du début de la fenêtre) à deux ans après
+ * la fin ; positions en % (fenêtre d'apogée et année courante). Pure, pour les tests.
+ */
+export function apogeeTimeline(vintage: number | null, min: number, max: number, year: number) {
+  const scale = { from: Math.min(vintage ?? min, min, year), to: Math.max(max, year) + 2 };
+  const start = at(min, scale);
+  return { scale, start, width: Math.round((at(max, scale) - start) * 10) / 10, now: at(year, scale) };
+}
 
 function check(minText: string, maxText: string): { min: number; max: number } | string {
   if (!YEAR.test(minText) || !YEAR.test(maxText)) return 'Saisis deux années sur quatre chiffres';
@@ -13,6 +32,24 @@ function check(minText: string, maxText: string): { min: number; max: number } |
   if (min < 1900 || max > 2200) return 'Années entre 1900 et 2200';
   if (min > max) return 'L’année de début doit précéder ou égaler l’année de fin';
   return { min, max };
+}
+
+function Timeline({ vintage, min, max }: { vintage: number | null; min: number; max: number }) {
+  const year = new Date().getFullYear();
+  const t = apogeeTimeline(vintage, min, max, year);
+  return (
+    <div className="apogee-line" role="img" aria-label={`Frise : apogée de ${min} à ${max}, année en cours ${year}`}>
+      <div className="apogee-line__track" aria-hidden="true">
+        <span className="apogee-line__window" style={{ left: `${t.start}%`, width: `${t.width}%` }} />
+        <span className="apogee-line__now" style={{ left: `${t.now}%` }}><b>{year}</b></span>
+      </div>
+      <div className="apogee-line__ends" aria-hidden="true">
+        <span>{vintage ? `${vintage} (Récolte)` : t.scale.from}</span>
+        <span className="apogee-line__mid">{min === max ? min : `${min} – ${max}`}</span>
+        <span>{t.scale.to}+</span>
+      </div>
+    </div>
+  );
 }
 
 /** `readOnly` : membre en lecture seule, sans correction manuelle. */
@@ -55,14 +92,18 @@ export function ApogeeBlock({ wine, readOnly = false }: { wine: CaveRow; readOnl
   const status = apogeeStatusLabel(apogee);
   return (
     <section className="card">
-      <h3 style={{ fontSize: 16, margin: 0 }}>Apogée</h3>
+      <h3 className="wine-card__title">
+        <Icon name="hourglass_empty" />Période d’apogée
+        {apogee.status && <span className={`wine-chip wine-chip--${STATUS_CHIP[apogee.status].tone}`}>{STATUS_CHIP[apogee.status].label}</span>}
+      </h3>
       {range ? (
         <>
-          <p style={{ margin: 'var(--space-xs) 0' }}>{range}{apogee.source === 'IA' ? ' (estimée par l’IA)' : ''}</p>
+          <p className="wine-apogee__range">{range}{apogee.source === 'IA' ? ' (estimée par l’IA)' : ''}</p>
           {apogee.confidence && (
             <span className={`badge ${apogee.confidence === 'FAIBLE' ? 'badge--warn' : 'badge--ok'}`}>{CONFIDENCE_LABEL[apogee.confidence]}</span>
           )}
           {status && <p className="list__meta" style={{ margin: 'var(--space-xs) 0 0' }}>{status}</p>}
+          {apogee.min != null && apogee.max != null && <Timeline vintage={wine.vintage} min={apogee.min} max={apogee.max} />}
         </>
       ) : (
         apogee.reason && <p className="list__meta">{apogeeReasonMessage(apogee.reason)}</p>

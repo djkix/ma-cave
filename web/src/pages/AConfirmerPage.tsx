@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { KeyboardEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { LOW_CONFIDENCE } from '../components/ConfidenceBadge';
@@ -40,7 +40,12 @@ function rowProblem(r: Row): string | null {
   return null;
 }
 
-const sectionTitle = { fontSize: 14, letterSpacing: '0.08em', color: 'var(--color-secondary)', textTransform: 'uppercase' } as const;
+type Tab = 'valider' | 'analyse' | 'illisibles';
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'valider', label: 'À valider' },
+  { id: 'analyse', label: 'En cours d’analyse' },
+  { id: 'illisibles', label: 'Lecture impossible' },
+];
 
 /** Libellé accessible du bouton « Écarter » : le vin quand il est connu, sinon la photo. */
 function dismissLabel(draft?: WineDraft): string {
@@ -52,7 +57,7 @@ function dismissLabel(draft?: WineDraft): string {
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 
 function Thumb({ photoId }: { photoId: string }) {
-  return <img src={`/api/photos/${photoId}/image?variant=display`} alt="" width={64} height={80} loading="lazy" decoding="async" style={{ objectFit: 'cover', borderRadius: 'var(--radius-md)', flexShrink: 0 }} />;
+  return <img src={`/api/photos/${photoId}/image?variant=display`} alt="" width={64} height={80} loading="lazy" decoding="async" className="confirm-thumb" />;
 }
 
 /**
@@ -72,6 +77,7 @@ export function AConfirmerPage() {
   const [itemErrors, setItemErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<Tab | null>(null);
   const { locations, zones, last, loading: locationsLoading } = useLastLocation();
   const locationOf = (r: Row) => r.location ?? last ?? EMPTY_LOCATION;
 
@@ -162,10 +168,29 @@ export function AConfirmerPage() {
   const koCount = result ? result.length - okCount : 0;
   const empty = rows.length === 0 && inProgress.length === 0 && failed.length === 0;
 
+  const counts = { valider: rows.length, analyse: inProgress.length, illisibles: failed.length };
+  // Onglet par défaut : « À valider », ou le premier non vide ; un choix explicite est respecté.
+  const active: Tab = tab ?? (TABS.find((t) => counts[t.id] > 0)?.id ?? 'valider');
+  const bottles = kept.reduce((n, r) => n + r.quantity, 0);
+  const onTabKey = (e: KeyboardEvent<HTMLButtonElement>) => {
+    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const i = (TABS.findIndex((t) => t.id === active) + step + TABS.length) % TABS.length;
+    setTab(TABS[i].id);
+    document.getElementById(`tab-${TABS[i].id}`)?.focus();
+  };
+
   return (
     <>
       <TopBar title="À confirmer" back="/" />
-      <main className="page" style={{ paddingBottom: 'calc(var(--size-bottomnav-height) + var(--size-action-height) + var(--space-lg))' }}>
+      <main className="page confirm-page" style={{ paddingBottom: 'calc(var(--size-bottomnav-height) + var(--size-action-height) + var(--space-xl))' }}>
+        {/* Le titre est déjà dans la barre du haut : ici, seulement le nombre de fiches prêtes. */}
+        {rows.length > 0 && (
+          <div className="confirm-head">
+            <span className="confirm-chip">{rows.length} prêt{rows.length > 1 ? 's' : ''}</span>
+          </div>
+        )}
         <OfflineQueueBanner />
         {result && (
           <p role="status" className={`badge ${okCount > 0 ? 'badge--ok' : 'badge--warn'}`}>
@@ -180,77 +205,95 @@ export function AConfirmerPage() {
           <p className="centered">Aucun vin à confirmer. Les photos prises en rafale apparaîtront ici une fois analysées.</p>
         )}
 
-        {rows.length > 0 && (
-          <section aria-labelledby="a-valider">
-            <h2 id="a-valider" style={sectionTitle}>À valider ({rows.length})</h2>
-            {rows.map((r) => {
-              const problem = rowProblem(r);
-              const itemError = itemErrors[r.idempotencyKey];
-              return (
-                <article key={r.photoId} className="card" style={{ opacity: r.ignored ? 0.5 : 1 }}>
-                  <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Thumb photoId={r.photoId} />
-                    <span className={`badge ${r.globalConfidence >= LOW_CONFIDENCE ? 'badge--ok' : 'badge--warn'}`}>confiance {Math.round(r.globalConfidence * 100)} %</span>
-                    {!r.ignored && problem && <span className="badge badge--warn">{problem}</span>}
-                    {itemError && <span className="badge badge--warn">{itemError}</span>}
-                    <Button variant="link" onClick={() => update(r.photoId, { ignored: !r.ignored })}>{r.ignored ? 'Reprendre' : 'Mettre de côté'}</Button>
-                  </div>
-                  {!r.ignored && (
-                    <>
-                      <EditableField label="Producteur" serif value={r.draft.producer} confidence={r.confidences.producer} onChange={(v) => update(r.photoId, { draft: { ...r.draft, producer: v } })} />
-                      <EditableField label="Cuvée" serif value={r.draft.cuvee ?? ''} confidence={r.confidences.cuvee} onChange={(v) => update(r.photoId, { draft: { ...r.draft, cuvee: v } })} />
-                      <EditableField label="Appellation" appellation serif value={r.draft.appellationRaw} confidence={r.confidences.appellationRaw} onChange={(v) => update(r.photoId, { draft: { ...r.draft, appellationRaw: v } })} />
-                      <EditableField label="Millésime" type="number" value={r.draft.vintage?.toString() ?? ''} confidence={r.confidences.vintage} onChange={(v) => update(r.photoId, { draft: { ...r.draft, vintage: v ? Number(v) : null } })} />
-                      <QuantityPicker value={r.quantity} detected={r.detected} onChange={(n) => update(r.photoId, { quantity: n })} />
-                      <EntryLocationBlock value={locationOf(r)} onChange={(v) => update(r.photoId, { location: v })} locations={locations} zones={zones} />
-                    </>
-                  )}
-                  <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'flex-end' }}>
-                    <Button variant="outline" onClick={() => dismiss(r.photoId)} disabled={busy} aria-label={dismissLabel(r.draft)}>Écarter</Button>
+        {inbox.isSuccess && !empty && (
+          <>
+            <div role="tablist" aria-label="Photos à confirmer" className="confirm-tabs">
+              {TABS.map((t) => (
+                <button key={t.id} type="button" role="tab" id={`tab-${t.id}`} aria-selected={active === t.id} aria-controls={`panel-${t.id}`}
+                  tabIndex={active === t.id ? 0 : -1} className="confirm-tab" onClick={() => setTab(t.id)} onKeyDown={onTabKey}>
+                  {t.label} ({counts[t.id]})
+                </button>
+              ))}
+            </div>
+            <div role="tabpanel" id={`panel-${active}`} aria-labelledby={`tab-${active}`} className="confirm-panel">
+              {counts[active] === 0 && <p className="centered">Rien dans cette liste.</p>}
+
+              {active === 'valider' && rows.map((r) => {
+                const problem = rowProblem(r);
+                const itemError = itemErrors[r.idempotencyKey];
+                const subline = [r.draft.appellationRaw.trim(), r.draft.vintage?.toString()].filter(Boolean).join(' · ');
+                return (
+                  <article key={r.photoId} className="card confirm-card" style={{ opacity: r.ignored ? 0.5 : 1 }}>
+                    <div className="confirm-card__head">
+                      <Thumb photoId={r.photoId} />
+                      <div className="confirm-card__id">
+                        <span className={`badge ${r.globalConfidence >= LOW_CONFIDENCE ? 'badge--ok' : 'badge--warn'}`}>Confiance {Math.round(r.globalConfidence * 100)} %</span>
+                        <strong className="confirm-card__title">{r.draft.producer.trim() || 'Producteur à saisir'}</strong>
+                        {subline && <span className="confirm-card__sub">{subline}</span>}
+                      </div>
+                    </div>
+                    <div className="confirm-card__flags">
+                      {!r.ignored && problem && <span className="badge badge--warn">{problem}</span>}
+                      {itemError && <span className="badge badge--warn">{itemError}</span>}
+                      <Button variant="link" onClick={() => update(r.photoId, { ignored: !r.ignored })}>{r.ignored ? 'Reprendre' : 'Mettre de côté'}</Button>
+                    </div>
                     {!r.ignored && (
-                      <Button variant="primary" onClick={() => validate([r])} disabled={busy || locationsLoading || problem !== null}>Valider</Button>
+                      <>
+                        <EditableField label="Producteur" serif value={r.draft.producer} confidence={r.confidences.producer} onChange={(v) => update(r.photoId, { draft: { ...r.draft, producer: v } })} />
+                        <div className="confirm-grid">
+                          <EditableField label="Cuvée" serif value={r.draft.cuvee ?? ''} confidence={r.confidences.cuvee} onChange={(v) => update(r.photoId, { draft: { ...r.draft, cuvee: v } })} />
+                          <EditableField label="Appellation" appellation serif value={r.draft.appellationRaw} confidence={r.confidences.appellationRaw} onChange={(v) => update(r.photoId, { draft: { ...r.draft, appellationRaw: v } })} />
+                        </div>
+                        <div className="confirm-inset">
+                          <EditableField label="Millésime" type="number" value={r.draft.vintage?.toString() ?? ''} confidence={r.confidences.vintage} onChange={(v) => update(r.photoId, { draft: { ...r.draft, vintage: v ? Number(v) : null } })} />
+                        </div>
+                        <p className="confirm-label">Conditionnement &amp; Nombre</p>
+                        <div className="confirm-qty"><QuantityPicker value={r.quantity} detected={r.detected} onChange={(n) => update(r.photoId, { quantity: n })} /></div>
+                        <p className="confirm-label">Emplacement suggéré</p>
+                        <div className="confirm-loc"><EntryLocationBlock value={locationOf(r)} onChange={(v) => update(r.photoId, { location: v })} locations={locations} zones={zones} /></div>
+                      </>
                     )}
-                  </div>
-                </article>
-              );
-            })}
-          </section>
-        )}
+                    <div className="confirm-actions">
+                      <Button variant="outline" onClick={() => dismiss(r.photoId)} disabled={busy} aria-label={dismissLabel(r.draft)}>Écarter</Button>
+                      {!r.ignored && (
+                        <Button variant="dark" onClick={() => validate([r])} disabled={busy || locationsLoading || problem !== null}>Valider ce vin</Button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
 
-        {inProgress.length > 0 && (
-          <section aria-labelledby="en-cours">
-            <h2 id="en-cours" style={sectionTitle}>En cours d’analyse ({inProgress.length})</h2>
-            <ul className="list" style={{ listStyle: 'none', padding: 0 }}>
-              {inProgress.map((p) => (
-                <li key={p.id} className="card" style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center' }}>
-                  <Thumb photoId={p.id} />
-                  <span>{p.errorMessage || 'Analyse en cours (environ 1 min)'}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+              {active === 'analyse' && (
+                <ul className="list confirm-list">
+                  {inProgress.map((p) => (
+                    <li key={p.id} className="card confirm-row">
+                      <Thumb photoId={p.id} />
+                      <span>{p.errorMessage || 'Analyse en cours (environ 1 min)'}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-        {failed.length > 0 && (
-          <section aria-labelledby="illisibles">
-            <h2 id="illisibles" style={sectionTitle}>Lecture impossible ({failed.length})</h2>
-            <ul className="list" style={{ listStyle: 'none', padding: 0 }}>
-              {failed.map((p) => (
-                <li key={p.id} className="card" style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Thumb photoId={p.id} />
-                  <span style={{ flex: 1, minWidth: 0 }}>{p.errorMessage || 'Étiquette non lue'}</span>
-                  <Link to={`/entree/${p.id}`} className="btn btn--outline">Saisir à la main</Link>
-                  <Button variant="link" onClick={() => dismiss(p.id)} disabled={busy} aria-label={dismissLabel()}>Écarter</Button>
-                </li>
-              ))}
-            </ul>
-          </section>
+              {active === 'illisibles' && (
+                <ul className="list confirm-list">
+                  {failed.map((p) => (
+                    <li key={p.id} className="card confirm-row">
+                      <Thumb photoId={p.id} />
+                      <span className="confirm-row__msg">{p.errorMessage || 'Étiquette non lue'}</span>
+                      <Link to={`/entree/${p.id}`} className="btn btn--outline">Saisir à la main</Link>
+                      <Button variant="link" onClick={() => dismiss(p.id)} disabled={busy} aria-label={dismissLabel()}>Écarter</Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
         )}
 
         {rows.length > 0 && (
           <div className="dock">
             <Button variant="dark" onClick={() => validate(kept)} disabled={busy || locationsLoading || kept.length === 0}>
-              Tout valider ({kept.length})
+              Tout valider ({plural(kept.length, 'vin')} · {plural(bottles, 'bouteille')})
             </Button>
             <span className="dock__hint">
               Un mouvement d’entrée par fiche · les fiches mises de côté restent à confirmer

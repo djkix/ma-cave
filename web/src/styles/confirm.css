@@ -1,0 +1,35 @@
+/* Refonte « Ma Cave Design Language » — écran confirm. */
+.confirm-head { display: flex; justify-content: flex-end; }
+.confirm-chip { padding: 4px 12px; border-radius: 999px; background: var(--color-primary-fixed); color: var(--color-primary-container); font: 700 12px var(--font-sans); }
+
+.confirm-tabs { display: flex; gap: var(--space-xs); overflow-x: auto; padding: 4px; background: var(--color-surface-container); border-radius: 999px; scrollbar-width: none; }
+.confirm-tab { flex: 1 0 auto; min-height: var(--size-touch-target); padding: 0 var(--space-md); border: 0; border-radius: 999px; background: transparent; color: var(--color-secondary); font: 600 13px var(--font-sans); white-space: nowrap; cursor: pointer; }
+.confirm-tab[aria-selected='true'] { background: var(--color-primary); color: var(--color-on-primary); }
+.confirm-tab:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
+
+.confirm-panel { display: flex; flex-direction: column; gap: var(--space-md); }
+.confirm-card { display: flex; flex-direction: column; gap: var(--space-md); border-radius: var(--radius-xl); }
+.confirm-card__head { display: flex; gap: var(--space-md); align-items: center; }
+.confirm-card__id { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.confirm-card__title { font-size: 18px; color: var(--color-primary); overflow-wrap: anywhere; }
+.confirm-card__sub { font-size: 13px; color: var(--color-secondary); }
+.confirm-card__flags { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+.confirm-thumb { width: 64px; height: 80px; object-fit: cover; border-radius: var(--radius-md); flex-shrink: 0; }
+.confirm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); }
+.confirm-grid > * { min-width: 0; }
+.confirm-inset, .confirm-card .location-block { background: var(--color-surface-container-low); border: 1px solid var(--color-outline-subtle); border-radius: var(--radius-lg); padding: var(--space-sm) var(--space-md); }
+.confirm-label { margin: 0; font: 700 11px var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-secondary); }
+/* Sélecteur de quantité partagé : titre masqué (remplacé par l'étiquette de la page), boutons segmentés. */
+.confirm-qty .card { padding: 0; border: 0; background: transparent; }
+.confirm-qty .num { display: none; }
+.confirm-qty .pills { border-radius: 999px; }
+.confirm-qty .pill { border-radius: 999px; }
+.confirm-qty .pill--active { background: var(--color-primary); border-color: var(--color-primary); box-shadow: none; }
+.confirm-actions { display: flex; gap: var(--space-md); }
+.confirm-actions .btn { flex: 1; min-height: var(--size-touch-target); width: auto; border-radius: 999px; }
+
+.confirm-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-md); }
+.confirm-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
+.confirm-row__msg { flex: 1; min-width: 0; }
+
+@media (prefers-reduced-motion: reduce) { .confirm-page * { transition: none !important; } }

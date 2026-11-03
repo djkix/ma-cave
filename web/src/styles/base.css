@@ -5,7 +5,7 @@ body {
   font-family: var(--font-sans); font-size: 16px; line-height: 1.5; -webkit-tap-highlight-color: transparent;
   padding-bottom: calc(var(--size-bottomnav-height) + var(--safe-bottom));
 }
-h1, h2, h3, .serif { font-family: var(--font-serif); font-weight: 500; margin: 0; }
+h1, h2, h3, .serif { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.01em; margin: 0; }
 .num { font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
 .centered { text-align: center; padding: var(--space-xl) var(--space-md); color: var(--color-secondary); }
@@ -424,7 +424,7 @@ body:has(dialog.sheet[open]) { overflow: hidden; }
 select {
   appearance: none; -webkit-appearance: none; cursor: pointer; font-weight: 500;
   padding-right: 40px; border-radius: var(--radius-lg);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%237A5522' d='M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%233F423C' d='M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 12px center; background-size: 20px;
 }
 select:disabled { cursor: not-allowed; opacity: 0.6; }
@@ -435,7 +435,7 @@ select:focus-visible { outline: 3px solid var(--color-primary-container); outlin
   background-color: var(--color-surface-container); color: var(--color-on-surface); font: 600 14px var(--font-sans);
 }
 .filter-pill { padding: 0 38px 0 14px; max-width: 100%; text-overflow: ellipsis; }
-.filter-pill--on, .filter-toggle:has(input:checked) { background-color: var(--color-primary-fixed); border-color: var(--color-primary-container); color: var(--color-primary); }
+.filter-pill--on, .filter-toggle:has(input:checked) { background-color: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
 .filter-toggle { display: inline-flex; align-items: center; padding: 0 14px; cursor: pointer; user-select: none; }
 .filter-toggle:has(input:focus-visible) { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
 .topbar__select { padding-right: 32px; background-position: right 6px center; }
@@ -480,17 +480,17 @@ select:focus-visible { outline: 3px solid var(--color-primary-container); outlin
 .filter-vintage { display: inline-flex; gap: var(--space-xs); max-width: 100%; }
 .filter-vintage input { width: 7.5em; min-width: 0; min-height: 40px; box-sizing: border-box; border-radius: 999px; border: 1px solid var(--color-outline-variant); padding: 0 12px; font-size: 16px; }
 
-/* Carte de France de l'accueil : dégradé bordeaux, de --map-0 (aucune bouteille) à --map-4
+/* Carte de France de l'accueil : dégradé sauge, de --map-0 (aucune bouteille) à --map-4
    (le maximum). L'appli n'a pas encore de thème sombre : la carte porte son propre fond
    (--map-bg) pour rester lisible quand le téléphone est en mode sombre. */
 :root {
-  --map-bg: #FBF8F4; --map-land: #EFE6DC; --map-stroke: #C9B9A8; --map-ink: #2B1A1A; --map-ink-on-dark: #FFFFFF;
-  --map-0: #F3E9E4; --map-1: #DDB9B9; --map-2: #C48A8A; --map-3: #A2505A; --map-4: #7B1E2B;
+  --map-bg: #FAF3E2; --map-land: #F5EDDC; --map-stroke: #C6C7C0; --map-ink: #1E1C11; --map-ink-on-dark: #FFFFFF;
+  --map-0: #F5EDDC; --map-1: #D1E8DB; --map-2: #A9C2B4; --map-3: #6F8A7C; --map-4: #3F423C;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --map-bg: #1E1617; --map-land: #2E2425; --map-stroke: #4A3B3C; --map-ink: #F3E9E4; --map-ink-on-dark: #FFFFFF;
-    --map-0: #3A2C2D; --map-1: #5A3138; --map-2: #7E3A45; --map-3: #A54B59; --map-4: #D06B7A;
+    --map-bg: #1E1F1B; --map-land: #2A2C27; --map-stroke: #454842; --map-ink: #F5EDDC; --map-ink-on-dark: #FFFFFF;
+    --map-0: #2F322D; --map-1: #3E5048; --map-2: #55695F; --map-3: #7E9A8B; --map-4: #B6CCC0;
   }
 }
 .france-map { background: var(--map-bg); color: var(--map-ink); border: 1px solid var(--color-outline-subtle); border-radius: var(--radius-xl); padding: var(--space-sm); }
@@ -519,3 +519,10 @@ select:focus-visible { outline: 3px solid var(--color-primary-container); outlin
 .accords-tabs { display: flex; gap: var(--space-xs); margin-bottom: var(--space-md); }
 .accords-tabs .btn { flex: 1; }
 .dish-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-sm); min-width: 0; overflow-wrap: anywhere; }
+
+/* Barre du haut (charte « Ma Cave Design Language ») : sur-titre de marque, sélecteur de cave en pastille. */
+.topbar__heading { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; line-height: 1.15; }
+.topbar__eyebrow { font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-secondary); }
+.topbar__title { font-size: 20px; font-weight: 600; }
+.topbar__select { min-height: 40px; border-radius: var(--radius-lg); border-color: var(--color-outline-subtle); background-color: var(--color-surface-container); font-size: 14px; padding-left: var(--space-sm); }
+.card { border-radius: var(--radius-xl); }

@@ -2,9 +2,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { createQuote, Quote, SearchLink } from '../lib/api-client';
 import {
-  CESSION_NOTE, DATE_INVALID, formatEurosRounded, parisToday, parseCoteEuros, parseTransactions, quoteLine, quoteWarnings,
+  CESSION_NOTE, DATE_INVALID, formatCoteEuros, formatEurosRounded, parisToday, parseCoteEuros, parseTransactions, quoteLine, quoteWarnings,
 } from '../lib/quote';
 import { Button } from './Button';
+import { Icon } from './Icon';
 
 const MIN_QUOTED_ON = '1990-01-01';
 const ERR = { cote: 'quote-cote-error', transactions: 'quote-transactions-error', date: 'quote-date-error' } as const;
@@ -69,16 +70,21 @@ export function QuoteBlock({ wineId, quote, searchLinks, savedUrl }: {
 
   return (
     <section className="card">
-      <h3 style={{ fontSize: 16, margin: 0 }}>Cote</h3>
+      <h3 className="wine-card__title"><Icon name="trending_up" />Valeur &amp; cote</h3>
       {!editing && (quote ? (
         <>
-          <p style={{ margin: 'var(--space-xs) 0' }}>{quoteLine(quote, today)}</p>
-          {/* Frais acheteur d'enchères : la valeur de cession n'a de sens que pour une cote iDealwine (ou de source inconnue). */}
-          {(quote.site == null || quote.site === 'idealwine') && (
-            <p className="list__meta" style={{ margin: 0 }}>
-              {`Valeur de cession estimée : ${formatEurosRounded(quote.cessionCents)} ${CESSION_NOTE}`}
-            </p>
-          )}
+          <div className="wine-tiles">
+            <div className="wine-tile"><p className="wine-tile__label">Cote caviste</p><p className="wine-tile__value num">{formatCoteEuros(quote.coteCents)}</p></div>
+            {/* Frais acheteur d'enchères : la valeur de cession n'a de sens que pour une cote iDealwine (ou de source inconnue). */}
+            {(quote.site == null || quote.site === 'idealwine') && (
+              <div className="wine-tile">
+                <p className="wine-tile__label">Cession estimée (cote / 1,16)</p>
+                <p className="wine-tile__value num">{formatEurosRounded(quote.cessionCents)}</p>
+                <p className="list__meta wine-tile__hint">{CESSION_NOTE}</p>
+              </div>
+            )}
+          </div>
+          <p className="list__meta" style={{ margin: 'var(--space-xs) 0' }}>{quoteLine(quote, today)}</p>
           {quoteWarnings(quote, today).map((w) => (
             <p key={w} style={{ margin: 'var(--space-xs) 0 0' }}><span className="badge badge--warn">{w}</span></p>
           ))}

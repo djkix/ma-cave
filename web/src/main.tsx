@@ -4,6 +4,10 @@ import { App } from './App';
 import { listenForInstallPrompt } from './lib/install-prompt';
 import './design-tokens/tokens.css';
 import './styles/base.css';
+import './styles/home.css';
+import './styles/cave.css';
+import './styles/wine.css';
+import './styles/confirm.css';
 
 // L'invitation à installer la PWA arrive dès le chargement : elle est gardée pour « Mon compte ».
 listenForInstallPrompt();

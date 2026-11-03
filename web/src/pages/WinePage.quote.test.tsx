@@ -37,7 +37,7 @@ function mount() {
 it('propriétaire : bloc « Cote » sans cote', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue({ ...base, quote: null, searchLinks, idealwineUrl: SEARCH, savedUrl: null });
   mount();
-  expect(await screen.findByRole('heading', { name: 'Cote' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Valeur & cote' })).toBeInTheDocument();
   expect(screen.getByText('Pas encore de cote')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Voir sur iDealwine (nouvel onglet)' })).toHaveAttribute('href', SEARCH);
   expect(screen.getByRole('link', { name: 'Voir sur Vivino (nouvel onglet)' })).toHaveAttribute('href', searchLinks[2].url);
@@ -63,7 +63,7 @@ it('membre : aucun bloc de cote, aucune requête de cote', async () => {
   await waitFor(() => expect(me).toHaveBeenCalled());
   // Session chargée et page rendue avec le rôle de membre (avant, rien n'est autorisé : le test serait vide).
   await waitFor(() => expect(client.getQueryState(['me'])?.status).toBe('success'));
-  expect(screen.queryByRole('heading', { name: 'Cote' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Valeur & cote' })).not.toBeInTheDocument();
   expect(screen.queryByText(/iDealwine|Vivino|Wine-Searcher|Pas encore de cote|cession/)).not.toBeInTheDocument();
   expect(create).not.toHaveBeenCalled();
 });
@@ -76,12 +76,12 @@ it('membre : même si des clés de cote arrivaient, rien n’est affiché', asyn
   await waitFor(() => expect(me).toHaveBeenCalled());
   // Session chargée et page rendue avec le rôle de membre (avant, rien n'est autorisé : le test serait vide).
   await waitFor(() => expect(client.getQueryState(['me'])?.status).toBe('success'));
-  expect(screen.queryByRole('heading', { name: 'Cote' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Valeur & cote' })).not.toBeInTheDocument();
 });
 
 it('propriétaire, fiche sans clés de cote (ancienne api) : pas de bloc', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue(viewerDetail);
   mount();
   expect(await screen.findByRole('heading', { name: /Domaine Tempier/ })).toBeInTheDocument();
-  expect(screen.queryByRole('heading', { name: 'Cote' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Valeur & cote' })).not.toBeInTheDocument();
 });

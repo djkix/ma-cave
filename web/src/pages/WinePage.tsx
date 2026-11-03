@@ -17,13 +17,14 @@ import { RatingBlock } from '../components/RatingBlock';
 import { TopBar } from '../components/TopBar';
 import { WineEditForm } from '../components/WineEditForm';
 import { WineThumb } from '../components/WineThumb';
-import { ApiError, getWine, LocationInput, postInventory } from '../lib/api-client';
+import { ApiError, getWine, LocationInput, postInventory, WineColor } from '../lib/api-client';
 import { EMPTY_LOCATION, NO_LOCATION, toLocationInput, useLocations, useZones } from '../lib/locations';
 import { movementNote } from '../lib/movement-note';
 import { useCurrentCave } from '../lib/use-current-cave';
 
 /** Mouvements : jour et heure (« 23 oct. 2026, 14:05 »), heure de l'appareil. */
 const fmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const COLOR_LABEL: Record<WineColor, string> = { ROUGE: 'Rouge', BLANC: 'Blanc', ROSE: 'Rosé', PETILLANT: 'Pétillant' };
 const TYPE_LABEL = { IN: 'Entrée', OUT: 'Sortie', ADJUST: 'Correction', MOVE: 'Déplacé' } as const;
 
 function plural(n: number) {
@@ -120,46 +121,53 @@ export function WinePage() {
   }
 
   const movementRow = (m: (typeof movements)[number]) => (
-    <div key={m.id} className="list__row">
-      <span className={`list__delta ${m.delta > 0 ? 'list__delta--in' : 'list__delta--out'} num`}>{m.delta > 0 ? `+${m.delta}` : m.delta}</span>
-      <span className="list__meta">
-        {/* Type, puis date et heure, puis la description (emplacement, note). */}
-        {TYPE_LABEL[m.type]}{' · '}{fmt.format(new Date(m.occurredAt))}
-        {m.type === 'MOVE' ? ` · ${m.locationLabel ?? NO_LOCATION}` : m.locationLabel ? ` · ${m.locationLabel}` : ''}
-        {movementNote(m, movements) ? ` · ${movementNote(m, movements)}` : ''}
+    <div key={m.id} className="wine-move">
+      <span className={`wine-move__dot ${m.delta > 0 ? 'wine-move__dot--in' : 'wine-move__dot--out'}`}><Icon name={m.delta > 0 ? 'add' : 'remove'} /></span>
+      <span className="wine-move__body">
+        <span className="wine-move__title">{TYPE_LABEL[m.type]}</span>
+        {/* Date et heure, puis la description (emplacement, note). */}
+        <span className="list__meta wine-move__meta">
+          {fmt.format(new Date(m.occurredAt))}
+          {m.type === 'MOVE' ? ` · ${m.locationLabel ?? NO_LOCATION}` : m.locationLabel ? ` · ${m.locationLabel}` : ''}
+          {movementNote(m, movements) ? ` · ${movementNote(m, movements)}` : ''}
+        </span>
       </span>
+      <span className={`list__delta ${m.delta > 0 ? 'list__delta--in' : 'list__delta--out'} num wine-move__delta`}>{m.delta > 0 ? `+${m.delta}` : m.delta}</span>
     </div>
   );
 
   return (
     <>
       <TopBar title="Fiche vin" back={back} />
-      <main className="page">
+      <main className="page wine-page">
         {/* En-tête (vignette + titre) sur une ligne ; la recherche d'image et sa
             fenêtre de choix dessous, sur toute la largeur de la carte : dans la
             colonne de la vignette, à 375 px, tout y serait écrasé. */}
         <section className="card wine-head">
           <div className="wine-head__row">
             <WineThumb photoId={wine.referencePhotoId} size={96} />
-            <div>
-              <h2 className="list__title" style={{ fontSize: 20, margin: 0 }}>
-                {wine.producer}{wine.cuvee ? ` — ${wine.cuvee}` : ''}
-              </h2>
-              <p className="list__meta">{wine.appellationRaw} · {wine.vintage ?? 'NV'} · {wine.formatCl} cl</p>
-              <p className="num wine-head__stock" style={{ fontSize: 22, margin: 0 }}>
-                <span>{wine.quantity} en stock</span>
-                {!readOnly && !counting && !editing && (
-                  <button type="button" className="wine-head__edit" aria-label="Corriger le stock"
-                    onClick={() => { setCounting(true); setCounted(String(wine.quantity)); setInventoryMessage(null); setInventoryPlace(null); setIncreaseTo(EMPTY_LOCATION); }}>
-                    <Icon name="edit" />
-                  </button>
-                )}
+            <div className="wine-head__text">
+              <h2 className="wine-head__title">{wine.producer}</h2>
+              <p className="wine-head__sub">{[wine.cuvee, wine.appellationRaw].filter(Boolean).join(' · ')}</p>
+              <p className="list__meta wine-head__facts">
+                <span>{wine.vintage ?? 'NV'}</span>
+                {wine.formatCl > 0 && <span>{wine.formatCl} cl</span>}
+                <span className="wine-head__color"><i className={`wine-dot wine-dot--${wine.color.toLowerCase()}`} />{COLOR_LABEL[wine.color]}</span>
               </p>
-              {inventoryMessage && <p role="status" className="list__meta" style={{ margin: 0 }}>{inventoryMessage}</p>}
-              {!readOnly && !counting && !editing && <Button variant="link" onClick={() => setEditing(true)}>Modifier</Button>}
+              {places && places.length > 0 && <LocationButton places={places} label={places.map((p) => p.label).join(' · ')} />}
             </div>
-            {places && places.length > 0 && <LocationButton places={places} />}
+            {!readOnly && !counting && !editing && (
+              <button type="button" className="wine-head__edit" aria-label="Corriger le stock"
+                onClick={() => { setCounting(true); setCounted(String(wine.quantity)); setInventoryMessage(null); setInventoryPlace(null); setIncreaseTo(EMPTY_LOCATION); }}>
+                <Icon name="edit" />
+              </button>
+            )}
           </div>
+          <div className="wine-stock">
+            <p className="wine-stock__qty"><span className="num wine-stock__n">{wine.quantity}</span> en stock</p>
+            {!readOnly && !counting && !editing && <Button variant="link" onClick={() => setEditing(true)}>Modifier</Button>}
+          </div>
+          {inventoryMessage && <p role="status" className="list__meta" style={{ margin: 0 }}>{inventoryMessage}</p>}
           {/* Correction du stock (inventaire, casse, oubli) : ouverte par le crayon à côté du stock. */}
           {!readOnly && counting && (
             <div className="stock-edit">
@@ -210,15 +218,17 @@ export function WinePage() {
         {places && places.length > 0 && <LocationsBlock key={`locations-${wine.id}`} wineId={wine.id} places={places} readOnly={readOnly} />}
 
 
-        <h2 style={{ fontSize: 14, letterSpacing: '0.08em', color: 'var(--color-secondary)' }}>DERNIERS MOUVEMENTS</h2>
-        {/* Les trois derniers mouvements ; les autres repliés sous « Plus d'historique ». */}
-        <div className="list">{movements.slice(0, RECENT_MOVEMENTS).map(movementRow)}</div>
-        {movements.length > RECENT_MOVEMENTS && (
-          <details className="history-more">
-            <summary>Plus d’historique ({movements.length - RECENT_MOVEMENTS})</summary>
-            <div className="list">{movements.slice(RECENT_MOVEMENTS).map(movementRow)}</div>
-          </details>
-        )}
+        <section className="card" aria-labelledby="wine-moves-title">
+          <h2 id="wine-moves-title" className="wine-card__title"><Icon name="history" />Derniers mouvements</h2>
+          {/* Les trois derniers mouvements ; les autres repliés sous « Plus d'historique ». */}
+          <div className="wine-moves">{movements.slice(0, RECENT_MOVEMENTS).map(movementRow)}</div>
+          {movements.length > RECENT_MOVEMENTS && (
+            <details className="history-more">
+              <summary>Plus d’historique ({movements.length - RECENT_MOVEMENTS})</summary>
+              <div className="wine-moves">{movements.slice(RECENT_MOVEMENTS).map(movementRow)}</div>
+            </details>
+          )}
+        </section>
       </main>
       <BottomNav />
     </>

@@ -52,23 +52,23 @@ function mount() {
   );
 }
 
-const section = () => within(screen.getByRole('region', { name: 'Emplacements' }));
+const section = () => within(screen.getByRole('region', { name: 'Emplacement en cave' }));
 
 it('liste chaque endroit et sa quantité, et les déplacements au journal du vin', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue(detail);
   mount();
-  await screen.findByRole('region', { name: 'Emplacements' });
+  await screen.findByRole('region', { name: 'Emplacement en cave' });
   const items = section().getAllByRole('listitem').map((li) => li.textContent);
   expect(items).toEqual(['Cave 2 / B / 3 × 2', 'Garage × 1', 'Sans emplacement × 3']);
   expect(section().queryByText('Au fond, derrière l’escalier')).not.toBeInTheDocument();
-  expect(screen.getByText(/^Déplacé · .+ · Cave 2 \/ B \/ 3/)).toBeInTheDocument();
-  expect(screen.getByText(/^Déplacé · .+ · Sans emplacement/)).toBeInTheDocument();
+  expect(screen.getByText(/^\d.+ · Cave 2 \/ B \/ 3/)).toBeInTheDocument();
+  expect(screen.getByText(/^\d.+ · Sans emplacement/)).toBeInTheDocument();
 });
 
 it('toucher un emplacement montre ou cache l’indication et la photo de sa zone', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue(detail);
   mount();
-  await screen.findByRole('region', { name: 'Emplacements' });
+  await screen.findByRole('region', { name: 'Emplacement en cave' });
   const garage = await section().findByRole('button', { name: /Garage/ });
   expect(garage).toHaveAttribute('aria-expanded', 'false');
   // Zone sans indication ni photo, ou « Sans emplacement » : rien à révéler, pas de bouton.
@@ -89,7 +89,7 @@ it('membre : voit les emplacements et le détail des zones, mais aucun bouton ni
   const recent = vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
   const move = vi.spyOn(api, 'moveWine');
   mount();
-  await screen.findByRole('region', { name: 'Emplacements' });
+  await screen.findByRole('region', { name: 'Emplacement en cave' });
   await waitFor(() => expect(me).toHaveBeenCalled());
   // Fiche et session lues (rôle connu) avant de constater l'absence d'actions.
   await act(async () => { await Promise.all([me.mock.results[0].value, getWine.mock.results[0].value]); });
@@ -132,7 +132,7 @@ describe('plan de la cave', () => {
     mount();
   }
   /** Bouton du dépliant d'un endroit, trouvé par le texte alternatif de sa vignette. */
-  const thumbnail = async (label: string) => (await within(await screen.findByRole('region', { name: 'Emplacements' })).findByRole('img', { name: `Plan : ${label}` })).closest('button')!;
+  const thumbnail = async (label: string) => (await within(await screen.findByRole('region', { name: 'Emplacement en cave' })).findByRole('img', { name: `Plan : ${label}` })).closest('button')!;
   const crop = (el: HTMLElement) => el.querySelector<HTMLElement>('.plan-crop__inner')!.style;
 
   it('case connue : vignette recadrée sur le casier, sans toucher, case de la bouteille en évidence, légende « … × 2 »', async () => {
@@ -170,7 +170,7 @@ describe('plan de la cave', () => {
     const getPlans = vi.spyOn(api, 'getPlans').mockResolvedValue({ plans: [], markers: [] });
     vi.spyOn(api, 'getWine').mockResolvedValue(detail);
     mount();
-    await screen.findByRole('region', { name: 'Emplacements' });
+    await screen.findByRole('region', { name: 'Emplacement en cave' });
     await userEvent.click(await section().findByRole('button', { name: /Garage/ }));
     expect(section().queryByRole('img', { name: /Plan/ })).not.toBeInTheDocument();
     expect(section().getByText('Sans emplacement').closest('li')!.querySelector('img')).toBeNull();
@@ -330,7 +330,7 @@ it('masque la section quand le vin n’a plus de stock', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, wine: { ...detail.wine, quantity: 0 }, locations: [], exitDefault: undefined });
   mount();
   await screen.findByRole('heading', { name: /Domaine Tempier/ });
-  expect(screen.queryByRole('region', { name: 'Emplacements' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Emplacement en cave' })).not.toBeInTheDocument();
 });
 
 it('« Vers » est un groupe de champs nommé', async () => {

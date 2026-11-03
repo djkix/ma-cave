@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as api from '../lib/api-client';
-import { ApogeeBlock } from './ApogeeBlock';
+import { ApogeeBlock, apogeeTimeline } from './ApogeeBlock';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -81,4 +81,22 @@ it('efface l’erreur quand on abandonne la correction', async () => {
   await screen.findByRole('alert');
   await userEvent.click(screen.getByRole('button', { name: 'Abandonner' }));
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+it('frise : du millésime à deux ans après la fin, fenêtre et année courante en %', () => {
+  // échelle 2018 → 2034 (16 ans)
+  const t = apogeeTimeline(2018, 2022, 2032, 2026);
+  expect(t.scale).toEqual({ from: 2018, to: 2034 });
+  expect(t.start).toBe(25);
+  expect(t.width).toBe(62.5);
+  expect(t.now).toBe(50);
+  // sans millésime : début de la fenêtre ; année courante après la fin : échelle élargie
+  expect(apogeeTimeline(null, 2022, 2024, 2030).scale).toEqual({ from: 2022, to: 2032 });
+});
+
+it('affiche la frise et la pastille d’état', () => {
+  mount({ ...base, apogee: { min: 2022, max: 2032, confidence: 'MOYENNE', status: 'A_BOIRE', reason: null, source: 'IA' } });
+  expect(screen.getByRole('img', { name: /Frise : apogée de 2022 à 2032/ })).toBeInTheDocument();
+  expect(screen.getByText('À son apogée')).toBeInTheDocument();
+  expect(screen.getByText('2016 (Récolte)')).toBeInTheDocument();
 });

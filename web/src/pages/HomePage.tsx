@@ -38,20 +38,47 @@ export function HomePage() {
         {isOwner && (
           <>
             <AnalysisQueueBanner />
-            <CaveMap />
+            <section className="home-actions">
+              <Link to="/entree" className="home-action">
+                <span className="home-action__icon"><Icon name="photo_camera" /></span>
+                <span className="home-action__text">
+                  <strong>+ Rentrer du vin <span className="home-chip">Rafale</span></strong>
+                  <small>Arrivage de cartons ou bouteilles</small>
+                </span>
+                <Icon name="chevron_right" />
+              </Link>
+              <Link to="/sortie" className="home-action">
+                <span className="home-action__icon home-action__icon--out"><Icon name="remove_circle_outline" /></span>
+                <span className="home-action__text">
+                  <strong>− Sortir une bouteille</strong>
+                  <small>Photo de l’étiquette, ou recherche</small>
+                </span>
+                <Icon name="chevron_right" />
+              </Link>
+            </section>
             {toConfirm > 0 && (
-              <Link to="/a-confirmer" className="btn btn--outline">
+              <Link to="/a-confirmer" className="home-confirm">
                 <Icon name="fact_check" />
-                <span className="num">{toConfirm}</span> vin{toConfirm > 1 ? 's' : ''} à confirmer
+                <span className="home-confirm__text"><span className="num">{toConfirm}</span> vin{toConfirm > 1 ? 's' : ''} à confirmer</span>
+                <span className="home-chip home-chip--lichen">Action requise</span>
+                <Icon name="chevron_right" />
               </Link>
             )}
+            <CaveMap />
             <DrinkSoonCard />
-            <h2 style={{ fontSize: 14, letterSpacing: '0.08em', color: 'var(--color-secondary)' }}>DERNIERS MOUVEMENTS</h2>
-            <div className="list">
-              {movements.data?.map((m) => <MovementRow key={m.id} m={m} all={movements.data} />)}
-              {movements.data?.length === 0 && <p className="centered">Aucun mouvement pour l’instant.</p>}
-            </div>
-            <Link to="/journal" className="btn btn--link">Voir le journal</Link>
+            <section className="card">
+              <header className="home-head">
+                <div>
+                  <p className="home-eyebrow">Historique</p>
+                  <h2 className="home-title">Derniers mouvements</h2>
+                </div>
+              </header>
+              <div className="mv-list">
+                {movements.data?.map((m) => <MovementRow key={m.id} m={m} all={movements.data} />)}
+                {movements.data?.length === 0 && <p className="centered">Aucun mouvement pour l’instant.</p>}
+              </div>
+              <Link to="/journal" className="home-wide-btn">Voir le journal complet <Icon name="arrow_forward" /></Link>
+            </section>
             <Link to="/ma-cave" className="btn btn--link">Ma cave › Réglages</Link>
           </>
         )}
@@ -97,12 +124,28 @@ function CaveMap() {
   const bottles = detail?.bottles ?? 0;
   // Le lien mène à une liste de vins (lignes), pas de bouteilles.
   const wines = cave.data.filter((r) => r.quantity > 0 && (selected === HORS_FRANCE ? !r.region && r.country === 'AUTRE' : r.region === selected)).length;
+  // Pastilles : régions les plus fournies d'abord ; l'active est la région ouverte (à défaut, la première).
+  const chips = [...counts.byRegion.entries()].map(([name, c]) => ({ name, label: name, bottles: c.bottles }));
+  chips.sort((x, y) => y.bottles - x.bottles);
+  if (counts.horsFrance.bottles > 0) chips.push({ name: HORS_FRANCE, label: 'Hors de France', bottles: counts.horsFrance.bottles });
+  const active = selected ?? chips[0]?.name;
   return (
-    <section>
-      <h2 style={{ fontSize: 14, letterSpacing: '0.08em', color: 'var(--color-secondary)', marginBottom: 'var(--space-sm)' }}>
-        MA CAVE EN FRANCE · <span className="num">{counts.total}</span> bouteille{counts.total > 1 ? 's' : ''}
-      </h2>
+    <section className="card geo">
+      <header className="home-head">
+        <div>
+          <p className="home-eyebrow">Répartition géographique</p>
+          <h2 className="home-title">Ma cave en France · <span className="num">{counts.total}</span> btl</h2>
+        </div>
+      </header>
       <FranceMap counts={counts} onSelect={setSelected} />
+      {counts.byRegion.size > 0 && <p className="geo__terroirs"><span className="num">{counts.byRegion.size}</span> terroir{counts.byRegion.size > 1 ? 's' : ''} actif{counts.byRegion.size > 1 ? 's' : ''}</p>}
+      <div className="geo__chips">
+        {chips.map((c) => (
+          <button key={c.name} type="button" className={`geo__chip${c.name === active ? ' geo__chip--active' : ''}`} aria-pressed={c.name === selected} onClick={() => setSelected(c.name)}>
+            {c.label} <span className="num">{c.bottles}</span>
+          </button>
+        ))}
+      </div>
       <BottomSheet
         open={selected !== null}
         title={`${selected === HORS_FRANCE ? 'Hors de France' : selected} · ${bottles} bouteille${bottles > 1 ? 's' : ''}`}

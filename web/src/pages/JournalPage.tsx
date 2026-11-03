@@ -11,25 +11,29 @@ import { NO_LOCATION } from '../lib/locations';
 const fmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 /** `all` : la liste affichée, où une annulation retrouve le mouvement qu'elle annule (voir movementNote). */
+const TYPE_LABEL = { IN: 'Entrée', OUT: 'Sortie', MOVE: 'Déplacement', ADJUST: 'Ajustement' } as const;
+
 export function MovementRow({ m, all = [m], onCancel, cancelling, cancelled }: { m: MovementWithWine; all?: MovementWithWine[]; onCancel?: (id: string) => void; cancelling?: boolean; cancelled?: boolean }) {
   const note = movementNote(m, all);
   const isIn = m.delta > 0;
   return (
-    <div className="list__row">
-      <Icon name={isIn ? 'add' : 'remove'} style={{ color: isIn ? 'var(--color-primary-action)' : 'var(--color-secondary)' }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <span className={`list__delta ${isIn ? 'list__delta--in' : 'list__delta--out'} num`}>{isIn ? `+${m.delta}` : m.delta}</span>
-        <span className="list__meta"> · {fmt.format(new Date(m.occurredAt))}</span>
-        {/* Une moitié de déplacement : l'emplacement d'origine (−) ou de destination (+). */}
-        {m.type === 'MOVE' && <span className="list__meta">{` · Déplacé · ${m.locationLabel ?? NO_LOCATION}`}</span>}
-        <p className="list__title" style={{ margin: 0 }}>
-          {m.wine.producer}{m.wine.cuvee ? ` — ${m.wine.cuvee}` : ''} {m.wine.vintage ?? ''}
-        </p>
-        <span className="list__meta">{m.wine.appellationRaw}{m.type !== 'MOVE' && m.locationLabel ? ` · ${m.locationLabel}` : ''}{note ? ` · ${note}` : ''}</span>
+    <div className="mv">
+      <span className={`mv__badge${isIn ? ' mv__badge--in' : ''}`}><Icon name={isIn ? 'add' : 'remove'} /></span>
+      <div className="mv__body">
+        <p className="mv__title">{TYPE_LABEL[m.type]} · {m.wine.producer}</p>
+        <span className="mv__meta">
+          {[[m.wine.cuvee, m.wine.vintage].filter(Boolean).join(' '), fmt.format(new Date(m.occurredAt))].filter(Boolean).join(' · ')}
+          {/* Une moitié de déplacement : l'emplacement d'origine (−) ou de destination (+). */}
+          {m.type === 'MOVE' && <span>{` · Déplacé · ${m.locationLabel ?? NO_LOCATION}`}</span>}
+        </span>
+        <span className="mv__meta">{m.wine.appellationRaw}{m.type !== 'MOVE' && m.locationLabel ? ` · ${m.locationLabel}` : ''}{note ? ` · ${note}` : ''}</span>
       </div>
-      {onCancel && !m.reversesId && !cancelled && (
-        <Button variant="outline" onClick={() => onCancel(m.id)} disabled={cancelling}>Annuler</Button>
-      )}
+      <span className="mv__side">
+        <span className={`mv__delta num${isIn ? ' mv__delta--in' : ''}`}>{isIn ? `+${m.delta}` : m.delta} btl</span>
+        {onCancel && !m.reversesId && !cancelled && (
+          <Button variant="outline" onClick={() => onCancel(m.id)} disabled={cancelling}>Annuler</Button>
+        )}
+      </span>
     </div>
   );
 }

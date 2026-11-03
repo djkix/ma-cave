@@ -39,7 +39,7 @@ const expectExternal = (name: string, href: string) => {
 
 it('sans cote : « Pas encore de cote », un lien par site avec ce qu’il donne, et « Saisir la cote »', () => {
   mount(null);
-  expect(screen.getByRole('heading', { name: 'Cote' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Valeur & cote' })).toBeInTheDocument();
   expect(screen.getByText('Pas encore de cote')).toBeInTheDocument();
   expectExternal('Voir sur iDealwine', SEARCH);
   expectExternal('Voir sur Wine-Searcher', WS);
@@ -52,7 +52,9 @@ it('sans cote : « Pas encore de cote », un lien par site avec ce qu’il donne
 it('avec cote : la ligne et sa source, la valeur de cession et sa note, « Voir sur iDealwine » et « Mettre à jour »', () => {
   mount(quote);
   expect(screen.getByText('85 € — 12 transactions — cote du 3 mars 2026, il y a 7 mois · source iDealwine')).toBeInTheDocument();
-  expect(screen.getByText("Valeur de cession estimée : 73 € (cote hors frais acheteur d'environ 16 %)")).toBeInTheDocument();
+  expect(screen.getByText('Cote caviste')).toBeInTheDocument();
+  expect(screen.getByText('Cession estimée (cote / 1,16)').nextElementSibling).toHaveTextContent('73 €');
+  expect(screen.getByText("(cote hors frais acheteur d'environ 16 %)")).toBeInTheDocument();
   expectExternal('Voir sur iDealwine', PAGE);
   expect(screen.getByRole('button', { name: 'Mettre à jour' })).toBeInTheDocument();
   expect(screen.queryByText('Peu de transactions : ordre de grandeur')).not.toBeInTheDocument();
@@ -63,12 +65,12 @@ it('cote Vivino : source affichée, pas de valeur de cession (frais d’enchère
   const page = 'https://www.vivino.com/FR/fr/tempier/w/1';
   mount({ ...quote, sourceUrl: page, site: 'vivino', source: 'Vivino' }, links(SEARCH, page), page);
   expect(screen.getByText('85 € — 12 transactions — cote du 3 mars 2026, il y a 7 mois · source Vivino')).toBeInTheDocument();
-  expect(screen.queryByText(/Valeur de cession/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Cession estimée/)).not.toBeInTheDocument();
   expectExternal('Voir sur Vivino', page);
   cleanup();
   mount({ ...quote, sourceUrl: null, site: null, source: null }, links(), null);
   expect(screen.getByText('85 € — 12 transactions — cote du 3 mars 2026, il y a 7 mois')).toBeInTheDocument();
-  expect(screen.getByText(/^Valeur de cession estimée : 73 €/)).toBeInTheDocument();
+  expect(screen.getByText(/^Cession estimée/)).toBeInTheDocument();
 });
 
 it('avertit : peu de transactions, cote de plus d’un an', () => {
