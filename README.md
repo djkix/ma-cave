@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.42.1-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.43.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -857,6 +857,17 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.43.0 — 3 novembre 2026
+
+Publiée ([v2.43.0](https://github.com/djkix/ma-cave/releases/tag/v2.43.0)),
+images `ghcr.io/djkix/ma-cave-api:2.43.0`, `-web:2.43.0` et
+`-sauvegarde:2.43.0`.
+
+**Tri de la cave** (nom, apogée, millésime, quantité, note, ajout récent) et
+**cépages par vin**, estimés par l'IA et corrigeables. Migration automatique
+(`20261103180000_cepages`) : nouvelle colonne et remise en file de
+caractérisation de tous les vins.
+
 ### 2.42.1 — 3 novembre 2026
 
 Publiée ([v2.42.1](https://github.com/djkix/ma-cave/releases/tag/v2.42.1)),
@@ -943,6 +954,9 @@ images `ghcr.io/djkix/ma-cave-api:2.36.0`, `-web:2.36.0` et
 **Inscriptions signalées** (pastille, bandeau) et **notification push** des
 nouvelles inscriptions. Migration additive.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.35.1 → 1.0.0)</summary>
+
 ### 2.35.1 — 23 octobre 2026
 
 Publiée ([v2.35.1](https://github.com/djkix/ma-cave/releases/tag/v2.35.1)),
@@ -952,9 +966,6 @@ images `ghcr.io/djkix/ma-cave-api:2.35.1`, `-web:2.35.1` et
 **Bascule Gemini sur lenteur ou saturation** : délai de 45 s par modèle,
 modèle lent mis de côté 15 min ; `stop_grace_period: 270s` sur le worker.
 Aucune migration.
-
-<details>
-<summary><strong>Versions antérieures</strong> (2.35.0 → 1.0.0)</summary>
 
 ### 2.35.0 — 23 octobre 2026
 

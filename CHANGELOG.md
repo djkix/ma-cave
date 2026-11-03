@@ -11,6 +11,19 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.43.0](https://github.com/djkix/ma-cave/compare/v2.42.1...v2.43.0) (2026-11-03)
 
+### Résumé
+
+**Tri de la cave et cépages par vin.** La liste se trie par nom, apogée (fin
+de fenêtre la plus proche d'abord), millésime, quantité, note ou ajout récent,
+choix mémorisé sur l'appareil. Chaque vin reçoit ses **cépages** (assemblage de
+la cuvée), déterminés par l'IA avec les autres caractéristiques et corrigeables
+depuis la fiche ; en attendant, la fiche affiche ceux du domaine. La migration
+(`20261103180000_cepages`) remet tous les vins en file de caractérisation,
+corrections manuelles conservées.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
