@@ -303,3 +303,11 @@ it('pré-remplit la quantité choisie à la prise de vue plutôt que celle lue s
   expect(await screen.findByDisplayValue('Domaine Tempier')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /^12/ })).toHaveAttribute('aria-pressed', 'true');
 });
+
+it('analyse en échec : la quantité choisie à la prise de vue reste proposée en saisie manuelle', async () => {
+  vi.spyOn(api, 'getPhoto').mockResolvedValue({ id: 'p1', status: 'FAILED', errorMessage: 'Plafond mensuel atteint', createdAt: '', requestedQuantity: 6 });
+  vi.spyOn(sse, 'subscribePhotoEvents').mockImplementation(() => () => {});
+  mount();
+  await userEvent.click(await screen.findByRole('button', { name: /Saisir à la main/ }));
+  expect(screen.getByRole('button', { name: /^6/ })).toHaveAttribute('aria-pressed', 'true');
+});

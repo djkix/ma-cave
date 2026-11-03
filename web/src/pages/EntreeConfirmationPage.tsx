@@ -69,6 +69,8 @@ export function EntreeConfirmationPage() {
         setStatus(p.status);
         setErrorMessage(p.errorMessage ?? null);
         requested.current = p.requestedQuantity ?? null;
+        // Sans analyse (échec, report), le nombre choisi à la prise de vue reste proposé.
+        setQuantity(p.requestedQuantity ?? 1);
         // Photo déjà lue : la fiche se pré-remplit sans attendre le flux, qui peut se couper.
         if (p.extraction) setExtraction(p.extraction);
         if (p.status === 'FAILED') return;
