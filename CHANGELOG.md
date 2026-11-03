@@ -11,6 +11,15 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.42.1](https://github.com/djkix/ma-cave/compare/v2.42.0...v2.42.1) (2026-11-03)
 
+### Résumé
+
+**Image web de nouveau publiée.** La construction de l'image web de la 2.42.0
+échouait (configuration de test important un module Node absent de l'image) :
+déployer la 2.42.1, qui contient toute la nouvelle charte. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Corrections
 
