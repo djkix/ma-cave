@@ -1,13 +1,12 @@
 import { configDefaults, defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   plugins: [react()],
   // `virtual:pwa-register/react` est fourni par vite-plugin-pwa, absent de la
   // configuration de test : sans cet alias, tout rendu de la coque échoue.
-  // fileURLToPath plutôt que .pathname : un dossier avec un espace serait encodé en %20.
-  resolve: { alias: { 'virtual:pwa-register/react': fileURLToPath(new URL('./src/test-stubs/pwa-register-react.ts', import.meta.url)) } },
+  // decodeURIComponent : sans lui, un dossier avec un espace serait encodé en %20.
+  resolve: { alias: { 'virtual:pwa-register/react': decodeURIComponent(new URL('./src/test-stubs/pwa-register-react.ts', import.meta.url).pathname) } },
   test: {
     environment: 'jsdom',
     globals: true,
