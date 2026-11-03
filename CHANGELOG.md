@@ -11,6 +11,25 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.41.0](https://github.com/djkix/ma-cave/compare/v2.40.0...v2.41.0) (2026-11-03)
 
+### Résumé
+
+**Saisie fiable et vins corrigeables.** Nombre de bouteilles choisi dès la
+prise de photo (repris à la confirmation, même hors ligne ou si l'analyse
+échoue). Suggestions d'appellations du référentiel pendant la frappe ; une
+appellation inconnue est signalée sans bloquer la saisie. **Modifier un vin**
+depuis sa fiche (domaine, cuvée, appellation, millésime, couleur, format), avec
+**fusion** quand il en double un autre, sans perte de bouteilles ni
+d'historique. **L'IA devine la région et la garde** quand le référentiel ne
+sait pas : région publiée = correction manuelle > référentiel > IA, apogée
+« estimée par l'IA » (non millésimés : depuis la première entrée), région
+corrigeable par un sélecteur unique. **Cave** : un seul champ Millésime et des
+pastilles de région (dont « Hors de France »). **Stats** : millésimes année
+par année, ligne « Hors de France ». La migration remet en file d'analyse les
+vins sans apogée ou sans région, corrections manuelles conservées.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
