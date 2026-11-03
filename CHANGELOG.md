@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.42.1](https://github.com/djkix/ma-cave/compare/v2.42.0...v2.42.1) (2026-11-03)
+
+
+### Corrections
+
+* **web:** image web construite sans les types Node dans la configuration de test ([b99d117](https://github.com/djkix/ma-cave/commit/b99d1175c91f41600ad560cf627160a72f8fdc24))
+
 ## [2.42.0](https://github.com/djkix/ma-cave/compare/v2.41.0...v2.42.0) (2026-11-03)
 
 ### Résumé
