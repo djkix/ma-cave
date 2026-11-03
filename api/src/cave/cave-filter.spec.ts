@@ -1,4 +1,4 @@
-import { CaveRow, countryOf, filterCave, publishedRegion } from './cave-filter';
+import { CaveRow, countryOf, filterCave, publishedRegion, regionLabel } from './cave-filter';
 
 const row = (id: string, producer: string, appellationRaw: string, quantity: number, extra: Partial<CaveRow> = {}): CaveRow => ({
   id, producer, cuvee: null, appellationRaw, vintage: 2019, color: 'ROUGE', formatCl: 75, referencePhotoId: null, quantity, ...extra,
@@ -77,5 +77,13 @@ describe('filterCave', () => {
       expect(countryOf({ appellationId: null, country: 'FR', traitsManual: ['country'] })).toBe('FR');
       expect(countryOf({ appellationId: 'ap', country: 'AUTRE', traitsManual: [] })).toBe('FR');
     });
+  });
+
+  it('libellé de région : région publiée, sinon « Hors de France » pour un vin étranger, sinon « Sans région »', () => {
+    expect(regionLabel({ region: 'Loire', country: 'AUTRE' })).toBe('Loire');
+    expect(regionLabel({ region: null, appellationId: 'ap', country: 'AUTRE', traitsManual: ['country'] })).toBe('Hors de France');
+    expect(regionLabel({ region: null, appellationId: 'ap', country: 'AUTRE' })).toBe('Sans région');
+    expect(regionLabel({ region: null, country: 'AUTRE' })).toBe('Hors de France');
+    expect(regionLabel({})).toBe('Sans région');
   });
 });

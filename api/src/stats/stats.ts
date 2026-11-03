@@ -1,4 +1,6 @@
 import { Apogee } from '../apogee/apogee';
+import { NO_REGION, regionLabel } from '../cave/cave-filter';
+import type { Country } from '../traits/traits';
 import { cessionCents, hasBuyerFees } from '../quotes/quote';
 
 /**
@@ -10,8 +12,7 @@ import { cessionCents, hasBuyerFees } from '../quotes/quote';
 export const STATS_TIME_ZONE = 'Europe/Paris';
 export const STATS_MONTHS = 12;
 export const RANKING_SIZE = 5;
-export const NO_REGION = 'Sans région';
-export const OUTSIDE_FRANCE = 'Hors de France';
+export { NO_REGION };
 export const NO_VINTAGE = 'Non millésimé';
 export const APOGEE_KEYS = ['TROP_JEUNE', 'A_BOIRE', 'A_BOIRE_VITE', 'PASSEE', 'SANS_ESTIMATION'] as const;
 
@@ -21,9 +22,10 @@ export interface StatsWine {
   cuvee: string | null;
   vintage: number | null;
   color: string;
-  /** Région publiée ; un vin étranger (`country` AUTRE) compte dans « Hors de France ». */
+  /** Région publiée ; le libellé (« Hors de France », « Sans région ») vient de `regionLabel`. */
   region: string | null;
-  country?: string | null;
+  /** Pays publié (`countryOf`). */
+  country?: Country | null;
   quantity: number;
   apogee: Apogee;
   rating: number | null;
@@ -183,7 +185,7 @@ export function computeStats(input: { wines: StatsWine[]; movements: StatsMoveme
     quotedReferences: quoted.length,
     quotableReferences: inStock.length,
     byColor: shares(group(inStock, (w) => w.color, qty), bottles, biggestFirst),
-    byRegion: shares(group(inStock, (w) => (w.country === 'AUTRE' ? OUTSIDE_FRANCE : (w.region ?? NO_REGION)), qty), bottles, biggestFirst),
+    byRegion: shares(group(inStock, regionLabel, qty), bottles, biggestFirst),
     byYear: shares(group(inStock, (w) => (w.vintage == null ? NO_VINTAGE : String(w.vintage)), qty), bottles, yearOrder),
     byApogee: APOGEE_KEYS.map((key) => {
       const b = apogeeGroups.get(key) ?? 0;

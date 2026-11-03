@@ -3,7 +3,7 @@ import { Prisma, WineColor } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { ApogeeConfidence, isDrinkSoon, sortByApogeeEnd } from '../apogee/apogee';
 import { ApogeeRulesService } from '../apogee/apogee-rules.service';
-import { countryOf, filterCave, publishedRegion } from '../cave/cave-filter';
+import { filterCave, NO_REGION, publishedRegion, regionLabel } from '../cave/cave-filter';
 import { apogeeOf, CaveDbRow } from '../cave/cave.service';
 import type { Country } from '../traits/traits';
 import { formatPlaces, LocatedParts, partsOf, placesOf } from '../locations/location';
@@ -62,10 +62,11 @@ export class ExportService {
     const year = new Date().getFullYear();
 
     // Première entrée non annulée par vin : départ de la garde IA d'un non-millésimé (à défaut, la création du vin).
+    // Année UTC, comme le SQL de la cave (colonnes sans fuseau, en UTC).
     const firstIn = new Map<string, number>();
     for (const m of movements) {
       if (m.type !== 'IN' || cancelled.has(m.id)) continue;
-      const y = m.occurredAt.getFullYear();
+      const y = m.occurredAt.getUTCFullYear();
       firstIn.set(m.wineId, Math.min(y, firstIn.get(m.wineId) ?? y));
     }
     // Mêmes lignes, même filtre, même région et même apogée que l'application : l'export ne raconte jamais autre chose.
@@ -79,7 +80,7 @@ export class ExportService {
         apogeeMin: w.apogeeMin, apogeeMax: w.apogeeMax, apogeeSource: w.apogeeSource,
         aiRegion: w.traits?.region ?? null, aiGuardMin: w.traits?.guardMin ?? null, aiGuardMax: w.traits?.guardMax ?? null,
         traitsManual: w.traits?.manualFields ?? [], country: (w.traits?.country ?? null) as Country | null,
-        firstEntryYear: firstIn.get(w.id) ?? w.createdAt.getFullYear(),
+        firstEntryYear: firstIn.get(w.id) ?? w.createdAt.getUTCFullYear(),
       };
       return { ...row, ...publishedRegion(row) };
     });
@@ -120,7 +121,7 @@ export class ExportService {
       const price = lastPrice.has(w.id) ? lastPrice.get(w.id)! / 100 : null;
       const quote = quoteByWine.get(w.id);
       const row = stock.addRow({
-        producer: w.producer, cuvee: w.cuvee ?? '', appellation: w.appellationRaw, region: r.region ?? (countryOf(r) === 'AUTRE' ? 'Hors de France' : ''),
+        producer: w.producer, cuvee: w.cuvee ?? '', appellation: w.appellationRaw, region: regionLabel(r) === NO_REGION ? '' : regionLabel(r),
         vintage: w.vintage ?? 'NV', apogeeMin: apogee.min, apogeeMax: apogee.max,
         confidence: apogee.confidence ? CONFIDENCE_LABEL[apogee.confidence] : null,
         rating: w.rating == null ? null : Number(w.rating),

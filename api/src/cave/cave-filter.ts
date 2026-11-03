@@ -3,6 +3,9 @@ import type { Country, Tannin } from '../traits/traits';
 
 /** Valeur de `region` pour les vins hors de France. */
 export const HORS_FRANCE = 'HORS_FRANCE';
+/** Libellés de `regionLabel` (statistiques, export). */
+export const NO_REGION = 'Sans région';
+export const OUTSIDE_FRANCE = 'Hors de France';
 
 export interface CaveRow {
   id: string;
@@ -54,6 +57,11 @@ export function publishedRegion(row: RegionInput): { region: string | null; regi
   if (row.refRegion) return { region: row.refRegion, regionSource: 'REFERENTIEL' };
   if (row.aiRegion) return { region: row.aiRegion, regionSource: 'IA' };
   return { region: null, regionSource: null };
+}
+
+/** Libellé de la région publiée : la région, sinon « Hors de France » pour un vin étranger, sinon « Sans région ». */
+export function regionLabel(row: Pick<CaveRow, 'region' | 'appellationId' | 'country' | 'traitsManual'>): string {
+  return row.region ?? (countryOf(row) === 'AUTRE' ? OUTSIDE_FRANCE : NO_REGION);
 }
 
 export interface CaveFilter {

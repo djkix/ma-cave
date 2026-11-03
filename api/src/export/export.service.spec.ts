@@ -235,4 +235,19 @@ describe('ExportService.buildWorkbook', () => {
     expect([4, 6, 7, 8].map((c) => row.getCell(c).value)).toEqual(['Loire', 2025, 2028, 'Faible']);
     expect((await new ExportService(prisma as any, noRules as any).buildWorkbook('c1', { region: 'Bordeaux' }, 'u1')).rowCount).toBe(0);
   });
+
+  it('colonne région : « Hors de France » pour un vin étranger, vide sans région', async () => {
+    const prisma = fakePrisma();
+    const w = (id: string, country: string | null) => ({ id, producer: `P${id}`, cuvee: null, appellationRaw: 'Inconnue', vintage: 2020, color: 'ROUGE', formatCl: 75,
+      appellationId: null, apogeeMin: null, apogeeMax: null, apogeeSource: null, createdAt: new Date('2024-05-01'), appellation: null,
+      traits: { region: null, guardMin: null, guardMax: null, country, manualFields: [] } });
+    prisma.wine.findMany = async () => [w('a', 'AUTRE'), w('b', null)] as any;
+    prisma.$queryRaw = async () => [{ wine_id: 'a', quantity: 1 }, { wine_id: 'b', quantity: 1 }];
+    const { buffer } = await new ExportService(prisma as any, noRules as any).buildWorkbook('c1', {}, 'u1');
+    const wb = new ExcelJS.Workbook();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- voir le premier test
+    await wb.xlsx.load(buffer as any);
+    const stock = wb.getWorksheet('Stock')!;
+    expect([2, 3].map((r) => stock.getRow(r).getCell(4).value)).toEqual(['Hors de France', '']);
+  });
 });

@@ -249,8 +249,17 @@ describeIfInfra('api HTTP', () => {
       expect(bad.status).toBe(400);
       const ok = await agent.put(`/api/wines/${wine.id}/traits`).send({ region: 'Alsace' });
       expect(ok.status).toBe(200);
-      expect(ok.body).toMatchObject({ region: 'Alsace', manualFields: ['region'] });
-      expect((await agent.get(`/api/wines/${wine.id}`)).body.wine).toMatchObject({ region: 'Alsace', regionSource: 'MANUEL' });
+      // Une région choisie rend le vin français ; un pays étranger efface la région : jamais les deux à la fois.
+      expect(ok.body).toMatchObject({ region: 'Alsace', country: 'FR' });
+      expect([...ok.body.manualFields].sort()).toEqual(['country', 'region']);
+      expect((await agent.get(`/api/wines/${wine.id}`)).body.wine).toMatchObject({ region: 'Alsace', regionSource: 'MANUEL', country: 'FR' });
+      const abroad = await agent.put(`/api/wines/${wine.id}/traits`).send({ country: 'AUTRE' });
+      expect(abroad.body).toMatchObject({ region: null, country: 'AUTRE' });
+      expect([...abroad.body.manualFields].sort()).toEqual(['country', 'region']);
+      const hors = await agent.get('/api/cave?region=HORS_FRANCE&includeEmpty=true');
+      expect(hors.body.map((w: { id: string }) => w.id)).toContain(wine.id);
+      const alsace = await agent.get('/api/cave?region=Alsace&includeEmpty=true');
+      expect(alsace.body.map((w: { id: string }) => w.id)).not.toContain(wine.id);
     } finally {
       await prisma.wine.delete({ where: { id: wine.id } });
     }

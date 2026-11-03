@@ -118,6 +118,8 @@ export class CaveService {
   async allWithStock(caveId: string, role: CaveRole = 'VIEWER'): Promise<CaveDbRow[]> {
     const ratedBy = role === 'OWNER' ? Prisma.sql`COALESCE(u.display_name, u.email)` : Prisma.sql`u.display_name`;
     // Première entrée : premier mouvement IN non annulé, à défaut la création du vin (point de départ de la garde IA d'un non-millésimé).
+    // occurred_at et created_at sont des `timestamp` sans fuseau, en UTC : EXTRACT donne l'année UTC quel que soit le fuseau de session
+    // (un `AT TIME ZONE 'UTC'` en ferait un timestamptz, relu au fuseau de session).
     const rows = await this.prisma.$queryRaw<CaveDbRow[]>`
       SELECT w.id, w.producer, w.cuvee, w.appellation_raw AS "appellationRaw", w.vintage,
              w.color::TEXT AS color, w.format_cl AS "formatCl", w.reference_photo_id AS "referencePhotoId",
@@ -290,6 +292,9 @@ export class CaveService {
    */
   async setTraits(caveId: string, id: string, input: TraitsInput) {
     if (!(await this.prisma.wine.findFirst({ where: { id, caveId }, select: { id: true } }))) throw new NotFoundException('Vin introuvable');
+    // Région et pays restent cohérents : une région rend le vin français, un pays étranger efface la région (les deux deviennent manuels).
+    if (input.region != null) input = { ...input, country: 'FR' };
+    else if (input.country === 'AUTRE') input = { ...input, region: null };
     const edited = (['tannin', 'aromas', 'country', 'region'] as const).filter((k) => input[k] !== undefined);
     const fields = Object.fromEntries(edited.map((k) => [k, input[k]])) as Pick<TraitsInput, (typeof edited)[number]>;
     const current = await this.prisma.wineTraits.findUnique({ where: { wineId: id }, select: { manualFields: true } });
