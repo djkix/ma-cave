@@ -17,6 +17,12 @@ const rows: api.CaveRow[] = [
   { id: 'w2', producer: 'Domaine Leflaive', cuvee: null, appellationRaw: 'Puligny-Montrachet', vintage: 2020, color: 'BLANC', formatCl: 75, referencePhotoId: null, quantity: 1 },
 ];
 
+const regionRows: api.CaveRow[] = [
+  { ...rows[1], id: 'w3', region: 'Bourgogne' },
+  { ...rows[0], id: 'w4', region: 'Rhône' },
+  { ...rows[0], id: 'w5', country: 'AUTRE' },
+];
+
 function mount(url = '/cave') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -55,11 +61,15 @@ it('transmet la recherche pré-remplie par l’URL', async () => {
   expect(screen.getByLabelText('Rechercher')).toHaveValue('tempier');
 });
 
-it('envoie un millésime décimal tronqué en entier', async () => {
+it('un seul champ Millésime : une année envoie vintageMin et vintageMax, vide aucun des deux', async () => {
   const getCave = vi.spyOn(api, 'getCave').mockResolvedValue([]);
   mount('/cave');
-  await userEvent.type(await screen.findByLabelText('Millésime de'), '2010.5');
-  await waitFor(() => expect(getCave).toHaveBeenLastCalledWith(expect.objectContaining({ vintageMin: 2010 })));
+  const field = await screen.findByLabelText('Millésime');
+  await userEvent.type(field, '2015');
+  await waitFor(() => expect(getCave).toHaveBeenCalledWith(expect.objectContaining({ vintageMin: 2015, vintageMax: 2015 })));
+  await userEvent.clear(field);
+  await waitFor(() => expect(getCave).toHaveBeenLastCalledWith(expect.not.objectContaining({ vintageMin: expect.anything() })));
+  expect(getCave).toHaveBeenLastCalledWith(expect.not.objectContaining({ vintageMax: expect.anything() }));
 });
 
 it('filtre par couleur et montre les épuisés sur demande', async () => {
@@ -198,24 +208,37 @@ it('passe le filtre d’emplacement dans l’adresse de l’api', async () => {
 });
 
 it('les filtres sont dans l’ordre demandé', async () => {
-  vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  vi.spyOn(api, 'getCave').mockResolvedValue(regionRows);
   const { container } = mount();
-  await screen.findByText(/Domaine Tempier/);
+  await screen.findByText(/Domaine Leflaive/);
   const names = Array.from(container.querySelectorAll('.cave-filters input, .cave-filters select, .cave-filters button')).map((el) =>
     el.getAttribute('aria-label') ?? el.textContent ?? '');
-  const wanted = ['Rechercher', 'Couleur', 'Arômes', 'Millésime de', 'Millésime à', 'Tanin', 'Emplacement', 'À boire en priorité', 'Sans apogée', 'Afficher les vins épuisés', 'Accompagner un plat'];
+  const wanted = ['Rechercher', 'Couleur', 'Arômes', 'Millésime', 'Bourgogne', 'Hors de France', 'Tanin', 'Emplacement', 'À boire en priorité', 'Sans apogée', 'Afficher les vins épuisés', 'Accompagner un plat'];
   const pos = wanted.map((n) => names.findIndex((x) => x.startsWith(n)));
   expect(pos.every((p) => p >= 0)).toBe(true);
   expect(pos).toEqual([...pos].sort((a, b) => a - b));
 });
 
-it('?region=Bourgogne envoie region et affiche la pastille retirable', async () => {
-  const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(rows);
-  mount('/cave?region=Bourgogne');
-  await waitFor(() => expect(getCave).toHaveBeenCalledWith(expect.objectContaining({ region: 'Bourgogne' })));
-  await userEvent.click(screen.getByRole('button', { name: /Région : Bourgogne/ }));
+it('les pastilles de région viennent de la cave ; toucher pose région dans l’URL, retoucher l’enlève', async () => {
+  const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(regionRows);
+  mount('/cave');
+  const pill = await screen.findByRole('button', { name: 'Bourgogne' });
+  expect(screen.getByRole('button', { name: 'Rhône' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Hors de France' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Alsace' })).toBeNull();
+  await userEvent.click(pill);
+  await waitFor(() => expect(getCave).toHaveBeenLastCalledWith(expect.objectContaining({ region: 'Bourgogne' })));
+  expect(screen.getByRole('button', { name: 'Bourgogne' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('button', { name: 'Rhône' })).toBeInTheDocument(); // les autres restent proposées
+  await userEvent.click(screen.getByRole('button', { name: 'Bourgogne' }));
   await waitFor(() => expect(getCave).toHaveBeenLastCalledWith(expect.not.objectContaining({ region: 'Bourgogne' })));
-  expect(screen.queryByRole('button', { name: /Région/ })).toBeNull();
+});
+
+it('?region=HORS_FRANCE est repris de l’URL', async () => {
+  const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(regionRows);
+  mount('/cave?region=HORS_FRANCE');
+  await waitFor(() => expect(getCave).toHaveBeenCalledWith(expect.objectContaining({ region: 'HORS_FRANCE' })));
+  expect(await screen.findByRole('button', { name: 'Hors de France' })).toHaveAttribute('aria-pressed', 'true');
 });
 
 it('cocher boisé et noisette envoie deux aromas', async () => {

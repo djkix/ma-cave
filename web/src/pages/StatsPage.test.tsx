@@ -14,8 +14,8 @@ const base: api.Stats = {
   bottles: 12, references: 2, pricedReferences: 1, purchaseValueCents: 1240000,
   quotedValueCents: 1_020_000, cessionValueCents: 856_800, quotedReferences: 1, quotableReferences: 2,
   byColor: [{ key: 'ROUGE', bottles: 9, share: 0.75 }, { key: 'BLANC', bottles: 3, share: 0.25 }],
-  byRegion: [{ key: 'Rhône', bottles: 9, share: 0.75 }, { key: 'Sans région', bottles: 3, share: 0.25 }],
-  byYear: [{ key: '2016', bottles: 9, share: 0.75 }, { key: 'Non millésimé', bottles: 3, share: 0.25 }],
+  byRegion: [{ key: 'Rhône', bottles: 9, share: 0.75 }, { key: 'Hors de France', bottles: 2, share: 0.1667 }, { key: 'Sans région', bottles: 1, share: 0.0833 }],
+  byYear: [{ key: '2015', bottles: 4, share: 0.3333 }, { key: '2019', bottles: 5, share: 0.4167 }, { key: 'Non millésimé', bottles: 3, share: 0.25 }],
   byApogee: [
     { key: 'TROP_JEUNE', bottles: 0, share: 0 }, { key: 'A_BOIRE', bottles: 6, share: 0.5 }, { key: 'A_BOIRE_VITE', bottles: 3, share: 0.25 },
     { key: 'PASSEE', bottles: 0, share: 0 }, { key: 'SANS_ESTIMATION', bottles: 3, share: 0.25 },
@@ -155,4 +155,14 @@ describe('valeur à la cote (propriétaire)', () => {
     expect(screen.queryByText(/(^|\s)0 €/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Valeur de cession/)).not.toBeInTheDocument();
   });
+});
+
+it('rend les millésimes par année (sans « Années ») et la ligne « Hors de France »', async () => {
+  vi.spyOn(api, 'getStats').mockResolvedValue(base);
+  mount();
+  const year = (await screen.findByRole('heading', { name: 'Millésime' })).closest('section')!;
+  for (const l of ['2015', '2019', 'Non millésimé']) expect(within(year).getByText(l)).toBeInTheDocument();
+  expect(screen.queryByText('Années')).toBeNull();
+  const region = screen.getByRole('heading', { name: 'Région' }).closest('section')!;
+  expect(within(region).getByText('Hors de France')).toBeInTheDocument();
 });

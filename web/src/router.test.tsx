@@ -96,12 +96,12 @@ describe('changement de cave', () => {
   }
 
   it('n’affiche jamais un vin de l’ancienne cave pendant le chargement de la nouvelle', async () => {
-    const getCave = vi.spyOn(api, 'getCave').mockResolvedValueOnce([wineA]).mockReturnValue(new Promise(() => {}));
+    const getCave = vi.spyOn(api, 'getCave').mockResolvedValueOnce([wineA]).mockResolvedValueOnce([wineA]).mockReturnValue(new Promise(() => {})); // liste + régions proposées
     switchable();
     const router = mountAt('/cave', twoCaves);
     expect(await screen.findByText(/Domaine de la Cave A/)).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Cave' }), 'c2');
-    await waitFor(() => expect(getCave).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(getCave.mock.calls.length).toBeGreaterThan(2));
     expect(screen.queryByText(/Domaine de la Cave A/)).not.toBeInTheDocument();
     expect(await screen.findByText('Lecture seule')).toBeInTheDocument();
     expect(screen.queryByText(/Domaine de la Cave A/)).not.toBeInTheDocument();

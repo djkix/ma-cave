@@ -8,6 +8,7 @@ import { TopBar } from '../components/TopBar';
 import { WineThumb } from '../components/WineThumb';
 import { CaveFilter, getCave, Tannin, WineColor } from '../lib/api-client';
 import { apogeeShortLabel } from '../lib/apogee';
+import { regionCounts } from '../lib/region-counts';
 import { NO_LOCATION, useLocations } from '../lib/locations';
 import { formatRatingShort } from '../lib/rating';
 import { AROMAS, MAX_AROMAS, TANNIN_LABEL } from '../lib/traits';
@@ -26,8 +27,7 @@ export function CavePage() {
   const region = params.get('region') ?? '';
   const [aromas, setAromas] = useState<string[]>([]);
   const [aromasOpen, setAromasOpen] = useState(false);
-  const [vintageMin, setVintageMin] = useState('');
-  const [vintageMax, setVintageMax] = useState('');
+  const [vintage, setVintage] = useState('');
   const [tannin, setTannin] = useState<Tannin | ''>('');
   const [q, setQ] = useState(params.get('q') ?? '');
   const [color, setColor] = useState<WineColor | ''>('');
@@ -39,10 +39,15 @@ export function CavePage() {
   // Un seul filtre d'apogée à la fois : « à boire en priorité » exclut par définition les vins sans estimation.
   const [apogeeFilter, setApogeeFilter] = useState<'' | 'drinkSoon' | 'noApogee'>(FILTER_FROM_URL[params.get('filtre') ?? ''] ?? '');
   const base: CaveFilter = { q, color: color || undefined, includeEmpty, ...(dish.trim() ? { dish: dish.trim() } : {}), ...(location ? { location } : {}),
-    ...(aromas.length ? { aromas } : {}), ...(Number.isFinite(Number(vintageMin)) && vintageMin ? { vintageMin: Math.trunc(Number(vintageMin)) } : {}),
-    ...(Number.isFinite(Number(vintageMax)) && vintageMax ? { vintageMax: Math.trunc(Number(vintageMax)) } : {}),
+    ...(aromas.length ? { aromas } : {}),
+    ...(vintage && Number.isFinite(Number(vintage)) ? { vintageMin: Math.trunc(Number(vintage)), vintageMax: Math.trunc(Number(vintage)) } : {}),
     ...(tannin ? { tannin } : {}), ...(region ? { region } : {}) };
-  const clearRegion = () => setParams((p) => { p.delete('region'); return p; }, { replace: true });
+  const toggleRegion = (r: string) => setParams((p) => { if (region === r) p.delete('region'); else p.set('region', r); return p; }, { replace: true });
+  // Régions proposées : celles de la cave entière (même requête que l'accueil, donc en cache), pas de la liste filtrée.
+  const all = useQuery({ queryKey: ['cave', {}], queryFn: () => getCave({}) });
+  const counts = regionCounts(all.data ?? []);
+  const regionPills = [...counts.byRegion.keys()].sort((a, b) => a.localeCompare(b, 'fr')).map((r) => ({ value: r, label: r }));
+  if (counts.horsFrance.producers.length) regionPills.push({ value: HORS_FRANCE, label: 'Hors de France' });
   const aromasLabel = aromas.length ? `Arômes : ${aromas.join(', ')}` : 'Arômes : tous';
   const filter: CaveFilter = apogeeFilter ? { ...base, [apogeeFilter]: true } : base;
   const cave = useQuery({ queryKey: ['cave', filter], queryFn: () => getCave(filter) });
@@ -72,9 +77,11 @@ export function CavePage() {
           </select>
           <button type="button" className={`filter-pill filter-pill--btn${aromas.length ? ' filter-pill--on' : ''}`} onClick={() => setAromasOpen(true)}>{aromasLabel}</button>
           <span className="filter-vintage">
-            <input type="number" inputMode="numeric" min={1900} max={2100} value={vintageMin} onChange={(e) => setVintageMin(e.target.value)} placeholder="Millésime de" aria-label="Millésime de" />
-            <input type="number" inputMode="numeric" min={1900} max={2100} value={vintageMax} onChange={(e) => setVintageMax(e.target.value)} placeholder="à" aria-label="Millésime à" />
+            <input type="number" inputMode="numeric" min={1900} max={2100} value={vintage} onChange={(e) => setVintage(e.target.value)} placeholder="Millésime" aria-label="Millésime" />
           </span>
+          {regionPills.map((r) => (
+            <button key={r.value} type="button" aria-pressed={region === r.value} className={`filter-pill filter-pill--btn${region === r.value ? ' filter-pill--on' : ''}`} onClick={() => toggleRegion(r.value)}>{r.label}</button>
+          ))}
           <label htmlFor="cave-tannin" className="visually-hidden">Tanin</label>
           <select id="cave-tannin" className={`filter-pill${tannin ? ' filter-pill--on' : ''}`} value={tannin} onChange={(e) => setTannin(e.target.value as Tannin | '')}>
             <option value="">Tanin : tous</option>
@@ -100,11 +107,6 @@ export function CavePage() {
           </label>
           <input type="search" value={dish} onChange={(e) => setDish(e.target.value)} placeholder="Agneau, comté, poisson…" aria-label="Accompagner un plat" maxLength={100} />
         </section>
-        {region && (
-          <button type="button" className="filter-pill filter-pill--on" onClick={clearRegion}>
-            {`Région : ${region === HORS_FRANCE ? 'Hors de France' : region} ✕`}
-          </button>
-        )}
         <BottomSheet open={aromasOpen} title="Arômes" onClose={() => setAromasOpen(false)}>
           <div className="cave-filters">
             {AROMAS.map((a) => {
