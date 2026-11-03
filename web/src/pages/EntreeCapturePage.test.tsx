@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import * as api from '../lib/api-client';
 import * as queue from '../lib/offline-queue';
@@ -89,4 +89,19 @@ it('affiche l’erreur de file pleine et ne compte pas la photo', async () => {
 it('mène à la liste des vins à confirmer', () => {
   mount();
   expect(screen.getByRole('link', { name: /Voir les vins à confirmer/ })).toHaveAttribute('href', '/a-confirmer');
+});
+
+it('propose le nombre de bouteilles avant la prise, l’envoie avec la photo puis revient à 1', async () => {
+  vi.spyOn(api, 'uploadPhoto').mockReturnValue(new Promise(() => {}));
+  const enqueue = vi.spyOn(queue, 'enqueuePhoto');
+  mount();
+  await waitFor(() => expect(api.getMe).toHaveBeenCalled());
+  await new Promise((r) => setTimeout(r, 0));
+  const group = screen.getByRole('group', { name: 'Bouteilles' });
+  expect(within(group).getByRole('button', { name: /^1 ?btl/ })).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(within(group).getByRole('button', { name: /^6/ }));
+  fireEvent.change(screen.getByLabelText('Prendre une photo'), { target: { files: [photo(1)] } });
+  expect(await screen.findByText('1 photo prise')).toBeInTheDocument();
+  expect(enqueue.mock.calls[0][3]).toBe(6);
+  expect(within(screen.getByRole('group', { name: 'Bouteilles' })).getByRole('button', { name: /^1 ?btl/ })).toHaveAttribute('aria-pressed', 'true');
 });

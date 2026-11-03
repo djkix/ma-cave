@@ -295,3 +295,11 @@ describe('emplacement à l’entrée', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('40 caractères au plus par champ d\'emplacement');
   });
 });
+
+it('pré-remplit la quantité choisie à la prise de vue plutôt que celle lue sur le carton', async () => {
+  vi.spyOn(api, 'getPhoto').mockResolvedValue({ id: 'p1', status: 'DONE', createdAt: '', extraction, requestedQuantity: 12 });
+  vi.spyOn(sse, 'subscribePhotoEvents').mockImplementation(() => () => {});
+  mount();
+  expect(await screen.findByDisplayValue('Domaine Tempier')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /^12/ })).toHaveAttribute('aria-pressed', 'true');
+});

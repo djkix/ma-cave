@@ -9,7 +9,7 @@ import { OfflineQueueBanner } from '../components/OfflineQueueBanner';
 import { QuantityPicker } from '../components/QuantityPicker';
 import { TopBar } from '../components/TopBar';
 import { ApiError, BulkResult, createMovementsBulk, dismissPhoto, getEntryInbox, LocationInput, PhotoDto, WineDraft } from '../lib/api-client';
-import { extractionToDraft } from '../lib/extraction-to-draft';
+import { extractionToDraft, initialQuantity } from '../lib/extraction-to-draft';
 import { EMPTY_LOCATION, toLocationInput, useLastLocation } from '../lib/locations';
 
 interface Row {
@@ -28,7 +28,7 @@ interface Row {
 function toRow(p: PhotoDto): Row | null {
   if (!p.extraction) return null;
   const { draft, confidences, detectedQuantity } = extractionToDraft(p.extraction);
-  return { photoId: p.id, idempotencyKey: crypto.randomUUID(), draft, confidences, globalConfidence: p.extraction.globalConfidence, quantity: detectedQuantity ?? 1, detected: detectedQuantity, ignored: false };
+  return { photoId: p.id, idempotencyKey: crypto.randomUUID(), draft, confidences, globalConfidence: p.extraction.globalConfidence, quantity: initialQuantity(p.requestedQuantity ?? null, detectedQuantity), detected: detectedQuantity, ignored: false };
 }
 
 function rowProblem(r: Row): string | null {

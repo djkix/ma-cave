@@ -1,4 +1,4 @@
-import { extractionToDraft } from './extraction-to-draft';
+import { extractionToDraft, initialQuantity } from './extraction-to-draft';
 
 const e = {
   producer: { value: 'Domaine Tempier', confidence: 0.98 }, cuvee: { value: null, confidence: 0 },
@@ -13,4 +13,12 @@ it('builds an editable draft with defaults and per-field confidences', () => {
   expect(confidences.vintage).toBe(0.6);
   expect(confidences.formatCl).toBe(0);
   expect(detectedQuantity).toBe(6);
+});
+
+it('initialQuantity : le choix fait à la photo prime, sauf 1 (défaut) devant une quantité lue', () => {
+  expect(initialQuantity(6, 2)).toBe(6);
+  expect(initialQuantity(1, 6)).toBe(6);
+  expect(initialQuantity(1, null)).toBe(1);
+  expect(initialQuantity(null, 12)).toBe(12);
+  expect(initialQuantity(null, null)).toBe(1);
 });

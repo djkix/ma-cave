@@ -2,6 +2,7 @@ import { ChangeEvent, useRef, useState } from 'react';
 import { useCurrentCave } from '../lib/use-current-cave';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/Button';
+import { QuantityPicker } from '../components/QuantityPicker';
 import { Icon } from '../components/Icon';
 import { OfflineQueueBanner } from '../components/OfflineQueueBanner';
 import { TopBar } from '../components/TopBar';
@@ -18,6 +19,8 @@ import { shrinkPhoto } from '../lib/shrink-photo';
 export function EntreeCapturePage() {
   const input = useRef<HTMLInputElement>(null);
   const [taken, setTaken] = useState(0);
+  // Nombre de bouteilles de la prochaine photo ; revient à 1 après chaque prise.
+  const [quantity, setQuantity] = useState(1);
   const [error, setError] = useState<string | null>(null);
   // Lu au moment de ranger la photo (après la réduction), pas à celui du rendu.
   const userId = useRef<string | undefined>(undefined);
@@ -29,10 +32,12 @@ export function EntreeCapturePage() {
     // est prêt pour la suivante pendant la réduction.
     e.target.value = '';
     if (!file) return;
+    const chosen = quantity;
+    setQuantity(1);
     setError(null);
     try {
       const blob = await shrinkPhoto(file);
-      await enqueuePhoto(blob, 'entry', userId.current);
+      await enqueuePhoto(blob, 'entry', userId.current, chosen);
     } catch (err) {
       setError(err instanceof QueueFullError ? err.message : 'Photo non enregistrée sur le téléphone — reprenez-la');
       return;
@@ -52,6 +57,9 @@ export function EntreeCapturePage() {
         </p>
         <p className="num" style={{ fontSize: 40, margin: 0 }} aria-hidden="true">{taken}</p>
         <small>{taken} photo{taken > 1 ? 's' : ''} prise{taken > 1 ? 's' : ''}</small>
+        <div role="group" aria-label="Bouteilles" style={{ width: '100%' }}>
+          <QuantityPicker key={taken} value={quantity} onChange={setQuantity} />
+        </div>
         <input ref={input} className="capture__input" type="file" accept="image/*" capture="environment" onChange={onFile} aria-label="Prendre une photo" />
         <Button variant="primary" onClick={() => input.current?.click()} style={{ width: '100%', minHeight: 'var(--size-action-height)' }}>
           <Icon name="photo_camera" />

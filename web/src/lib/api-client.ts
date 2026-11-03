@@ -160,7 +160,7 @@ export interface WineExtraction {
   vintage: ExtractedField<number>; color: ExtractedField<WineColor>; formatCl: ExtractedField<number>;
   bottlesPerCase: ExtractedField<number>; globalConfidence: number;
 }
-export interface PhotoDto { id: string; status: 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED'; rawExtraction?: unknown; extraction?: WineExtraction | null; errorMessage?: string | null; createdAt: string }
+export interface PhotoDto { id: string; status: 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED'; rawExtraction?: unknown; extraction?: WineExtraction | null; errorMessage?: string | null; createdAt: string; requestedQuantity?: number | null }
 export interface WineDraft { producer: string; cuvee?: string | null; appellationRaw: string; vintage?: number | null; color: WineColor; formatCl: number }
 /** Emplacement saisi : une zone de la cave (null = « Sans zone ») et deux champs texte facultatifs (au moins un renseigné côté api). */
 export interface LocationInput { zoneId: string | null; casier: string | null; position: string | null }
@@ -291,10 +291,11 @@ export interface CreateMovementInput { idempotencyKey: string; photoId?: string 
 export interface MovementResult { movement: { id: string; delta: number; type: string; occurredAt: string }; wine: WineDraft & { id: string }; stock: number; created: boolean }
 export interface PhotoEvent { status: PhotoDto['status']; extraction?: WineExtraction; errorMessage?: string | null }
 
-export function uploadPhoto(file: File | Blob, purpose: 'ENTRY' | 'EXIT' = 'ENTRY') {
+export function uploadPhoto(file: File | Blob, purpose: 'ENTRY' | 'EXIT' = 'ENTRY', quantity?: number) {
   const form = new FormData();
   form.append('file', file, 'photo.jpg');
   form.append('purpose', purpose);
+  if (quantity !== undefined) form.append('quantity', String(quantity));
   return apiFetch<{ id: string; status: string; duplicate: boolean }>('/photos', { method: 'POST', body: form });
 }
 export const getPhoto = (id: string) => apiFetch<PhotoDto>(`/photos/${id}`);

@@ -15,3 +15,11 @@ export function extractionToDraft(e: WineExtraction) {
   };
   return { draft, confidences, detectedQuantity: e.bottlesPerCase.value };
 }
+
+/**
+ * Quantité proposée à la confirmation : le nombre choisi à la prise de vue,
+ * sauf s'il vaut 1 (le défaut du sélecteur) et que le carton en indique un autre.
+ */
+export function initialQuantity(requested: number | null, detected: number | null): number {
+  return requested && requested !== 1 ? requested : (detected ?? requested ?? 1);
+}

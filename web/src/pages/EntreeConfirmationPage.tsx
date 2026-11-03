@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { EditableField } from '../components/EditableField';
@@ -8,7 +8,7 @@ import { Icon } from '../components/Icon';
 import { QuantityPicker } from '../components/QuantityPicker';
 import { TopBar } from '../components/TopBar';
 import { createMovement, getPhoto, LocationInput, MovementResult, PhotoEvent, WineDraft, WineExtraction } from '../lib/api-client';
-import { extractionToDraft } from '../lib/extraction-to-draft';
+import { extractionToDraft, initialQuantity } from '../lib/extraction-to-draft';
 import { EMPTY_LOCATION, toLocationInput, useLastLocation } from '../lib/locations';
 import { subscribePhotoEvents } from '../lib/sse';
 
@@ -44,6 +44,8 @@ export function EntreeConfirmationPage() {
   const [draft, setDraft] = useState<WineDraft>(EMPTY);
   const [confidences, setConfidences] = useState<Partial<Record<keyof WineDraft, number>>>({});
   const [quantity, setQuantity] = useState(1);
+  // Nombre choisi à la prise de vue, connu dès la lecture de la photo.
+  const requested = useRef<number | null>(null);
   const [detected, setDetected] = useState<number | null>(null);
   const [price, setPrice] = useState('');
   const [result, setResult] = useState<MovementResult | null>(null);
@@ -66,6 +68,7 @@ export function EntreeConfirmationPage() {
         if (cancelled) return;
         setStatus(p.status);
         setErrorMessage(p.errorMessage ?? null);
+        requested.current = p.requestedQuantity ?? null;
         // Photo déjà lue : la fiche se pré-remplit sans attendre le flux, qui peut se couper.
         if (p.extraction) setExtraction(p.extraction);
         if (p.status === 'FAILED') return;
@@ -113,7 +116,7 @@ export function EntreeConfirmationPage() {
     setDraft(d);
     setConfidences(c);
     setDetected(detectedQuantity);
-    if (detectedQuantity) setQuantity(detectedQuantity);
+    setQuantity(initialQuantity(requested.current, detectedQuantity));
   }, [extraction]);
 
   async function confirm() {

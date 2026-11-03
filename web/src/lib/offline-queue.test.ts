@@ -154,3 +154,11 @@ describe('file rattachée au compte', () => {
     await expect(enqueuePhoto(blob(1), 'entry', 'u1')).rejects.toBeInstanceOf(QueueFullError);
   });
 });
+
+it('envoie au vidage la quantité choisie à la prise de vue', async () => {
+  await enqueuePhoto(blob(1), 'entry', 'u1', 4);
+  await enqueuePhoto(blob(2), 'entry', 'u1');
+  const upload = vi.fn().mockResolvedValue({});
+  await flushQueue(upload, 'u1');
+  expect(upload.mock.calls.map((c) => c[2])).toEqual([4, undefined]);
+});
