@@ -54,13 +54,13 @@ export class AppellationsService {
   async suggest(q: string, limit = 8): Promise<Array<{ name: string; region: string | null; similarity: number }>> {
     const needle = normalizeLabel(q);
     if (!needle) return [];
-    // needle ne contient que [a-z0-9 ] : aucun joker LIKE à échapper.
+    // needle ne contient que [a-z0-9 ] : aucun joker LIKE à échapper. Le nom est
+    // normalisé de même (traits d'union en espaces) : « saint em » trouve Saint-Émilion Grand Cru.
     const rows = await this.prisma.$queryRaw<{ canonical_name: string; region: string | null; sim: number }[]>`
-      SELECT canonical_name, region,
-             similarity(unaccent_lower(canonical_name), ${needle}) AS sim
-      FROM appellation
-      WHERE unaccent_lower(canonical_name) LIKE '%' || ${needle} || '%'
-         OR similarity(unaccent_lower(canonical_name), ${needle}) >= ${RECOGNIZED_SIMILARITY}
+      SELECT canonical_name, region, similarity(label, ${needle}) AS sim
+      FROM (SELECT canonical_name, region, regexp_replace(unaccent_lower(canonical_name), '[^a-z0-9]+', ' ', 'g') AS label FROM appellation) a
+      WHERE label LIKE '%' || ${needle} || '%'
+         OR similarity(label, ${needle}) >= ${RECOGNIZED_SIMILARITY}
       ORDER BY sim DESC, canonical_name
       LIMIT ${limit}`;
     return rows.map((r) => ({ name: r.canonical_name, region: r.region, similarity: Number(r.sim) }));

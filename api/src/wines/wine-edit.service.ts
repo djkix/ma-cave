@@ -50,7 +50,9 @@ export class WineEditService {
       await tx.wine.update({ where: { id }, data: identity });
       const producerChanged = producerKeyOf(wine.producer) !== producerKeyOf(identity.producer);
       const appellationChanged = wine.appellationId !== identity.appellationId || normalizeLabel(wine.appellationRaw) !== normalizeLabel(identity.appellationRaw);
-      if (producerChanged || appellationChanged) {
+      // Le millésime et la couleur changent aussi les caractéristiques (et l'accord).
+      const vintageOrColorChanged = wine.vintage !== identity.vintage || wine.color !== identity.color;
+      if (producerChanged || appellationChanged || vintageOrColorChanged) {
         // Champs manuels gardés : la génération ne les écrase jamais.
         const requestedAt = new Date();
         await tx.wineTraits.updateMany({ where: { wineId: id }, data: { ...REQUEUE, requestedAt } });

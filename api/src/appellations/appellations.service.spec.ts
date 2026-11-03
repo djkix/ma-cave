@@ -13,6 +13,11 @@ describeIfDb('AppellationsService.resolve', () => {
       update: {},
       create: { canonicalName: 'Châteauneuf-du-Pape', region: 'Rhône', allowedColors: ['ROUGE', 'BLANC'] },
     });
+    await prisma.appellation.upsert({
+      where: { canonicalName: 'Saint-Émilion Grand Cru' },
+      update: {},
+      create: { canonicalName: 'Saint-Émilion Grand Cru', region: 'Bordeaux', allowedColors: ['ROUGE'] },
+    });
   });
   afterAll(() => prisma.$disconnect());
 
@@ -43,12 +48,22 @@ describeIfDb('AppellationsService.suggest', () => {
       update: {},
       create: { canonicalName: 'Châteauneuf-du-Pape', region: 'Rhône', allowedColors: ['ROUGE', 'BLANC'] },
     });
+    await prisma.appellation.upsert({
+      where: { canonicalName: 'Saint-Émilion Grand Cru' },
+      update: {},
+      create: { canonicalName: 'Saint-Émilion Grand Cru', region: 'Bordeaux', allowedColors: ['ROUGE'] },
+    });
   });
   afterAll(() => prisma.$disconnect());
 
   it('propose Châteauneuf-du-Pape en tête pour un début de nom sans accent', async () => {
     const r = await service.suggest('chateauneuf');
     expect(r[0]).toMatchObject({ name: 'Châteauneuf-du-Pape', region: 'Rhône' });
+  });
+
+  it('trouve un nom à trait d’union sur une saisie partielle sans trait d’union', async () => {
+    const r = await service.suggest('saint em');
+    expect(r.map((s) => s.name)).toContain('Saint-Émilion Grand Cru');
   });
 
   it('renvoie [] pour une saisie vide', async () => {

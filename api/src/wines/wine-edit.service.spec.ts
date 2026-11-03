@@ -81,6 +81,19 @@ describeIfDb('WineEditService (base réelle)', () => {
     expect(saved.pairing?.status).toBe('PENDING');
   });
 
+  it('remet les caractéristiques en file quand seul le millésime, ou seule la couleur, change', async () => {
+    const { wine } = await matching.matchOrCreate(caveId, pommard(2015, { cuvee: 'Millésime' }));
+    await prisma.wineTraits.create({ data: { wineId: wine.id, status: 'DONE', tannin: 'FONDU', manualFields: ['tannin'] } });
+    const traits = () => prisma.wineTraits.findUniqueOrThrow({ where: { wineId: wine.id } });
+
+    await service.edit(caveId, wine.id, { ...pommard(2015, { cuvee: 'Millésime' }), vintage: null });
+    expect(await traits()).toMatchObject({ status: 'PENDING', tannin: 'FONDU', manualFields: ['tannin'] });
+
+    await prisma.wineTraits.update({ where: { wineId: wine.id }, data: { status: 'DONE' } });
+    await service.edit(caveId, wine.id, { ...pommard(2015, { cuvee: 'Millésime' }), vintage: null, color: 'BLANC' });
+    expect((await traits()).status).toBe('PENDING');
+  });
+
   it('signale le doublon sans fusion demandée, et ne touche à rien', async () => {
     const { wine: target } = await matching.matchOrCreate(caveId, pommard(2018, { cuvee: 'Doublon' }));
     const { wine: source } = await matching.matchOrCreate(caveId, pommard(2081, { cuvee: 'Doublon' }));

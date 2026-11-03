@@ -85,7 +85,13 @@ describe('PhotosController — POST / quantité', () => {
     expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', null);
   });
 
-  it.each(['0', '121', '2.5', 'abc'])('quantity=%s : 400 « Quantité invalide »', async (q) => {
+  it('quantity=121 : acceptée, sans maximum (comme les mouvements)', async () => {
+    const { controller, photos } = setup();
+    await controller.upload(cave, file, undefined, '121');
+    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', 121);
+  });
+
+  it.each(['0', '2.5', 'abc'])('quantity=%s : 400 « Quantité invalide »', async (q) => {
     const { controller, photos } = setup();
     await expect(controller.upload(cave, file, undefined, q)).rejects.toThrow(new BadRequestException('Quantité invalide'));
     expect(photos.ingest).not.toHaveBeenCalled();

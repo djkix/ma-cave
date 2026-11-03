@@ -15,7 +15,7 @@ import { safeParseExtraction } from '../vision/extraction-schema';
 import { PhotosService } from './photos.service';
 
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const quantitySchema = z.coerce.number().int().min(1).max(120);
+const quantitySchema = z.coerce.number().int().min(1);
 const purposeSchema = z.enum(['ENTRY', 'EXIT']).default('ENTRY');
 
 /**
