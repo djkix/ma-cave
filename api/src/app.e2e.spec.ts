@@ -230,6 +230,32 @@ describeIfInfra('api HTTP', () => {
     }
   });
 
+  it('estimates a non-vintage apogee from the AI guard, counted from the creation year without IN movement, and publishes the AI region', async () => {
+    const wine = await prisma.wine.create({
+      data: {
+        caveId, matchKey: `e2e-apogee-ia-${Date.now()}`, producer: 'Domaine e2e IA', appellationRaw: 'Inconnue', vintage: null, color: 'BLANC',
+        traits: { create: { status: 'DONE', region: 'Loire', guardMin: 0, guardMax: 3 } },
+      },
+    });
+    try {
+      const year = wine.createdAt.getFullYear();
+      const detail = await agent.get(`/api/wines/${wine.id}`);
+      expect(detail.status).toBe(200);
+      expect(detail.body.wine.apogee).toMatchObject({ min: year, max: year + 3, source: 'IA', confidence: 'FAIBLE' });
+      expect(detail.body.wine).toMatchObject({ region: 'Loire', regionSource: 'IA', traits: { region: 'Loire' } });
+      const list = await agent.get('/api/cave?region=Loire&includeEmpty=true');
+      expect(list.body.map((w: { id: string }) => w.id)).toContain(wine.id);
+      const bad = await agent.put(`/api/wines/${wine.id}/traits`).send({ region: 'Toscane' });
+      expect(bad.status).toBe(400);
+      const ok = await agent.put(`/api/wines/${wine.id}/traits`).send({ region: 'Alsace' });
+      expect(ok.status).toBe(200);
+      expect(ok.body).toMatchObject({ region: 'Alsace', manualFields: ['region'] });
+      expect((await agent.get(`/api/wines/${wine.id}`)).body.wine).toMatchObject({ region: 'Alsace', regionSource: 'MANUEL' });
+    } finally {
+      await prisma.wine.delete({ where: { id: wine.id } });
+    }
+  });
+
   it('filters the cave on « à boire en priorité » and « sans apogée »', async () => {
     const wine = await prisma.wine.create({
       data: {
@@ -293,7 +319,7 @@ describeIfInfra('api HTTP', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual(expect.objectContaining({
       bottles: expect.any(Number), references: expect.any(Number), pricedReferences: expect.any(Number),
-      byColor: expect.any(Array), byRegion: expect.any(Array), byDecade: expect.any(Array), byApogee: expect.any(Array),
+      byColor: expect.any(Array), byRegion: expect.any(Array), byYear: expect.any(Array), byApogee: expect.any(Array),
       drinkRate: expect.any(Number), mostDrunk: expect.any(Array), topProducers: expect.any(Array), mostExpensive: expect.any(Array),
     }));
     expect(res.body.months).toHaveLength(12);

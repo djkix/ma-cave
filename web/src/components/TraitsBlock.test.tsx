@@ -6,7 +6,7 @@ import { TraitsBlock } from './TraitsBlock';
 
 afterEach(() => vi.restoreAllMocks());
 
-const traits: api.WineTraits = { status: 'DONE', tannin: 'MOYEN', aromas: ['boisé'], country: 'FR', manualFields: [] };
+const traits: api.WineTraits = { status: 'DONE', tannin: 'MOYEN', aromas: ['boisé'], country: 'FR', region: null, manualFields: [] };
 const mount = (t: api.WineTraits | null, readOnly = false) =>
   render(<QueryClientProvider client={new QueryClient()}><TraitsBlock wineId="w1" traits={t} readOnly={readOnly} /></QueryClientProvider>);
 
@@ -34,7 +34,7 @@ it('TraitsBlock : n’envoie que les clés modifiées', async () => {
 });
 
 it('TraitsBlock : en préparation et pays hors de France', () => {
-  mount({ status: 'PENDING', tannin: null, aromas: [], country: null, manualFields: [] });
+  mount({ status: 'PENDING', tannin: null, aromas: [], country: null, region: null, manualFields: [] });
   expect(screen.getByText('Caractéristiques en préparation')).toBeInTheDocument();
 });
 

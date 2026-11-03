@@ -11,6 +11,7 @@ export const STATS_TIME_ZONE = 'Europe/Paris';
 export const STATS_MONTHS = 12;
 export const RANKING_SIZE = 5;
 export const NO_REGION = 'Sans région';
+export const OUTSIDE_FRANCE = 'Hors de France';
 export const NO_VINTAGE = 'Non millésimé';
 export const APOGEE_KEYS = ['TROP_JEUNE', 'A_BOIRE', 'A_BOIRE_VITE', 'PASSEE', 'SANS_ESTIMATION'] as const;
 
@@ -20,7 +21,9 @@ export interface StatsWine {
   cuvee: string | null;
   vintage: number | null;
   color: string;
+  /** Région publiée ; un vin étranger (`country` AUTRE) compte dans « Hors de France ». */
   region: string | null;
+  country?: string | null;
   quantity: number;
   apogee: Apogee;
   rating: number | null;
@@ -59,7 +62,8 @@ export interface Stats {
   quotableReferences: number;
   byColor: Share[];
   byRegion: Share[];
-  byDecade: Share[];
+  /** Une entrée par millésime, croissant, « Non millésimé » en dernier. */
+  byYear: Share[];
   byApogee: Share[];
   months: MonthFlow[];
   drinkRate: number;
@@ -123,7 +127,7 @@ function shares(groups: Map<string, number>, total: number, order: (a: Share, b:
 }
 
 const biggestFirst = (a: Share, b: Share) => b.bottles - a.bottles || byFr(a.key, b.key);
-const decadeOrder = (a: Share, b: Share) =>
+const yearOrder = (a: Share, b: Share) =>
   a.key === NO_VINTAGE ? 1 : b.key === NO_VINTAGE ? -1 : Number(a.key) - Number(b.key);
 
 export function computeStats(input: { wines: StatsWine[]; movements: StatsMovement[]; quotes?: StatsQuote[] }, now: Date): Stats {
@@ -179,12 +183,8 @@ export function computeStats(input: { wines: StatsWine[]; movements: StatsMoveme
     quotedReferences: quoted.length,
     quotableReferences: inStock.length,
     byColor: shares(group(inStock, (w) => w.color, qty), bottles, biggestFirst),
-    byRegion: shares(group(inStock, (w) => w.region ?? NO_REGION, qty), bottles, biggestFirst),
-    byDecade: shares(
-      group(inStock, (w) => (w.vintage == null ? NO_VINTAGE : String(Math.floor(w.vintage / 10) * 10)), qty),
-      bottles,
-      decadeOrder,
-    ),
+    byRegion: shares(group(inStock, (w) => (w.country === 'AUTRE' ? OUTSIDE_FRANCE : (w.region ?? NO_REGION)), qty), bottles, biggestFirst),
+    byYear: shares(group(inStock, (w) => (w.vintage == null ? NO_VINTAGE : String(w.vintage)), qty), bottles, yearOrder),
     byApogee: APOGEE_KEYS.map((key) => {
       const b = apogeeGroups.get(key) ?? 0;
       return { key, bottles: b, share: bottles ? b / bottles : 0 };

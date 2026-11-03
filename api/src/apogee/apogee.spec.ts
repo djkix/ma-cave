@@ -3,7 +3,7 @@ import { apogeeStatus, ApogeeWineInput, compileApogeeRules, EMPTY_APOGEE_RULES, 
 const YEAR = 2026;
 const wine = (over: Partial<ApogeeWineInput> = {}): ApogeeWineInput => ({
   vintage: 2016, color: 'ROUGE', appellationId: 'cdp', region: 'Rhone', referenceGuardMin: 8, referenceGuardMax: 20,
-  apogeeMin: null, apogeeMax: null, apogeeSource: null, ...over,
+  apogeeMin: null, apogeeMax: null, apogeeSource: null, aiGuardMin: null, aiGuardMax: null, firstEntryYear: null, ...over,
 });
 const rules = (over: Partial<Parameters<typeof compileApogeeRules>[0]> = {}) =>
   compileApogeeRules({ guardOverrides: [], vintageQualities: [], ...over });
@@ -63,6 +63,26 @@ describe('estimateApogee — exemples de référence de la spécification', () =
     expect(estimateApogee(wine({ apogeeMin: 2030, apogeeMax: 2035, apogeeSource: 'MANUEL' }), r, YEAR)).toEqual({
       min: 2030, max: 2035, confidence: 'SAISIE', status: 'TROP_JEUNE', reason: null, source: 'MANUEL',
     });
+  });
+});
+
+describe('estimateApogee — garde estimée par l’IA', () => {
+  const base = wine();
+  it('IA quand le référentiel ne sait pas : millésime + garde IA', () => {
+    const a = estimateApogee({ ...base, appellationId: null, vintage: 2018, aiGuardMin: 3, aiGuardMax: 10, firstEntryYear: 2024 }, EMPTY_APOGEE_RULES, 2026);
+    expect(a).toMatchObject({ min: 2021, max: 2028, source: 'IA', confidence: 'FAIBLE', status: 'A_BOIRE' });
+  });
+  it('non millésimé : garde IA comptée depuis la première entrée', () => {
+    expect(estimateApogee({ ...base, vintage: null, aiGuardMin: 0, aiGuardMax: 3, firstEntryYear: 2025 }, EMPTY_APOGEE_RULES, 2026))
+      .toMatchObject({ min: 2025, max: 2028, source: 'IA' });
+  });
+  it('la règle passe devant l’IA ; sans garde IA, les raisons actuelles', () => {
+    expect(estimateApogee({ ...base, referenceGuardMin: 2, referenceGuardMax: 5, aiGuardMin: 9, aiGuardMax: 20 }, EMPTY_APOGEE_RULES, 2026).source).toBe('REGLE');
+    expect(estimateApogee({ ...base, vintage: null }, EMPTY_APOGEE_RULES, 2026).reason).toBe('NON_MILLESIME');
+  });
+  it('pas de facteur de millésime sur la garde IA', () => {
+    const r = rules({ vintageQualities: [{ region: 'Rhone', year: 2018, quality: 'GRAND' }] });
+    expect(estimateApogee({ ...base, appellationId: null, vintage: 2018, aiGuardMin: 3, aiGuardMax: 10 }, r, 2026)).toMatchObject({ min: 2021, max: 2028 });
   });
 });
 

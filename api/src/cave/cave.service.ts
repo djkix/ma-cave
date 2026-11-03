@@ -11,7 +11,7 @@ import { producerKeyOf } from '../producers/producer-key';
 import { PRODUCER_PROFILE_INCLUDE, producerProfileOf } from '../producers/producer-profile.view';
 import { parseExtraction } from '../vision/extraction-schema';
 import { ExitCandidate, ExitOutcome, ExitRead, rankExitCandidates } from '../wines/exit-ranking';
-import { CaveFilter, CaveRow, countryOf, filterCave } from './cave-filter';
+import { CaveFilter, CaveRow, countryOf, filterCave, publishedRegion, RegionInput } from './cave-filter';
 import { TraitsInput } from '../traits/traits.dto';
 import { matchDish } from './dish-filter';
 
@@ -32,8 +32,12 @@ interface PairingColumns {
 /** Provenance d'une vignette trouvée sur le web : montrée sur la fiche seulement. */
 interface ReferenceSourceColumns { referencePhotoSource?: string | null; referencePhotoSourceUrl?: string | null }
 
-/** Ligne lue en base : la ligne publique plus ce qu'il faut pour estimer l'apogée, la note et les accords. */
-export type CaveDbRow = CaveRow & Omit<ApogeeWineInput, 'vintage' | 'color'> & RatingColumns & PairingColumns & ReferenceSourceColumns;
+/**
+ * Ligne lue en base : la ligne publique (région déjà publiée) plus ce qu'il faut
+ * pour estimer l'apogée et la région, la note et les accords. `refRegion` : région
+ * du référentiel, qui sert aussi à la qualité du millésime.
+ */
+export type CaveDbRow = CaveRow & Omit<ApogeeWineInput, 'vintage' | 'color' | 'region'> & RegionInput & RatingColumns & PairingColumns & ReferenceSourceColumns;
 
 export interface Rating { value: number; ratedAt: Date; ratedBy: string | null }
 
@@ -48,9 +52,10 @@ export function ratingOf(row: CaveDbRow): Rating | null {
 export function apogeeOf(row: CaveDbRow, rules: CompiledApogeeRules, currentYear: number): Apogee {
   return estimateApogee(
     {
-      vintage: row.vintage, color: row.color, appellationId: row.appellationId ?? null, region: row.region ?? null,
+      vintage: row.vintage, color: row.color, appellationId: row.appellationId ?? null, region: row.refRegion ?? null,
       referenceGuardMin: row.referenceGuardMin ?? null, referenceGuardMax: row.referenceGuardMax ?? null,
       apogeeMin: row.apogeeMin ?? null, apogeeMax: row.apogeeMax ?? null, apogeeSource: row.apogeeSource ?? null,
+      aiGuardMin: row.aiGuardMin ?? null, aiGuardMax: row.aiGuardMax ?? null, firstEntryYear: row.firstEntryYear ?? null,
     },
     rules, currentYear,
   );
@@ -68,6 +73,7 @@ function toItem(row: CaveDbRow, rules: CompiledApogeeRules, currentYear: number)
   const {
     /* eslint-disable @typescript-eslint/no-unused-vars -- champs internes retirés de la réponse */
     appellationId, referenceGuardMin, referenceGuardMax, apogeeMin, apogeeMax, apogeeSource,
+    refRegion, aiRegion, aiGuardMin, aiGuardMax, firstEntryYear, traitsManual,
     rating, ratedAt, ratedBy, pairingStatus, pairingDishes, pairingError, pairingGeneratedAt,
     referencePhotoSource, referencePhotoSourceUrl,
     /* eslint-enable @typescript-eslint/no-unused-vars */
@@ -76,6 +82,7 @@ function toItem(row: CaveDbRow, rules: CompiledApogeeRules, currentYear: number)
   return {
     ...pub,
     region: row.region ?? null,
+    regionSource: row.regionSource ?? null,
     country: countryOf(row),
     tannin: row.tannin ?? null,
     aromas: row.aromas ?? [],
@@ -105,22 +112,27 @@ export class CaveService {
    * sans base. Seulement les vins de la cave `caveId` (la vue stock_courant
    * n'a pas de cave : elle est jointe par le vin). L'auteur d'une note est
    * nommé par son nom affiché ; l'OWNER voit l'e-mail à défaut de nom, un
-   * VIEWER (rôle par défaut, le plus restrictif) jamais.
+   * VIEWER (rôle par défaut, le plus restrictif) jamais. La région est publiée
+   * ici (`publishedRegion`), avant tout filtre.
    */
-  allWithStock(caveId: string, role: CaveRole = 'VIEWER'): Promise<CaveDbRow[]> {
+  async allWithStock(caveId: string, role: CaveRole = 'VIEWER'): Promise<CaveDbRow[]> {
     const ratedBy = role === 'OWNER' ? Prisma.sql`COALESCE(u.display_name, u.email)` : Prisma.sql`u.display_name`;
-    return this.prisma.$queryRaw<CaveDbRow[]>`
+    // Première entrée : premier mouvement IN non annulé, à défaut la création du vin (point de départ de la garde IA d'un non-millésimé).
+    const rows = await this.prisma.$queryRaw<CaveDbRow[]>`
       SELECT w.id, w.producer, w.cuvee, w.appellation_raw AS "appellationRaw", w.vintage,
              w.color::TEXT AS color, w.format_cl AS "formatCl", w.reference_photo_id AS "referencePhotoId",
              COALESCE(s.quantity, 0)::INTEGER AS quantity,
-             w.appellation_id AS "appellationId", a.region,
+             w.appellation_id AS "appellationId", a.region AS "refRegion",
              a.guard_min_years AS "referenceGuardMin", a.guard_max_years AS "referenceGuardMax",
              w.apogee_min AS "apogeeMin", w.apogee_max AS "apogeeMax", w.apogee_source AS "apogeeSource"
              , w.rating::FLOAT8 AS rating, w.rated_at AS "ratedAt", ${ratedBy} AS "ratedBy",
              p.status::TEXT AS "pairingStatus", p.dishes AS "pairingDishes", p.error_message AS "pairingError",
              p.generated_at AS "pairingGeneratedAt",
              w.reference_photo_source AS "referencePhotoSource", w.reference_photo_source_url AS "referencePhotoSourceUrl",
-             t.tannin, t.aromas, t.country
+             t.tannin, t.aromas, t.country, t.region AS "aiRegion", t.guard_min AS "aiGuardMin", t.guard_max AS "aiGuardMax",
+             t.manual_fields AS "traitsManual",
+             EXTRACT(YEAR FROM COALESCE((SELECT MIN(m.occurred_at) FROM movement m WHERE m.wine_id = w.id AND m.type = 'IN'
+               AND NOT EXISTS (SELECT 1 FROM movement r WHERE r.reverses_id = m.id)), w.created_at))::INT AS "firstEntryYear"
       FROM wine w
       LEFT JOIN stock_courant s ON s.wine_id = w.id
       LEFT JOIN appellation a ON a.id = w.appellation_id
@@ -129,6 +141,7 @@ export class CaveService {
       LEFT JOIN wine_traits t ON t.wine_id = w.id
       WHERE w.cave_id = ${caveId}
       ORDER BY w.producer ASC, w.vintage ASC NULLS FIRST`;
+    return rows.map((r) => ({ ...r, ...publishedRegion(r) }));
   }
 
   async list(caveId: string, filter: CaveFilter, role: CaveRole = 'VIEWER'): Promise<CaveItem[]> {
@@ -210,7 +223,7 @@ export class CaveService {
         // Toujours présente (sauf nom sans lettre ni chiffre) : la fiche peut écrire ou régénérer avant tout profil.
         producerKey: producerKey || null,
         producerProfile: producerProfileOf(profile, role),
-        traits: traits && { status: traits.status, tannin: traits.tannin, aromas: traits.aromas, country: traits.country, manualFields: traits.manualFields },
+        traits: traits && { status: traits.status, tannin: traits.tannin, aromas: traits.aromas, country: traits.country, region: traits.region, manualFields: traits.manualFields },
       },
       movements: movements.map(({ location, ...m }) => ({ ...m, locationLabel: location ? labelOf(partsOf(location)) : null })),
       /** Endroits du vin et leur quantité (> 0) ; « Sans emplacement » : id null, en dernier. */
@@ -277,8 +290,8 @@ export class CaveService {
    */
   async setTraits(caveId: string, id: string, input: TraitsInput) {
     if (!(await this.prisma.wine.findFirst({ where: { id, caveId }, select: { id: true } }))) throw new NotFoundException('Vin introuvable');
-    const edited = (['tannin', 'aromas', 'country'] as const).filter((k) => input[k] !== undefined);
-    const fields = { ...(input.tannin !== undefined && { tannin: input.tannin }), ...(input.aromas !== undefined && { aromas: input.aromas }), ...(input.country !== undefined && { country: input.country }) };
+    const edited = (['tannin', 'aromas', 'country', 'region'] as const).filter((k) => input[k] !== undefined);
+    const fields = Object.fromEntries(edited.map((k) => [k, input[k]])) as Pick<TraitsInput, (typeof edited)[number]>;
     const current = await this.prisma.wineTraits.findUnique({ where: { wineId: id }, select: { manualFields: true } });
     const manualFields = [...new Set([...(current?.manualFields ?? []), ...edited])];
     const t = await this.prisma.wineTraits.upsert({
@@ -286,7 +299,7 @@ export class CaveService {
       create: { wineId: id, ...fields, manualFields },
       update: { ...fields, manualFields, reservedUntil: null },
     });
-    return { status: t.status, tannin: t.tannin, aromas: t.aromas, country: t.country, manualFields: t.manualFields };
+    return { status: t.status, tannin: t.tannin, aromas: t.aromas, country: t.country, region: t.region, manualFields: t.manualFields };
   }
 
   async clearRating(caveId: string, id: string): Promise<null> {

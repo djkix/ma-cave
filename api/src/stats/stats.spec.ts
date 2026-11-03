@@ -109,8 +109,15 @@ describe('computeStats — répartition', () => {
     expect(s.byRegion.map((r) => r.key)).toEqual(['Rhône', 'Sans région', 'Champagne']);
   });
 
-  it('par décennie croissante, « Non millésimé » en dernier', () => {
-    expect(s.byDecade.map((r) => [r.key, r.bottles])).toEqual([['2010', 6], ['2020', 3], ['Non millésimé', 1]]);
+  it('par année croissante, « Non millésimé » en dernier', () => {
+    expect(s.byYear.map((r) => [r.key, r.bottles])).toEqual([['2016', 6], ['2021', 3], ['Non millésimé', 1]]);
+    const years = computeStats({ wines: [wine('x', { vintage: null }), wine('y', { vintage: 2019 }), wine('z', { vintage: 2015 })], movements: [] }, NOW);
+    expect(years.byYear.map((r) => r.key)).toEqual(['2015', '2019', 'Non millésimé']);
+  });
+
+  it('un vin étranger compte dans « Hors de France », pas dans « Sans région »', () => {
+    const r = computeStats({ wines: [wine('x', { region: null, country: 'AUTRE', quantity: 2 }), wine('y', { region: null })], movements: [] }, NOW);
+    expect(r.byRegion).toEqual([{ key: 'Hors de France', bottles: 2, share: 2 / 3 }, { key: 'Sans région', bottles: 1, share: 1 / 3 }]);
   });
 
   it("par statut d'apogée, dans l'ordre fixe, y compris les statuts vides", () => {

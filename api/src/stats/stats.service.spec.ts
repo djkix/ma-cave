@@ -25,6 +25,7 @@ describe('StatsService', () => {
     expect(stats).toMatchObject({ bottles: 2, purchaseValueCents: 6000, quotedValueCents: 17000, cessionValueCents: 14655, quotedReferences: 1, quotableReferences: 1 });
     expect(quotes).toHaveBeenCalledWith({ where: { wine: { caveId: 'c1' } }, select: { wineId: true, coteCents: true, quotedOn: true, createdAt: true, sourceUrl: true } });
     expect(stats.byRegion).toEqual([{ key: 'Rhône', bottles: 2, share: 1 }]);
+    expect(stats.byYear).toEqual([{ key: '2016', bottles: 2, share: 1 }]);
     expect(stats.byApogee.find((a) => a.key === 'A_BOIRE')?.bottles).toBe(2);
     expect(stats).toHaveProperty('mostExpensive');
     expect(stats.bestRated).toEqual([{ id: 'w1', producer: 'Château de Beaucastel', cuvee: null, vintage: 2016, value: 17 }]);
@@ -48,5 +49,16 @@ describe('StatsService', () => {
     }
     expect(JSON.stringify(viewer)).not.toMatch(/price|purchase|expensive|quote|cote|cession|idealwine/i);
     expect(viewer).toMatchObject({ bottles: 2, references: 1 });
+  });
+
+  it('région publiée ; pays AUTRE corrigé à la main sur une appellation reconnue → « Hors de France »', async () => {
+    const row = { id: 'w1', producer: 'P', cuvee: null, appellationRaw: 'Bandol', vintage: 2016, color: 'ROUGE', formatCl: 75, referencePhotoId: null, quantity: 2,
+      appellationId: 'a', country: 'AUTRE', traitsManual: ['country'], region: null };
+    const s = new StatsService(
+      { movement: { findMany: async () => [] } } as any,
+      { allWithStock: async () => [row] } as any,
+      { load: async () => compileApogeeRules({ guardOverrides: [], vintageQualities: [] }) } as any,
+    );
+    expect((await s.compute('c1', 'VIEWER', new Date('2026-10-15T12:00:00Z'))).byRegion.map((r) => r.key)).toEqual(['Hors de France']);
   });
 });

@@ -1,5 +1,8 @@
 /**
- * Estimation de l'apogée par règles, calculée à la lecture.
+ * Estimation de l'apogée par règles, calculée à la lecture. À défaut de règle,
+ * la garde estimée par l'IA (stockée dans `wine_traits`) donne une fourchette
+ * de confiance faible, comptée depuis le millésime ou, pour un non-millésimé,
+ * depuis l'année de la première entrée.
  *
  * Fonction pure : la liste de la cave, la fiche vin et l'export l'appellent
  * avec les règles du moment, si bien qu'une règle modifiée change toutes les
@@ -18,7 +21,7 @@ export interface Apogee {
   confidence: ApogeeConfidence | null;
   status: ApogeeStatus | null;
   reason: ApogeeReason | null;
-  source: 'MANUEL' | 'REGLE' | null;
+  source: 'MANUEL' | 'REGLE' | 'IA' | null;
 }
 
 export interface ApogeeWineInput {
@@ -31,6 +34,11 @@ export interface ApogeeWineInput {
   apogeeMin: number | null;
   apogeeMax: number | null;
   apogeeSource: string | null;
+  /** Garde estimée par l'IA, en années ; null tant que la caractérisation ne l'a pas donnée. */
+  aiGuardMin: number | null;
+  aiGuardMax: number | null;
+  /** Année de la première entrée non annulée (à défaut, de la création du vin). */
+  firstEntryYear: number | null;
 }
 
 export interface ApogeeRules {
@@ -89,6 +97,14 @@ function guardFor(wine: ApogeeWineInput, rules: CompiledApogeeRules): Guard | nu
   return { min: wine.referenceGuardMin, max: wine.referenceGuardMax };
 }
 
+/** Garde IA comptée depuis `fromYear`, sans facteur de millésime ; null sans garde IA ou sans année de départ. */
+function fromAi(wine: ApogeeWineInput, fromYear: number | null, currentYear: number): Apogee | null {
+  if (fromYear == null || wine.aiGuardMin == null || wine.aiGuardMax == null) return null;
+  const min = fromYear + wine.aiGuardMin;
+  const max = fromYear + wine.aiGuardMax;
+  return { min, max, confidence: 'FAIBLE', status: apogeeStatus(min, max, currentYear), reason: null, source: 'IA' };
+}
+
 export function estimateApogee(wine: ApogeeWineInput, rules: CompiledApogeeRules, currentYear: number): Apogee {
   if (wine.apogeeSource === 'MANUEL' && wine.apogeeMin != null && wine.apogeeMax != null) {
     return {
@@ -96,10 +112,9 @@ export function estimateApogee(wine: ApogeeWineInput, rules: CompiledApogeeRules
       status: apogeeStatus(wine.apogeeMin, wine.apogeeMax, currentYear), reason: null, source: 'MANUEL',
     };
   }
-  if (wine.vintage == null) return none('NON_MILLESIME');
-  if (!wine.appellationId) return none('APPELLATION_INCONNUE');
+  if (wine.vintage == null) return fromAi(wine, wine.firstEntryYear, currentYear) ?? none('NON_MILLESIME');
   const guard = guardFor(wine, rules);
-  if (!guard) return none('GARDE_INCONNUE');
+  if (!guard) return fromAi(wine, wine.vintage, currentYear) ?? none(wine.appellationId ? 'GARDE_INCONNUE' : 'APPELLATION_INCONNUE');
 
   const quality = wine.region ? rules.qualities.get(qualityKey(wine.region, wine.vintage)) : undefined;
   const factor = quality ? VINTAGE_FACTOR[quality] : 1;

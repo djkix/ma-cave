@@ -15,7 +15,7 @@ const base: api.Stats = {
   quotedValueCents: 1_020_000, cessionValueCents: 856_800, quotedReferences: 1, quotableReferences: 2,
   byColor: [{ key: 'ROUGE', bottles: 9, share: 0.75 }, { key: 'BLANC', bottles: 3, share: 0.25 }],
   byRegion: [{ key: 'Rhône', bottles: 9, share: 0.75 }, { key: 'Sans région', bottles: 3, share: 0.25 }],
-  byDecade: [{ key: '2010', bottles: 9, share: 0.75 }, { key: 'Non millésimé', bottles: 3, share: 0.25 }],
+  byYear: [{ key: '2016', bottles: 9, share: 0.75 }, { key: 'Non millésimé', bottles: 3, share: 0.25 }],
   byApogee: [
     { key: 'TROP_JEUNE', bottles: 0, share: 0 }, { key: 'A_BOIRE', bottles: 6, share: 0.5 }, { key: 'A_BOIRE_VITE', bottles: 3, share: 0.25 },
     { key: 'PASSEE', bottles: 0, share: 0 }, { key: 'SANS_ESTIMATION', bottles: 3, share: 0.25 },
@@ -102,7 +102,7 @@ it('classe les mieux notés', async () => {
 
 it('dit quand la cave est vide', async () => {
   vi.spyOn(api, 'getStats').mockResolvedValue({
-    ...base, bottles: 0, references: 0, pricedReferences: 0, purchaseValueCents: null, byColor: [], byRegion: [], byDecade: [],
+    ...base, bottles: 0, references: 0, pricedReferences: 0, purchaseValueCents: null, byColor: [], byRegion: [], byYear: [],
     byApogee: base.byApogee.map((a) => ({ ...a, bottles: 0, share: 0 })), months: months(), drinkRate: 0, yearsLeft: null,
     mostDrunk: [], topProducers: [], mostExpensive: [], bestRated: [],
   });

@@ -117,7 +117,7 @@ export function StatsPage() {
             />
             <BarList title="Couleur" rows={s.byColor.map((r) => ({ ...r, label: COLOR_LABEL[r.key] ?? r.key, color: COLOR_VAR[r.key] }))} />
             <BarList title="Région" rows={plain(topWithOthers(s.byRegion, REGIONS_SHOWN))} />
-            <BarList title="Millésime" rows={s.byDecade.map((r) => ({ ...r, label: r.key === 'Non millésimé' ? r.key : `Années ${r.key}` }))} />
+            <BarList title="Millésime" rows={s.byYear.map((r) => ({ ...r, label: r.key }))} />
           </>
         )}
         {s && (s.bottles > 0 || anyMovement) && (

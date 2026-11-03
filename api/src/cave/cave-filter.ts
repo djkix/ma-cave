@@ -14,20 +14,46 @@ export interface CaveRow {
   formatCl: number;
   referencePhotoId: string | null;
   quantity: number;
-  /** Région de l'appellation reconnue ; null sinon. */
+  /** Région publiée (`publishedRegion`) : manuelle, sinon du référentiel, sinon estimée par l'IA. */
   region?: string | null;
+  regionSource?: RegionSource | null;
   /** Appellation reconnue : le vin est alors français, quoi qu'en dise `country`. */
   appellationId?: string | null;
   /** Pays lu dans les caractéristiques ; la valeur publiée passe par `countryOf`. */
   country?: Country | null;
+  /** Champs des caractéristiques corrigés à la main (interne, retiré de la réponse). */
+  traitsManual?: string[] | null;
   tannin?: Tannin | null;
   aromas?: string[] | null;
   producerKey?: string;
 }
 
-/** `FR` si l'appellation est reconnue, sinon le pays des caractéristiques. */
-export function countryOf(row: Pick<CaveRow, 'appellationId' | 'country'>): Country | null {
+export type RegionSource = 'MANUEL' | 'REFERENTIEL' | 'IA';
+
+/** Pays corrigé à la main d'abord, puis `FR` si l'appellation est reconnue, sinon le pays estimé par l'IA. */
+export function countryOf(row: Pick<CaveRow, 'appellationId' | 'country' | 'traitsManual'>): Country | null {
+  if (row.traitsManual?.includes('country')) return row.country ?? null;
   return row.appellationId ? 'FR' : (row.country ?? null);
+}
+
+/** Sources de la région lues en base : `refRegion` (référentiel), `aiRegion` (`wine_traits.region`, manuelle ou IA). */
+export interface RegionInput extends Pick<CaveRow, 'appellationId' | 'country' | 'traitsManual'> {
+  refRegion?: string | null;
+  aiRegion?: string | null;
+}
+
+/**
+ * Région publiée, seule source de la liste, de la fiche, du filtre, des
+ * statistiques et de l'export : la région corrigée à la main (null = effacée),
+ * sinon aucune pour un vin hors de France, sinon celle du référentiel, sinon
+ * celle estimée par l'IA.
+ */
+export function publishedRegion(row: RegionInput): { region: string | null; regionSource: RegionSource | null } {
+  if (row.traitsManual?.includes('region')) return { region: row.aiRegion ?? null, regionSource: 'MANUEL' };
+  if (countryOf(row) === 'AUTRE') return { region: null, regionSource: null };
+  if (row.refRegion) return { region: row.refRegion, regionSource: 'REFERENTIEL' };
+  if (row.aiRegion) return { region: row.aiRegion, regionSource: 'IA' };
+  return { region: null, regionSource: null };
 }
 
 export interface CaveFilter {

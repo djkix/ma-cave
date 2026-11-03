@@ -8,12 +8,12 @@ function fakePrisma() {
   const wines = [
     {
       id: 'w1', producer: 'Domaine Tempier', cuvee: 'La Tourtine', appellationRaw: 'Bandol', vintage: 2019, color: 'ROUGE', formatCl: 75,
-      appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null,
+      appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, createdAt: new Date('2025-03-01'),
       appellation: { region: 'Provence', guardMinYears: 5, guardMaxYears: 20 },
     },
     {
       id: 'w2', producer: 'Leflaive', cuvee: null, appellationRaw: 'Puligny-Montrachet', vintage: 2020, color: 'BLANC', formatCl: 75,
-      appellationId: null, apogeeMin: null, apogeeMax: null, apogeeSource: null,
+      appellationId: null, apogeeMin: null, apogeeMax: null, apogeeSource: null, createdAt: new Date('2025-03-01'),
       appellation: { region: 'Bourgogne', guardMinYears: null, guardMaxYears: null },
     },
   ];
@@ -79,7 +79,7 @@ describe('ExportService.buildWorkbook', () => {
   it('met en évidence une ligne dont l’apogée est passée', async () => {
     const prisma = fakePrisma();
     const old = { id: 'w9', producer: 'Vieux Domaine', cuvee: null, appellationRaw: 'Bandol', vintage: 2000, color: 'ROUGE', formatCl: 75,
-      appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, appellation: { region: 'Provence', guardMinYears: 5, guardMaxYears: 20 } };
+      appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, createdAt: new Date('2025-03-01'), appellation: { region: 'Provence', guardMinYears: 5, guardMaxYears: 20 } };
     prisma.wine.findMany = async () => [old] as any;
     prisma.$queryRaw = async () => [{ wine_id: 'w9', quantity: 1 }];
     const { buffer } = await new ExportService(prisma as any, noRules as any).buildWorkbook('c1', {}, 'u1');
@@ -94,7 +94,7 @@ describe('ExportService.buildWorkbook', () => {
   it('laisse l’apogée vide pour un vin sans estimation', async () => {
     const prisma = fakePrisma();
     const nv = { id: 'w8', producer: 'Champagne Essai', cuvee: null, appellationRaw: 'Champagne', vintage: null, color: 'PETILLANT', formatCl: 75,
-      appellationId: 'a-ch', apogeeMin: null, apogeeMax: null, apogeeSource: null, appellation: { region: 'Champagne', guardMinYears: 1, guardMaxYears: 4 } };
+      appellationId: 'a-ch', apogeeMin: null, apogeeMax: null, apogeeSource: null, createdAt: new Date('2025-03-01'), appellation: { region: 'Champagne', guardMinYears: 1, guardMaxYears: 4 } };
     prisma.wine.findMany = async () => [nv] as any;
     prisma.$queryRaw = async () => [{ wine_id: 'w8', quantity: 3 }];
     const { buffer } = await new ExportService(prisma as any, noRules as any).buildWorkbook('c1', {}, 'u1');
@@ -108,7 +108,7 @@ describe('ExportService.buildWorkbook', () => {
     const prisma = fakePrisma();
     const wine = {
       id: 'w1', producer: 'Domaine Tempier', cuvee: 'La Tourtine', appellationRaw: 'Bandol', vintage: 2019, color: 'ROUGE', formatCl: 75,
-      appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null,
+      appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, createdAt: new Date('2025-03-01'),
       appellation: { region: 'Provence', guardMinYears: 5, guardMaxYears: 20 },
     };
     prisma.wine.findMany = async () => [wine] as any;
@@ -134,7 +134,7 @@ describe('ExportService.buildWorkbook', () => {
     try {
       const prisma = fakePrisma();
       const bandol = (id: string, producer: string, vintage: number) => ({ id, producer, cuvee: null, appellationRaw: 'Bandol', vintage, color: 'ROUGE', formatCl: 75,
-        appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, appellation: { region: 'Provence', guardMinYears: 5, guardMaxYears: 20 } });
+        appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, createdAt: new Date('2025-03-01'), appellation: { region: 'Provence', guardMinYears: 5, guardMaxYears: 20 } });
       // Fins d'apogée : 2027, 2028, 2020.
       prisma.wine.findMany = async () => [bandol('w7', 'Sept', 2007), bandol('w8', 'Huit', 2008), bandol('w0', 'Zéro', 2000)] as any;
       prisma.$queryRaw = async () => [{ wine_id: 'w7', quantity: 1 }, { wine_id: 'w8', quantity: 1 }, { wine_id: 'w0', quantity: 1 }];
@@ -155,7 +155,7 @@ describe('ExportService.buildWorkbook', () => {
     const prisma = fakePrisma();
     const rated = {
       id: 'w5', producer: 'Domaine Noté', cuvee: null, appellationRaw: 'Bandol', vintage: 2019, color: 'ROUGE', formatCl: 75,
-      appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, rating: 16.5,
+      appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, createdAt: new Date('2025-03-01'), rating: 16.5,
       appellation: { region: 'Provence', guardMinYears: 5, guardMaxYears: 20 },
       pairing: { status: 'DONE', dishes: ['agneau de sept heures', 'daube provençale'] },
     };
@@ -174,7 +174,7 @@ describe('ExportService.buildWorkbook', () => {
     const prisma = fakePrisma();
     const wine = {
       id: 'w1', producer: 'Domaine Tempier', cuvee: null, appellationRaw: 'Bandol', vintage: 2019, color: 'ROUGE', formatCl: 75,
-      appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, appellation: { region: 'Provence', guardMinYears: 5, guardMaxYears: 20 },
+      appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, createdAt: new Date('2025-03-01'), appellation: { region: 'Provence', guardMinYears: 5, guardMaxYears: 20 },
     };
     const b3 = { id: 'l1', zoneId: 'z1', zone: { name: 'Cave 2' }, casier: 'B', position: '3' };
     prisma.wine.findMany = async () => [wine] as any;
@@ -194,7 +194,7 @@ describe('ExportService.buildWorkbook', () => {
   it('ajoute la cote courante, sa date, la valeur à la cote et sa source ; vides sans cote', async () => {
     const prisma = fakePrisma();
     const bandol = (id: string, producer: string) => ({ id, producer, cuvee: null, appellationRaw: 'Bandol', vintage: 2019, color: 'ROUGE', formatCl: 75,
-      appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, appellation: { region: 'Provence', guardMinYears: 5, guardMaxYears: 20 } });
+      appellationId: 'a-bandol', apogeeMin: null, apogeeMax: null, apogeeSource: null, createdAt: new Date('2025-03-01'), appellation: { region: 'Provence', guardMinYears: 5, guardMaxYears: 20 } });
     prisma.wine.findMany = async () => [bandol('w1', 'A Coté'), bandol('w2', 'B Sans cote')] as any;
     prisma.$queryRaw = async () => [{ wine_id: 'w1', quantity: 6 }, { wine_id: 'w2', quantity: 2 }];
     prisma.priceQuote.findMany.mockImplementation(async () => [
@@ -216,5 +216,23 @@ describe('ExportService.buildWorkbook', () => {
     expect([17, 18, 19, 20].map((c) => stock.getRow(3).getCell(c).value)).toEqual([null, null, null, null]);
     expect(stock.autoFilter).toBe('A1:T1');
     expect(prisma.priceQuote.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { wine: { caveId: 'c1' } } }));
+  });
+
+  it('région publiée et apogée estimée par l’IA, comme l’application ; filtre sur la région publiée', async () => {
+    const prisma = fakePrisma();
+    const nv = { id: 'w9', producer: 'Domaine IA', cuvee: null, appellationRaw: 'Vouvray inconnu', vintage: null, color: 'BLANC', formatCl: 75,
+      appellationId: null, apogeeMin: null, apogeeMax: null, apogeeSource: null, createdAt: new Date('2024-05-01'), appellation: null,
+      traits: { region: 'Loire', guardMin: 1, guardMax: 4, country: 'FR', manualFields: [] } };
+    prisma.wine.findMany = async () => [nv] as any;
+    prisma.movement.findMany = async () => [] as any;
+    prisma.$queryRaw = async () => [{ wine_id: 'w9', quantity: 3 }];
+    const { buffer, rowCount } = await new ExportService(prisma as any, noRules as any).buildWorkbook('c1', { region: 'Loire' }, 'u1');
+    expect(rowCount).toBe(1);
+    const wb = new ExcelJS.Workbook();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- voir le premier test
+    await wb.xlsx.load(buffer as any);
+    const row = wb.getWorksheet('Stock')!.getRow(2);
+    expect([4, 6, 7, 8].map((c) => row.getCell(c).value)).toEqual(['Loire', 2025, 2028, 'Faible']);
+    expect((await new ExportService(prisma as any, noRules as any).buildWorkbook('c1', { region: 'Bordeaux' }, 'u1')).rowCount).toBe(0);
   });
 });

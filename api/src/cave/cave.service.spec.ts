@@ -180,7 +180,7 @@ describe('CaveService.detail', () => {
 const cdp = {
   id: 'w16', producer: 'Château de Beaucastel', cuvee: null, appellationRaw: 'Châteauneuf-du-Pape', vintage: 2016,
   color: 'ROUGE', formatCl: 75, referencePhotoId: null, quantity: 2,
-  appellationId: 'a-cdp', region: 'Rhône', referenceGuardMin: 8, referenceGuardMax: 20, apogeeMin: null, apogeeMax: null, apogeeSource: null,
+  appellationId: 'a-cdp', refRegion: 'Rhône', referenceGuardMin: 8, referenceGuardMax: 20, apogeeMin: null, apogeeMax: null, apogeeSource: null,
 };
 
 describe('CaveService — apogée', () => {
@@ -196,7 +196,8 @@ describe('CaveService — apogée', () => {
     const [item] = await service(null, [cdp]).list('c1', {});
     expect(item).not.toHaveProperty('referenceGuardMin');
     expect(item).not.toHaveProperty('apogeeSource');
-    expect(item).toMatchObject({ region: 'Rhône', producerKey: expect.any(String), aromas: [], tannin: null });
+    for (const k of ['refRegion', 'aiRegion', 'aiGuardMin', 'aiGuardMax', 'firstEntryYear', 'traitsManual']) expect(item).not.toHaveProperty(k);
+    expect(item).toMatchObject({ region: 'Rhône', regionSource: 'REFERENTIEL', producerKey: expect.any(String), aromas: [], tannin: null });
   });
 
   it('applique immédiatement une règle modifiée (aucun cache entre deux requêtes)', async () => {

@@ -1,4 +1,4 @@
-import { CaveRow, countryOf, filterCave } from './cave-filter';
+import { CaveRow, countryOf, filterCave, publishedRegion } from './cave-filter';
 
 const row = (id: string, producer: string, appellationRaw: string, quantity: number, extra: Partial<CaveRow> = {}): CaveRow => ({
   id, producer, cuvee: null, appellationRaw, vintage: 2019, color: 'ROUGE', formatCl: 75, referencePhotoId: null, quantity, ...extra,
@@ -53,6 +53,29 @@ describe('filterCave', () => {
     it('pays : appellation reconnue = FR', () => {
       expect(countryOf({ appellationId: 'x', country: 'AUTRE' })).toBe('FR');
       expect(countryOf({ appellationId: null, country: null })).toBeNull();
+    });
+  });
+
+  describe('région publiée', () => {
+    it('manuelle > référentiel > IA', () => {
+      expect(publishedRegion({ refRegion: 'Rhône', aiRegion: 'Loire', traitsManual: ['region'] })).toEqual({ region: 'Loire', regionSource: 'MANUEL' });
+      expect(publishedRegion({ refRegion: 'Rhône', aiRegion: 'Loire', traitsManual: [] })).toEqual({ region: 'Rhône', regionSource: 'REFERENTIEL' });
+      expect(publishedRegion({ refRegion: null, aiRegion: 'Loire', traitsManual: null })).toEqual({ region: 'Loire', regionSource: 'IA' });
+      expect(publishedRegion({})).toEqual({ region: null, regionSource: null });
+    });
+    it('région manuelle effacée : null, même avec une appellation reconnue', () => {
+      expect(publishedRegion({ refRegion: 'Rhône', aiRegion: null, traitsManual: ['region'], appellationId: 'ap' })).toEqual({ region: null, regionSource: 'MANUEL' });
+    });
+    it('pays manuel AUTRE sur une appellation reconnue : hors de France, sans région', () => {
+      const r = { appellationId: 'ap', country: 'AUTRE' as const, traitsManual: ['country'], refRegion: 'Bordeaux' };
+      expect(countryOf(r)).toBe('AUTRE');
+      expect(publishedRegion(r)).toEqual({ region: null, regionSource: null });
+      const found = filterCave([row('x', 'X', 'Bordeaux', 1, { ...r, ...publishedRegion(r) })], { region: 'HORS_FRANCE' });
+      expect(found.map((f) => f.id)).toEqual(['x']);
+    });
+    it('pays manuel FR l’emporte sur un pays IA AUTRE', () => {
+      expect(countryOf({ appellationId: null, country: 'FR', traitsManual: ['country'] })).toBe('FR');
+      expect(countryOf({ appellationId: 'ap', country: 'AUTRE', traitsManual: [] })).toBe('FR');
     });
   });
 });

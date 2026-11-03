@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CaveRole } from '@prisma/client';
 import { ApogeeRulesService } from '../apogee/apogee-rules.service';
+import { countryOf } from '../cave/cave-filter';
 import { apogeeOf, CaveService } from '../cave/cave.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { currentQuoteByWine } from '../quotes/quote';
@@ -38,7 +39,7 @@ export class StatsService {
     const year = now.getFullYear();
     const wines = rows.map((r) => ({
       id: r.id, producer: r.producer, cuvee: r.cuvee, vintage: r.vintage, color: r.color,
-      region: r.region ?? null, quantity: r.quantity, apogee: apogeeOf(r, rules, year), rating: r.rating ?? null,
+      region: r.region ?? null, country: countryOf(r), quantity: r.quantity, apogee: apogeeOf(r, rules, year), rating: r.rating ?? null,
     }));
     const current = [...currentQuoteByWine(quotes).values()];
     return statsForRole(computeStats({ wines, movements: movements as StatsMovement[], quotes: current }, now), role);

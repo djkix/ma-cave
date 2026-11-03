@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, WineColor } from '@prisma/client';
 import ExcelJS from 'exceljs';
-import { ApogeeConfidence, estimateApogee, isDrinkSoon, sortByApogeeEnd } from '../apogee/apogee';
+import { ApogeeConfidence, isDrinkSoon, sortByApogeeEnd } from '../apogee/apogee';
 import { ApogeeRulesService } from '../apogee/apogee-rules.service';
+import { countryOf, filterCave, publishedRegion } from '../cave/cave-filter';
+import { apogeeOf, CaveDbRow } from '../cave/cave.service';
+import type { Country } from '../traits/traits';
 import { formatPlaces, LocatedParts, partsOf, placesOf } from '../locations/location';
 import { PrismaService } from '../prisma/prisma.service';
 import { currentQuoteByWine, quoteSiteOf } from '../quotes/quote';
@@ -32,7 +35,7 @@ export class ExportService {
       // stock_courant n'a pas de cave : jointe par le vin.
       this.prisma.$queryRaw<{ wine_id: string; quantity: number }[]>`
         SELECT s.wine_id, s.quantity FROM stock_courant s JOIN wine w ON w.id = s.wine_id WHERE w.cave_id = ${caveId}`,
-      this.prisma.wine.findMany({ where: { caveId }, include: { appellation: true, pairing: true }, orderBy: [{ producer: 'asc' }, { vintage: 'asc' }] }),
+      this.prisma.wine.findMany({ where: { caveId }, include: { appellation: true, pairing: true, traits: true }, orderBy: [{ producer: 'asc' }, { vintage: 'asc' }] }),
       this.prisma.movement.findMany({ where: { wine: { caveId } }, include: { wine: true, location: { include: { zone: true } } }, orderBy: { occurredAt: 'desc' } }),
       this.prisma.appellation.findMany({ orderBy: { canonicalName: 'asc' } }),
       // Cote : l'export est réservé au propriétaire, qui voit les prix.
@@ -58,26 +61,30 @@ export class ExportService {
     const rules = await this.rules.load();
     const year = new Date().getFullYear();
 
-    const filtered = wines
-      .filter((w) => {
-        const q = stockByWine.get(w.id) ?? 0;
-        if (q <= 0) return false;
-        if (filter.color && w.color !== filter.color) return false;
-        if (filter.region && (w.appellation?.region ?? '').toLowerCase() !== filter.region.toLowerCase()) return false;
-        return true;
-      })
-      // Même calcul que l'application : l'export ne raconte jamais une autre apogée.
-      .map((w) => ({
-        w,
-        apogee: estimateApogee(
-          {
-            vintage: w.vintage, color: w.color, appellationId: w.appellationId, region: w.appellation?.region ?? null,
-            referenceGuardMin: w.appellation?.guardMinYears ?? null, referenceGuardMax: w.appellation?.guardMaxYears ?? null,
-            apogeeMin: w.apogeeMin, apogeeMax: w.apogeeMax, apogeeSource: w.apogeeSource,
-          },
-          rules, year,
-        ),
-      }));
+    // Première entrée non annulée par vin : départ de la garde IA d'un non-millésimé (à défaut, la création du vin).
+    const firstIn = new Map<string, number>();
+    for (const m of movements) {
+      if (m.type !== 'IN' || cancelled.has(m.id)) continue;
+      const y = m.occurredAt.getFullYear();
+      firstIn.set(m.wineId, Math.min(y, firstIn.get(m.wineId) ?? y));
+    }
+    // Mêmes lignes, même filtre, même région et même apogée que l'application : l'export ne raconte jamais autre chose.
+    const wineById = new Map(wines.map((w) => [w.id, w]));
+    const rows: CaveDbRow[] = wines.map((w) => {
+      const row = {
+        id: w.id, producer: w.producer, cuvee: w.cuvee, appellationRaw: w.appellationRaw, vintage: w.vintage, color: w.color,
+        formatCl: w.formatCl, referencePhotoId: w.referencePhotoId, quantity: stockByWine.get(w.id) ?? 0,
+        appellationId: w.appellationId, refRegion: w.appellation?.region ?? null,
+        referenceGuardMin: w.appellation?.guardMinYears ?? null, referenceGuardMax: w.appellation?.guardMaxYears ?? null,
+        apogeeMin: w.apogeeMin, apogeeMax: w.apogeeMax, apogeeSource: w.apogeeSource,
+        aiRegion: w.traits?.region ?? null, aiGuardMin: w.traits?.guardMin ?? null, aiGuardMax: w.traits?.guardMax ?? null,
+        traitsManual: w.traits?.manualFields ?? [], country: (w.traits?.country ?? null) as Country | null,
+        firstEntryYear: firstIn.get(w.id) ?? w.createdAt.getFullYear(),
+      };
+      return { ...row, ...publishedRegion(row) };
+    });
+    const filtered = filterCave(rows, { color: filter.color, region: filter.region })
+      .map((row) => ({ w: wineById.get(row.id)!, row, apogee: apogeeOf(row, rules, year) }));
     const inStock = filter.drinkSoon ? sortByApogeeEnd(filtered.filter((i) => isDrinkSoon(i.apogee, year))) : filtered;
 
     const wb = new ExcelJS.Workbook();
@@ -108,12 +115,12 @@ export class ExportService {
       // Site déduit du lien de la cote ; vide sans lien.
       { header: 'Source', key: 'quoteSource', width: 14 },
     ];
-    for (const { w, apogee } of inStock) {
-      const q = stockByWine.get(w.id) ?? 0;
+    for (const { w, row: r, apogee } of inStock) {
+      const q = r.quantity;
       const price = lastPrice.has(w.id) ? lastPrice.get(w.id)! / 100 : null;
       const quote = quoteByWine.get(w.id);
       const row = stock.addRow({
-        producer: w.producer, cuvee: w.cuvee ?? '', appellation: w.appellationRaw, region: w.appellation?.region ?? '',
+        producer: w.producer, cuvee: w.cuvee ?? '', appellation: w.appellationRaw, region: r.region ?? (countryOf(r) === 'AUTRE' ? 'Hors de France' : ''),
         vintage: w.vintage ?? 'NV', apogeeMin: apogee.min, apogeeMax: apogee.max,
         confidence: apogee.confidence ? CONFIDENCE_LABEL[apogee.confidence] : null,
         rating: w.rating == null ? null : Number(w.rating),

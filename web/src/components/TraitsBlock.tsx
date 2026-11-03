@@ -22,7 +22,7 @@ export function TraitsBlock({ wineId, traits, readOnly = false }: { wineId: stri
   const [busy, setBusy] = useState(false);
   // Sans ligne de caractéristiques, seul le propriétaire voit le bloc (le PUT la crée) ; un membre ne voit rien.
   if (!traits && readOnly) return null;
-  const view: WineTraits = traits ?? { status: 'DONE', tannin: null, aromas: [], country: null, manualFields: [] };
+  const view: WineTraits = traits ?? { status: 'DONE', tannin: null, aromas: [], country: null, region: null, manualFields: [] };
 
   function open() {
     setTannin(view.tannin ?? '');

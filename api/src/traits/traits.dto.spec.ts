@@ -11,4 +11,9 @@ describe('traitsSchema', () => {
   it('refuse six arômes', () => {
     expect(traitsSchema.safeParse({ aromas: AROMAS.slice(0, 6) }).success).toBe(false);
   });
+  it('région : une des douze, ou null pour l’effacer', () => {
+    expect(traitsSchema.safeParse({ region: 'Loire' }).success).toBe(true);
+    expect(traitsSchema.safeParse({ region: null }).success).toBe(true);
+    expect(traitsSchema.safeParse({ region: 'Toscane' }).success).toBe(false);
+  });
 });

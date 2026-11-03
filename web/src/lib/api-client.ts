@@ -342,7 +342,7 @@ export type ApogeeStatus = 'TROP_JEUNE' | 'A_BOIRE' | 'A_BOIRE_VITE' | 'PASSEE';
 export type ApogeeReason = 'NON_MILLESIME' | 'APPELLATION_INCONNUE' | 'GARDE_INCONNUE';
 export interface Apogee {
   min: number | null; max: number | null; confidence: ApogeeConfidence | null;
-  status: ApogeeStatus | null; reason: ApogeeReason | null; source: 'MANUEL' | 'REGLE' | null;
+  status: ApogeeStatus | null; reason: ApogeeReason | null; source: 'MANUEL' | 'REGLE' | 'IA' | null;
 }
 
 export interface Rating { value: number; ratedAt: string; ratedBy: string | null }
@@ -353,7 +353,7 @@ export type ProducerProfileSource = 'GEMINI' | 'MANUEL';
 export type ProducerField = 'histoire' | 'terroir' | 'cepages' | 'style' | 'nez';
 export type Tannin = 'LEGER' | 'MOYEN' | 'PUISSANT';
 export type Country = 'FR' | 'AUTRE';
-export interface WineTraits { status: string; tannin: Tannin | null; aromas: string[]; country: Country | null; manualFields: string[] }
+export interface WineTraits { status: string; tannin: Tannin | null; aromas: string[]; country: Country | null; region: string | null; manualFields: string[] }
 export interface ProducerProfile {
   key: string; displayName: string; status: ProducerProfileStatus; description: string | null;
   /** Les cinq champs de la fiche ; `manualFields` : ceux corrigés à la main. */
@@ -371,8 +371,8 @@ export interface CaveRow {
   matchedDish?: string;
   /** Endroits du vin : seulement dans la liste « à boire en priorité » (`drinkSoon`). */
   places?: Place[];
-  /** Fournis par la liste et la fiche ; absents des candidats de sortie. */
-  region?: string | null; country?: Country | null; tannin?: Tannin | null; aromas?: string[]; producerKey?: string | null;
+  /** Fournis par la liste et la fiche ; absents des candidats de sortie. `region` : région publiée (manuelle, référentiel ou IA, d'après `regionSource`). */
+  region?: string | null; regionSource?: 'MANUEL' | 'REFERENTIEL' | 'IA' | null; country?: Country | null; tannin?: Tannin | null; aromas?: string[]; producerKey?: string | null;
 }
 /** `location` : id d'emplacement, ou `none` pour « Sans emplacement ». */
 export interface CaveFilter { q?: string; color?: WineColor; includeEmpty?: boolean; drinkSoon?: boolean; noApogee?: boolean; dish?: string; location?: string; aromas?: string[]; vintageMin?: number; vintageMax?: number; tannin?: Tannin; region?: string }
@@ -446,7 +446,7 @@ export const setRating = (wineId: string, rating: number) =>
 export const clearRating = (wineId: string) => apiFetch<null>(`/wines/${wineId}/rating`, { method: 'DELETE' });
 export const regeneratePairing = (wineId: string) => apiFetch<void>(`/wines/${wineId}/pairing/regenerate`, { method: 'POST' });
 
-export const setWineTraits = (id: string, body: { tannin?: Tannin | null; aromas?: string[]; country?: Country | null }) =>
+export const setWineTraits = (id: string, body: { tannin?: Tannin | null; aromas?: string[]; country?: Country | null; region?: string | null }) =>
   apiFetch<WineTraits>(`/wines/${id}/traits`, { method: 'PUT', body: JSON.stringify(body) });
 
 export interface ProducerPageWine { id: string; cuvee: string | null; vintage: number | null; color: WineColor; quantity: number; referencePhotoId: string | null }
@@ -521,7 +521,7 @@ export interface Stats {
   quotedValueCents?: number | null; cessionValueCents?: number | null;
   /** Vins en stock cotés, sur les vins en stock. */
   quotedReferences?: number; quotableReferences?: number;
-  byColor: StatsShare[]; byRegion: StatsShare[]; byDecade: StatsShare[]; byApogee: StatsShare[];
+  byColor: StatsShare[]; byRegion: StatsShare[]; /** Par millésime croissant, « Non millésimé » en dernier. */ byYear: StatsShare[]; byApogee: StatsShare[];
   months: Array<{ month: string; in: number; out: number }>;
   drinkRate: number; yearsLeft: number | null;
   mostDrunk: StatsRankedWine[]; topProducers: Array<{ producer: string; bottles: number }>; mostExpensive?: StatsRankedWine[];
