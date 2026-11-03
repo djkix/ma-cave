@@ -6,7 +6,19 @@ describe('parseTraitsOutput', () => {
       tannin: 'MOYEN',
       aromas: ['boisé', 'noisette'],
       country: 'FR',
+      region: null,
+      guard: null,
     });
+  });
+
+  it('région de la liste fermée (sans accents ni casse), sinon null ; garde entière cohérente, sinon null', () => {
+    expect(parseTraitsOutput({ pays: 'France', region: 'rhone', garde: { min: 3, max: 10 } })).toMatchObject({ region: 'Rhône', guard: { min: 3, max: 10 } });
+    expect(parseTraitsOutput({ pays: 'Italie', region: 'Toscane' })).toMatchObject({ country: 'AUTRE', region: null, guard: null });
+    expect(parseTraitsOutput({ pays: 'Italie', region: 'Rhône' }).region).toBeNull();
+    expect(parseTraitsOutput({ garde: { min: 8, max: 2 } }).guard).toBeNull();
+    expect(parseTraitsOutput({ garde: { min: -1, max: 2 } }).guard).toBeNull();
+    expect(parseTraitsOutput({ garde: { min: 0, max: 61 } }).guard).toBeNull();
+    expect(parseTraitsOutput({ garde: { min: 1.6, max: 4.2 } }).guard).toEqual({ min: 2, max: 4 });
   });
 
   it('garde les cinq premiers arômes valides', () => {
@@ -15,7 +27,7 @@ describe('parseTraitsOutput', () => {
   });
 
   it('classe un autre pays en AUTRE', () => {
-    expect(parseTraitsOutput({ tanin: null, aromes: [], pays: 'Italie' })).toEqual({ tannin: null, aromas: [], country: 'AUTRE' });
+    expect(parseTraitsOutput({ tanin: null, aromes: [], pays: 'Italie' })).toEqual({ tannin: null, aromas: [], country: 'AUTRE', region: null, guard: null });
   });
 
   it('tanin inconnu : null ; pays absent : null', () => {

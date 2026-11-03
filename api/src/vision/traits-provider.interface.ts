@@ -17,6 +17,9 @@ export interface TraitsBatchItem {
   tannin: Tannin | null;
   aromas: string[];
   country: Country | null;
+  region: string | null;
+  /** Années après le millésime (après l'achat si non millésimé) où le vin est à boire. */
+  guard: { min: number; max: number } | null;
 }
 
 /**

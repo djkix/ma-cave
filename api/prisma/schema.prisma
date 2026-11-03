@@ -149,24 +149,26 @@ model Movement {
 }
 
 model Photo {
-  id            String       @id @default(uuid())
-  caveId        String       @map("cave_id")
-  cave          Cave         @relation(fields: [caveId], references: [id])
-  contentHash   String       @map("content_hash")
-  storagePath   String       @map("storage_path")
-  mimeType      String       @default("image/jpeg") @map("mime_type")
-  status        PhotoStatus  @default(PENDING)
-  purpose       PhotoPurpose @default(ENTRY)
-  rawExtraction Json?        @map("raw_extraction")
-  model         String?
-  latencyMs     Int?         @map("latency_ms")
-  costCents     Int?         @map("cost_cents")
-  errorMessage  String?      @map("error_message")
-  createdAt     DateTime     @default(now()) @map("created_at")
-  attempts      Int          @default(0)
-  nextAttemptAt DateTime?    @map("next_attempt_at")
-  dismissedAt   DateTime?    @map("dismissed_at")
-  movements     Movement[]
+  id                String       @id @default(uuid())
+  caveId            String       @map("cave_id")
+  cave              Cave         @relation(fields: [caveId], references: [id])
+  contentHash       String       @map("content_hash")
+  storagePath       String       @map("storage_path")
+  mimeType          String       @default("image/jpeg") @map("mime_type")
+  status            PhotoStatus  @default(PENDING)
+  purpose           PhotoPurpose @default(ENTRY)
+  rawExtraction     Json?        @map("raw_extraction")
+  model             String?
+  latencyMs         Int?         @map("latency_ms")
+  costCents         Int?         @map("cost_cents")
+  errorMessage      String?      @map("error_message")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  attempts          Int          @default(0)
+  nextAttemptAt     DateTime?    @map("next_attempt_at")
+  dismissedAt       DateTime?    @map("dismissed_at")
+  /// Nombre de bouteilles annoncé avant l'envoi de la photo (saisie guidée).
+  requestedQuantity Int?         @map("requested_quantity")
+  movements         Movement[]
 
   /// Doublon détecté par cave : deux caves peuvent envoyer la même image.
   @@unique([caveId, contentHash])
@@ -358,6 +360,10 @@ model WineTraits {
   tannin        String?
   aromas        String[]      @default([])
   country       String?
+  region        String?
+  /// Garde estimée par l'IA, en années après le millésime (ou l'achat).
+  guardMin      Int?          @map("guard_min")
+  guardMax      Int?          @map("guard_max")
   /// Champs corrigés à la main : la génération automatique ne les écrase jamais.
   manualFields  String[]      @default([]) @map("manual_fields")
   model         String?

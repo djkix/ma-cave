@@ -5,12 +5,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { VisionBudgetService } from '../queue/vision-budget.service';
 import { GeminiJournal } from '../vision/gemini-journal';
 import { TRAITS_PROVIDER, TraitsProvider, TraitsWine } from '../vision/traits-provider.interface';
-import { Country, Tannin } from './traits';
+import { ParsedTraits } from './traits';
 
-type Out = { tannin: Tannin | null; aromas: string[]; country: Country | null };
+type Out = ParsedTraits;
 
 /**
- * Tanin, arômes et pays des vins par lots de dix vins au plus (voir
+ * Tanin, arômes, pays, région et garde des vins par lots de dix vins au plus (voir
  * GenerationBatchProcessor). La ligne `wine_traits` d'un vin supprimé disparaît
  * avec lui (cascade). Un champ corrigé à la main (`manualFields`) n'est jamais écrasé.
  */
@@ -69,6 +69,9 @@ export class TraitsBatchProcessor extends GenerationBatchProcessor<TraitsWine, O
         ...(manual.has('tannin') ? {} : { tannin: item.tannin }),
         ...(manual.has('aromas') ? {} : { aromas: item.aromas }),
         ...(manual.has('country') ? {} : { country: item.country }),
+        ...(manual.has('region') ? {} : { region: item.region }),
+        guardMin: item.guard?.min ?? null,
+        guardMax: item.guard?.max ?? null,
         status: 'DONE',
         model: meta.model,
         costCents: meta.costCents,

@@ -4,7 +4,7 @@ import { GeminiJournal, GeminiPausedError, GeminiQuotaError, GeminiUsage, MODEL_
 import { GeminiQuotaService, skipsToNext } from './gemini-quota';
 import { parsePairingOutput } from './pairing-output';
 import { DishPairingProvider, DishPairingResult, DishPairingWine, PairingBatchItem, PairingBatchResult, PairingProvider, PairingWine } from './pairing-provider.interface';
-import { AROMAS, MAX_AROMAS, parseTraitsOutput } from '../traits/traits';
+import { AROMAS, MAX_AROMAS, REGIONS, parseTraitsOutput } from '../traits/traits';
 import { parseProducerOutput } from './producer-output';
 import { OfficialSiteProvider, OfficialSiteQuery, OfficialSiteResult } from './official-site-provider.interface';
 import { ProducerBatchItem, ProducerBatchResult, ProducerProvider, ProducerQuery } from './producer-provider.interface';
@@ -161,13 +161,15 @@ Chaque plat : un nom court en français (60 caractères au plus), sans phrase ni
 ${wines.map((w, i) => `Vin ${i + 1} : ${pairingLine(w)}`).join('\n')}`;
 }
 
-/** Consigne de lot des caractéristiques : tanin, arômes (liste fermée) et pays, réponse en tableau numéroté. */
+/** Consigne de lot des caractéristiques : tanin, arômes (liste fermée), pays, région (liste fermée) et garde, réponse en tableau numéroté. */
 function traitsBatchPrompt(wines: TraitsWine[]): string {
   const n = wines.length;
-  return `Tu es sommelier. Pour chacun des ${n} vins ci-dessous, numérotés de 1 à ${n}, donne le tanin, les arômes dominants et le pays.
+  return `Tu es sommelier. Pour chacun des ${n} vins ci-dessous, numérotés de 1 à ${n}, donne le tanin, les arômes dominants, le pays, la région et la garde.
 Réponds UNIQUEMENT par un tableau JSON de ${n} éléments, un par vin, dans l'ordre des vins.
-Chaque élément est un objet strict de la forme {"vin": number, "tanin": "léger"|"moyen"|"puissant"|null, "aromes": string[], "pays": "France"|"<autre pays>"}, où "vin" est le numéro du vin (de 1 à ${n}).
+Chaque élément est un objet strict de la forme {"vin": number, "tanin": "léger"|"moyen"|"puissant"|null, "aromes": string[], "pays": "France"|"<autre pays>", "region": string|null, "garde": {"min": number, "max": number}}, où "vin" est le numéro du vin (de 1 à ${n}).
 "aromes" : ${MAX_AROMAS} au plus, choisis UNIQUEMENT dans cette liste fermée : ${AROMAS.join(', ')}.
+"region" : UNE de cette liste fermée : ${REGIONS.join(', ')} ; null hors de France ou si aucune ne convient.
+"garde" : "min" et "max" sont des nombres entiers d'années après le millésime (après l'achat pour un vin non millésimé) pendant lesquelles le vin est à boire, de 0 à 60, min ≤ max.
 "tanin" : null pour un blanc, un rosé ou un effervescent sauf exception.
 ${wines.map((w, i) => `Vin ${i + 1} : producteur « ${w.producer} » ; cuvée « ${w.cuvee ?? 'aucune'} » ; appellation « ${w.appellation} » ; couleur ${COLOR_WORD[w.color] ?? w.color} ; ${w.vintage == null ? 'non millésimé' : `millésime ${w.vintage}`}.`).join('\n')}`;
 }

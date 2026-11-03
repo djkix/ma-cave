@@ -4,7 +4,7 @@ import { TraitsBatchProcessor } from './traits-batch.processor';
 const NOW = new Date('2026-11-02T12:00:00.000Z');
 const MIN = 60_000;
 
-function harness(answer: { tannin: string | null; aromas: string[]; country: string | null }) {
+function harness(answer: { tannin: string | null; aromas: string[]; country: string | null; region?: string | null; guard?: { min: number; max: number } | null }) {
   const wines = { w0: { producer: 'Domaine 0', cuvee: null, appellationRaw: 'bandol', color: 'ROUGE', vintage: 2019, appellation: { canonicalName: 'Bandol' } } };
   const q = fakeGenerationQueue('wineTraits', { wines });
   q.clock.now = NOW;
@@ -27,6 +27,15 @@ describe('TraitsBatchProcessor', () => {
       status: 'DONE', tannin: 'MOYEN', aromas: ['floral'], country: 'FR', model: 'gemini-test', costCents: 2,
       errorMessage: null, generatedAt: expect.any(Date), attempts: 0, nextAttemptAt: null, reservedUntil: null,
     });
+  });
+
+  it('save écrit la garde et la région, sauf région corrigée à la main', async () => {
+    const h = harness({ tannin: null, aromas: [], country: 'FR', region: 'Rhône', guard: { min: 3, max: 10 } });
+    h.add({ id: 't0', wineId: 'w0', requestedAt: new Date(NOW.getTime() - 3 * MIN) });
+    h.add({ id: 't1', wineId: 'w0', requestedAt: new Date(NOW.getTime() - 3 * MIN), region: 'Alsace', manualFields: ['region'] });
+    await h.processor.tick(NOW);
+    expect(h.row('t0')).toMatchObject({ region: 'Rhône', guardMin: 3, guardMax: 10 });
+    expect(h.row('t1')).toMatchObject({ region: 'Alsace', guardMin: 3, guardMax: 10 });
   });
 
   it('save garde les champs manuels', async () => {
