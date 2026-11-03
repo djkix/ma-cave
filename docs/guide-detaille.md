@@ -363,7 +363,11 @@ vous en créer une, ou un propriétaire peut vous inviter. »
 
 **Entrée de stock par photo, en rafale.** Bouton *Rentrer*, un grand bouton photo
 et un compteur « N photos prises » : on enchaîne photo après photo, sans
-attendre ni confirmer une fiche entre deux prises. Chaque photo est réduite sur
+attendre ni confirmer une fiche entre deux prises. Un sélecteur **Bouteilles**
+(− / +, de 1 à 120, comme le sélecteur de quantité de la fiche) se règle *avant*
+la prise, à l'entrée seulement ; il revient à 1 après chaque photo. Le nombre
+voyage avec la photo, y compris dans la file hors ligne, puis dans le champ
+multipart `quantity` de `POST /api/photos` (1 à 120), et il est conservé sur la photo. Chaque photo est réduite sur
 le téléphone (côté le plus long 1 600 px, JPEG qualité 0,8 ; si la réduction
 échoue, la photo part telle quelle), rangée dans une file locale, et l'écran est
 aussitôt prêt pour la suivante. La file locale accepte jusqu'à 200 photos (ou
@@ -383,8 +387,9 @@ seule, sans attribution croisée.
 Les fiches lues rejoignent la liste **« À confirmer »** (lien sur l'accueil,
 avec un badge « N vins à confirmer »), en trois sections : *À valider* (fiche
 pré-remplie — domaine, cuvée, appellation, millésime, couleur, format — avec un
-indicateur de confiance par champ, quantité lue sur le carton sinon 1 et
-modifiable ; *Valider* fiche par fiche ou *Tout valider* d'un coup ; *Mettre
+indicateur de confiance par champ, quantité pré-remplie et modifiable (le nombre
+choisi à la photo l'emporte sur la quantité lue sur le carton s'il est différent
+de 1 ; à 1, c'est la quantité lue sur le carton, sinon 1) ; *Valider* fiche par fiche ou *Tout valider* d'un coup ; *Mettre
 de côté* sort la fiche de *Tout valider* pour la visite en cours seulement —
 elle reste à confirmer et revient à la prochaine ouverture ; *Écarter* retire
 définitivement la photo sans créer de mouvement, après confirmation « Écarter
@@ -397,6 +402,17 @@ en stock avant une validation explicite. Les anciennes URL du mode campagne
 la rafale et vers « À confirmer » ; le mode campagne lui-même a disparu,
 fusionné dans ce parcours. Côté API : `GET /api/photos/entry-inbox` (les trois
 sections) et `POST /api/photos/:id/dismiss` (écarter une photo).
+
+**Appellation : suggestions et appellation inconnue.** Dans le champ appellation
+de l'écran de confirmation (unitaire et « À confirmer ») comme du formulaire de
+modification, le référentiel propose des appellations pendant la frappe
+(`GET /api/appellations?q=`, mêmes similarités que la reconnaissance à
+l'enregistrement, connexion requise) ; en choisir une pose le nom canonique. Le
+texte libre reste accepté. Si le référentiel ne le reconnaît pas, un message le
+dit sous le champ : « Appellation inconnue du référentiel : la région et
+l’apogée seront estimées par l’IA. » La saisie n'est jamais bloquée pour cela
+(domaine et appellation non vides restent les seules exigences), et un échec
+des suggestions ne gêne pas non plus la saisie.
 
 **La cave et la sortie.** L'onglet *Cave* liste les vins en stock avec
 vignette (photo de l'entrée, ou un pictogramme de bouteille s'il n'y a pas de
@@ -413,7 +429,26 @@ derniers mouvements. La fiche ne porte plus de bouton de sortie (onglet
 *Sortie* de la barre du bas) ; le crayon à côté du stock (*Corriger le stock*)
 ouvre un inventaire physique — le nombre compté, l'écart annoncé avant d'enregistrer
 (« −2 bouteilles », « Stock déjà juste »), écrit comme un mouvement `ADJUST`
-daté (« Inventaire : N comptées »). La **sortie par photo** (onglet *Sortie* de la
+daté (« Inventaire : N comptées »).
+
+**Modifier un vin.** Le bouton *Modifier* de la fiche (propriétaire seulement,
+comme la correction des caractéristiques) ouvre un formulaire : domaine, cuvée,
+appellation (avec suggestions), millésime, couleur, format. Les règles sont
+celles de la saisie : domaine et appellation non vides, millésime vide (non
+millésimé) ou de 4 chiffres ; un millésime ou un format mal tapé est signalé sans
+rien enregistrer. À l'enregistrement, l'appellation est re-résolue, la région et
+l'apogée sont recalculées (une apogée manuelle est conservée) et, si le domaine
+ou l'appellation ont changé, les caractéristiques et le descriptif du domaine
+sont remis en file (sans écraser les champs corrigés à la main). Si la nouvelle
+identité est celle d'un autre vin de la cave, l'écran répond « Ce vin existe
+déjà : Pommard 2018, 3 bouteilles » et propose **Fusionner les deux** : une seule
+transaction réunit sur la fiche déjà existante les bouteilles (somme), les
+mouvements, les emplacements (qui s'additionnent d'eux-mêmes, aucune quantité
+n'étant stockée par emplacement), les cotes et la note la plus récente
+(les corrections manuelles de la fiche existante priment), puis l'autre fiche
+disparaît. L'ancienne adresse affiche « Vin introuvable » avec un lien *Voir la
+cave*. Côté API : `PUT /api/wines/:id` ; en cas de doublon, 409 avec le vin
+existant, et le même appel renvoyé avec `merge: true` fusionne. La **sortie par photo** (onglet *Sortie* de la
 barre du bas) ne reconnaît que les vins en
 stock : l'étiquette est lue par Gemini puis comparée sur domaine/cuvée/
 appellation, le millésime pesant fortement. Un candidat clair déclenche une
@@ -764,9 +799,16 @@ millésime, 0,85 pour un millésime faible et **1,0 par défaut** (millésime
 un badge de confiance (*Saisie* en cas de correction manuelle, *Confiance
 moyenne* si le millésime est qualifié, *Confiance faible* sinon) et un statut
 (« Trop jeune », « À boire », « À boire vite », « Apogée passée depuis… ») ;
-quand aucune estimation n'est possible (vin non millésimé, appellation non
-reconnue, garde inconnue), la raison s'affiche avec une saisie manuelle
-proposée. *Corriger* permet au propriétaire de la cave de fixer deux années,
+quand la règle ne sait pas (appellation non reconnue, garde inconnue, vin non
+millésimé), l'IA estime une **garde** (années min et max) en même temps que les
+caractéristiques : l'apogée devient millésime + garde, confiance faible, libellée
+« (estimée par l’IA) » sur la fiche. Pour un vin non millésimé, la garde est
+comptée depuis l'année de sa première entrée en cave (premier mouvement d'entrée
+non annulé, sinon la création du vin). L'ordre est : correction manuelle, puis
+règle du référentiel, puis estimation de l'IA (la garde est stockée, l'apogée
+calculée à la lecture : corriger l'appellation vers une appellation connue fait
+passer la règle devant l'IA). Tant que l'IA n'a rien estimé ou qu'elle échoue, la
+raison s'affiche avec une saisie manuelle proposée. *Corriger* permet au propriétaire de la cave de fixer deux années,
 qui priment alors toujours sur les règles ; *Revenir à l'estimation* efface la
 correction. L'onglet *Cave* porte une mention courte par ligne (« À boire
 2024-2036 », « Trop jeune (2027) », « À boire vite », « Apogée passée »).
@@ -820,8 +862,8 @@ d'achat saisi » quand aucun prix n'est connu) ; répartition du stock par
 l'onglet Cave déjà filtré ; l'onglet Cave affiche alors toute la liste « à
 boire en priorité », apogée finie au plus tard l'an prochain, qui peut compter
 plus de bouteilles que la barre), par **couleur**, par **région** (8 premières
-puis *Autres*) et par **décennie
-de millésime** ; **mouvements sur 12 mois** (entrées et sorties par mois, heure
+puis *Autres*, avec une ligne *Hors de France*) et par **millésime,
+année par année** (*Non millésimé* en dernier) ; **mouvements sur 12 mois** (entrées et sorties par mois, heure
 de Paris ; annulations et inventaires exclus), avec le rythme moyen de
 consommation et la durée de cave qu'il donne ; et quatre **classements** : les
 vins les plus bus sur 12 mois, les producteurs les plus présents, les
@@ -985,25 +1027,41 @@ un d'accords) par passage, toutes les 15 s environ.
 puissant), jusqu'à **5 arômes** pris dans une liste fermée de 20 (fruits rouges,
 fruits noirs, agrumes, fruits blancs, fruits exotiques, fruits secs, noisette,
 floral, épicé, poivré, vanille, boisé, toasté, beurré, miel, minéral, végétal,
-sous-bois, cuir, réglisse) et un *pays* (France ou hors de France ; un vin à
-appellation reconnue est toujours français). L'IA les estime en tâche de fond,
-par lots de 10 ; un échec laisse simplement le vin sans tanin ni arôme. Le
-propriétaire les corrige sur la fiche (bloc *Caractéristiques*, aussi quand rien
-n'a encore été estimé) et une correction n'est jamais écrasée ; un membre les lit
-seulement. API : `PUT /api/wines/:id/traits`.
+sous-bois, cuir, réglisse), un *pays* (France ou hors de France ; un vin à
+appellation reconnue est toujours français), une *région* choisie dans la liste
+fermée des 12 régions du référentiel (Alsace, Beaujolais, Bordeaux, Bourgogne,
+Champagne, Jura, Languedoc-Roussillon, Loire, Provence, Rhône, Savoie, Sud-Ouest)
+et, quand la règle d'apogée ne sait pas, une *garde*. L'IA les estime en tâche de
+fond, par lots de 10 (c'est la même caractérisation, aucun nouvel usage de Gemini) ;
+un échec laisse simplement le vin sans ces données et ne bloque jamais la saisie.
+La **région publiée** d'un vin (cave, filtre, carte, stats) est, par ordre de
+priorité, la correction manuelle, la région du référentiel, puis celle de l'IA,
+libellée « Région : Bourgogne (estimée par l’IA) » sur la fiche. Le
+propriétaire corrige sur la fiche (bloc *Caractéristiques*, aussi quand rien
+n'a encore été estimé) par un seul sélecteur **Région** : *Inconnue*, les 12
+régions ou *Hors de France* ; choisir une région met le pays en France, *Hors de
+France* met le pays à l'étranger et efface la région. Une correction n'est jamais
+écrasée (une région manuelle n'empêche pas l'estimation des autres traits) ; un
+membre les lit seulement. API : `PUT /api/wines/:id/traits` (champs `tannin`,
+`aromas`, `country`, `region`).
 
 **Filtres de la cave.** Dans l'ordre : recherche, couleur, arômes, millésime,
-tanin, emplacement, à boire en priorité, sans apogée, vins épuisés, plat.
+région, tanin, emplacement, à boire en priorité, sans apogée, vins épuisés, plat.
 Paramètres de `GET /api/cave` : `aromas` (liste), `vintageMin`, `vintageMax`
 (entiers), `tannin` (`LEGER`, `MOYEN`, `PUISSANT`) et `region` (une région du
-référentiel, ou `HORS_FRANCE`), tous lus dans la cave courante.
+référentiel, ou `HORS_FRANCE`), tous lus dans la cave courante. À l'écran, un
+seul champ **Millésime** (année exacte, envoyée aux deux bornes) remplace l'ancien
+« de… à… », et des **pastilles de région** (les régions présentes dans la cave,
+plus *Hors de France*) suivent, avec le même paramètre `region` que la carte de
+l'accueil ; retoucher une pastille l'enlève.
 
 **Carte de France de l'accueil.** Une carte des régions viticoles, colorée selon
 le nombre de bouteilles ; toucher une région ouvre la cave filtrée. Règles de
-comptage : seules les bouteilles **en stock** comptent ; un vin est rangé dans la
-région de son appellation (référentiel) ; sans région, il va dans « Hors de
+comptage : seules les bouteilles **en stock** comptent ; un vin est rangé dans sa
+**région publiée** (correction manuelle, puis référentiel, puis IA) ; « Hors de
 France » si son pays est étranger ; sinon il n'est pas placé et la carte indique
-« dont N sans région ».
+« dont N sans région » : ce sont les vins pas encore caractérisés (ou dont la
+région n'est pas parmi les 12). Les stats suivent la même règle.
 
 **Accords « J'ai un vin ».** Dans l'onglet *Accords*, on choisit un vin en stock
 et l'on voit ses plats déjà générés, en cartes, sans aucun appel à l'IA.
@@ -1331,6 +1389,17 @@ NPM, sinon l'en-tête est réécrit en `http` et la connexion boucle indéfinime
 
 À lire avant une mise à jour qui change de version mineure. Les sections
 vont de la plus récente à la plus ancienne.
+
+### Passage à la prochaine version (saisie fiable, modification des vins, apogée par l'IA)
+
+Une migration additive, appliquée toute seule au démarrage de l'api : une
+quantité sur les photos, et la région et la garde estimées par l'IA sur les
+caractéristiques des vins. Elle **rattrape le stock existant** : tout vin sans
+apogée ou sans région est remis en file de caractérisation, et le worker les
+reprend par lots de 10 (la région, la garde et l'apogée apparaissent au fil de
+l'eau, sans rien à lancer). Les corrections manuelles (tanin, arômes, pays,
+région, apogée manuelle) ne sont jamais écrasées. Aucun changement de
+configuration ; un échec de l'IA laisse simplement le vin en attente.
 
 ### Passage à la prochaine version (accords par vin, domaine, arômes, carte)
 
@@ -1964,8 +2033,9 @@ conserver ce SQL écrit à la main, sinon Prisma proposera de le supprimer.
 - **Qualité des millésimes non pré-remplie** : tant qu'une région n'a pas été
   qualifiée depuis l'administration, tous ses millésimes comptent pour
   « moyen » (facteur 1,0).
-- **Pas d'estimation d'apogée pour les vins non millésimés** : la fiche
-  l'indique et ne propose que la saisie manuelle.
+- **Apogée des non millésimés** : la règle du référentiel ne s'applique jamais
+  (elle a besoin du millésime) ; seule l'estimation de l'IA, comptée depuis la
+  première entrée, donne une fourchette, toujours signalée « estimée par l’IA ».
 - **Pas d'alerte hors de l'application** : la liste « à boire en priorité » se
   consulte, elle ne prévient pas (choix assumé).
 - **Emplacements sans quantité propre** : la zone se choisit dans la liste des

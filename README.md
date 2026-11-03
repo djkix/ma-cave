@@ -79,13 +79,15 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 ### 📸 Entrée par photo, en rafale
 - **Rafale** : photo après photo, sans attendre ni confirmer entre deux prises
 - Photo **réduite sur le téléphone** (1 600 px, JPEG), rangée dans une **file locale**
+- Sélecteur **Bouteilles** réglé avant la prise (entrée seulement), il revient à 1 après chaque photo et suit la photo dans la file hors ligne
 - Envoi une par une en arrière-plan, tant que l'application est ouverte
 - Le worker lit **jusqu'à 8 photos par appel Gemini**, toutes les 15 s
 - Résultat en général **entre 15 s et 1 min**
 
 ### ✅ À confirmer
 - Trois sections : **À valider**, **En cours d'analyse**, **Lecture impossible**
-- Fiche pré-remplie avec un **indicateur de confiance** par champ
+- Fiche pré-remplie avec un **indicateur de confiance** par champ ; le nombre choisi à la photo l'emporte sur la quantité lue sur le carton s'il n'est pas 1
+- **Suggestions d'appellations** du référentiel pendant la frappe ; une appellation inconnue reste acceptée, avec un message : la région et l’apogée seront estimées par l’IA (la saisie n'est jamais bloquée)
 - **Valider**, **Tout valider**, **Mettre de côté** ou **Écarter**
 - **Saisir à la main** une photo illisible
 - **Rien n'entre en stock** sans validation explicite
@@ -115,14 +117,16 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Stock **calculé à la lecture** depuis le journal, **jamais négatif**
 
 ### 🍾 Cave et fiche vin
-- Recherche **sans accents ni casse**, filtres couleur, **arômes**, millésime (de… à…), **tanin**, emplacement, vins épuisés ; filtre région posé depuis la carte (pastille retirable)
+- Recherche **sans accents ni casse**, filtres couleur, **arômes**, **millésime** (une année exacte), **région** (pastilles des régions présentes + « Hors de France », aussi posée depuis la carte), **tanin**, emplacement, vins épuisés
+- **Modifier un vin** depuis sa fiche (propriétaire) : domaine, cuvée, appellation, millésime, couleur, format ; si le vin existe déjà, **Fusionner les deux** réunit bouteilles, mouvements, emplacements, cotes et note sur la fiche existante
 - Fiche : photo, **descriptif du domaine** avec **Voir le domaine**, **tanin et arômes**, **accords**, apogée, note, cote, emplacements, mouvements
 - **Note sur 20**, par demi-point
 - **Chercher une image** : Open Food Facts, puis site officiel du domaine (source citée)
 
 ### ⏳ Apogée et « À boire »
 - Fourchette **estimée par règles** (appellation, couleur, qualité du millésime)
-- **Correction manuelle** par vin, prioritaire sur l'estimation
+- Appellation inconnue du référentiel ou garde inconnue : **estimée par l’IA** (millésime + garde), libellée comme telle, y compris pour les **non millésimés** (garde comptée depuis la première entrée)
+- **Correction manuelle** par vin, prioritaire sur la règle, elle-même prioritaire sur l’IA
 - Filtre **À boire en priorité** : apogée finie au plus tard l'an prochain
 - Carte **À boire prochainement** sur l'accueil, page `/a-boire` **groupée par emplacement**
 - Règles d'apogée réglables par l'administrateur
@@ -134,7 +138,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Générés **par lots de 10** en arrière-plan, **Régénérer** à la demande
 - Recherche **Accompagner un plat** dans l'onglet Cave
 - **Page Domaine** (`/domaine/…`), partagée par toutes les caves : histoire, terroir, cépages, style, nez, remplis par l'IA, corrigeables champ par champ par l'**administrateur**, **Régénérer** ; vins du domaine dans votre cave
-- **Tanin** (léger, moyen, puissant), jusqu'à **5 arômes** d'une liste de 20 et **pays** estimés par l'IA en tâche de fond, corrigeables sur la fiche : une correction n'est jamais écrasée
+- **Tanin** (léger, moyen, puissant), jusqu'à **5 arômes** d'une liste de 20, **région** (liste fermée de 12) et **pays** estimés par l'IA en tâche de fond, corrigeables sur la fiche (un seul sélecteur *Région* : Inconnue, les 12 régions ou *Hors de France*) : une correction n'est jamais écrasée ; une région devinée est libellée « (estimée par l’IA) »
 
 ### 💶 Cote
 - **Saisie à la main** : l'application ne lit jamais les sites de cote, elle n'offre que des liens
@@ -158,7 +162,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 ### 📊 Statistiques
 - **Carte de France** sur l'accueil : régions viticoles colorées selon le nombre de bouteilles, case « Hors de France », mention « dont N sans région » ; toucher une région ouvre ses domaines et un lien vers la cave filtrée
 - Bouteilles, références, **valeur au prix d'achat** et **à la cote** (propriétaire)
-- Répartition par **apogée**, **couleur**, **région**, **décennie**
+- Répartition par **apogée**, **couleur**, **région** (avec une ligne « Hors de France ») et **millésime année par année** (« Non millésimé » en dernier)
 - **Mouvements sur 12 mois** et rythme de consommation
 - Classements : plus bus, producteurs, plus chères, mieux notés
 
@@ -770,7 +774,7 @@ celles de `/api/admin` aux administrateurs.
 | `POST` | `/api/auth/logout` | Déconnexion |
 | `GET` | `/api/auth/me` | Compte, caves accessibles, rôle courant |
 | `PUT` | `/api/auth/current-cave` | Change la cave courante |
-| `POST` | `/api/photos` | Envoi d'une photo d'entrée ou de sortie |
+| `POST` | `/api/photos` | Envoi d'une photo d'entrée ou de sortie (champ `quantity`, 1 à 120, entrée seulement) |
 | `GET` | `/api/photos/entry-inbox` | Les trois sections de « À confirmer » |
 | `POST` | `/api/photos/:id/dismiss` | Écarter une photo |
 | `GET` | `/api/photos/:id/image` | Image (`?variant=display` : version nette) |
@@ -779,15 +783,17 @@ celles de `/api/admin` aux administrateurs.
 | `POST` | `/api/movements` · `/bulk` · `/out` | Entrée, entrées groupées, sortie |
 | `POST` | `/api/movements/:id/cancel` | Annule un mouvement |
 | `GET` | `/api/movements/recent` | Derniers mouvements |
-| `GET` | `/api/cave` | Liste (`drinkSoon`, `noApogee`, `dish`, `aromas`, `vintageMin`, `vintageMax`, `tannin`, `region`…) |
+| `GET` | `/api/cave` | Liste (`drinkSoon, `noApogee`, `dish`, `aromas`, `vintageMin`, `vintageMax`, `tannin`, `region`…) |
 | `GET` | `/api/wines/:id` | Fiche vin |
 | `POST` | `/api/wines/:id/inventory` · `/move` | Inventaire, déplacement |
 | `PUT/DELETE` | `/api/wines/:id/apogee` · `/rating` | Apogée manuelle, note |
+| `PUT` | `/api/wines/:id` | Modifier un vin (409 + `merge: true` si doublon) |
+| `GET` | `/api/appellations?q=` | Suggestions d'appellations |
 | `POST` | `/api/wines/:id/quotes` | Saisie de la cote |
 | `POST` | `/api/wines/:id/pairing/regenerate` | Régénère les accords |
 | `POST` | `/api/wines/:id/image-search` | Recherche d'image d'étiquette |
 | `POST/DELETE` | `/api/wines/:id/reference-image` | Choisir ou retirer l'image trouvée |
-| `PUT` | `/api/wines/:id/traits` | Corriger tanin, arômes, pays |
+| `PUT` | `/api/wines/:id/traits` | Corriger tanin, arômes, pays, région |
 | `GET` | `/api/producers/:key` | Page Domaine (fiche et vins de la cave) |
 | `PUT` | `/api/producers/:key/fields/:field` | Corriger un champ du domaine *(admin)* |
 | `POST` | `/api/producers/:key/regenerate` | Régénérer la fiche du domaine *(admin)* |
