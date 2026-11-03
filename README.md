@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.41.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.42.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -855,6 +855,16 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.42.0 — 3 novembre 2026
+
+Publiée ([v2.42.0](https://github.com/djkix/ma-cave/releases/tag/v2.42.0)),
+images `ghcr.io/djkix/ma-cave-api:2.42.0`, `-web:2.42.0` et
+`-sauvegarde:2.42.0`.
+
+**Nouvelle charte « Ma Cave Design Language »** (ivoire, anthracite, sauge,
+Plus Jakarta Sans) et refonte de l'accueil, de la cave, de la fiche vin et de
+« À confirmer ». Aucune migration.
+
 ### 2.41.0 — 3 novembre 2026
 
 Publiée ([v2.41.0](https://github.com/djkix/ma-cave/releases/tag/v2.41.0)),
@@ -943,6 +953,9 @@ images `ghcr.io/djkix/ma-cave-api:2.35.0`, `-web:2.35.0` et
 place de `db-backup` ; **`NAS_OPTIONS` et `NAS_CHEMIN` à ajouter au `.env`
 avant la mise à jour**. Migration additive.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.34.0 → 1.0.0)</summary>
+
 ### 2.34.0 — 23 octobre 2026
 
 Publiée ([v2.34.0](https://github.com/djkix/ma-cave/releases/tag/v2.34.0)),
@@ -950,9 +963,6 @@ images `ghcr.io/djkix/ma-cave-api:2.34.0` et `-web:2.34.0`.
 
 **Annulations lisibles**, **journal Gemini purgé** au-delà d'un an
 (`GEMINI_JOURNAL_RETENTION_DAYS`). Aucune migration.
-
-<details>
-<summary><strong>Versions antérieures</strong> (2.33.1 → 1.0.0)</summary>
 
 ### 2.33.1 — 23 octobre 2026
 

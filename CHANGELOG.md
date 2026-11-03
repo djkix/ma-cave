@@ -11,6 +11,22 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.42.0](https://github.com/djkix/ma-cave/compare/v2.41.0...v2.42.0) (2026-11-03)
 
+### Résumé
+
+**Nouvelle charte « Ma Cave Design Language ».** Fond ivoire, anthracite pour
+les titres et les boutons, sauge et lichen pour les accents, une seule police
+(Plus Jakarta Sans) et des angles plus nets ; carte de France en dégradé sauge.
+**Accueil** : cartes Rentrer / Sortir, bandeau sombre des vins à confirmer,
+pastilles de régions et « N terroirs actifs ». **Cave** : bouton photo dans la
+recherche, filtres en rangées défilantes, puce d'apogée, note et quantité par
+vin, bouton « Ajouter un vin ». **Fiche vin** : un bloc par carte et frise
+d'apogée du millésime à la fin de la fenêtre. **À confirmer** : onglets,
+« Valider ce vin » et barre « Tout valider ». Aucune fonctionnalité retirée,
+aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
