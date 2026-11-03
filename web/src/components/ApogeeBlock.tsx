@@ -58,7 +58,7 @@ export function ApogeeBlock({ wine, readOnly = false }: { wine: CaveRow; readOnl
       <h3 style={{ fontSize: 16, margin: 0 }}>Apogée</h3>
       {range ? (
         <>
-          <p style={{ margin: 'var(--space-xs) 0' }}>{range}</p>
+          <p style={{ margin: 'var(--space-xs) 0' }}>{range}{apogee.source === 'IA' ? ' (estimée par l’IA)' : ''}</p>
           {apogee.confidence && (
             <span className={`badge ${apogee.confidence === 'FAIBLE' ? 'badge--warn' : 'badge--ok'}`}>{CONFIDENCE_LABEL[apogee.confidence]}</span>
           )}

@@ -1,5 +1,6 @@
+/** `body` : corps JSON de la réponse en erreur, quand il y en a un (ex. `duplicate` d'un 409). */
 export class ApiError extends Error {
-  constructor(public readonly status: number, message: string) {
+  constructor(public readonly status: number, message: string, public readonly body?: unknown) {
     super(message);
   }
 }
@@ -12,13 +13,14 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   });
   if (!res.ok) {
     let message = res.statusText;
+    let body: unknown;
     try {
-      const body = await res.json();
-      if (typeof body.message === 'string') message = body.message;
+      body = await res.json();
+      if (typeof (body as { message?: unknown }).message === 'string') message = (body as { message: string }).message;
     } catch {
       /* corps non JSON */
     }
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, body);
   }
   if (res.status === 204) return undefined as T;
   const text = await res.text();
@@ -416,6 +418,12 @@ export interface WineDetail {
   savedUrl?: string | null;
 }
 export const getWine = (id: string) => apiFetch<WineDetail>(`/wines/${id}`);
+
+/** Vin de la même cave que la modification doublerait (corps d'un 409 de `updateWine`). */
+export interface WineDuplicate { id: string; producer: string; cuvee: string | null; vintage: number | null; quantity: number }
+/** Modifier un vin ; `merge: true` confirme la fusion avec le doublon (réponse : id du vin gardé). */
+export const updateWine = (id: string, body: WineDraft & { merge?: boolean }) =>
+  apiFetch<{ id: string; merged?: true }>(`/wines/${id}`, { method: 'PUT', body: JSON.stringify(body) });
 
 /** Site où consulter une cote ; `hint` : ce qu'il donne (« enchères »). */
 export interface SearchLink { site: string; label: string; hint: string; url: string }

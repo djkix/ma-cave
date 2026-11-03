@@ -91,7 +91,39 @@ it('montre « Vin introuvable » pour un identifiant inconnu', async () => {
   vi.spyOn(api, 'getWine').mockRejectedValue(new api.ApiError(404, 'Vin introuvable'));
   mount();
   expect(await screen.findByText('Vin introuvable')).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Retour à la cave' })).toHaveAttribute('href', '/cave');
+  // Ex. fiche disparue dans une fusion : on renvoie vers la cave.
+  expect(screen.getByRole('link', { name: 'Voir la cave' })).toHaveAttribute('href', '/cave');
+});
+
+it('« Modifier » ouvre le formulaire dans l’en-tête, enregistre et rafraîchit la fiche', async () => {
+  const getWine = vi.spyOn(api, 'getWine').mockResolvedValue(detail);
+  vi.spyOn(api, 'getAppellations').mockResolvedValue([]);
+  const update = vi.spyOn(api, 'updateWine').mockResolvedValue({ id: 'w1' });
+  mount();
+  await userEvent.click(await screen.findByRole('button', { name: 'Modifier' }));
+  expect(screen.getByLabelText('Domaine').closest('.wine-head')).not.toBeNull();
+  await userEvent.clear(screen.getByLabelText('Millésime'));
+  await userEvent.type(screen.getByLabelText('Millésime'), '2020');
+  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+  expect(update).toHaveBeenCalledWith('w1', expect.objectContaining({ vintage: 2020, producer: 'Domaine Tempier' }));
+  await waitFor(() => expect(getWine).toHaveBeenCalledTimes(2));
+  expect(screen.queryByLabelText('Domaine')).not.toBeInTheDocument();
+});
+
+it('apogée estimée par l’IA : signalée sur la fiche', async () => {
+  const apogee: api.Apogee = { min: 2026, max: 2032, confidence: 'FAIBLE', status: 'A_BOIRE', reason: null, source: 'IA' };
+  vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, wine: { ...detail.wine, apogee } });
+  mount();
+  expect(await screen.findByText(/estimée par l’IA/)).toBeInTheDocument();
+});
+
+it('région de l’IA : signalée dans les caractéristiques', async () => {
+  vi.spyOn(api, 'getWine').mockResolvedValue({
+    ...detail,
+    wine: { ...detail.wine, region: 'Provence', regionSource: 'IA', traits: { status: 'DONE', tannin: null, aromas: [], country: 'FR', region: 'Provence', manualFields: [] } },
+  });
+  mount();
+  expect(await screen.findByText('Région : Provence (estimée par l’IA)')).toBeInTheDocument();
 });
 
 it('n’a plus de bloc de sortie : la correction du stock s’ouvre depuis le crayon de l’en-tête', async () => {

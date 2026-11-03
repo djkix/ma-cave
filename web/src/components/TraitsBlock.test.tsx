@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as api from '../lib/api-client';
 import { TraitsBlock } from './TraitsBlock';
@@ -48,4 +48,27 @@ it('TraitsBlock : sans ligne, le propriétaire peut corriger, le membre ne voit 
   await userEvent.selectOptions(screen.getByLabelText('Tanin'), 'LEGER');
   await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
   expect(set).toHaveBeenCalledWith('w1', { tannin: 'LEGER' });
+});
+
+it('TraitsBlock : région estimée par l’IA signalée', () => {
+  render(<QueryClientProvider client={new QueryClient()}><TraitsBlock wineId="w1" traits={traits} region="Bourgogne" regionSource="IA" /></QueryClientProvider>);
+  expect(screen.getByText('Région : Bourgogne (estimée par l’IA)')).toBeInTheDocument();
+});
+
+it('TraitsBlock : région corrigée dans la liste, ou hors de France', async () => {
+  const set = vi.spyOn(api, 'setWineTraits').mockResolvedValue(traits);
+  render(<QueryClientProvider client={new QueryClient()}><TraitsBlock wineId="w1" traits={traits} region="Bourgogne" regionSource="IA" /></QueryClientProvider>);
+  await userEvent.click(screen.getByRole('button', { name: 'Corriger' }));
+  const select = screen.getByLabelText('Région');
+  expect(select).toHaveValue('Bourgogne');
+  expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual([
+    'Inconnue', 'Alsace', 'Beaujolais', 'Bordeaux', 'Bourgogne', 'Champagne', 'Jura', 'Languedoc-Roussillon', 'Loire', 'Provence', 'Rhône', 'Savoie', 'Sud-Ouest', 'Hors de France',
+  ]);
+  await userEvent.selectOptions(select, 'Rhône');
+  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+  expect(set).toHaveBeenLastCalledWith('w1', { region: 'Rhône' });
+  await userEvent.click(await screen.findByRole('button', { name: 'Corriger' }));
+  await userEvent.selectOptions(screen.getByLabelText('Région'), 'Hors de France');
+  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+  expect(set).toHaveBeenLastCalledWith('w1', { country: 'AUTRE' });
 });

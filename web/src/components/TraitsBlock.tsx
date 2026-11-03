@@ -1,8 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Country, setWineTraits, Tannin, WineTraits } from '../lib/api-client';
-import { AROMAS, MAX_AROMAS, TANNIN_LABEL } from '../lib/traits';
+import { AROMAS, MAX_AROMAS, REGIONS, TANNIN_LABEL } from '../lib/traits';
 import { Button } from './Button';
+
+/** Valeur du sélecteur de région pour un vin hors de France (envoyée comme `country: 'AUTRE'`). */
+const HORS_FRANCE = 'HORS_FRANCE';
 
 const traitsEmpty = (t: WineTraits) => !t.tannin && t.aromas.length === 0;
 
@@ -11,39 +14,53 @@ export function traitsPollInterval(traits: WineTraits | null | undefined): numbe
   return traits && traits.status === 'PENDING' && traitsEmpty(traits) ? 5000 : false;
 }
 
-/** `readOnly` : membre en lecture seule, sans « Corriger ». */
-export function TraitsBlock({ wineId, traits, readOnly = false }: { wineId: string; traits: WineTraits | null | undefined; readOnly?: boolean }) {
+/**
+ * `region` / `regionSource` : région publiée du vin (manuelle, référentiel ou IA).
+ * `readOnly` : membre en lecture seule, sans « Corriger ».
+ */
+export function TraitsBlock({ wineId, traits, region = null, regionSource = null, readOnly = false }: {
+  wineId: string; traits: WineTraits | null | undefined; region?: string | null; regionSource?: 'MANUEL' | 'REFERENTIEL' | 'IA' | null; readOnly?: boolean;
+}) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [tannin, setTannin] = useState<Tannin | ''>('');
   const [aromas, setAromas] = useState<string[]>([]);
-  const [country, setCountry] = useState<Country | ''>('');
+  const [place, setPlace] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Sans ligne de caractéristiques, seul le propriétaire voit le bloc (le PUT la crée) ; un membre ne voit rien.
   if (!traits && readOnly) return null;
   const view: WineTraits = traits ?? { status: 'DONE', tannin: null, aromas: [], country: null, region: null, manualFields: [] };
+  // Choix courant du sélecteur : « Hors de France », la région publiée, sinon inconnue.
+  const currentPlace = view.country === 'AUTRE' ? HORS_FRANCE : region && REGIONS.includes(region) ? region : '';
 
   function open() {
     setTannin(view.tannin ?? '');
     setAromas(view.aromas);
-    setCountry(view.country ?? '');
+    setPlace(currentPlace);
     setError(null);
     setEditing(true);
   }
 
   async function save() {
     const t = view;
-    const body: { tannin?: Tannin | null; aromas?: string[]; country?: Country | null } = {};
+    const body: { tannin?: Tannin | null; aromas?: string[]; country?: Country | null; region?: string | null } = {};
     if ((tannin || null) !== t.tannin) body.tannin = tannin || null;
     if (aromas.join('|') !== t.aromas.join('|')) body.aromas = aromas;
-    if ((country || null) !== t.country) body.country = country || null;
+    // Région : une région de la liste (l'api met le pays à France), « Hors de France » (pays autre, sans région), ou effacée.
+    if (place !== currentPlace) {
+      if (place === HORS_FRANCE) body.country = 'AUTRE';
+      else if (place) body.region = place;
+      else if (currentPlace === HORS_FRANCE) body.country = null;
+      else body.region = null;
+    }
     setBusy(true);
     setError(null);
     try {
       if (Object.keys(body).length > 0) {
         await setWineTraits(wineId, body);
-        void qc.invalidateQueries({ queryKey: ['wine', wineId] });
+        // La région publiée sert aussi la liste, son filtre et les stats.
+        void qc.invalidateQueries({ predicate: (q) => ['cave', 'wine', 'stats'].includes(String(q.queryKey[0])) });
       }
       setEditing(false);
     } catch (e) {
@@ -65,7 +82,8 @@ export function TraitsBlock({ wineId, traits, readOnly = false }: { wineId: stri
           {view.aromas.length > 0 && (
             <ul className="dish-pills">{view.aromas.map((a) => <li key={a} className="dish-pill">{a}</li>)}</ul>
           )}
-          {view.country === 'AUTRE' && <p style={{ margin: 'var(--space-xs) 0' }}>Hors de France</p>}
+          {view.country === 'AUTRE' ? <p style={{ margin: 'var(--space-xs) 0' }}>Hors de France</p>
+            : region && <p style={{ margin: 'var(--space-xs) 0' }}>{`Région : ${region}${regionSource === 'IA' ? ' (estimée par l’IA)' : ''}`}</p>}
           {!readOnly && <Button variant="link" onClick={open}>Corriger</Button>}
         </>
       )}
@@ -87,11 +105,11 @@ export function TraitsBlock({ wineId, traits, readOnly = false }: { wineId: stri
               );
             })}
           </div>
-          <label htmlFor="traits-country">Pays</label>
-          <select id="traits-country" value={country} onChange={(e) => setCountry(e.target.value as Country | '')}>
-            <option value="">Inconnu</option>
-            <option value="FR">France</option>
-            <option value="AUTRE">Hors de France</option>
+          <label htmlFor="traits-region">Région</label>
+          <select id="traits-region" value={place} onChange={(e) => setPlace(e.target.value)}>
+            <option value="">Inconnue</option>
+            {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+            <option value={HORS_FRANCE}>Hors de France</option>
           </select>
           {error && <p role="alert" className="text-error">{error}</p>}
           <Button disabled={busy} onClick={save}>Enregistrer</Button>

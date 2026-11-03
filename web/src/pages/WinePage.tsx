@@ -15,6 +15,7 @@ import { QuoteBlock } from '../components/QuoteBlock';
 import { TraitsBlock, traitsPollInterval } from '../components/TraitsBlock';
 import { RatingBlock } from '../components/RatingBlock';
 import { TopBar } from '../components/TopBar';
+import { WineEditForm } from '../components/WineEditForm';
 import { WineThumb } from '../components/WineThumb';
 import { ApiError, getWine, LocationInput, postInventory } from '../lib/api-client';
 import { EMPTY_LOCATION, NO_LOCATION, toLocationInput, useLocations, useZones } from '../lib/locations';
@@ -55,6 +56,7 @@ export function WinePage() {
     },
   });
   const [counting, setCounting] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [counted, setCounted] = useState('');
   const [inventoryMessage, setInventoryMessage] = useState<string | null>(null);
   const [inventoryError, setInventoryError] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export function WinePage() {
         <TopBar title="Fiche vin" back={back} />
         <main className="page">
           <p className="centered">{notFound ? 'Vin introuvable' : 'Impossible de charger la fiche.'}</p>
-          <Link to="/cave" className="btn btn--outline">Retour à la cave</Link>
+          <Link to="/cave" className="btn btn--outline">{notFound ? 'Voir la cave' : 'Retour à la cave'}</Link>
         </main>
       </>
     );
@@ -146,7 +148,7 @@ export function WinePage() {
               <p className="list__meta">{wine.appellationRaw} · {wine.vintage ?? 'NV'} · {wine.formatCl} cl</p>
               <p className="num wine-head__stock" style={{ fontSize: 22, margin: 0 }}>
                 <span>{wine.quantity} en stock</span>
-                {!readOnly && !counting && (
+                {!readOnly && !counting && !editing && (
                   <button type="button" className="wine-head__edit" aria-label="Corriger le stock"
                     onClick={() => { setCounting(true); setCounted(String(wine.quantity)); setInventoryMessage(null); setInventoryPlace(null); setIncreaseTo(EMPTY_LOCATION); }}>
                     <Icon name="edit" />
@@ -154,6 +156,7 @@ export function WinePage() {
                 )}
               </p>
               {inventoryMessage && <p role="status" className="list__meta" style={{ margin: 0 }}>{inventoryMessage}</p>}
+              {!readOnly && !counting && !editing && <Button variant="link" onClick={() => setEditing(true)}>Modifier</Button>}
             </div>
             {places && places.length > 0 && <LocationButton places={places} />}
           </div>
@@ -186,13 +189,15 @@ export function WinePage() {
               <Button variant="link" onClick={() => setCounting(false)}>Abandonner</Button>
             </div>
           )}
+          {/* Modifier l'identité du vin, ouvert comme la correction du stock ; la région se corrige dans les caractéristiques. */}
+          {!readOnly && editing && <WineEditForm key={wine.id} wine={wine} onClose={() => setEditing(false)} />}
           <ImageSearchBlock wine={wine} readOnly={readOnly} />
         </section>
 
         {/* Le domaine, puis les accords, juste sous la photo du vin. */}
         <DomaineBlock key={`domaine-${wine.id}`} producerKey={wine.producerKey} producerProfile={wine.producerProfile} />
         <PairingBlock key={`pairing-${wine.id}`} wineId={wine.id} pairing={wine.pairing} readOnly={readOnly} />
-        <TraitsBlock key={`traits-${wine.id}`} wineId={wine.id} traits={wine.traits} readOnly={readOnly} />
+        <TraitsBlock key={`traits-${wine.id}`} wineId={wine.id} traits={wine.traits} region={wine.region} regionSource={wine.regionSource} readOnly={readOnly} />
 
         <ApogeeBlock key={`apogee-${wine.id}`} wine={wine} readOnly={readOnly} />
         <RatingBlock key={`rating-${wine.id}`} wine={wine} readOnly={readOnly} />
