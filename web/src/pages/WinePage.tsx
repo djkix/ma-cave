@@ -197,7 +197,7 @@ export function WinePage() {
         {/* Le domaine, puis les accords, juste sous la photo du vin. */}
         <DomaineBlock key={`domaine-${wine.id}`} producerKey={wine.producerKey} producerProfile={wine.producerProfile} />
         <PairingBlock key={`pairing-${wine.id}`} wineId={wine.id} pairing={wine.pairing} readOnly={readOnly} />
-        <TraitsBlock key={`traits-${wine.id}`} wineId={wine.id} traits={wine.traits} region={wine.region} regionSource={wine.regionSource} readOnly={readOnly} />
+        <TraitsBlock key={`traits-${wine.id}`} wineId={wine.id} traits={wine.traits} region={wine.region} regionSource={wine.regionSource} country={wine.country} readOnly={readOnly} />
 
         <ApogeeBlock key={`apogee-${wine.id}`} wine={wine} readOnly={readOnly} />
         <RatingBlock key={`rating-${wine.id}`} wine={wine} readOnly={readOnly} />

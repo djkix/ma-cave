@@ -49,7 +49,7 @@ export function WineEditForm({ wine, onClose }: { wine: CaveRow; onClose: () => 
       // Fusion : la fiche modifiée n'existe plus, on ouvre celle qui a été gardée.
       onClose();
       if (r.merged) navigate(`/cave/${r.id}`, { replace: true });
-      void qc.invalidateQueries({ predicate: (q) => ['cave', 'wine', 'movements', 'locations'].includes(String(q.queryKey[0])) });
+      void qc.invalidateQueries({ predicate: (q) => ['cave', 'wine', 'movements', 'locations', 'stats'].includes(String(q.queryKey[0])) });
     } catch (e) {
       const dup = e instanceof ApiError && e.status === 409 ? (e.body as { duplicate?: WineDuplicate } | undefined)?.duplicate : undefined;
       if (dup) setDuplicate(dup);

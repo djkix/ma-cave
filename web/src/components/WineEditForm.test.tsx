@@ -81,3 +81,14 @@ it('millésime ou format mal tapé : enregistrement impossible, rien n’est env
   expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
   expect(update).not.toHaveBeenCalled();
 });
+
+it('après enregistrement, les stats sont aussi rafraîchies', async () => {
+  vi.spyOn(api, 'updateWine').mockResolvedValue({ id: 'w1' });
+  const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+  mount();
+  await userEvent.type(screen.getByLabelText('Cuvée'), 'X');
+  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+  await waitFor(() => expect(invalidate).toHaveBeenCalled());
+  const { predicate } = invalidate.mock.calls[0][0] as unknown as { predicate: (q: { queryKey: unknown[] }) => boolean };
+  expect(predicate({ queryKey: ['stats'] })).toBe(true);
+});

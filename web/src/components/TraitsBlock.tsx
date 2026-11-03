@@ -15,11 +15,13 @@ export function traitsPollInterval(traits: WineTraits | null | undefined): numbe
 }
 
 /**
- * `region` / `regionSource` : région publiée du vin (manuelle, référentiel ou IA).
+ * `region` / `regionSource` / `country` : région et pays publiés du vin (manuels, référentiel
+ * ou IA), ceux de la liste, de la carte et des stats ; pas le pays brut des caractéristiques.
  * `readOnly` : membre en lecture seule, sans « Corriger ».
  */
-export function TraitsBlock({ wineId, traits, region = null, regionSource = null, readOnly = false }: {
-  wineId: string; traits: WineTraits | null | undefined; region?: string | null; regionSource?: 'MANUEL' | 'REFERENTIEL' | 'IA' | null; readOnly?: boolean;
+export function TraitsBlock({ wineId, traits, region = null, regionSource = null, country = null, readOnly = false }: {
+  wineId: string; traits: WineTraits | null | undefined; region?: string | null; regionSource?: 'MANUEL' | 'REFERENTIEL' | 'IA' | null;
+  country?: Country | null; readOnly?: boolean;
 }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -32,7 +34,7 @@ export function TraitsBlock({ wineId, traits, region = null, regionSource = null
   if (!traits && readOnly) return null;
   const view: WineTraits = traits ?? { status: 'DONE', tannin: null, aromas: [], country: null, region: null, manualFields: [] };
   // Choix courant du sélecteur : « Hors de France », la région publiée, sinon inconnue.
-  const currentPlace = view.country === 'AUTRE' ? HORS_FRANCE : region && REGIONS.includes(region) ? region : '';
+  const currentPlace = country === 'AUTRE' ? HORS_FRANCE : region && REGIONS.includes(region) ? region : '';
 
   function open() {
     setTannin(view.tannin ?? '');
@@ -82,7 +84,7 @@ export function TraitsBlock({ wineId, traits, region = null, regionSource = null
           {view.aromas.length > 0 && (
             <ul className="dish-pills">{view.aromas.map((a) => <li key={a} className="dish-pill">{a}</li>)}</ul>
           )}
-          {view.country === 'AUTRE' ? <p style={{ margin: 'var(--space-xs) 0' }}>Hors de France</p>
+          {country === 'AUTRE' ? <p style={{ margin: 'var(--space-xs) 0' }}>Hors de France</p>
             : region && <p style={{ margin: 'var(--space-xs) 0' }}>{`Région : ${region}${regionSource === 'IA' ? ' (estimée par l’IA)' : ''}`}</p>}
           {!readOnly && <Button variant="link" onClick={open}>Corriger</Button>}
         </>

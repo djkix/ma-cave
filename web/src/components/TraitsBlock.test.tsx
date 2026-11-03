@@ -72,3 +72,13 @@ it('TraitsBlock : région corrigée dans la liste, ou hors de France', async () 
   await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
   expect(set).toHaveBeenLastCalledWith('w1', { country: 'AUTRE' });
 });
+
+it('TraitsBlock : le pays publié prime sur celui de l’IA (appellation reconnue)', async () => {
+  render(<QueryClientProvider client={new QueryClient()}>
+    <TraitsBlock wineId="w1" traits={{ ...traits, country: 'AUTRE' }} country="FR" region="Bourgogne" regionSource="REFERENTIEL" />
+  </QueryClientProvider>);
+  expect(screen.getByText('Région : Bourgogne')).toBeInTheDocument();
+  expect(screen.queryByText('Hors de France')).toBeNull();
+  await userEvent.click(screen.getByRole('button', { name: 'Corriger' }));
+  expect(screen.getByLabelText('Région')).toHaveValue('Bourgogne');
+});
