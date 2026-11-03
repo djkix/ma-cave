@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.43.0](https://github.com/djkix/ma-cave/compare/v2.42.1...v2.43.0) (2026-11-03)
+
+
+### Fonctionnalités
+
+* tri de la cave et cépages propres à chaque vin ([fd828be](https://github.com/djkix/ma-cave/commit/fd828bec1c89b13119f1fe10de7d5d0962a829c5))
+
 ## [2.42.1](https://github.com/djkix/ma-cave/compare/v2.42.0...v2.42.1) (2026-11-03)
 
 ### Résumé
