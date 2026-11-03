@@ -215,7 +215,7 @@ export function EntreeConfirmationPage() {
             <section className="card">
               <EditableField label="Producteur" serif value={draft.producer} confidence={confidences.producer} onChange={(v) => setDraft({ ...draft, producer: v })} />
               <EditableField label="Cuvée" serif value={draft.cuvee ?? ''} confidence={confidences.cuvee} onChange={(v) => setDraft({ ...draft, cuvee: v })} />
-              <EditableField label="Appellation" serif value={draft.appellationRaw} confidence={confidences.appellationRaw} onChange={(v) => setDraft({ ...draft, appellationRaw: v })} />
+              <EditableField label="Appellation" appellation serif value={draft.appellationRaw} confidence={confidences.appellationRaw} onChange={(v) => setDraft({ ...draft, appellationRaw: v })} />
               <EditableField label="Millésime" type="number" value={draft.vintage?.toString() ?? ''} confidence={confidences.vintage} onChange={(v) => setDraft({ ...draft, vintage: v ? Number(v) : null })} />
               <EditableField label="Couleur" value={draft.color} confidence={confidences.color} options={COLORS} onChange={(v) => setDraft({ ...draft, color: v as WineDraft['color'] })} />
               <EditableField label="Format (cl)" type="number" value={String(draft.formatCl)} confidence={confidences.formatCl} onChange={(v) => setDraft({ ...draft, formatCl: Number(v) || 75 })} />

@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import * as api from '../lib/api-client';
 import { AConfirmerPage } from './AConfirmerPage';
 
+beforeEach(() => { vi.spyOn(api, 'getAppellations').mockResolvedValue([]); });
 afterEach(() => vi.restoreAllMocks());
 
 const ext = (producer: string, conf: number, qty: number | null): api.WineExtraction => ({
@@ -335,4 +336,19 @@ describe('emplacements illisibles ou sans réponse : la validation n’attend ja
       vi.useRealTimers();
     }
   });
+});
+
+it('propose les appellations sur chaque photo, ids distincts, et signale une appellation inconnue', async () => {
+  vi.spyOn(api, 'getEntryInbox').mockResolvedValue(inbox({ toConfirm: [done('p1', ext('Domaine A', 0.95, 6)), done('p2', ext('Domaine B', 0.95, 6))] }));
+  const apps = vi.spyOn(api, 'getAppellations').mockResolvedValue([{ name: 'Bandol', similarity: 1 }] as never);
+  renderPage();
+  const fields = await screen.findAllByLabelText(/Appellation/);
+  expect(fields).toHaveLength(2);
+  expect(fields[0].id).not.toBe(fields[1].id);
+  await waitFor(() => expect(apps).toHaveBeenCalledWith('Bandol'));
+  apps.mockResolvedValue([]);
+  await userEvent.clear(fields[0]);
+  await userEvent.type(fields[0], 'Zzzz');
+  expect(await screen.findByText(/Appellation inconnue du référentiel/)).toBeInTheDocument();
+  expect(screen.getAllByRole('button', { name: /^Valider$/ })[0]).toBeEnabled();
 });

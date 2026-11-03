@@ -6,6 +6,7 @@ import * as api from '../lib/api-client';
 import * as sse from '../lib/sse';
 import { EntreeConfirmationPage } from './EntreeConfirmationPage';
 
+beforeEach(() => { vi.spyOn(api, 'getAppellations').mockResolvedValue([]); });
 afterEach(() => vi.restoreAllMocks());
 
 const extraction: api.WineExtraction = {
@@ -310,4 +311,22 @@ it('analyse en échec : la quantité choisie à la prise de vue reste proposée 
   mount();
   await userEvent.click(await screen.findByRole('button', { name: /Saisir à la main/ }));
   expect(screen.getByRole('button', { name: /^6/ })).toHaveAttribute('aria-pressed', 'true');
+});
+
+it('propose les appellations du référentiel et laisse enregistrer une appellation inconnue', async () => {
+  vi.spyOn(api, 'getPhoto').mockResolvedValue({ id: 'p1', status: 'PENDING', createdAt: '' });
+  vi.spyOn(sse, 'subscribePhotoEvents').mockImplementation((_id, onEvent) => { onEvent({ status: 'DONE', extraction }); return () => {}; });
+  const apps = vi.spyOn(api, 'getAppellations').mockResolvedValue([{ name: 'Bandol', similarity: 1 }] as never);
+  const create = vi.spyOn(api, 'createMovement').mockResolvedValue({ movement: { id: 'm1', delta: 6, type: 'IN', occurredAt: '' }, wine: { id: 'w1', producer: 'Domaine Tempier', appellationRaw: 'Zzzz', color: 'ROUGE', formatCl: 75 }, stock: 6, created: true });
+  mount();
+  const field = await screen.findByLabelText(/Appellation/);
+  await waitFor(() => expect(apps).toHaveBeenCalledWith('Bandol'));
+  await waitFor(() => expect(document.querySelectorAll('datalist option')).toHaveLength(1));
+  apps.mockResolvedValue([]);
+  await userEvent.clear(field);
+  await userEvent.type(field, 'Zzzz');
+  expect(await screen.findByText(/Appellation inconnue du référentiel/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: /Confirmer l’entrée/ }));
+  await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+  expect(create.mock.calls[0][0].wine.appellationRaw).toBe('Zzzz');
 });
