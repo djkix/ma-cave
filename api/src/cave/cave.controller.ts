@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { AppUser } from '@prisma/client';
 import { z } from 'zod';
 import { manualApogeeSchema } from '../apogee/dto';
@@ -7,12 +7,13 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { CaveRole, CurrentCave } from '../caves/cave-access.decorators';
 import { CaveAccessGuard } from '../caves/cave-access.guard';
 import type { CaveAccess } from '../caves/cave-context.service';
-import { inventorySchema, moveSchema } from '../movements/dto';
+import { inventorySchema, moveSchema, wineEditSchema } from '../movements/dto';
 import { MovementsService } from '../movements/movements.service';
 import { CaveService } from './cave.service';
 import { traitsSchema } from '../traits/traits.dto';
 import { TANNINS } from '../traits/traits';
 import { ratingSchema } from './rating.dto';
+import { WineEditService } from '../wines/wine-edit.service';
 
 const listQuerySchema = z.object({
   q: z.string().trim().max(200).optional(),
@@ -37,6 +38,7 @@ export class CaveController {
   constructor(
     private readonly cave: CaveService,
     private readonly movements: MovementsService,
+    private readonly wineEdit: WineEditService,
   ) {}
 
   @Get('cave')
@@ -101,6 +103,21 @@ export class CaveController {
     const parsed = ratingSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues.map((i) => i.message).join(' ; '));
     return this.cave.setRating(cave.caveId, id, parsed.data.rating, user.id);
+  }
+
+  /**
+   * Corrige l'identité d'un vin (domaine, cuvée, appellation, millésime, couleur,
+   * format). 409 si elle double un autre vin de la cave, sauf `merge: true` :
+   * le vin est alors fusionné dans l'existant, dont l'id est renvoyé.
+   */
+  @Put('wines/:id')
+  @CaveRole('OWNER')
+  async edit(@CurrentCave() cave: CaveAccess, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown) {
+    const parsed = wineEditSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues.map((i) => i.message).join(' ; '));
+    const result = await this.wineEdit.edit(cave.caveId, id, parsed.data);
+    if ('duplicate' in result) throw new ConflictException({ message: 'Ce vin existe déjà', duplicate: result.duplicate });
+    return result;
   }
 
   @Put('wines/:id/traits')

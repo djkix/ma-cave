@@ -10,6 +10,11 @@ export const wineDraftSchema = z.object({
   formatCl: z.number().int().positive().default(75),
 });
 
+/** Modifier un vin : mêmes règles que la saisie ; `merge` confirme la fusion avec le vin qu'il double. */
+export const wineEditSchema = wineDraftSchema.extend({ merge: z.boolean().optional() });
+
+export type WineEditInput = z.infer<typeof wineEditSchema>;
+
 export const createMovementSchema = z.object({
   idempotencyKey: z.string().uuid(),
   photoId: z.string().uuid().nullish(),
