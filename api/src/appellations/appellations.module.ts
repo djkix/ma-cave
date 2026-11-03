@@ -1,8 +1,9 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { resolve } from 'node:path';
+import { AppellationsController } from './appellations.controller';
 import { AppellationsService } from './appellations.service';
 
-@Module({ providers: [AppellationsService], exports: [AppellationsService] })
+@Module({ controllers: [AppellationsController], providers: [AppellationsService], exports: [AppellationsService] })
 export class AppellationsModule implements OnModuleInit {
   constructor(private readonly appellations: AppellationsService) {}
   async onModuleInit() {

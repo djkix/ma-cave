@@ -537,3 +537,7 @@ export interface AccordPick {
 /** `wineCount` : vins en stock (0 = cave vide) ; `ideal` : style idéal décrit par l'IA. */
 export interface AccordsResult { dish: string; wineCount: number; understood: string[]; ideal: string | null; picks: AccordPick[] }
 export const postAccords = (dish: string) => apiFetch<AccordsResult>('/accords', { method: 'POST', body: JSON.stringify({ dish }) });
+
+/** Suggestions d'appellations du référentiel (`similarity` ≥ 0,5 = reconnue). */
+export interface AppellationSuggestion { name: string; region: string | null; similarity: number }
+export const getAppellations = (q: string) => apiFetch<AppellationSuggestion[]>(`/appellations?q=${encodeURIComponent(q)}`);

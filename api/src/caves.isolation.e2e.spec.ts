@@ -337,6 +337,8 @@ const ROUTES: Route[] = [
   { method: 'GET', path: '/api/auth/me', kind: 'auth-public' },
   { method: 'PUT', path: '/api/auth/current-cave', kind: 'auth-public' },
   { method: 'GET', path: '/api/health', kind: 'auth-public' },
+  // Référentiel commun à toutes les caves, aucune donnée de cave : connexion requise seulement.
+  { method: 'GET', path: '/api/appellations', kind: 'auth-public' },
 ];
 
 /** Clés de prix d'achat et de cote (stats.ts, mouvements, fiche) et tout nom qui en évoque un. */

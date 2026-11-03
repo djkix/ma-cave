@@ -24,6 +24,9 @@ export function normalizeLabel(s: string): string {
     .trim();
 }
 
+/** Seuil de similarité sous lequel `resolve` ne reconnaît pas l'appellation (répété côté web). */
+export const RECOGNIZED_SIMILARITY = 0.5;
+
 @Injectable()
 export class AppellationsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -38,13 +41,29 @@ export class AppellationsService {
       ORDER BY sim DESC
       LIMIT 1`;
     const best = rows[0];
-    if (!best || best.sim < 0.5) return { kind: 'none', raw };
+    if (!best || best.sim < RECOGNIZED_SIMILARITY) return { kind: 'none', raw };
     return {
       kind: best.sim >= 0.8 ? 'exact' : 'fuzzy',
       id: best.id,
       canonicalName: best.canonical_name,
       similarity: Number(best.sim),
     };
+  }
+
+  /** Suggestions pour la saisie : proches par trigrammes ou contenant le texte tapé, les plus proches d'abord. */
+  async suggest(q: string, limit = 8): Promise<Array<{ name: string; region: string | null; similarity: number }>> {
+    const needle = normalizeLabel(q);
+    if (!needle) return [];
+    // needle ne contient que [a-z0-9 ] : aucun joker LIKE à échapper.
+    const rows = await this.prisma.$queryRaw<{ canonical_name: string; region: string | null; sim: number }[]>`
+      SELECT canonical_name, region,
+             similarity(unaccent_lower(canonical_name), ${needle}) AS sim
+      FROM appellation
+      WHERE unaccent_lower(canonical_name) LIKE '%' || ${needle} || '%'
+         OR similarity(unaccent_lower(canonical_name), ${needle}) >= ${RECOGNIZED_SIMILARITY}
+      ORDER BY sim DESC, canonical_name
+      LIMIT ${limit}`;
+    return rows.map((r) => ({ name: r.canonical_name, region: r.region, similarity: Number(r.sim) }));
   }
 
   async seedFromFile(path: string): Promise<number> {

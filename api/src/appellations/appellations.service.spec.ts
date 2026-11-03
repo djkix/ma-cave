@@ -32,3 +32,26 @@ describeIfDb('AppellationsService.resolve', () => {
     expect(m).toEqual({ kind: 'none', raw: 'Vin de table du garage' });
   });
 });
+
+describeIfDb('AppellationsService.suggest', () => {
+  const prisma = new PrismaClient();
+  const service = new AppellationsService(prisma as any);
+
+  beforeAll(async () => {
+    await prisma.appellation.upsert({
+      where: { canonicalName: 'Châteauneuf-du-Pape' },
+      update: {},
+      create: { canonicalName: 'Châteauneuf-du-Pape', region: 'Rhône', allowedColors: ['ROUGE', 'BLANC'] },
+    });
+  });
+  afterAll(() => prisma.$disconnect());
+
+  it('propose Châteauneuf-du-Pape en tête pour un début de nom sans accent', async () => {
+    const r = await service.suggest('chateauneuf');
+    expect(r[0]).toMatchObject({ name: 'Châteauneuf-du-Pape', region: 'Rhône' });
+  });
+
+  it('renvoie [] pour une saisie vide', async () => {
+    expect(await service.suggest('  ')).toEqual([]);
+  });
+});
