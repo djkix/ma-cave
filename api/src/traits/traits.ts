@@ -12,6 +12,9 @@ export const REGIONS: readonly string[] = [
 /** Garde la plus longue acceptée, en années. */
 const MAX_GUARD = 60;
 export const MAX_AROMAS = 5;
+/** Cépages retenus par vin, et longueur maximale d'un nom de cépage. */
+export const MAX_GRAPES = 6;
+export const MAX_GRAPE_LENGTH = 40;
 export const TANNINS = ['LEGER', 'MOYEN', 'PUISSANT'] as const;
 export type Tannin = (typeof TANNINS)[number];
 export type Country = 'FR' | 'AUTRE';
@@ -39,19 +42,20 @@ function parseGuard(raw: unknown): { min: number; max: number } | null {
 export interface ParsedTraits {
   tannin: Tannin | null;
   aromas: string[];
+  grapes: string[];
   country: Country | null;
   region: string | null;
   guard: { min: number; max: number } | null;
 }
 
 /**
- * `{"tanin", "aromes", "pays", "region", "garde"}` lu avec tolérance : tanin inconnu → null, arôme
- * hors liste ignoré (doublons écartés, cinq au plus), pays absent → null, région
+ * `{"tanin", "aromes", "cepages", "pays", "region", "garde"}` lu avec tolérance : tanin inconnu → null, arôme
+ * hors liste ignoré (doublons écartés, cinq au plus), cépages libres (vides et doublons écartés, six au plus), pays absent → null, région
  * hors liste (ou pays étranger) → null, garde incohérente → null.
  */
 export function parseTraitsOutput(raw: unknown): ParsedTraits {
   if (!raw || typeof raw !== 'object') throw new TraitsInvalidOutputError('Sortie du modèle invalide : réponse non objet');
-  const { tanin, aromes, pays, region: regionRaw, garde } = raw as { tanin?: unknown; aromes?: unknown; pays?: unknown; region?: unknown; garde?: unknown };
+  const { tanin, aromes, cepages, pays, region: regionRaw, garde } = raw as { tanin?: unknown; aromes?: unknown; cepages?: unknown; pays?: unknown; region?: unknown; garde?: unknown };
   const tannin = typeof tanin === 'string' ? (TANNINS.find((t) => t.toLowerCase() === normalizeLabel(tanin)) ?? null) : null;
   const known = new Map(AROMAS.map((a) => [normalizeLabel(a), a]));
   const aromas = new Set<string>();
@@ -63,5 +67,15 @@ export function parseTraitsOutput(raw: unknown): ParsedTraits {
   }
   const country: Country | null = typeof pays !== 'string' || !pays.trim() ? null : normalizeLabel(pays) === 'france' ? 'FR' : 'AUTRE';
   const region = country === 'AUTRE' || typeof regionRaw !== 'string' ? null : (REGIONS.find((r) => normalizeLabel(r) === normalizeLabel(regionRaw)) ?? null);
-  return { tannin, aromas: [...aromas].slice(0, MAX_AROMAS), country, region, guard: parseGuard(garde) };
+  return { tannin, aromas: [...aromas].slice(0, MAX_AROMAS), grapes: cleanGrapes(Array.isArray(cepages) ? cepages : []), country, region, guard: parseGuard(garde) };
+}
+
+/** Cépages saisis ou générés : espaces resserrés, vides, trop longs et doublons (sans casse ni accents) écartés, six au plus. */
+export function cleanGrapes(raw: unknown[]): string[] {
+  const seen = new Map<string, string>();
+  for (const g of raw) {
+    const name = typeof g === 'string' ? g.replace(/\s+/g, ' ').trim() : '';
+    if (name && name.length <= MAX_GRAPE_LENGTH && !seen.has(normalizeLabel(name))) seen.set(normalizeLabel(name), name);
+  }
+  return [...seen.values()].slice(0, MAX_GRAPES);
 }

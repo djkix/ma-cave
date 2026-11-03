@@ -68,6 +68,7 @@ export class TraitsBatchProcessor extends GenerationBatchProcessor<TraitsWine, O
       data: {
         ...(manual.has('tannin') ? {} : { tannin: item.tannin }),
         ...(manual.has('aromas') ? {} : { aromas: item.aromas }),
+        ...(manual.has('grapes') ? {} : { grapes: item.grapes }),
         ...(manual.has('country') ? {} : { country: item.country }),
         ...(manual.has('region') ? {} : { region: item.region }),
         guardMin: item.guard?.min ?? null,

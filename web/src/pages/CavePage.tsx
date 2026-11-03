@@ -9,7 +9,7 @@ import { Icon } from '../components/Icon';
 import { WineThumb } from '../components/WineThumb';
 import { CaveFilter, getCave, Tannin, WineColor } from '../lib/api-client';
 import { apogeeShortLabel } from '../lib/apogee';
-import { apogeeTone, caveSummary } from '../lib/cave-list';
+import { apogeeTone, CAVE_SORTS, CaveSort, caveSummary, sortCave } from '../lib/cave-list';
 import { useCurrentCave } from '../lib/use-current-cave';
 import { regionCounts } from '../lib/region-counts';
 import { NO_LOCATION, useLocations } from '../lib/locations';
@@ -24,6 +24,16 @@ const COLORS: Array<{ value: WineColor | ''; label: string }> = [
 /** Filtre d'apogée demandé par un lien (page Statistiques) : `?filtre=priorite` ou `?filtre=sans-apogee`. */
 const FILTER_FROM_URL: Record<string, 'drinkSoon' | 'noApogee'> = { priorite: 'drinkSoon', 'sans-apogee': 'noApogee' };
 
+const SORT_KEY = 'cave-sort';
+/** Tri mémorisé sur l'appareil ; stockage indisponible (navigation privée) : tri par nom. */
+function savedSort(): CaveSort {
+  try {
+    const s = localStorage.getItem(SORT_KEY);
+    return CAVE_SORTS.some((o) => o.value === s) ? (s as CaveSort) : 'nom';
+  } catch {
+    return 'nom';
+  }
+}
 
 export function CavePage() {
   const [params, setParams] = useSearchParams();
@@ -32,6 +42,11 @@ export function CavePage() {
   const [aromasOpen, setAromasOpen] = useState(false);
   const [vintage, setVintage] = useState('');
   const [tannin, setTannin] = useState<Tannin | ''>('');
+  const [sort, setSort] = useState<CaveSort>(savedSort);
+  const chooseSort = (s: CaveSort) => {
+    setSort(s);
+    try { localStorage.setItem(SORT_KEY, s); } catch { /* tri non mémorisé */ }
+  };
   const [q, setQ] = useState(params.get('q') ?? '');
   const [color, setColor] = useState<WineColor | ''>('');
   const [includeEmpty, setIncludeEmpty] = useState(false);
@@ -66,6 +81,7 @@ export function CavePage() {
   });
   const missingCount = apogeeFilter === 'drinkSoon' ? missing.data?.length ?? 0 : 0;
   const summary = cave.data ? caveSummary(cave.data) : null;
+  const rows = cave.data ? sortCave(cave.data, sort) : undefined;
   const toggle = (which: 'drinkSoon' | 'noApogee') => (checked: boolean) => setApogeeFilter(checked ? which : '');
 
   return (
@@ -83,6 +99,10 @@ export function CavePage() {
             <input type="search" value={dish} onChange={(e) => setDish(e.target.value)} placeholder="Accords : Agneau, comté, poisson…" aria-label="Accompagner un plat" maxLength={100} />
           </div>
           <div className="cave-pills">
+            <label htmlFor="cave-sort" className="visually-hidden">Tri</label>
+            <select id="cave-sort" className={`filter-pill${sort !== 'nom' ? ' filter-pill--on' : ''}`} value={sort} onChange={(e) => chooseSort(e.target.value as CaveSort)}>
+              {CAVE_SORTS.map((o) => <option key={o.value} value={o.value}>{`Tri : ${o.label}`}</option>)}
+            </select>
             {/* Libellé relié par htmlFor : enveloppé dans le <label>, le select aurait
                 pour nom accessible « Couleur » suivi du texte de toutes ses options.
                 Pastilles : le libellé est dans l'option vide (« Couleur : toutes ») ;
@@ -158,7 +178,7 @@ export function CavePage() {
         {summary && <p className="cave-summary"><strong>{summary.bottles}</strong><span>{summary.references}</span></p>}
         {cave.data?.length === 0 && <p className="centered">Aucun vin ne correspond.</p>}
         <div className="list">
-          {cave.data?.map((w) => {
+          {rows?.map((w) => {
             const empty = w.quantity <= 0;
             const label = w.apogee && apogeeShortLabel(w.apogee);
             const tone = w.apogee && apogeeTone(w.apogee);

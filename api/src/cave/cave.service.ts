@@ -122,7 +122,7 @@ export class CaveService {
     // (un `AT TIME ZONE 'UTC'` en ferait un timestamptz, relu au fuseau de session).
     const rows = await this.prisma.$queryRaw<CaveDbRow[]>`
       SELECT w.id, w.producer, w.cuvee, w.appellation_raw AS "appellationRaw", w.vintage,
-             w.color::TEXT AS color, w.format_cl AS "formatCl", w.reference_photo_id AS "referencePhotoId",
+             w.color::TEXT AS color, w.format_cl AS "formatCl", w.reference_photo_id AS "referencePhotoId", w.created_at AS "createdAt",
              COALESCE(s.quantity, 0)::INTEGER AS quantity,
              w.appellation_id AS "appellationId", a.region AS "refRegion",
              a.guard_min_years AS "referenceGuardMin", a.guard_max_years AS "referenceGuardMax",
@@ -225,7 +225,7 @@ export class CaveService {
         // Toujours présente (sauf nom sans lettre ni chiffre) : la fiche peut écrire ou régénérer avant tout profil.
         producerKey: producerKey || null,
         producerProfile: producerProfileOf(profile, role),
-        traits: traits && { status: traits.status, tannin: traits.tannin, aromas: traits.aromas, country: traits.country, region: traits.region, manualFields: traits.manualFields },
+        traits: traits && { status: traits.status, tannin: traits.tannin, aromas: traits.aromas, grapes: traits.grapes, country: traits.country, region: traits.region, manualFields: traits.manualFields },
       },
       movements: movements.map(({ location, ...m }) => ({ ...m, locationLabel: location ? labelOf(partsOf(location)) : null })),
       /** Endroits du vin et leur quantité (> 0) ; « Sans emplacement » : id null, en dernier. */
@@ -295,7 +295,7 @@ export class CaveService {
     // Région et pays restent cohérents : une région rend le vin français, un pays étranger efface la région (les deux deviennent manuels).
     if (input.region != null) input = { ...input, country: 'FR' };
     else if (input.country === 'AUTRE') input = { ...input, region: null };
-    const edited = (['tannin', 'aromas', 'country', 'region'] as const).filter((k) => input[k] !== undefined);
+    const edited = (['tannin', 'aromas', 'grapes', 'country', 'region'] as const).filter((k) => input[k] !== undefined);
     const fields = Object.fromEntries(edited.map((k) => [k, input[k]])) as Pick<TraitsInput, (typeof edited)[number]>;
     const current = await this.prisma.wineTraits.findUnique({ where: { wineId: id }, select: { manualFields: true } });
     const manualFields = [...new Set([...(current?.manualFields ?? []), ...edited])];
@@ -304,7 +304,7 @@ export class CaveService {
       create: { wineId: id, ...fields, manualFields },
       update: { ...fields, manualFields, reservedUntil: null },
     });
-    return { status: t.status, tannin: t.tannin, aromas: t.aromas, country: t.country, region: t.region, manualFields: t.manualFields };
+    return { status: t.status, tannin: t.tannin, aromas: t.aromas, grapes: t.grapes, country: t.country, region: t.region, manualFields: t.manualFields };
   }
 
   async clearRating(caveId: string, id: string): Promise<null> {

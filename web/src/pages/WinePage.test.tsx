@@ -120,7 +120,7 @@ it('apogée estimée par l’IA : signalée sur la fiche', async () => {
 it('région de l’IA : signalée dans les caractéristiques', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue({
     ...detail,
-    wine: { ...detail.wine, region: 'Provence', regionSource: 'IA', traits: { status: 'DONE', tannin: null, aromas: [], country: 'FR', region: 'Provence', manualFields: [] } },
+    wine: { ...detail.wine, region: 'Provence', regionSource: 'IA', traits: { status: 'DONE', tannin: null, aromas: [], grapes: [], country: 'FR', region: 'Provence', manualFields: [] } },
   });
   mount();
   expect(await screen.findByText('Région : Provence (estimée par l’IA)')).toBeInTheDocument();

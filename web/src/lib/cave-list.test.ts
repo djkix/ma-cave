@@ -1,5 +1,5 @@
-import { Apogee } from './api-client';
-import { apogeeTone, caveSummary } from './cave-list';
+import { Apogee, CaveRow } from './api-client';
+import { apogeeTone, caveSummary, sortCave } from './cave-list';
 
 const ap = (status: Apogee['status']): Apogee => ({ min: 2020, max: 2030, confidence: null, status, reason: null, source: null });
 
@@ -15,4 +15,24 @@ it('donne la teinte de la pastille selon l’état d’apogée', () => {
   expect(apogeeTone(ap('PASSEE'))?.tone).toBe('soon');
   expect(apogeeTone(ap('TROP_JEUNE'))?.tone).toBe('young');
   expect(apogeeTone(ap(null))).toBeNull();
+});
+
+const row = (id: string, o: Partial<CaveRow>): CaveRow => ({
+  id, producer: id, cuvee: null, appellationRaw: 'x', vintage: null, color: 'ROUGE', formatCl: 75, referencePhotoId: null, quantity: 1, ...o,
+});
+const wines = [
+  row('a', { vintage: 2015, quantity: 2, apogee: { ...ap('A_BOIRE'), max: 2030 }, rating: { value: 15, ratedAt: '', ratedBy: null }, createdAt: '2026-01-01T00:00:00Z' }),
+  row('b', { vintage: null, quantity: 6, createdAt: '2026-06-01T00:00:00Z' }),
+  row('c', { vintage: 2010, quantity: 1, apogee: { ...ap('PASSEE'), max: 2024 }, rating: { value: 18, ratedAt: '', ratedBy: null } }),
+];
+const ids = (s: Parameters<typeof sortCave>[1]) => sortCave(wines, s).map((w) => w.id);
+
+it('trie la cave ; valeur absente en dernier, égalités dans l’ordre de l’api', () => {
+  expect(ids('nom')).toEqual(['a', 'b', 'c']);
+  expect(ids('apogee')).toEqual(['c', 'a', 'b']);
+  expect(ids('millesime')).toEqual(['c', 'a', 'b']);
+  expect(ids('quantite')).toEqual(['b', 'a', 'c']);
+  expect(ids('note')).toEqual(['c', 'a', 'b']);
+  expect(ids('recent')).toEqual(['b', 'a', 'c']);
+  expect(wines.map((w) => w.id)).toEqual(['a', 'b', 'c']);
 });

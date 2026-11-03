@@ -17,6 +17,8 @@ export interface CaveRow {
   formatCl: number;
   referencePhotoId: string | null;
   quantity: number;
+  /** Ajout du vin à la cave : tri « Ajouté récemment » de la liste. */
+  createdAt?: Date;
   /** Région publiée (`publishedRegion`) : manuelle, sinon du référentiel, sinon estimée par l'IA. */
   region?: string | null;
   regionSource?: RegionSource | null;

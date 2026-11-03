@@ -359,6 +359,8 @@ model WineTraits {
   status        PairingStatus @default(PENDING)
   tannin        String?
   aromas        String[]      @default([])
+  /// Cépages de la cuvée (assemblage), du plus présent au moins présent.
+  grapes        String[]      @default([])
   country       String?
   region        String?
   /// Garde estimée par l'IA, en années après le millésime (ou l'achat).

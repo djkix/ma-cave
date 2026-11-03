@@ -5,6 +5,7 @@ describe('parseTraitsOutput', () => {
     expect(parseTraitsOutput({ tanin: 'moyen', aromes: ['Boisé', 'noisette', 'inventé'], pays: 'France' })).toEqual({
       tannin: 'MOYEN',
       aromas: ['boisé', 'noisette'],
+      grapes: [],
       country: 'FR',
       region: null,
       guard: null,
@@ -21,13 +22,19 @@ describe('parseTraitsOutput', () => {
     expect(parseTraitsOutput({ garde: { min: 1.6, max: 4.2 } }).guard).toEqual({ min: 2, max: 4 });
   });
 
+  it('cépages : espaces resserrés, vides, trop longs et doublons écartés, six au plus', () => {
+    const cepages = [' Syrah ', 'syrah', 'Grenache  Noir', '', 42, 'x'.repeat(41), 'Mourvèdre', 'Cinsault', 'Carignan', 'Counoise', 'Vaccarèse'];
+    expect(parseTraitsOutput({ cepages }).grapes).toEqual(['Syrah', 'Grenache Noir', 'Mourvèdre', 'Cinsault', 'Carignan', 'Counoise']);
+    expect(parseTraitsOutput({ cepages: 'Syrah' }).grapes).toEqual([]);
+  });
+
   it('garde les cinq premiers arômes valides', () => {
     const aromes = ['fruits rouges', 'fruits noirs', 'agrumes', 'floral', 'épicé', 'cuir', 'miel'];
     expect(parseTraitsOutput({ tanin: null, aromes, pays: 'France' }).aromas).toEqual(aromes.slice(0, 5));
   });
 
   it('classe un autre pays en AUTRE', () => {
-    expect(parseTraitsOutput({ tanin: null, aromes: [], pays: 'Italie' })).toEqual({ tannin: null, aromas: [], country: 'AUTRE', region: null, guard: null });
+    expect(parseTraitsOutput({ tanin: null, aromes: [], pays: 'Italie' })).toEqual({ tannin: null, aromas: [], grapes: [], country: 'AUTRE', region: null, guard: null });
   });
 
   it('tanin inconnu : null ; pays absent : null', () => {

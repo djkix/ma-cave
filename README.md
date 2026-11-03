@@ -118,8 +118,10 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 
 ### 🍾 Cave et fiche vin
 - Recherche **sans accents ni casse**, filtres couleur, **arômes**, **millésime** (une année exacte), **région** (pastilles des régions présentes + « Hors de France », aussi posée depuis la carte), **tanin**, emplacement, vins épuisés
+- **Tri** de la liste : nom, apogée (fin de fenêtre la plus proche d'abord), millésime, quantité, note, ajouté récemment ; mémorisé sur l'appareil
 - **Modifier un vin** depuis sa fiche (propriétaire) : domaine, cuvée, appellation, millésime, couleur, format ; si le vin existe déjà, **Fusionner les deux** réunit bouteilles, mouvements, emplacements, cotes et note sur la fiche existante
-- Fiche : photo, **descriptif du domaine** avec **Voir le domaine**, **tanin et arômes**, **accords**, apogée, note, cote, emplacements, mouvements
+- Fiche : photo, **descriptif du domaine** avec **Voir le domaine**, **tanin, cépages et arômes**, **accords**, apogée, note, cote, emplacements, mouvements
+- **Cépages par vin** (assemblage de la cuvée), déterminés par l'IA avec les autres caractéristiques et corrigeables (« Corriger ») ; tant qu'ils manquent, la fiche affiche les **cépages du domaine**
 - **Note sur 20**, par demi-point
 - **Chercher une image** : Open Food Facts, puis site officiel du domaine (source citée)
 

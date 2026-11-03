@@ -11,7 +11,7 @@ export interface DuplicateWine { id: string; producer: string; cuvee: string | n
 export type WineEditResult = { id: string; merged?: true } | { duplicate: DuplicateWine };
 
 /** Caractéristiques qu'une correction manuelle protège (voir CaveService.setTraits). */
-const TRAIT_FIELDS = ['tannin', 'aromas', 'country', 'region'] as const;
+const TRAIT_FIELDS = ['tannin', 'aromas', 'grapes', 'country', 'region'] as const;
 const REQUEUE = { status: 'PENDING' as const, errorMessage: null, attempts: 0, nextAttemptAt: null, reservedUntil: null };
 
 @Injectable()

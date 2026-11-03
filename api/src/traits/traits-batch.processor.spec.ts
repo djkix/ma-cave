@@ -4,7 +4,7 @@ import { TraitsBatchProcessor } from './traits-batch.processor';
 const NOW = new Date('2026-11-02T12:00:00.000Z');
 const MIN = 60_000;
 
-function harness(answer: { tannin: string | null; aromas: string[]; country: string | null; region?: string | null; guard?: { min: number; max: number } | null }) {
+function harness(answer: { tannin: string | null; aromas: string[]; grapes?: string[]; country: string | null; region?: string | null; guard?: { min: number; max: number } | null }) {
   const wines = { w0: { producer: 'Domaine 0', cuvee: null, appellationRaw: 'bandol', color: 'ROUGE', vintage: 2019, appellation: { canonicalName: 'Bandol' } } };
   const q = fakeGenerationQueue('wineTraits', { wines });
   q.clock.now = NOW;
@@ -36,6 +36,15 @@ describe('TraitsBatchProcessor', () => {
     await h.processor.tick(NOW);
     expect(h.row('t0')).toMatchObject({ region: 'Rhône', guardMin: 3, guardMax: 10 });
     expect(h.row('t1')).toMatchObject({ region: 'Alsace', guardMin: 3, guardMax: 10 });
+  });
+
+  it('save écrit les cépages, sauf cépages corrigés à la main', async () => {
+    const h = harness({ tannin: null, aromas: [], grapes: ['Mourvèdre', 'Grenache'], country: 'FR' });
+    h.add({ id: 't0', wineId: 'w0', requestedAt: new Date(NOW.getTime() - 3 * MIN) });
+    h.add({ id: 't1', wineId: 'w0', requestedAt: new Date(NOW.getTime() - 3 * MIN), grapes: ['Syrah'], manualFields: ['grapes'] });
+    await h.processor.tick(NOW);
+    expect(h.row('t0')).toMatchObject({ grapes: ['Mourvèdre', 'Grenache'] });
+    expect(h.row('t1')).toMatchObject({ grapes: ['Syrah'] });
   });
 
   it('save garde les champs manuels', async () => {

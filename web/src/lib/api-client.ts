@@ -356,7 +356,7 @@ export type ProducerProfileSource = 'GEMINI' | 'MANUEL';
 export type ProducerField = 'histoire' | 'terroir' | 'cepages' | 'style' | 'nez';
 export type Tannin = 'LEGER' | 'MOYEN' | 'PUISSANT';
 export type Country = 'FR' | 'AUTRE';
-export interface WineTraits { status: string; tannin: Tannin | null; aromas: string[]; country: Country | null; region: string | null; manualFields: string[] }
+export interface WineTraits { status: string; tannin: Tannin | null; aromas: string[]; grapes: string[]; country: Country | null; region: string | null; manualFields: string[] }
 export interface ProducerProfile {
   key: string; displayName: string; status: ProducerProfileStatus; description: string | null;
   /** Les cinq champs de la fiche ; `manualFields` : ceux corrigés à la main. */
@@ -367,6 +367,8 @@ export interface ProducerProfile {
 export interface CaveRow {
   id: string; producer: string; cuvee: string | null; appellationRaw: string; vintage: number | null;
   color: WineColor; formatCl: number; referencePhotoId: string | null; quantity: number;
+  /** Ajout du vin à la cave (ISO) : tri « Ajouté récemment ». */
+  createdAt?: string;
   /** Toujours fourni par la liste et la fiche ; absent des candidats de sortie. */
   apogee?: Apogee;
   rating?: Rating | null;
@@ -455,7 +457,7 @@ export const setRating = (wineId: string, rating: number) =>
 export const clearRating = (wineId: string) => apiFetch<null>(`/wines/${wineId}/rating`, { method: 'DELETE' });
 export const regeneratePairing = (wineId: string) => apiFetch<void>(`/wines/${wineId}/pairing/regenerate`, { method: 'POST' });
 
-export const setWineTraits = (id: string, body: { tannin?: Tannin | null; aromas?: string[]; country?: Country | null; region?: string | null }) =>
+export const setWineTraits = (id: string, body: { tannin?: Tannin | null; aromas?: string[]; grapes?: string[]; country?: Country | null; region?: string | null }) =>
   apiFetch<WineTraits>(`/wines/${id}/traits`, { method: 'PUT', body: JSON.stringify(body) });
 
 export interface ProducerPageWine { id: string; cuvee: string | null; vintage: number | null; color: WineColor; quantity: number; referencePhotoId: string | null }

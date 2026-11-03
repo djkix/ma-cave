@@ -8,7 +8,7 @@ import { Icon } from './Icon';
 /** Valeur du sélecteur de région pour un vin hors de France (envoyée comme `country: 'AUTRE'`). */
 const HORS_FRANCE = 'HORS_FRANCE';
 
-const traitsEmpty = (t: WineTraits) => !t.tannin && t.aromas.length === 0;
+const traitsEmpty = (t: WineTraits) => !t.tannin && t.aromas.length === 0 && !t.grapes?.length;
 
 /** La fiche se rafraîchit tant que les caractéristiques sont en attente et vides. */
 export function traitsPollInterval(traits: WineTraits | null | undefined): number | false {
@@ -19,27 +19,32 @@ export function traitsPollInterval(traits: WineTraits | null | undefined): numbe
  * `region` / `regionSource` / `country` : région et pays publiés du vin (manuels, référentiel
  * ou IA), ceux de la liste, de la carte et des stats ; pas le pays brut des caractéristiques.
  * `readOnly` : membre en lecture seule, sans « Corriger ».
+ * `domainGrapes` : cépages du domaine (texte libre), affichés en secours tant que le vin n'a pas les siens.
  */
-export function TraitsBlock({ wineId, traits, region = null, regionSource = null, country = null, readOnly = false }: {
+export function TraitsBlock({ wineId, traits, region = null, regionSource = null, country = null, readOnly = false, domainGrapes = null }: {
   wineId: string; traits: WineTraits | null | undefined; region?: string | null; regionSource?: 'MANUEL' | 'REFERENTIEL' | 'IA' | null;
-  country?: Country | null; readOnly?: boolean;
+  country?: Country | null; readOnly?: boolean; domainGrapes?: string | null;
 }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [tannin, setTannin] = useState<Tannin | ''>('');
   const [aromas, setAromas] = useState<string[]>([]);
+  const [grapes, setGrapes] = useState('');
   const [place, setPlace] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Sans ligne de caractéristiques, seul le propriétaire voit le bloc (le PUT la crée) ; un membre ne voit rien.
   if (!traits && readOnly) return null;
-  const view: WineTraits = traits ?? { status: 'DONE', tannin: null, aromas: [], country: null, region: null, manualFields: [] };
+  const view: WineTraits = traits ?? { status: 'DONE', tannin: null, aromas: [], grapes: [], country: null, region: null, manualFields: [] };
+  // Réponse d'une api antérieure aux cépages : liste vide.
+  const viewGrapes = view.grapes ?? [];
   // Choix courant du sélecteur : « Hors de France », la région publiée, sinon inconnue.
   const currentPlace = country === 'AUTRE' ? HORS_FRANCE : region && REGIONS.includes(region) ? region : '';
 
   function open() {
     setTannin(view.tannin ?? '');
     setAromas(view.aromas);
+    setGrapes(viewGrapes.join(', '));
     setPlace(currentPlace);
     setError(null);
     setEditing(true);
@@ -47,9 +52,11 @@ export function TraitsBlock({ wineId, traits, region = null, regionSource = null
 
   async function save() {
     const t = view;
-    const body: { tannin?: Tannin | null; aromas?: string[]; country?: Country | null; region?: string | null } = {};
+    const body: { tannin?: Tannin | null; aromas?: string[]; grapes?: string[]; country?: Country | null; region?: string | null } = {};
     if ((tannin || null) !== t.tannin) body.tannin = tannin || null;
     if (aromas.join('|') !== t.aromas.join('|')) body.aromas = aromas;
+    const typed = grapes.split(',').map((g) => g.trim()).filter(Boolean);
+    if (typed.join('|') !== viewGrapes.join('|')) body.grapes = typed;
     // Région : une région de la liste (l'api met le pays à France), « Hors de France » (pays autre, sans région), ou effacée.
     if (place !== currentPlace) {
       if (place === HORS_FRANCE) body.country = 'AUTRE';
@@ -84,6 +91,11 @@ export function TraitsBlock({ wineId, traits, region = null, regionSource = null
           {view.tannin && (
             <div className="wine-tile"><p className="wine-tile__label">Tanin</p><p className="wine-tile__value">{TANNIN_LABEL[view.tannin]}</p></div>
           )}
+          {viewGrapes.length > 0 ? (
+            <div className="wine-tile"><p className="wine-tile__label">Cépages</p><p className="wine-tile__value">{viewGrapes.join(', ')}</p></div>
+          ) : domainGrapes && (
+            <div className="wine-tile"><p className="wine-tile__label">Cépages du domaine</p><p className="wine-tile__value">{domainGrapes}</p></div>
+          )}
           {view.aromas.length > 0 && (
             <div className="wine-tile">
               <p className="wine-tile__label">Palette aromatique</p>
@@ -115,6 +127,8 @@ export function TraitsBlock({ wineId, traits, region = null, regionSource = null
               );
             })}
           </div>
+          <label htmlFor="traits-grapes">Cépages</label>
+          <input id="traits-grapes" value={grapes} onChange={(e) => setGrapes(e.target.value)} placeholder="Syrah, Grenache…" maxLength={300} />
           <label htmlFor="traits-region">Région</label>
           <select id="traits-region" value={place} onChange={(e) => setPlace(e.target.value)}>
             <option value="">Inconnue</option>
