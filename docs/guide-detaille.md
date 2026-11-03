@@ -364,10 +364,10 @@ vous en créer une, ou un propriétaire peut vous inviter. »
 **Entrée de stock par photo, en rafale.** Bouton *Rentrer*, un grand bouton photo
 et un compteur « N photos prises » : on enchaîne photo après photo, sans
 attendre ni confirmer une fiche entre deux prises. Un sélecteur **Bouteilles**
-(− / +, de 1 à 120, comme le sélecteur de quantité de la fiche) se règle *avant*
+(− / +, 1 ou plus, comme le sélecteur de quantité de la fiche) se règle *avant*
 la prise, à l'entrée seulement ; il revient à 1 après chaque photo. Le nombre
 voyage avec la photo, y compris dans la file hors ligne, puis dans le champ
-multipart `quantity` de `POST /api/photos` (1 à 120), et il est conservé sur la photo. Chaque photo est réduite sur
+multipart `quantity` de `POST /api/photos` (entier positif), et il est conservé sur la photo. Chaque photo est réduite sur
 le téléphone (côté le plus long 1 600 px, JPEG qualité 0,8 ; si la réduction
 échoue, la photo part telle quelle), rangée dans une file locale, et l'écran est
 aussitôt prêt pour la suivante. La file locale accepte jusqu'à 200 photos (ou

@@ -774,7 +774,7 @@ celles de `/api/admin` aux administrateurs.
 | `POST` | `/api/auth/logout` | Déconnexion |
 | `GET` | `/api/auth/me` | Compte, caves accessibles, rôle courant |
 | `PUT` | `/api/auth/current-cave` | Change la cave courante |
-| `POST` | `/api/photos` | Envoi d'une photo d'entrée ou de sortie (champ `quantity`, 1 à 120, entrée seulement) |
+| `POST` | `/api/photos` | Envoi d'une photo d'entrée ou de sortie (champ `quantity`, 1 ou plus, entrée seulement) |
 | `GET` | `/api/photos/entry-inbox` | Les trois sections de « À confirmer » |
 | `POST` | `/api/photos/:id/dismiss` | Écarter une photo |
 | `GET` | `/api/photos/:id/image` | Image (`?variant=display` : version nette) |
@@ -783,7 +783,7 @@ celles de `/api/admin` aux administrateurs.
 | `POST` | `/api/movements` · `/bulk` · `/out` | Entrée, entrées groupées, sortie |
 | `POST` | `/api/movements/:id/cancel` | Annule un mouvement |
 | `GET` | `/api/movements/recent` | Derniers mouvements |
-| `GET` | `/api/cave` | Liste (`drinkSoon, `noApogee`, `dish`, `aromas`, `vintageMin`, `vintageMax`, `tannin`, `region`…) |
+| `GET` | `/api/cave` | Liste (`drinkSoon`, `noApogee`, `dish`, `aromas`, `vintageMin`, `vintageMax`, `tannin`, `region`…) |
 | `GET` | `/api/wines/:id` | Fiche vin |
 | `POST` | `/api/wines/:id/inventory` · `/move` | Inventaire, déplacement |
 | `PUT/DELETE` | `/api/wines/:id/apogee` · `/rating` | Apogée manuelle, note |
