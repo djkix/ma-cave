@@ -140,11 +140,12 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Règles d'apogée réglables par l'administrateur
 
 ### 🍽️ Accords et descriptifs
-- **Accords vins** : dites (ou écrivez) le plat que vous préparez, l'onglet *Accords* propose jusqu'à 5 vins de votre cave, rangés en groupes (*À ouvrir ce soir*, *À surveiller*, *À garder*), chacun avec l'accord en trois niveaux, sa raison et une frise d'apogée, plus une vue d'ensemble accord × moment repliable ; toucher un vin ouvre sa fiche, le retour ramène à la même liste
+- **Accords immédiats, sans IA** : le plat tapé ou dicté est rapproché d'une **base locale de 243 entrées** (42 entrées, 120 plats, 45 fromages, 36 desserts, `web/src/lib/accords-base/data.ts`) ; l'accord se fait sur l'**ingrédient dominant** (« poulet aux morilles » → Poulet). Les vins en stock sont notés de 0 à 100 (couleur conseillée, tanin, arômes, accords classiques par appellation ou région, vins doux pour les desserts), à note égale l'apogée la plus urgente d'abord. Autres ingrédients reconnus en puces (« Plutôt : Cèpes, morilles »), **suggestions** pendant la frappe, onglets **Entrées / Plats / Fromages / Desserts** pour parcourir la base ; **Demander à l'IA** en complément ou pour un plat non reconnu
+- **Accords par l'IA** : dites (ou écrivez) le plat que vous préparez, l'onglet *Accords* propose jusqu'à 5 vins de votre cave, rangés en groupes (*À ouvrir ce soir*, *À surveiller*, *À garder*), chacun avec l'accord en trois niveaux, sa raison et une frise d'apogée, plus une vue d'ensemble accord × moment repliable ; toucher un vin ouvre sa fiche, le retour ramène à la même liste
 - **J'ai un vin** : choisissez un vin en stock (recherche et filtres couleur, région, millésime), l'onglet *Accords* montre ses plats déjà générés, en cartes (aucun nouvel appel à l'IA)
 - **Jusqu'à 8 plats** suggérés par Gemini pour chaque vin
 - Générés **par lots de 10** en arrière-plan, **Régénérer** à la demande
-- Recherche **Accompagner un plat** dans l'onglet Cave
+- Recherche **Accompagner un plat** dans l'onglet Cave : un plat de la base classe les vins de bon accord (70 et plus), sinon recherche dans les plats suggérés par vin
 - **Page Domaine** (`/domaine/…`), partagée par toutes les caves : histoire, terroir, cépages, style, nez, remplis par l'IA, corrigeables champ par champ par l'**administrateur**, **Régénérer** ; vins du domaine dans votre cave
 - **Tanin** (léger, moyen, puissant), jusqu'à **5 arômes** d'une liste de 20, **région** (liste fermée de 12) et **pays** estimés par l'IA en tâche de fond, corrigeables sur la fiche (un seul sélecteur *Région* : Inconnue, les 12 régions ou *Hors de France*) : une correction n'est jamais écrasée ; une région devinée est libellée « (estimée par l’IA) »
 
