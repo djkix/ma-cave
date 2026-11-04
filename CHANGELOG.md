@@ -11,6 +11,21 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.44.0](https://github.com/djkix/ma-cave/compare/v2.43.0...v2.44.0) (2026-11-04)
 
+### Résumé
+
+**Sortie depuis la fiche, filtres repliables, rafales suivies.** Le
+propriétaire **sort une bouteille depuis la fiche** (choix de l'emplacement si
+besoin, « Annuler » juste après) ; la fiche indique la **dernière bouteille
+ouverte**. Les zones gagnent une **température** facultative, affichée sur la
+fiche. Sur « À confirmer », chaque fiche montre **couleur, format et apogée
+estimée** ; chaque rafale affiche son **avancement** (« 6/8 photos traitées »).
+L'écran Cave range ses filtres dans un panneau **Filtres actifs (N)** avec
+puces retirables et « Tout effacer ». Migrations `20261104100000_zone_temperature`
+et `20261104110000_photo_lot` : nouvelles colonnes vides, aucune remise en file.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 

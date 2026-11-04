@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.43.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.44.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -862,6 +862,18 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.44.0 — 4 novembre 2026
+
+Publiée ([v2.44.0](https://github.com/djkix/ma-cave/releases/tag/v2.44.0)),
+images `ghcr.io/djkix/ma-cave-api:2.44.0`, `-web:2.44.0` et
+`-sauvegarde:2.44.0`.
+
+**Sortir une bouteille depuis la fiche**, dernière bouteille ouverte,
+température des zones, fiches « À confirmer » avec couleur, format et apogée
+estimée, avancement des rafales, panneau **Filtres actifs**. Migrations
+automatiques (`20261104100000_zone_temperature`, `20261104110000_photo_lot`) :
+colonnes vides ajoutées.
+
 ### 2.43.0 — 3 novembre 2026
 
 Publiée ([v2.43.0](https://github.com/djkix/ma-cave/releases/tag/v2.43.0)),
@@ -950,6 +962,9 @@ images `ghcr.io/djkix/ma-cave-api:2.37.0`, `-web:2.37.0` et
 **tanin et arômes** par vin, **nouveaux filtres** de la cave, accords
 **« J'ai un vin »**. Migration additive ; rattrapage par lots en tâche de fond.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.36.0 → 1.0.0)</summary>
+
 ### 2.36.0 — 1er novembre 2026
 
 Publiée ([v2.36.0](https://github.com/djkix/ma-cave/releases/tag/v2.36.0)),
@@ -958,9 +973,6 @@ images `ghcr.io/djkix/ma-cave-api:2.36.0`, `-web:2.36.0` et
 
 **Inscriptions signalées** (pastille, bandeau) et **notification push** des
 nouvelles inscriptions. Migration additive.
-
-<details>
-<summary><strong>Versions antérieures</strong> (2.35.1 → 1.0.0)</summary>
 
 ### 2.35.1 — 23 octobre 2026
 
