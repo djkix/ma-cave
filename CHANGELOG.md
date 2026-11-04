@@ -9,6 +9,14 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.44.1](https://github.com/djkix/ma-cave/compare/v2.44.0...v2.44.1) (2026-11-04)
+
+
+### Corrections
+
+* **web:** manifeste de la PWA servi avec son type MIME ([22d452f](https://github.com/djkix/ma-cave/commit/22d452f60de88dc8f6f3c9ab2a3241f6cbaf693d))
+* **web:** type MIME du manifeste dans le bloc existant (location en double) ([e14b821](https://github.com/djkix/ma-cave/commit/e14b8216e00b5a3caf31d8be259183eb9a444aa4))
+
 ## [2.44.0](https://github.com/djkix/ma-cave/compare/v2.43.0...v2.44.0) (2026-11-04)
 
 ### Résumé
