@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { KeyboardEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BatchProgressList } from '../components/AnalysisQueueBanner';
 import { Button } from '../components/Button';
 import { LOW_CONFIDENCE } from '../components/ConfidenceBadge';
 import { EditableField } from '../components/EditableField';
@@ -8,7 +9,9 @@ import { EntryLocationBlock } from '../components/PlanCellPicker';
 import { OfflineQueueBanner } from '../components/OfflineQueueBanner';
 import { QuantityPicker } from '../components/QuantityPicker';
 import { TopBar } from '../components/TopBar';
-import { ApiError, BulkResult, createMovementsBulk, dismissPhoto, getEntryInbox, LocationInput, PhotoDto, WineDraft } from '../lib/api-client';
+import { Icon } from '../components/Icon';
+import { Apogee, ApiError, BulkResult, createMovementsBulk, dismissPhoto, getEntryInbox, getPhotoQueueStatus, LocationInput, PhotoDto, WineColor, WineDraft, WineExtraction } from '../lib/api-client';
+import { apogeeRange } from '../lib/apogee';
 import { extractionToDraft, initialQuantity } from '../lib/extraction-to-draft';
 import { EMPTY_LOCATION, toLocationInput, useLastLocation } from '../lib/locations';
 
@@ -23,12 +26,23 @@ interface Row {
   ignored: boolean;
   /** Emplacement saisi ; absent tant qu'on n'y touche pas (pré-rempli avec la dernière entrée rangée). */
   location?: LocationInput;
+  /** Couleur et format lus sur l'étiquette (« Rouge · 75 cl »), vide si rien n'a été lu. */
+  read: string;
+  /** Apogée estimée par l'api à partir de la lecture ; pas recalculée si l'on corrige les champs. */
+  apogee: Apogee | null;
+}
+
+const COLOR_LABEL: Record<WineColor, string> = { ROUGE: 'Rouge', BLANC: 'Blanc', ROSE: 'Rosé', PETILLANT: 'Pétillant' };
+
+/** Couleur et format tels que lus ; un champ non lu est omis (pas la valeur par défaut de la fiche). */
+function readSummary(e: WineExtraction): string {
+  return [e.color.value && COLOR_LABEL[e.color.value], e.formatCl.value && `${e.formatCl.value} cl`].filter(Boolean).join(' · ');
 }
 
 function toRow(p: PhotoDto): Row | null {
   if (!p.extraction) return null;
   const { draft, confidences, detectedQuantity } = extractionToDraft(p.extraction);
-  return { photoId: p.id, idempotencyKey: crypto.randomUUID(), draft, confidences, globalConfidence: p.extraction.globalConfidence, quantity: initialQuantity(p.requestedQuantity ?? null, detectedQuantity), detected: detectedQuantity, ignored: false };
+  return { photoId: p.id, idempotencyKey: crypto.randomUUID(), draft, confidences, globalConfidence: p.extraction.globalConfidence, quantity: initialQuantity(p.requestedQuantity ?? null, detectedQuantity), detected: detectedQuantity, ignored: false, read: readSummary(p.extraction), apogee: p.apogee ?? null };
 }
 
 function rowProblem(r: Row): string | null {
@@ -112,6 +126,8 @@ export function AConfirmerPage() {
   // pré-remplir : elle rejoint « Lecture impossible » plutôt que de disparaître.
   const unreadable = (inbox.data?.toConfirm ?? []).filter((p) => !p.extraction);
   const failed = [...(inbox.data?.failed ?? []), ...unreadable].filter((p) => !handled.has(p.id));
+  // Avancement des rafales, seulement tant que des photos sont en analyse.
+  const queue = useQuery({ queryKey: ['photos', 'queue-status'], queryFn: getPhotoQueueStatus, refetchInterval: 10_000, enabled: inProgress.length > 0 });
 
   async function validate(selection: Row[]) {
     setBusy(true);
@@ -230,8 +246,16 @@ export function AConfirmerPage() {
                         <span className={`badge ${r.globalConfidence >= LOW_CONFIDENCE ? 'badge--ok' : 'badge--warn'}`}>Confiance {Math.round(r.globalConfidence * 100)} %</span>
                         <strong className="confirm-card__title">{r.draft.producer.trim() || 'Producteur à saisir'}</strong>
                         {subline && <span className="confirm-card__sub">{subline}</span>}
+                        {r.read && <span className="confirm-card__read">{r.read}</span>}
                       </div>
                     </div>
+                    {r.apogee && (
+                      <p className="confirm-apogee">
+                        <Icon name="hourglass_top" />
+                        {/* Fourchette tirée de la lecture de l'IA (appellation, millésime, couleur) : toujours une estimation. */}
+                        <span>{apogeeRange(r.apogee)} <em>· estimée</em></span>
+                      </p>
+                    )}
                     <div className="confirm-card__flags">
                       {!r.ignored && problem && <span className="badge badge--warn">{problem}</span>}
                       {itemError && <span className="badge badge--warn">{itemError}</span>}
@@ -263,6 +287,7 @@ export function AConfirmerPage() {
                 );
               })}
 
+              {active === 'analyse' && <BatchProgressList batches={queue.data?.batches} />}
               {active === 'analyse' && (
                 <ul className="list confirm-list">
                   {inProgress.map((p) => (

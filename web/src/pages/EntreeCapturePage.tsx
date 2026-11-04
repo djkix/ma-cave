@@ -22,6 +22,8 @@ export function EntreeCapturePage() {
   // Nombre de bouteilles de la prochaine photo ; revient à 1 après chaque prise.
   const [quantity, setQuantity] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  // Une rafale = un lot : chaque photo prise sur cet écran en porte l'identifiant (avancement « 6/8 »).
+  const [batchId] = useState(() => crypto.randomUUID());
   // Lu au moment de ranger la photo (après la réduction), pas à celui du rendu.
   const userId = useRef<string | undefined>(undefined);
   userId.current = useCurrentCave().me?.id;
@@ -37,7 +39,7 @@ export function EntreeCapturePage() {
     setError(null);
     try {
       const blob = await shrinkPhoto(file);
-      await enqueuePhoto(blob, 'entry', userId.current, chosen);
+      await enqueuePhoto(blob, 'entry', userId.current, chosen, batchId);
     } catch (err) {
       setError(err instanceof QueueFullError ? err.message : 'Photo non enregistrée sur le téléphone — reprenez-la');
       return;

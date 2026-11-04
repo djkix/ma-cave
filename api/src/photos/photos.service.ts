@@ -42,7 +42,7 @@ export class PhotosService {
    * chacune leur photo (fichiers nommés par identifiant de photo, jamais
    * partagés sur le disque).
    */
-  async ingest(caveId: string, input: Buffer, mimeType: string, purpose: PhotoPurpose = 'ENTRY', requestedQuantity: number | null = null): Promise<{ photo: Photo; duplicate: boolean }> {
+  async ingest(caveId: string, input: Buffer, mimeType: string, purpose: PhotoPurpose = 'ENTRY', requestedQuantity: number | null = null, batchId: string | null = null): Promise<{ photo: Photo; duplicate: boolean }> {
     const contentHash = createHash('sha256').update(input).digest('hex');
     const existing = await this.prisma.photo.findUnique({ where: { caveId_contentHash: { caveId, contentHash } } });
     if (existing) return { photo: await this.reclaimForEntry(existing, purpose), duplicate: true };
@@ -67,7 +67,7 @@ export class PhotosService {
     let photo: Photo;
     try {
       photo = await this.prisma.photo.create({
-        data: { id, caveId, contentHash, storagePath: normalizedPath, mimeType: 'image/jpeg', purpose, requestedQuantity },
+        data: { id, caveId, contentHash, storagePath: normalizedPath, mimeType: 'image/jpeg', purpose, requestedQuantity, batchId },
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
@@ -216,6 +216,30 @@ export class PhotosService {
       }),
     ]);
     return { waiting, oldestWaitingAt: oldest?.createdAt ?? null, lastReason: lastDeferred?.errorMessage ?? null };
+  }
+
+  /**
+   * Avancement des lots de rafale encore en cours : photos traitées (analyse
+   * terminée, lue ou en échec) sur le total reçu. Un lot n'est rendu que tant
+   * qu'une de ses photos attend l'analyse ; une photo sans lot n'y figure jamais.
+   * Les photos écartées sont hors du compte (elles ne seront jamais analysées).
+   */
+  async batchProgress(caveId: string): Promise<{ batchId: string; done: number; total: number }[]> {
+    const where: Prisma.PhotoWhereInput = { caveId, purpose: 'ENTRY', dismissedAt: null };
+    const active = await this.prisma.photo.findMany({
+      where: { ...where, batchId: { not: null }, status: { in: ['PENDING', 'PROCESSING'] } },
+      distinct: ['batchId'],
+      select: { batchId: true },
+    });
+    const ids = active.map((p) => p.batchId as string);
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.photo.groupBy({ by: ['batchId', 'status'], where: { ...where, batchId: { in: ids } }, _count: { _all: true } });
+    return ids.map((batchId) => {
+      const mine = rows.filter((r) => r.batchId === batchId);
+      const total = mine.reduce((n, r) => n + r._count._all, 0);
+      const done = mine.filter((r) => r.status === 'DONE' || r.status === 'FAILED').reduce((n, r) => n + r._count._all, 0);
+      return { batchId, done, total };
+    });
   }
 
   listPendingReview(caveId: string): Promise<Photo[]> {

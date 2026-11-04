@@ -48,6 +48,22 @@ it('accorde le singulier et se passe de motif quand il n’y en a pas', async ()
   expect(screen.getByText(/dès que le service de lecture répond/)).toBeInTheDocument();
 });
 
+it('affiche l’avancement de la rafale en cours ; rien sans lot', async () => {
+  vi.spyOn(api, 'getPhotoQueueStatus').mockResolvedValue({ waiting: 2, oldestWaitingAt: null, lastReason: null, batches: [{ batchId: 'lot-1', done: 6, total: 8 }] });
+  mount();
+  expect(await screen.findByText('6/8 photos traitées')).toBeInTheDocument();
+  const bar = screen.getByRole('progressbar', { name: 'Lot de photos : 6 sur 8 traitées' });
+  expect(bar).toHaveAttribute('value', '6');
+  expect(bar).toHaveAttribute('max', '8');
+});
+
+it('sans lot en cours : pas de barre d’avancement', async () => {
+  vi.spyOn(api, 'getPhotoQueueStatus').mockResolvedValue({ waiting: 1, oldestWaitingAt: null, lastReason: null, batches: [] });
+  mount();
+  expect(await screen.findByText(/1 photo en attente d’analyse/)).toBeInTheDocument();
+  expect(screen.queryByRole('progressbar')).toBeNull();
+});
+
 it('disparaît quand la file est vide', async () => {
   const status = vi.spyOn(api, 'getPhotoQueueStatus').mockResolvedValue({ waiting: 0, oldestWaitingAt: null, lastReason: null });
   const { container } = mount();

@@ -524,3 +524,28 @@ describe('PhotosService.readDisplay', () => {
     await expect(service.readDisplay('22222222-2222-4222-8222-222222222222')).rejects.toBeInstanceOf(NotFoundException);
   });
 });
+
+describe('PhotosService.batchProgress', () => {
+  it('lots en cours seulement : traitées (lues ou en échec) sur le total, filtre de cave, écartées hors compte', async () => {
+    const findMany = jest.fn(async () => [{ batchId: 'lot-a' }]);
+    const groupBy = jest.fn(async () => [
+      { batchId: 'lot-a', status: 'DONE', _count: { _all: 4 } },
+      { batchId: 'lot-a', status: 'FAILED', _count: { _all: 2 } },
+      { batchId: 'lot-a', status: 'PENDING', _count: { _all: 1 } },
+      { batchId: 'lot-a', status: 'PROCESSING', _count: { _all: 1 } },
+    ]);
+    const svc = new PhotosService({ photo: { findMany, groupBy } } as any, new ImageNormalizationService(), '/tmp', { add: jest.fn() } as any);
+    expect(await svc.batchProgress('c1')).toEqual([{ batchId: 'lot-a', done: 6, total: 8 }]);
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ caveId: 'c1', dismissedAt: null, batchId: { not: null }, status: { in: ['PENDING', 'PROCESSING'] } }),
+    }));
+    expect(groupBy).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ caveId: 'c1', dismissedAt: null, batchId: { in: ['lot-a'] } }) }));
+  });
+
+  it('aucun lot en attente (photos sans lot, lots terminés) : liste vide, pas de comptage', async () => {
+    const groupBy = jest.fn();
+    const svc = new PhotosService({ photo: { findMany: jest.fn(async () => []), groupBy } } as any, new ImageNormalizationService(), '/tmp', { add: jest.fn() } as any);
+    expect(await svc.batchProgress('c1')).toEqual([]);
+    expect(groupBy).not.toHaveBeenCalled();
+  });
+});

@@ -14,6 +14,8 @@ export interface QueuedPhoto {
   userId?: string;
   /** Nombre de bouteilles choisi à la prise de vue (entrée) ; absent = non précisé. */
   quantity?: number;
+  /** Lot de la rafale : gardé dans la file pour qu'une photo rejouée reste dans son lot. */
+  batchId?: string;
 }
 
 /**
@@ -88,11 +90,11 @@ export async function queueStats(userId?: string | null): Promise<{ count: numbe
   return { count: mine.length, bytes: mine.reduce((s, p) => s + p.bytes, 0), others: all.length - mine.length };
 }
 
-export async function enqueuePhoto(blob: Blob, mode: QueuedPhoto['mode'], userId?: string, quantity?: number): Promise<QueuedPhoto> {
+export async function enqueuePhoto(blob: Blob, mode: QueuedPhoto['mode'], userId?: string, quantity?: number, batchId?: string): Promise<QueuedPhoto> {
   // Les limites protègent le téléphone : elles portent sur toute la file, tous comptes confondus.
   const { count, bytes } = await queueStats();
   if (count >= QUEUE_LIMITS.maxItems || bytes + blob.size > QUEUE_LIMITS.maxBytes) throw new QueueFullError();
-  const item: QueuedPhoto = { id: crypto.randomUUID(), blob, bytes: blob.size, createdAt: Date.now(), mode, ...(userId ? { userId } : {}), ...(quantity ? { quantity } : {}) };
+  const item: QueuedPhoto = { id: crypto.randomUUID(), blob, bytes: blob.size, createdAt: Date.now(), mode, ...(userId ? { userId } : {}), ...(quantity ? { quantity } : {}), ...(batchId ? { batchId } : {}) };
   await (await db()).put('photos', item);
   return item;
 }
@@ -106,12 +108,12 @@ export async function removeFromQueue(id: string): Promise<void> {
  * d'un autre compte restent dans la file, intactes : jamais envoyées dans la cave
  * d'un autre, jamais effacées.
  */
-export async function flushQueue(upload: (blob: Blob, purpose: 'ENTRY', quantity?: number) => Promise<unknown>, userId: string): Promise<{ sent: number; failed: number }> {
+export async function flushQueue(upload: (blob: Blob, purpose: 'ENTRY', quantity?: number, batchId?: string) => Promise<unknown>, userId: string): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
   for (const item of (await listQueue()).filter((p) => belongsTo(p, userId))) {
     try {
-      await upload(item.blob, 'ENTRY', item.quantity);
+      await upload(item.blob, 'ENTRY', item.quantity, item.batchId);
       await removeFromQueue(item.id);
       sent++;
     } catch (e) {

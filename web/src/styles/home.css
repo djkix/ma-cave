@@ -12,7 +12,7 @@
 /* Bandeau d'analyse */
 .analysis-banner { background: var(--color-surface-container); border-color: var(--color-outline-subtle); }
 .analysis-banner__icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-xl); background: var(--color-primary-fixed); color: var(--color-primary-container); }
-.analysis-banner__text { display: flex; flex-direction: column; min-width: 0; }
+.analysis-banner__text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .analysis-banner__text small { font-size: 12px; color: var(--color-secondary); }
 .analysis-banner .btn { min-height: 48px; gap: 4px; background: var(--color-surface-container-high); border-color: transparent; }
 .analysis-banner .btn .material-symbols-outlined { font-size: 16px; }

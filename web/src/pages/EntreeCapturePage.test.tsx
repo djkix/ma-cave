@@ -58,6 +58,9 @@ it('range trois photos dans la file sans attendre aucun envoi, et compte 3', asy
   enqueue.mock.calls.forEach((call) => expect(call[1]).toBe('entry'));
   // Chaque photo porte le compte qui l'a prise.
   enqueue.mock.calls.forEach((call) => expect(call[2]).toBe('u1'));
+  // Une rafale = un lot : les trois photos portent le même identifiant (uuid).
+  expect(new Set(enqueue.mock.calls.map((call) => call[4])).size).toBe(1);
+  expect(enqueue.mock.calls[0][4]).toMatch(/^[0-9a-f-]{36}$/);
   expect(kick).toHaveBeenCalledTimes(3);
   expect((await queueStats()).count).toBe(3);
   // L'envoyeur a bien été relancé, mais l'écran n'a pas attendu sa réponse.

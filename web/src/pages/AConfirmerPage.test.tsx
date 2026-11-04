@@ -5,7 +5,10 @@ import { MemoryRouter } from 'react-router-dom';
 import * as api from '../lib/api-client';
 import { AConfirmerPage } from './AConfirmerPage';
 
-beforeEach(() => { vi.spyOn(api, 'getAppellations').mockResolvedValue([]); });
+beforeEach(() => {
+  vi.spyOn(api, 'getAppellations').mockResolvedValue([]);
+  vi.spyOn(api, 'getPhotoQueueStatus').mockResolvedValue({ waiting: 0, oldestWaitingAt: null, lastReason: null, batches: [] });
+});
 afterEach(() => vi.restoreAllMocks());
 
 const ext = (producer: string, conf: number, qty: number | null): api.WineExtraction => ({
@@ -373,4 +376,33 @@ it('dock : « Tout valider (N vins · M bouteilles) » somme les quantités des 
   renderPage();
   expect(await screen.findByRole('button', { name: 'Tout valider (2 vins · 18 bouteilles)' })).toBeInTheDocument();
   expect(screen.getByText('2 prêts')).toBeInTheDocument();
+});
+
+it('carte : couleur et format lus, apogée estimée quand l’api la donne', async () => {
+  const apogee: api.Apogee = { min: 2026, max: 2034, confidence: 'FAIBLE', status: 'A_BOIRE', reason: null, source: 'REGLE' };
+  vi.spyOn(api, 'getEntryInbox').mockResolvedValue(inbox({ toConfirm: [{ ...done('p-a', ext('Domaine A', 0.95, 6)), apogee }] }));
+  renderPage();
+  const card = (await screen.findAllByRole('article'))[0];
+  expect(within(card).getByText('Rouge · 75 cl')).toBeInTheDocument();
+  expect(within(card).getByText(/À boire entre 2026 et 2034/)).toHaveTextContent('À boire entre 2026 et 2034 · estimée');
+});
+
+it('carte : rien d’inventé quand la couleur, le format ou l’apogée manquent', async () => {
+  const e = { ...ext('Domaine B', 0.95, 6), color: { value: null, confidence: 0 }, formatCl: { value: 150, confidence: 1 } };
+  vi.spyOn(api, 'getEntryInbox').mockResolvedValue(inbox({ toConfirm: [{ ...done('p-b', e), apogee: null }] }));
+  renderPage();
+  const card = (await screen.findAllByRole('article'))[0];
+  expect(within(card).getByText('150 cl')).toBeInTheDocument();
+  expect(within(card).queryByText(/Rouge/)).toBeNull();
+  expect(within(card).queryByText(/À boire/)).toBeNull();
+});
+
+it('« En cours d’analyse » : avancement de la rafale en tête', async () => {
+  vi.spyOn(api, 'getPhotoQueueStatus').mockResolvedValue({ waiting: 2, oldestWaitingAt: null, lastReason: null, batches: [{ batchId: 'lot-1', done: 6, total: 8 }] });
+  vi.spyOn(api, 'getEntryInbox').mockResolvedValue(inbox({ inProgress: [{ id: 'p-wait', status: 'PENDING', createdAt: '' }] }));
+  renderPage();
+  await screen.findByRole('tab', { name: /En cours d’analyse/ });
+  const panel = await section(/En cours d’analyse/);
+  expect(await within(panel).findByText('6/8 photos traitées')).toBeInTheDocument();
+  expect(within(panel).getByRole('progressbar', { name: 'Lot de photos : 6 sur 8 traitées' })).toBeInTheDocument();
 });

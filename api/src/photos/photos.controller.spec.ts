@@ -14,7 +14,7 @@ describe('PhotosController — GET :id/image', () => {
     };
     const res = { setHeader: jest.fn(), send: jest.fn() };
     const caves = { findAccess: jest.fn(async () => access) };
-    return { controller: new PhotosController(photos as any, caves as any), photos, caves, res };
+    return { controller: new PhotosController(photos as any, caves as any, {} as any), photos, caves, res };
   }
 
   it('sans paramètre : l’image d’origine, comme avant', async () => {
@@ -70,30 +70,69 @@ describe('PhotosController — POST / quantité', () => {
   const file = { buffer: Buffer.from('x'), mimetype: 'image/jpeg' } as any;
   function setup() {
     const photos = { ingest: jest.fn(async () => ({ photo: { id: 'p1', status: 'PENDING' }, duplicate: false })) };
-    return { controller: new PhotosController(photos as any, {} as any), photos };
+    return { controller: new PhotosController(photos as any, {} as any, {} as any), photos };
   }
 
   it('quantity=6 : transmise à l’ingestion', async () => {
     const { controller, photos } = setup();
     await controller.upload(cave, file, undefined, '6');
-    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', 6);
+    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', 6, null);
   });
 
   it('sans champ : null', async () => {
     const { controller, photos } = setup();
     await controller.upload(cave, file);
-    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', null);
+    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', null, null);
   });
 
   it('quantity=121 : acceptée, sans maximum (comme les mouvements)', async () => {
     const { controller, photos } = setup();
     await controller.upload(cave, file, undefined, '121');
-    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', 121);
+    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', 121, null);
   });
 
   it.each(['0', '2.5', 'abc'])('quantity=%s : 400 « Quantité invalide »', async (q) => {
     const { controller, photos } = setup();
     await expect(controller.upload(cave, file, undefined, q)).rejects.toThrow(new BadRequestException('Quantité invalide'));
     expect(photos.ingest).not.toHaveBeenCalled();
+  });
+});
+
+describe('PhotosController — lot de rafale', () => {
+  const cave = { caveId: 'c1' } as any;
+  const file = { buffer: Buffer.from('x'), mimetype: 'image/jpeg' } as any;
+  const lot = '22222222-2222-4222-8222-222222222222';
+  function setup() {
+    const photos = {
+      ingest: jest.fn(async () => ({ photo: { id: 'p1', status: 'PENDING' }, duplicate: false })),
+      queueStatus: jest.fn(async () => ({ waiting: 2, oldestWaitingAt: null, lastReason: null })),
+      batchProgress: jest.fn(async () => [{ batchId: lot, done: 6, total: 8 }]),
+      entryInbox: jest.fn(async () => ({ toConfirm: [{ id: 'p1', extraction: null }, { id: 'p2', extraction: null }], inProgress: [], failed: [] })),
+    };
+    const entryApogee = { forExtractions: jest.fn(async () => [null, { min: 2026, max: 2034 }]) };
+    return { controller: new PhotosController(photos as any, {} as any, entryApogee as any), photos };
+  }
+
+  it('batchId transmis à l’ingestion', async () => {
+    const { controller, photos } = setup();
+    await controller.upload(cave, file, undefined, undefined, lot);
+    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', null, lot);
+  });
+
+  it('batchId qui n’est pas un uuid : 400 « Lot invalide »', async () => {
+    const { controller, photos } = setup();
+    await expect(controller.upload(cave, file, undefined, undefined, 'lot-1')).rejects.toThrow(new BadRequestException('Lot invalide'));
+    expect(photos.ingest).not.toHaveBeenCalled();
+  });
+
+  it('queue-status porte l’avancement des lots', async () => {
+    const { controller } = setup();
+    expect(await controller.queueStatus(cave)).toEqual({ waiting: 2, oldestWaitingAt: null, lastReason: null, batches: [{ batchId: lot, done: 6, total: 8 }] });
+  });
+
+  it('entry-inbox : apogée estimée sur chaque fiche à valider', async () => {
+    const { controller } = setup();
+    const inbox = await controller.entryInbox(cave);
+    expect(inbox.toConfirm.map((p) => p.apogee)).toEqual([null, { min: 2026, max: 2034 }]);
   });
 });

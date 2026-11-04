@@ -12,10 +12,12 @@ import { CaveRole, CurrentCave } from '../caves/cave-access.decorators';
 import { CaveAccessGuard } from '../caves/cave-access.guard';
 import { CaveAccess, CaveContextService } from '../caves/cave-context.service';
 import { safeParseExtraction } from '../vision/extraction-schema';
+import { EntryApogeeService } from './entry-apogee.service';
 import { PhotosService } from './photos.service';
 
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const quantitySchema = z.coerce.number().int().min(1);
+const batchIdSchema = z.string().uuid();
 const purposeSchema = z.enum(['ENTRY', 'EXIT']).default('ENTRY');
 
 /**
@@ -31,6 +33,7 @@ export class PhotosController {
   constructor(
     private readonly photos: PhotosService,
     private readonly caves: CaveContextService,
+    private readonly entryApogee: EntryApogeeService,
   ) {}
 
   // 30 photos par minute et par IP : large pour une campagne au téléphone (une prise
@@ -42,7 +45,7 @@ export class PhotosController {
   @CaveRole('OWNER')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }))
-  async upload(@CurrentCave() cave: CaveAccess, @UploadedFile() file?: Express.Multer.File, @Body('purpose') rawPurpose?: string, @Body('quantity') rawQuantity?: string) {
+  async upload(@CurrentCave() cave: CaveAccess, @UploadedFile() file?: Express.Multer.File, @Body('purpose') rawPurpose?: string, @Body('quantity') rawQuantity?: string, @Body('batchId') rawBatchId?: string) {
     if (!file) throw new BadRequestException('Fichier « file » manquant');
     if (!ALLOWED.has(file.mimetype)) throw new BadRequestException('Format d’image non pris en charge');
     const purpose = purposeSchema.safeParse(rawPurpose ?? undefined);
@@ -50,7 +53,10 @@ export class PhotosController {
     // Nombre de bouteilles choisi à la prise de vue : facultatif, absent = inconnu.
     const quantity = rawQuantity === undefined || rawQuantity === '' ? null : quantitySchema.safeParse(rawQuantity);
     if (quantity && !quantity.success) throw new BadRequestException('Quantité invalide');
-    const { photo, duplicate } = await this.photos.ingest(cave.caveId, file.buffer, file.mimetype, purpose.data, quantity ? quantity.data : null);
+    // Lot de la rafale (uuid choisi par le téléphone) : facultatif, sert seulement à l'avancement « 6/8 ».
+    const batchId = rawBatchId === undefined || rawBatchId === '' ? null : batchIdSchema.safeParse(rawBatchId);
+    if (batchId && !batchId.success) throw new BadRequestException('Lot invalide');
+    const { photo, duplicate } = await this.photos.ingest(cave.caveId, file.buffer, file.mimetype, purpose.data, quantity ? quantity.data : null, batchId ? batchId.data : null);
     return { id: photo.id, status: photo.status, duplicate };
   }
 
@@ -59,15 +65,19 @@ export class PhotosController {
   @Get('queue-status')
   @UseGuards(CaveAccessGuard)
   @CaveRole('OWNER')
-  queueStatus(@CurrentCave() cave: CaveAccess) {
-    return this.photos.queueStatus(cave.caveId);
+  async queueStatus(@CurrentCave() cave: CaveAccess) {
+    const [status, batches] = await Promise.all([this.photos.queueStatus(cave.caveId), this.photos.batchProgress(cave.caveId)]);
+    return { ...status, batches };
   }
 
   @Get('entry-inbox')
   @UseGuards(CaveAccessGuard)
   @CaveRole('OWNER')
-  entryInbox(@CurrentCave() cave: CaveAccess) {
-    return this.photos.entryInbox(cave.caveId);
+  async entryInbox(@CurrentCave() cave: CaveAccess) {
+    const inbox = await this.photos.entryInbox(cave.caveId);
+    // Apogée estimée d'après la lecture (appellation, millésime, couleur) : jamais recalculée après correction.
+    const apogees = await this.entryApogee.forExtractions(inbox.toConfirm.map((p) => p.extraction));
+    return { ...inbox, toConfirm: inbox.toConfirm.map((p, i) => ({ ...p, apogee: apogees[i] })) };
   }
 
   @Get('pending-review')

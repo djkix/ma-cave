@@ -162,3 +162,11 @@ it('envoie au vidage la quantité choisie à la prise de vue', async () => {
   await flushQueue(upload, 'u1');
   expect(upload.mock.calls.map((c) => c[2]).sort()).toEqual([4, undefined]);
 });
+
+it('une photo rejouée garde son lot ; une photo sans lot part sans', async () => {
+  await enqueuePhoto(blob(1), 'entry', 'u1', undefined, 'lot-1');
+  await enqueuePhoto(blob(2), 'entry', 'u1');
+  const upload = vi.fn().mockResolvedValue({});
+  await flushQueue(upload, 'u1');
+  expect(upload.mock.calls.map((c) => c[3]).sort()).toEqual(['lot-1', undefined]);
+});

@@ -168,11 +168,14 @@ model Photo {
   dismissedAt       DateTime?    @map("dismissed_at")
   /// Nombre de bouteilles annoncé avant l'envoi de la photo (saisie guidée).
   requestedQuantity Int?         @map("requested_quantity")
+  /// Lot de prises (rafale) choisi par le téléphone ; null = envoi unitaire ou photo d'avant la 2.44.
+  batchId           String?      @map("batch_id") @db.Uuid
   movements         Movement[]
 
   /// Doublon détecté par cave : deux caves peuvent envoyer la même image.
   @@unique([caveId, contentHash])
   @@index([purpose, status, nextAttemptAt])
+  @@index([batchId])
   @@map("photo")
 }
 
