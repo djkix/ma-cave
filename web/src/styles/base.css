@@ -101,7 +101,9 @@ input, select { min-height: var(--size-touch-target); padding: 0 var(--space-md)
 .dock__hint { display: block; text-align: center; font-size: 11px; color: var(--color-secondary); margin-top: var(--space-xs); }
 
 .update-banner { position: fixed; inset-inline: var(--space-md); top: calc(var(--size-header-height) + var(--safe-top) + var(--space-xs)); z-index: 50; max-width: 640px; margin-inline: auto; }
-.update-banner .banner { background: var(--color-surface); box-shadow: 0 4px 16px color-mix(in srgb, var(--color-on-surface) 12%, transparent); }
+/* Bordeaux plein : le bandeau doit se voir d'un coup d'œil sur le fond crème. */
+.update-banner .banner { background: var(--color-wine-rouge); border-color: var(--color-wine-rouge); color: #FFFFFF; font-weight: 600; box-shadow: 0 6px 20px color-mix(in srgb, var(--color-wine-rouge) 40%, transparent); }
+.update-banner .banner .btn { background: #FFFFFF; color: var(--color-wine-rouge); border-color: #FFFFFF; font-weight: 700; }
 .banner { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-lg); border: 1px solid var(--color-outline-subtle); background: var(--color-surface-container-low); font-size: 13px; }
 .banner--warn { border-color: var(--color-warning); }
 .banner .btn { margin-left: auto; min-height: 36px; padding-inline: var(--space-md); font-size: 12px; }
