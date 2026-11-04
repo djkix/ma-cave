@@ -364,7 +364,7 @@ describe('PhotosService.entryInbox', () => {
   it('fournit l’extraction analysée pour toConfirm, null si illisible', async () => {
     const t0 = new Date('2026-09-21T10:00:00Z');
     const photos = [
-      { id: 'bad-json', purpose: 'ENTRY', status: 'DONE', dismissedAt: null, createdAt: t0, rawExtraction: { not: 'valid' } },
+      { id: 'bad-json', purpose: 'ENTRY', status: 'DONE', dismissedAt: null, createdAt: t0, rawExtraction: 'pas un objet' },
     ];
     const { svc } = service(photos);
     const inbox = await svc.entryInbox('c1');

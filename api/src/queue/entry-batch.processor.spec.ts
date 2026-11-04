@@ -243,7 +243,7 @@ describe('EntryBatchProcessor.tick — résultat du lot', () => {
     expect(images.every((i: any) => i.mimeType === 'image/jpeg')).toBe(true);
   });
 
-  it('un item invalide ne fait échouer que sa photo', async () => {
+  it('un item invalide est relu seul, sans toucher aux autres', async () => {
     const h = harness();
     const all = h.addMany(8);
     h.vision.extractWineLabels.mockImplementationOnce(async (images: any[]) => ({
@@ -255,9 +255,10 @@ describe('EntryBatchProcessor.tick — résultat du lot', () => {
       costCents: 8,
     }));
     await h.processor.tick(NOW);
-    expect(all[3].status).toBe('FAILED');
-    expect(all[3].errorMessage).toBe('Lecture de l’étiquette inexploitable');
-    expect(all.filter((r) => r.status === 'DONE')).toHaveLength(7);
+    expect(h.vision.extractWineLabel).toHaveBeenCalledTimes(1);
+    expect(all[3].status).toBe('DONE');
+    expect(all[3].rawExtraction).toEqual({ seul: `img-${all[3].id}` });
+    expect(all.filter((r) => r.status === 'DONE')).toHaveLength(8);
   });
 
   it('lot mélangé : chaque photo est relue seule, avec son propre coût', async () => {
@@ -345,8 +346,8 @@ describe('EntryBatchProcessor.tick — résultat du lot', () => {
       costCents: 10,
     }));
     await h.processor.tick(NOW);
-    expect(all[0].status).toBe('FAILED');
-    expect(all.map((r) => r.costCents)).toEqual([2, 2, 1, 1, 1, 1, 1, 1]);
+    // Sa part du lot (2) plus sa relecture seule (2).
+    expect(all.map((r) => r.costCents)).toEqual([4, 2, 1, 1, 1, 1, 1, 1]);
   });
 
   it('un appel de lot sans réponse est abandonné au bout du délai et le lot reporté', async () => {

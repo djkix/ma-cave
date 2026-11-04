@@ -270,17 +270,21 @@ export class EntryBatchProcessor {
     }
 
     const shares = splitCostExact(batch.costCents, readable.length);
+    const rejected: Readable[] = [];
     for (let i = 0; i < readable.length; i++) {
       const item = batch.items[i];
       const photo = readable[i];
       spend(photo, shares[i]);
       if (!item || 'error' in item) {
-        await this.fail(photo, UNREADABLE, settled);
+        this.logger.warn(`Photo d'entrée ${photo.id} rejetée dans le lot (${item?.error ?? 'absente'}) : relecture seule`);
+        rejected.push(photo);
         continue;
       }
       await this.done(photo, { raw: item.raw, model: batch.model, latencyMs: batch.latencyMs }, settled);
     }
     this.logger.log(`Lot d'entrée de ${readable.length} photo(s) lu en ${batch.latencyMs} ms`);
+    // Une lecture rejetée dans un lot a droit à l'appel simple avant l'échec.
+    if (rejected.length > 0) await this.readEachAlone(rejected, now, settled);
   }
 
   /**

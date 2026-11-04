@@ -134,19 +134,18 @@ describe('GeminiVisionProvider.extractWineLabels', () => {
     expect((res.items[2] as any).extraction.appellation.value).toBe('Appellation 3');
   });
 
-  it('isole un objet invalide : seul son indice devient une erreur', async () => {
+  it('un champ invalide ne rend pas l’objet illisible : il vaut « non lu »', async () => {
     const arr = [
       { image: 1, ...validObj() },
-      { image: 2, couleur: { value: 'turquoise', confidence: 0.5 } },
+      { image: 2, ...validObj(), couleur: { value: 'turquoise', confidence: 0.5 } },
       { image: 3, ...validObj() },
     ];
     const model = fakeModel(JSON.stringify(arr));
     const provider = gemini(model as any, 'gemini-test');
     const res = await provider.extractWineLabels(images);
 
-    expect((res.items[0] as any).extraction).toBeDefined();
-    expect(res.items[1]).toEqual({ error: 'Lecture de l’étiquette inexploitable' });
-    expect((res.items[2] as any).extraction).toBeDefined();
+    expect(res.items.every((i) => 'extraction' in i)).toBe(true);
+    expect((res.items[1] as any).extraction.color).toEqual({ value: null, confidence: 0 });
   });
 
   it('rejette une longueur de tableau différente de N', async () => {

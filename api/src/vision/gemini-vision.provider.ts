@@ -479,8 +479,8 @@ export class GeminiVisionProvider implements VisionProvider, PairingProvider, Di
     const items = indexedItems(result.response.text(), n, 'image', costCents).map((obj) => {
       try {
         return { raw: obj, extraction: parseExtraction(obj) };
-      } catch {
-        return { error: 'Lecture de l’étiquette inexploitable' };
+      } catch (e) {
+        return { error: `Lecture de l’étiquette inexploitable : ${(e as Error).message}` };
       }
     });
 

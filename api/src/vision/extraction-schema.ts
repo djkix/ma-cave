@@ -3,7 +3,10 @@ import { z } from 'zod';
 import { WineExtraction } from './vision-provider.interface';
 
 const conf = z.number().min(0).max(1);
-const field = <T extends z.ZodTypeAny>(t: T) => z.object({ value: t.nullable(), confidence: conf });
+// Un champ mal formé (millésime en texte, format décimal, confiance absente…)
+// vaut « non lu » : il ne rend jamais toute l'étiquette illisible.
+const field = <T extends z.ZodTypeAny>(t: T) =>
+  z.object({ value: t.nullable(), confidence: conf }).catch({ value: null, confidence: 0 });
 
 const COLORS: Record<string, WineColor> = { rouge: 'ROUGE', blanc: 'BLANC', rose: 'ROSE', rosé: 'ROSE', petillant: 'PETILLANT', pétillant: 'PETILLANT', champagne: 'PETILLANT' };
 
@@ -11,17 +14,17 @@ export const rawExtractionSchema = z.object({
   producteur: field(z.string().min(1)),
   cuvee: field(z.string().min(1)),
   appellation: field(z.string().min(1)),
-  millesime: field(z.number().int().min(1900).max(new Date().getFullYear())),
+  millesime: field(z.coerce.number().int().min(1900).max(new Date().getFullYear())),
   couleur: field(z.string().transform((s, ctx) => {
     const c = COLORS[s.trim().toLowerCase()];
     if (!c) ctx.addIssue({ code: 'custom', message: `couleur inconnue: ${s}` });
     return c as WineColor;
   })),
-  format_cl: field(z.number().int().positive()),
-  degre: field(z.number().min(0).max(30)),
+  format_cl: field(z.coerce.number().int().positive()),
+  degre: field(z.coerce.number().min(0).max(30)),
   pays_region: field(z.string().min(1)),
-  nb_cols_carton: field(z.number().int().positive()),
-  confiance_globale: conf,
+  nb_cols_carton: field(z.coerce.number().int().positive()),
+  confiance_globale: conf.catch(0),
   // Facultatif : les lectures enregistrées avant ce champ restent valides. Un
   // cadre mal formé vaut null plutôt que de rendre toute la lecture illisible —
   // il ne sert qu'à recadrer la vignette, jamais à la fiche du vin.

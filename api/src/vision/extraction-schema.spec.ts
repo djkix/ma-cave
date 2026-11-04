@@ -22,13 +22,22 @@ describe('parseExtraction', () => {
     expect(e.globalConfidence).toBe(0.93);
   });
 
-  it('accepts nulls (a field the model could not read) but rejects invented enum values', () => {
+  it('accepts nulls (a field the model could not read); an invalid field counts as not read', () => {
     expect(parseExtraction({ ...valid, millesime: { value: null, confidence: 0 } }).vintage.value).toBeNull();
-    expect(() => parseExtraction({ ...valid, couleur: { value: 'orange', confidence: 0.9 } })).toThrow();
+    const e = parseExtraction({ ...valid, couleur: { value: 'orange', confidence: 0.9 } });
+    expect(e.color).toEqual({ value: null, confidence: 0 });
+    expect(e.producer.value).toBe(valid.producteur.value); // le reste de la lecture est gardé
   });
 
-  it('rejects an implausible vintage', () => {
-    expect(() => parseExtraction({ ...valid, millesime: { value: 1492, confidence: 0.9 } })).toThrow();
+  it('an implausible vintage, a missing confidence or a missing field count as not read', () => {
+    expect(parseExtraction({ ...valid, millesime: { value: 1492, confidence: 0.9 } }).vintage.value).toBeNull();
+    expect(parseExtraction({ ...valid, degre: { value: 13.5 } }).degree.value).toBeNull();
+    expect(parseExtraction({ ...valid, cuvee: undefined }).cuvee.value).toBeNull();
+  });
+
+  it('reads numbers written as text', () => {
+    expect(parseExtraction({ ...valid, millesime: { value: '2021', confidence: 0.9 } }).vintage.value).toBe(2021);
+    expect(parseExtraction({ ...valid, format_cl: { value: '75', confidence: 0.9 } }).formatCl.value).toBe(75);
   });
 });
 
