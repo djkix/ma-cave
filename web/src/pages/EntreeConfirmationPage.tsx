@@ -6,6 +6,7 @@ import { EditableField } from '../components/EditableField';
 import { EntryLocationBlock } from '../components/PlanCellPicker';
 import { Icon } from '../components/Icon';
 import { QuantityPicker } from '../components/QuantityPicker';
+import { BottomNav } from '../components/BottomNav';
 import { TopBar } from '../components/TopBar';
 import { createMovement, getPhoto, LocationInput, MovementResult, PhotoEvent, WineDraft, WineExtraction } from '../lib/api-client';
 import { extractionToDraft, initialQuantity } from '../lib/extraction-to-draft';
@@ -157,6 +158,7 @@ export function EntreeConfirmationPage() {
           <Button variant="dark" onClick={() => navigate('/entree')}>Rentrer un autre vin</Button>
           <Button variant="outline" onClick={() => navigate('/')}>Retour à l’accueil</Button>
         </main>
+        <BottomNav />
       </>
     );
   }
@@ -237,6 +239,7 @@ export function EntreeConfirmationPage() {
           </>
         )}
       </main>
+      <BottomNav />
     </>
   );
 }

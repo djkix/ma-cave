@@ -5,6 +5,7 @@ import { Button } from '../components/Button';
 import { QuantityPicker } from '../components/QuantityPicker';
 import { Icon } from '../components/Icon';
 import { OfflineQueueBanner } from '../components/OfflineQueueBanner';
+import { BottomNav } from '../components/BottomNav';
 import { TopBar } from '../components/TopBar';
 import { enqueuePhoto, notifyQueueChanged, QueueFullError } from '../lib/offline-queue';
 import { kickSender } from '../lib/photo-sender';
@@ -70,6 +71,7 @@ export function EntreeCapturePage() {
         {error && <p role="alert" className="text-error">{error}</p>}
         <Link to="/a-confirmer" className="btn btn--outline">Voir les vins à confirmer</Link>
       </main>
+      <BottomNav />
     </>
   );
 }

@@ -2,6 +2,7 @@ import { ChangeEvent, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
+import { BottomNav } from '../components/BottomNav';
 import { TopBar } from '../components/TopBar';
 import { uploadPhoto } from '../lib/api-client';
 
@@ -55,6 +56,7 @@ export function SortieCapturePage() {
           </>
         )}
       </main>
+      <BottomNav />
     </>
   );
 }

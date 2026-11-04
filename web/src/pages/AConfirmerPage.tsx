@@ -8,6 +8,7 @@ import { EditableField } from '../components/EditableField';
 import { EntryLocationBlock } from '../components/PlanCellPicker';
 import { OfflineQueueBanner } from '../components/OfflineQueueBanner';
 import { QuantityPicker } from '../components/QuantityPicker';
+import { BottomNav } from '../components/BottomNav';
 import { TopBar } from '../components/TopBar';
 import { Icon } from '../components/Icon';
 import { Apogee, ApiError, BulkResult, createMovementsBulk, dismissPhoto, getEntryInbox, getPhotoQueueStatus, LocationInput, PhotoDto, WineColor, WineDraft, WineExtraction } from '../lib/api-client';
@@ -327,6 +328,7 @@ export function AConfirmerPage() {
           </div>
         )}
       </main>
+      <BottomNav />
     </>
   );
 }

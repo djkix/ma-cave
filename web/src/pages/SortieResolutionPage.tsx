@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { SortieConfirmation } from '../components/SortieConfirmation';
+import { BottomNav } from '../components/BottomNav';
 import { TopBar } from '../components/TopBar';
 import { WineThumb } from '../components/WineThumb';
 import { CaveRow, ExitCandidate, ExitCandidatesResponse, ExitRead, getExitCandidates } from '../lib/api-client';
@@ -125,6 +126,7 @@ export function SortieResolutionPage() {
         <img className="preview" src={`/api/photos/${photoId}/image?variant=display`} alt="" onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')} />
         {body}
       </main>
+      <BottomNav />
     </>
   );
 }
