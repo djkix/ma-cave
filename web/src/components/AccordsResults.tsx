@@ -73,7 +73,7 @@ export function AccordsResults({ picks, year }: { picks: AccordPick[]; year: num
                         <span className="list__meta" style={{ display: 'block' }}>
                           {[p.appellation, COLOR_LABEL[p.color], `${p.quantity} btl`, p.place].filter(Boolean).join(' · ')}
                         </span>
-                        <span style={{ display: 'block', fontSize: 13, marginTop: 4 }}>
+                        <span className="accord-row__level">
                           <span className="accord-row__dots" aria-hidden="true">{DOTS[level]}</span> {LEVEL_LABEL[level]}
                           {p.reason && <span className="list__meta"> — {p.reason}</span>}
                         </span>

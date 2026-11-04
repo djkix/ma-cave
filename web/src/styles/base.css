@@ -461,13 +461,14 @@ select:focus-visible { outline: 3px solid var(--color-primary-container); outlin
 @keyframes mic-pulse { 50% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--color-primary-action) 20%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .mic--on { animation: none; } }
 .accords-form { display: flex; flex-direction: column; gap: var(--space-sm); width: 100%; }
-.accord-row { align-items: flex-start; gap: var(--space-sm); min-height: var(--size-touch-target); }
+.accord-row { align-items: flex-start; gap: var(--space-sm); min-height: var(--size-touch-target); padding-top: var(--space-md); padding-bottom: var(--space-md); }
 .accord-row__num { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font: 600 13px var(--font-sans); color: #fff; }
+.accord-row__level { display: block; margin-top: var(--space-sm); font-size: 13px; line-height: 1.5; }
 .accord-row__dots { letter-spacing: 2px; color: var(--color-primary); }
 .accord-row__moment { display: block; font-size: 13px; font-weight: 600; }
 .accord-group { display: flex; flex-direction: column; gap: var(--space-xs); }
 /* Frise d'apogée : la fenêtre en couleur sur une échelle commune à tous les vins, trait = aujourd'hui. */
-.accord-timeline { position: relative; display: block; height: 6px; margin: 8px 0 4px; border-radius: 999px; background: var(--color-surface-container-high); max-width: 260px; }
+.accord-timeline { position: relative; display: block; height: 6px; margin: var(--space-md) 0 6px; border-radius: 999px; background: var(--color-surface-container-high); max-width: 260px; }
 .accord-timeline > span { position: absolute; top: 0; height: 100%; border-radius: 999px; }
 .accord-timeline > i { position: absolute; top: -4px; width: 2px; height: 14px; background: var(--color-on-surface); }
 .moment--JEUNE { background: var(--color-outline-variant); fill: var(--color-outline-variant); }
