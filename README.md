@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.45.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.45.1-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -864,6 +864,15 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.45.1 — 4 novembre 2026
+
+Publiée ([v2.45.1](https://github.com/djkix/ma-cave/releases/tag/v2.45.1)),
+images `ghcr.io/djkix/ma-cave-api:2.45.1`, `-web:2.45.1` et
+`-sauvegarde:2.45.1`.
+
+**Micro autorisé** pour la dictée du plat (en-tête `Permissions-Policy`).
+Aucune migration.
+
 ### 2.45.0 — 4 novembre 2026
 
 Publiée ([v2.45.0](https://github.com/djkix/ma-cave/releases/tag/v2.45.0)),
@@ -955,6 +964,9 @@ images `ghcr.io/djkix/ma-cave-api:2.39.0`, `-web:2.39.0` et
 **Fiche vin allégée** (correction du stock par le crayon, plus de bloc de
 sortie) et **recherche d'accords visible** (barre, secondes). Aucune migration.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.38.0 → 1.0.0)</summary>
+
 ### 2.38.0 — 2 novembre 2026
 
 Publiée ([v2.38.0](https://github.com/djkix/ma-cave/releases/tag/v2.38.0)),
@@ -963,9 +975,6 @@ images `ghcr.io/djkix/ma-cave-api:2.38.0`, `-web:2.38.0` et
 
 **Accueil allégé** : plus de boutons Rentrer et Sortir (ils sont dans la barre
 du bas), la carte de France en tête. Aucune migration.
-
-<details>
-<summary><strong>Versions antérieures</strong> (2.37.1 → 1.0.0)</summary>
 
 ### 2.37.1 — 2 novembre 2026
 

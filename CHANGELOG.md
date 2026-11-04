@@ -11,6 +11,16 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.45.1](https://github.com/djkix/ma-cave/compare/v2.45.0...v2.45.1) (2026-11-04)
 
+### Résumé
+
+**Dictée du plat de nouveau possible.** L'en-tête `Permissions-Policy` du
+serveur web fermait le micro : la dictée de « Accords » était refusée d'office,
+sans demande du navigateur. Le micro est désormais autorisé pour le site
+lui-même. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Corrections
 
