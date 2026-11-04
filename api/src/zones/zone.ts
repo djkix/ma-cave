@@ -35,6 +35,9 @@ export const ZONE_NAME_MAX = 40;
 export const PLAN_NAME_MAX = 40;
 export const PLAN_MAX_COUNT = 20;
 export const INDICATION_MAX = 300;
+export const INVALID_TEMPERATURE = 'La température est un nombre entier de -5 à 30 °C';
+export const TEMPERATURE_MIN = -5;
+export const TEMPERATURE_MAX = 30;
 
 const name = z
   .string({ invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME })
@@ -49,6 +52,15 @@ const indication = z
   .max(INDICATION_MAX, INVALID_INDICATION)
   .nullish()
   .transform((v) => (v ? v : null));
+
+/** Température de la zone en °C : entier de -5 à 30 ; null l'efface. */
+const temperatureC = z
+  .number({ invalid_type_error: INVALID_TEMPERATURE })
+  .int(INVALID_TEMPERATURE)
+  .min(TEMPERATURE_MIN, INVALID_TEMPERATURE)
+  .max(TEMPERATURE_MAX, INVALID_TEMPERATURE)
+  .nullish()
+  .transform((v) => v ?? null);
 
 /** Grille de cases : 1 à 26 lignes, 1 à 30 colonnes, entiers. */
 const gridSide = (max: number) => z.number({ invalid_type_error: INVALID_GRID, required_error: INVALID_GRID }).int(INVALID_GRID).min(1, INVALID_GRID).max(max, INVALID_GRID);
@@ -173,23 +185,23 @@ export function keptCellNames(names: CellNames, grid: { rows: number; cols: numb
   }));
 }
 
-export const createZoneSchema = z.object({ name, indication }, { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME });
-export type CreateZoneInput = { name: string; indication?: string | null };
+export const createZoneSchema = z.object({ name, indication, temperatureC }, { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME });
+export type CreateZoneInput = { name: string; indication?: string | null; temperatureC?: number | null };
 
 /**
- * Champs absents : inchangés ; `indication: null` ou vide l'efface. L'ordre se change par POST …/zones/order.
+ * Champs absents : inchangés ; `indication: null` ou vide l'efface, `temperatureC: null` aussi. L'ordre se change par POST …/zones/order.
  * `cellBoxes` remplace les positions des cases ; avec une grille ou une lettre changée dans la même requête,
  * elles désignent les cases du résultat (comme `cellNames`).
  */
 export const updateZoneSchema = z.object(
   {
-    name: name.optional(), indication: indication.optional(), grid: grid.nullable().optional(), cellNames: cellNames.optional(), cellPrefix: cellPrefix.optional(),
+    name: name.optional(), indication: indication.optional(), temperatureC: temperatureC.optional(), grid: grid.nullable().optional(), cellNames: cellNames.optional(), cellPrefix: cellPrefix.optional(),
     cellBoxes: cellBoxes.optional(),
   },
   { invalid_type_error: INVALID_ZONE_NAME, required_error: INVALID_ZONE_NAME },
 );
 export type UpdateZoneInput = {
-  name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null; cellNames?: CellNames; cellPrefix?: string; cellBoxes?: CellBoxes;
+  name?: string; indication?: string | null; temperatureC?: number | null; grid?: { rows: number; cols: number } | null; cellNames?: CellNames; cellPrefix?: string; cellBoxes?: CellBoxes;
 };
 
 /** Accepter une proposition : nom de zone, grille, noms et lettre des cases (facultatifs), mêmes règles que pour une zone. */
@@ -219,16 +231,16 @@ export const zoneOrderSchema = z.object(
  * ({} sans nom) ; `cellBoxes` : positions des cases sur le plan du repère ({} sans position).
  */
 export interface ZoneView {
-  id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; marker: { planId: string; x: number; y: number } | null;
+  id: string; name: string; indication: string | null; temperatureC: number | null; hasPhoto: boolean; sortOrder: number; marker: { planId: string; x: number; y: number } | null;
   grid: { rows: number; cols: number } | null; cellPrefix: string | null; cellNames: CellNames; cellBoxes: CellBoxes;
 }
 
 export function zoneView(z: {
-  id: string; name: string; indication: string | null; photoPath: string | null; sortOrder: number; planId: string | null; planX: number | null; planY: number | null;
+  id: string; name: string; indication: string | null; temperatureC: number | null; photoPath: string | null; sortOrder: number; planId: string | null; planX: number | null; planY: number | null;
   gridRows: number | null; gridCols: number | null; cellPrefix: string | null; cellNames: unknown; cellBoxes: unknown;
 }): ZoneView {
   return {
-    id: z.id, name: z.name, indication: z.indication, hasPhoto: z.photoPath != null, sortOrder: z.sortOrder,
+    id: z.id, name: z.name, indication: z.indication, temperatureC: z.temperatureC, hasPhoto: z.photoPath != null, sortOrder: z.sortOrder,
     marker: z.planId != null && z.planX != null && z.planY != null ? { planId: z.planId, x: z.planX, y: z.planY } : null,
     grid: z.gridRows != null && z.gridCols != null ? { rows: z.gridRows, cols: z.gridCols } : null,
     cellPrefix: z.cellPrefix,

@@ -16,6 +16,7 @@ import { TraitsBlock, traitsPollInterval } from '../components/TraitsBlock';
 import { RatingBlock } from '../components/RatingBlock';
 import { TopBar } from '../components/TopBar';
 import { WineEditForm } from '../components/WineEditForm';
+import { WineExitBar } from '../components/WineExitBar';
 import { WineThumb } from '../components/WineThumb';
 import { ApiError, getWine, LocationInput, postInventory, WineColor } from '../lib/api-client';
 import { EMPTY_LOCATION, NO_LOCATION, toLocationInput, useLocations, useZones } from '../lib/locations';
@@ -139,7 +140,7 @@ export function WinePage() {
   return (
     <>
       <TopBar title="Fiche vin" back={back} />
-      <main className="page wine-page">
+      <main className={`page wine-page${isOwner ? ' wine-page--exit' : ''}`}>
         {/* En-tête (vignette + titre) sur une ligne ; la recherche d'image et sa
             fenêtre de choix dessous, sur toute la largeur de la carte : dans la
             colonne de la vignette, à 375 px, tout y serait écrasé. */}
@@ -209,7 +210,7 @@ export function WinePage() {
           domainGrapes={wine.producerProfile?.fields.cepages ?? null} />
 
         <ApogeeBlock key={`apogee-${wine.id}`} wine={wine} readOnly={readOnly} />
-        <RatingBlock key={`rating-${wine.id}`} wine={wine} readOnly={readOnly} />
+        <RatingBlock key={`rating-${wine.id}`} wine={wine} readOnly={readOnly} lastOpenedAt={detail.data.lastOpenedAt} />
         {/* Cote : un prix, propriétaire seulement ; un membre ne reçoit pas les clés et le bloc n'est pas monté. */}
         {isOwner && detail.data.searchLinks !== undefined && (
           <QuoteBlock key={`quote-${wine.id}`} wineId={wine.id} quote={detail.data.quote ?? null}
@@ -231,6 +232,8 @@ export function WinePage() {
           )}
         </section>
       </main>
+      {/* Sortie d'une bouteille de ce vin, collée au-dessus des onglets : propriétaire seulement. */}
+      {isOwner && <WineExitBar key={`exit-${wine.id}`} wineId={wine.id} quantity={wine.quantity} places={places} />}
       <BottomNav />
     </>
   );

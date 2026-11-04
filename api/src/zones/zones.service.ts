@@ -120,7 +120,7 @@ export class ZonesService {
     try {
       const zone = await this.prisma.$transaction(async (tx) => {
         const last = await tx.caveZone.aggregate({ where: { caveId, archivedAt: null }, _max: { sortOrder: true } });
-        return tx.caveZone.create({ data: { caveId, name: input.name, indication: input.indication ?? null, sortOrder: (last._max.sortOrder ?? -1) + 1 } });
+        return tx.caveZone.create({ data: { caveId, name: input.name, indication: input.indication ?? null, temperatureC: input.temperatureC ?? null, sortOrder: (last._max.sortOrder ?? -1) + 1 } });
       });
       return zoneView(zone);
     } catch (e) {
@@ -175,6 +175,7 @@ export class ZonesService {
         data: {
           ...(input.name !== undefined ? { name: input.name } : {}),
           ...(input.indication !== undefined ? { indication: input.indication } : {}),
+          ...(input.temperatureC !== undefined ? { temperatureC: input.temperatureC } : {}),
           ...(input.grid !== undefined ? { gridRows: input.grid?.rows ?? null, gridCols: input.grid?.cols ?? null } : {}),
           cellPrefix: prefix,
           ...(cellNames !== undefined ? { cellNames } : {}),

@@ -115,13 +115,23 @@ function GridFields({ idPrefix, prefix, rows, cols, setRows, setCols }: {
  * cases » (envoyés en entier, seulement ceux des cases de la grille). Changer la
  * lettre renomme les noms saisis (C5 → D5).
  */
+/** Température saisie : vide = aucune (null) ; un entier de -5 à 30 ; sinon undefined (on n'enregistre pas). */
+function parseTemperature(text: string): number | null | undefined {
+  const t = text.trim();
+  if (!t) return null;
+  const n = Number(t);
+  return /^-?\d+$/.test(t) && n >= -5 && n <= 30 ? n : undefined;
+}
+
 function ZoneForm({ label, initial, takenPrefixes = [], submitLabel, busy, onSubmit, onCancel, idPrefix }: {
-  label: string; initial: { name: string; indication: string; grid?: Zone['grid']; cellPrefix?: string | null; cellNames?: CellNameMap }; takenPrefixes?: string[];
+  label: string; initial: { name: string; indication: string; temperatureC?: number | null; grid?: Zone['grid']; cellPrefix?: string | null; cellNames?: CellNameMap }; takenPrefixes?: string[];
   submitLabel: string; busy: boolean;
-  onSubmit: (v: { name: string; indication: string | null; grid?: Zone['grid']; cellPrefix?: string; cellNames?: CellNameMap }) => void; onCancel?: () => void; idPrefix: string;
+  onSubmit: (v: { name: string; indication: string | null; temperatureC: number | null; grid?: Zone['grid']; cellPrefix?: string; cellNames?: CellNameMap }) => void; onCancel?: () => void; idPrefix: string;
 }) {
   const [name, setName] = useState(initial.name);
   const [indication, setIndication] = useState(initial.indication);
+  const [temperature, setTemperature] = useState(initial.temperatureC != null ? String(initial.temperatureC) : '');
+  const temperatureC = parseTemperature(temperature);
   const [rows, setRows] = useState(initial.grid ? String(initial.grid.rows) : '');
   const [cols, setCols] = useState(initial.grid ? String(initial.grid.cols) : '');
   const [letter, setLetter] = useState(() => initial.cellPrefix ?? suggestPrefix(initial.name, takenPrefixes) ?? '');
@@ -140,10 +150,10 @@ function ZoneForm({ label, initial, takenPrefixes = [], submitLabel, busy, onSub
   }
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim() || grid === undefined || (onCancel && grid && !validLetter)) return;
+    if (!name.trim() || grid === undefined || temperatureC === undefined || (onCancel && grid && !validLetter)) return;
     // Sans grille, ni lettre ni noms : l'api efface ceux de la grille retirée.
     const zoneGrid = onCancel && (grid ? { grid, cellPrefix: letter, cellNames: cleanCellNames(names, grid, letter) } : { grid });
-    onSubmit({ name: name.trim(), indication: indication.trim() || null, ...zoneGrid });
+    onSubmit({ name: name.trim(), indication: indication.trim() || null, temperatureC, ...zoneGrid });
   }
   return (
     <form aria-label={label} onSubmit={submit} className="zone-form">
@@ -152,6 +162,12 @@ function ZoneForm({ label, initial, takenPrefixes = [], submitLabel, busy, onSub
       <label className="field__label" htmlFor={`${idPrefix}-indication`}>{onCancel ? 'Indication' : 'Indication de la nouvelle zone'}</label>
       <textarea id={`${idPrefix}-indication`} value={indication} maxLength={INDICATION_MAX} rows={2}
         placeholder="à gauche en entrant, au fond derrière l’escalier" onChange={(e) => setIndication(e.target.value)} />
+      <label className="field__label" htmlFor={`${idPrefix}-temperature`}>{onCancel ? 'Température (°C)' : 'Température de la nouvelle zone (°C)'}</label>
+      {/* type="number" sans inputMode : le clavier numérique d'iOS n'aurait pas le signe moins. */}
+      <input id={`${idPrefix}-temperature`} type="number" min={-5} max={30} step={1} value={temperature} placeholder="12" autoComplete="off"
+        aria-invalid={temperatureC === undefined} aria-describedby={temperatureC === undefined ? `${idPrefix}-temperature-error` : undefined}
+        onChange={(e) => setTemperature(e.target.value)} />
+      {temperatureC === undefined && <p id={`${idPrefix}-temperature-error`} className="text-error" style={{ margin: 0 }}>La température est un nombre entier de -5 à 30 °C</p>}
       {onCancel && <GridFields idPrefix={idPrefix} prefix={prefix || 'A'} rows={rows} cols={cols} setRows={setRows} setCols={setCols} />}
       {onCancel && grid && (
         <>
@@ -163,7 +179,7 @@ function ZoneForm({ label, initial, takenPrefixes = [], submitLabel, busy, onSub
         </>
       )}
       <button type="submit" className={onCancel ? 'btn btn--dark' : 'btn btn--primary'}
-        disabled={!name.trim() || grid === undefined || (!!onCancel && !!grid && !validLetter) || busy}>{submitLabel}</button>
+        disabled={!name.trim() || grid === undefined || temperatureC === undefined || (!!onCancel && !!grid && !validLetter) || busy}>{submitLabel}</button>
       {onCancel && <Button variant="link" onClick={onCancel}>Annuler</Button>}
     </form>
   );
@@ -278,7 +294,7 @@ function ZoneRow({ zone, index, count, busy, error, photoVersion, takenPrefixes,
             onSave={(cellBoxes) => onAction(async () => { await updateZone(zone.id, { cellBoxes }); return 'Positions des cases enregistrées.'; }, () => setEditing(false))} />
         ) : (
           <>
-            <ZoneForm label={`Modifier ${zone.name}`} idPrefix={id} initial={{ name: zone.name, indication: zone.indication ?? '', grid: zone.grid, cellPrefix: zone.cellPrefix, cellNames: zone.cellNames }}
+            <ZoneForm label={`Modifier ${zone.name}`} idPrefix={id} initial={{ name: zone.name, indication: zone.indication ?? '', temperatureC: zone.temperatureC, grid: zone.grid, cellPrefix: zone.cellPrefix, cellNames: zone.cellNames }}
               takenPrefixes={takenPrefixes} submitLabel="Enregistrer" busy={busy}
               onSubmit={(v) => onAction(() => updateZone(zone.id, v), () => setEditing(false))} onCancel={() => setEditing(false)} />
             {adjustable && <Button variant="outline" disabled={busy} onClick={() => { unsaved.current = false; setAdjusting(true); }}>Ajuster les cases sur le plan</Button>}

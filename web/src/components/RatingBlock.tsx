@@ -6,9 +6,16 @@ import { Button } from './Button';
 import { Icon } from './Icon';
 
 const DATE = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+const MONTH = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' });
 
-/** `readOnly` : membre en lecture seule, qui voit la note sans pouvoir la changer. */
-export function RatingBlock({ wine, readOnly = false }: { wine: CaveRow; readOnly?: boolean }) {
+/** « Dernière bouteille ouverte en juillet 2024 » (mois de l'appareil). */
+export const lastOpenedLabel = (iso: string) => `Dernière bouteille ouverte en ${MONTH.format(new Date(iso))}`;
+
+/**
+ * `readOnly` : membre en lecture seule, qui voit la note sans pouvoir la changer.
+ * `lastOpenedAt` : date de la dernière sortie non annulée, rappelée sous la note.
+ */
+export function RatingBlock({ wine, readOnly = false, lastOpenedAt = null }: { wine: CaveRow; readOnly?: boolean; lastOpenedAt?: string | null }) {
   const qc = useQueryClient();
   const rating = wine.rating ?? null;
   const [editing, setEditing] = useState(false);
@@ -38,7 +45,7 @@ export function RatingBlock({ wine, readOnly = false }: { wine: CaveRow; readOnl
     }
   }
 
-  if (readOnly && !rating) return null;
+  if (readOnly && !rating && !lastOpenedAt) return null;
   return (
     <section className="card">
       <h3 className="wine-card__title"><Icon name="star" />Évaluation personnelle</h3>
@@ -50,6 +57,7 @@ export function RatingBlock({ wine, readOnly = false }: { wine: CaveRow; readOnl
           </p>
         </>
       )}
+      {lastOpenedAt && <p className="list__meta" style={{ margin: 0 }}>{lastOpenedLabel(lastOpenedAt)}</p>}
       {error && <p role="alert" className="text-error">{error}</p>}
       {readOnly ? null : editing ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)' }}>

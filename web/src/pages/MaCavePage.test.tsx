@@ -107,7 +107,7 @@ describe('zones', () => {
     await userEvent.type(zonesCard().getByLabelText('Nom de la nouvelle zone'), '  Placard ');
     await userEvent.type(zonesCard().getByLabelText('Indication de la nouvelle zone'), 'Dans l’entrée');
     await userEvent.click(zonesCard().getByRole('button', { name: 'Ajouter une zone' }));
-    await waitFor(() => expect(create).toHaveBeenCalledWith({ name: 'Placard', indication: 'Dans l’entrée' }));
+    await waitFor(() => expect(create).toHaveBeenCalledWith({ name: 'Placard', indication: 'Dans l’entrée', temperatureC: null }));
     await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
     expect(zonesCard().getByLabelText('Nom de la nouvelle zone')).toHaveValue('');
   });
@@ -149,8 +149,27 @@ describe('zones', () => {
     await userEvent.type(name, 'Cellier du bas');
     await userEvent.clear(sheet.getByLabelText('Indication'));
     await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { name: 'Cellier du bas', indication: null, grid: null }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { name: 'Cellier du bas', indication: null, temperatureC: null, grid: null }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Modifier Cellier' })).not.toBeInTheDocument());
+  });
+
+  it('« Modifier » : température préremplie, entier de -5 à 30 envoyé ; hors bornes, message et pas d’envoi', async () => {
+    vi.spyOn(api, 'getZones').mockResolvedValue(zones.map((z) => (z.id === 'z3' ? { ...z, temperatureC: 12 } : z)));
+    const update = vi.spyOn(api, 'updateZone').mockResolvedValue({ ...zones[2], temperatureC: -2 });
+    mount();
+    await zonesCard().findByText('Cellier');
+    await userEvent.click(zoneRow('Cellier').getByRole('button', { name: 'Modifier' }));
+    const sheet = within(screen.getByRole('dialog', { name: 'Modifier Cellier' }));
+    const temperature = sheet.getByLabelText('Température (°C)');
+    expect(temperature).toHaveValue(12);
+    await userEvent.clear(temperature);
+    await userEvent.type(temperature, '31');
+    expect(sheet.getByText('La température est un nombre entier de -5 à 30 °C')).toBeInTheDocument();
+    expect(sheet.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
+    await userEvent.clear(temperature);
+    await userEvent.type(temperature, '-2');
+    await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('z3', expect.objectContaining({ name: 'Cellier', temperatureC: -2 })));
   });
 
   it('« Modifier » : le refus de l’api s’affiche dans la feuille, et ne revient pas à la réouverture', async () => {
@@ -181,7 +200,7 @@ describe('zones', () => {
     await userEvent.type(sheet.getByLabelText('Colonnes'), '4');
     expect(sheet.getByText('Cases A1 à A24')).toBeInTheDocument();
     await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { name: 'Cellier', indication: 'Au fond, derrière l’escalier', grid: { rows: 6, cols: 4 }, cellPrefix: 'A', cellNames: {} }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('z3', { name: 'Cellier', indication: 'Au fond, derrière l’escalier', temperatureC: null, grid: { rows: 6, cols: 4 }, cellPrefix: 'A', cellNames: {} }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
     await userEvent.click(zoneRow('Garage').getByRole('button', { name: 'Modifier' }));
@@ -192,7 +211,7 @@ describe('zones', () => {
     await userEvent.clear(sheet.getByLabelText('Lignes'));
     await userEvent.clear(sheet.getByLabelText('Colonnes'));
     await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
-    await waitFor(() => expect(update).toHaveBeenLastCalledWith('z2', { name: 'Garage', indication: null, grid: null }));
+    await waitFor(() => expect(update).toHaveBeenLastCalledWith('z2', { name: 'Garage', indication: null, temperatureC: null, grid: null }));
   });
 
   it('« Modifier » une zone à grille : section « Noms des cases », un champ facultatif par case (placeholder = code), enregistrés avec le reste', async () => {
@@ -214,7 +233,7 @@ describe('zones', () => {
     expect(names.getByLabelText('Nom de la case A4')).toHaveValue('Loire');
     await userEvent.type(names.getByLabelText('Nom de la case A1'), ' Bordeaux ');
     await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith('z2', { name: 'Garage', indication: null, grid: { rows: 2, cols: 2 }, cellPrefix: 'A', cellNames: { A1: 'Bordeaux', A4: 'Loire' } }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('z2', { name: 'Garage', indication: null, temperatureC: null, grid: { rows: 2, cols: 2 }, cellPrefix: 'A', cellNames: { A1: 'Bordeaux', A4: 'Loire' } }));
   });
 
   it('« Modifier » : réduire la grille n’envoie que les noms des cases restantes ; le refus de l’api s’affiche tel quel', async () => {
@@ -229,7 +248,7 @@ describe('zones', () => {
     await userEvent.type(sheet.getByLabelText('Lignes'), '1');
     expect(within(sheet.getByRole('group', { name: 'Noms des cases' })).getAllByRole('textbox')).toHaveLength(2);
     await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith('z2', { name: 'Garage', indication: null, grid: { rows: 1, cols: 2 }, cellPrefix: 'A', cellNames: { A1: 'Bordeaux' } }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('z2', { name: 'Garage', indication: null, temperatureC: null, grid: { rows: 1, cols: 2 }, cellPrefix: 'A', cellNames: { A1: 'Bordeaux' } }));
     expect(await sheet.findByRole('alert')).toHaveTextContent('Ce nom est déjà pris dans cette zone');
   });
 
@@ -252,7 +271,7 @@ describe('zones', () => {
     expect(sheet.getByText('Cases D1 à D48')).toBeInTheDocument();
     expect(sheet.getByLabelText('Nom de la case D5')).toHaveValue('Loire');
     await userEvent.click(sheet.getByRole('button', { name: 'Enregistrer' }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith('z2', { name: 'Casier C', indication: null, grid: { rows: 4, cols: 12 }, cellPrefix: 'D', cellNames: { D5: 'Loire' } }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('z2', { name: 'Casier C', indication: null, temperatureC: null, grid: { rows: 4, cols: 12 }, cellPrefix: 'D', cellNames: { D5: 'Loire' } }));
   });
 
   it('« Modifier » une zone à grille sans lettre (« Casier F ») : lettre finale du nom si libre ; une lettre invalide ne s’enregistre pas', async () => {

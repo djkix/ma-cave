@@ -21,7 +21,7 @@ function service(photo: any, rows: any[] = [tempier19], rules = compileApogeeRul
     wineTraits: { findUnique: jest.fn(async () => null) },
     $queryRaw: jest.fn(async () => rows),
     photo: { findFirst: jest.fn(async () => photo) },
-    movement: { findMany: jest.fn(async () => []) },
+    movement: { findMany: jest.fn<Promise<any[]>, [any?]>(async () => []), findFirst: jest.fn(async (): Promise<any> => null) },
     priceQuote: { findMany: jest.fn(async () => quotes) },
     wine: { updateMany: jest.fn(async ({ where }: any) => ({ count: rows.some((r) => r.id === where.id && where.caveId === 'c1') ? 1 : 0 })) },
   };
@@ -69,6 +69,25 @@ describe('CaveService.exitCandidates', () => {
 });
 
 describe('CaveService.detail', () => {
+  describe('dernière bouteille ouverte', () => {
+    it('null sans sortie', async () => {
+      expect((await service(null).detail('c1', 'w19')).lastOpenedAt).toBeNull();
+    });
+
+    it('dernière sortie (OUT) qui n’est ni une annulation ni annulée', async () => {
+      const s = service(null);
+      const when = new Date('2024-07-14T20:00:00Z');
+      // Liste des annulations du vin : la sortie m-annulée a été annulée.
+      s.mockPrisma.movement.findMany.mockImplementation(async (args: any) => (args?.where?.reversesId ? [{ reversesId: 'm-annulee' }] : []));
+      s.mockPrisma.movement.findFirst.mockResolvedValue({ occurredAt: when });
+      expect((await s.detail('c1', 'w19')).lastOpenedAt).toEqual(when);
+      expect(s.mockPrisma.movement.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: { wineId: 'w19', type: 'OUT', reversesId: null, id: { notIn: ['m-annulee'] } },
+        orderBy: { occurredAt: 'desc' },
+      }));
+    });
+  });
+
   describe('cote', () => {
     const quote = (coteCents: number, quotedOn: string, createdAt: string, sourceUrl: string | null = null) => ({
       wineId: 'w19', coteCents, nTransactions: 12, quotedOn: new Date(`${quotedOn}T00:00:00Z`), sourceUrl, createdAt: new Date(createdAt),
@@ -206,7 +225,7 @@ describe('CaveService — apogée', () => {
       compileApogeeRules({ guardOverrides: [], vintageQualities: [{ region: 'Rhône', year: 2016, quality: 'GRAND' }] }),
     ];
     const prisma = {
-      $queryRaw: jest.fn(async () => [cdp]), movement: { findMany: jest.fn(async () => []) },
+      $queryRaw: jest.fn(async () => [cdp]), movement: { findMany: jest.fn(async () => []), findFirst: jest.fn(async () => null) },
       producerProfile: { findUnique: jest.fn(async () => null) },
       wineTraits: { findUnique: jest.fn(async () => null) },
     };

@@ -127,13 +127,13 @@ describeIfInfra('zones de la cave (HTTP)', () => {
     it('crée une zone en fin de liste, avec ou sans indication ; le membre lit la liste mais ne crée rien', async () => {
       const a = await newZone(`Liste ${run} 1`, '  à gauche en entrant  ');
       const b = await newZone(`Liste ${run} 2`);
-      expect(a).toEqual({ id: expect.any(String), name: `Liste ${run} 1`, indication: 'à gauche en entrant', hasPhoto: false, sortOrder: expect.any(Number), marker: null, grid: null, cellPrefix: null, cellNames: {}, cellBoxes: {} });
+      expect(a).toEqual({ id: expect.any(String), name: `Liste ${run} 1`, indication: 'à gauche en entrant', temperatureC: null, hasPhoto: false, sortOrder: expect.any(Number), marker: null, grid: null, cellPrefix: null, cellNames: {}, cellBoxes: {} });
       expect(b.indication).toBeNull();
       expect(b.sortOrder).toBe(a.sortOrder + 1);
       const listed = await zones(viewerA);
       expect(listed.map((z) => z.id)).toEqual(expect.arrayContaining([a.id, b.id]));
       expect(listed.findIndex((z) => z.id === a.id)).toBeLessThan(listed.findIndex((z) => z.id === b.id));
-      expect(Object.keys(listed[0]).sort()).toEqual(['cellBoxes', 'cellNames', 'cellPrefix', 'grid', 'hasPhoto', 'id', 'indication', 'marker', 'name', 'sortOrder']);
+      expect(Object.keys(listed[0]).sort()).toEqual(['cellBoxes', 'cellNames', 'cellPrefix', 'grid', 'hasPhoto', 'id', 'indication', 'marker', 'name', 'sortOrder', 'temperatureC']);
       expectStatus(await create('Interdite', undefined, viewerA), 403, 'Lecture seule');
       expect((await zones()).some((z) => z.name === 'Interdite')).toBe(false);
     });
@@ -162,6 +162,11 @@ describeIfInfra('zones de la cave (HTTP)', () => {
       expect(res.body).toMatchObject({ id: z.id, name: `Modifiée ${run}`, indication: null });
       const kept = await ownerA.patch(`/api/caves/current/zones/${z.id}`).send({ indication: 'Sous l’escalier' });
       expect(kept.body).toMatchObject({ name: `Modifiée ${run}`, indication: 'Sous l’escalier' });
+      // Température : entier de -5 à 30, null l'efface, absente : inchangée.
+      expect((await ownerA.patch(`/api/caves/current/zones/${z.id}`).send({ temperatureC: 12 })).body).toMatchObject({ indication: 'Sous l’escalier', temperatureC: 12 });
+      expect((await ownerA.patch(`/api/caves/current/zones/${z.id}`).send({ name: `Modifiée ${run}` })).body.temperatureC).toBe(12);
+      expectStatus(await ownerA.patch(`/api/caves/current/zones/${z.id}`).send({ temperatureC: 31 }), 400, 'La température est un nombre entier de -5 à 30 °C');
+      expect((await ownerA.patch(`/api/caves/current/zones/${z.id}`).send({ temperatureC: null })).body.temperatureC).toBeNull();
       expectStatus(await ownerA.patch(`/api/caves/current/zones/${z.id}`).send({ name: '' }), 400, 'Le nom de la zone doit faire de 1 à 40 caractères');
       expectStatus(await ownerB.patch(`/api/caves/current/zones/${z.id}`).send({ name: 'Volée' }), 404, 'Zone introuvable');
       expectStatus(await ownerB.delete(`/api/caves/current/zones/${z.id}`), 404, 'Zone introuvable');

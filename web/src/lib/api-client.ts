@@ -184,6 +184,8 @@ export const getLocations = () => apiFetch<Location[]>('/locations');
  */
 export interface Zone {
   id: string; name: string; indication: string | null; hasPhoto: boolean; sortOrder: number; marker: { planId: string; x: number; y: number } | null;
+  /** Température de la zone en °C (entier de -5 à 30), null sans température ; absente d'une api d'avant la 2.44. */
+  temperatureC?: number | null;
   /** Grille de cases (codes C1…C48 rangée par rangée), null sans grille. */
   grid: { rows: number; cols: number } | null;
   /** Lettre des codes des cases (« C »), null sans grille ou pour une zone à grille d'avant la 2.27 (codes lus avec « A ») ; absent d'une api d'avant la 2.27. */
@@ -194,11 +196,11 @@ export interface Zone {
   cellBoxes?: Record<string, [number, number, number, number]>;
 }
 export const getZones = () => apiFetch<Zone[]>('/caves/current/zones');
-export const createZone = (input: { name: string; indication?: string | null }) =>
+export const createZone = (input: { name: string; indication?: string | null; temperatureC?: number | null }) =>
   apiFetch<Zone>('/caves/current/zones', { method: 'POST', body: JSON.stringify(input) });
 /** `cellNames`, `cellBoxes` : remplacement complet des noms et des positions des cases (codes de la grille). */
 export const updateZone = (id: string, patch: {
-  name?: string; indication?: string | null; grid?: { rows: number; cols: number } | null; cellNames?: Record<string, string>; cellPrefix?: string;
+  name?: string; indication?: string | null; temperatureC?: number | null; grid?: { rows: number; cols: number } | null; cellNames?: Record<string, string>; cellPrefix?: string;
   cellBoxes?: Record<string, [number, number, number, number]>;
 }) =>
   apiFetch<Zone>(`/caves/current/zones/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
@@ -412,6 +414,8 @@ export interface WineDetail {
     referencePhotoSource: string | null; referencePhotoSourceUrl: string | null;
   };
   movements: Array<{ id: string; delta: number; type: MovementType; occurredAt: string; note: string | null; reversesId: string | null; locationId?: string | null; locationLabel?: string | null }>;
+  /** Date de la dernière sortie (consommation) non annulée, null sans sortie ; absente d'une api d'avant la 2.44. */
+  lastOpenedAt?: string | null;
   /** Endroits du vin (quantités > 0), « Sans emplacement » en dernier. */
   locations?: Place[];
   /** Pré-sélection de la sortie (null = « Sans emplacement ») ; clé absente quand il ne reste rien. */

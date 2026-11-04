@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import {
-  acceptSuggestionSchema, cellBoxesFor, cellNamesFor, CELL_NAME_TAKEN, gridCodes, INVALID_CELL_PREFIX, INVALID_CELL_BOXES, keptCellNames, renamePrefix, suggestPrefix, UNKNOWN_CELL, updateZoneSchema,
+  acceptSuggestionSchema, createZoneSchema, INVALID_TEMPERATURE, cellBoxesFor, cellNamesFor, CELL_NAME_TAKEN, gridCodes, INVALID_CELL_PREFIX, INVALID_CELL_BOXES, keptCellNames, renamePrefix, suggestPrefix, UNKNOWN_CELL, updateZoneSchema,
 } from './zone';
 
 const grid = { rows: 3, cols: 4 };
@@ -119,6 +119,25 @@ describe('cellBoxesFor et updateZoneSchema (cellBoxes)', () => {
     for (const cellBoxes of [['A1'], { A1: [0, 0, 1] }, { A1: [0, 0, 1, 1.2] }, { A1: [0.5, 0, 0.5, 1] }, { A1: [0, 0.6, 1, 0.4] }, { A1: ['0', 0, 1, 1] }]) {
       const r = updateZoneSchema.safeParse({ cellBoxes });
       expect(r.success || r.error.issues[0].message).toBe(INVALID_CELL_BOXES);
+    }
+  });
+});
+
+describe('temperatureC (createZoneSchema, updateZoneSchema)', () => {
+  it('entier de -5 à 30 ; null l’efface ; absent : inchangé (modification) ou aucune (création)', () => {
+    expect(createZoneSchema.parse({ name: 'Cave 1', temperatureC: 12 }).temperatureC).toBe(12);
+    expect(createZoneSchema.parse({ name: 'Cave 1' }).temperatureC).toBeNull();
+    expect(updateZoneSchema.parse({ temperatureC: -5 }).temperatureC).toBe(-5);
+    expect(updateZoneSchema.parse({ temperatureC: 30 }).temperatureC).toBe(30);
+    expect(updateZoneSchema.parse({ temperatureC: null }).temperatureC).toBeNull();
+    expect(updateZoneSchema.parse({}).temperatureC).toBeUndefined();
+  });
+
+  it('hors bornes, décimal ou texte : refusé avec le message', () => {
+    for (const temperatureC of [-6, 31, 12.5, '12']) {
+      const r = updateZoneSchema.safeParse({ temperatureC });
+      expect(r.success).toBe(false);
+      if (!r.success) expect(r.error.issues[0].message).toBe(INVALID_TEMPERATURE);
     }
   });
 });

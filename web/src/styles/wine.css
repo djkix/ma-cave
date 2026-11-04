@@ -80,3 +80,11 @@
 .wine-move__delta.list__delta--out { color: var(--color-error); }
 .wine-page .history-more .wine-moves { margin-top: var(--space-sm); }
 @media (prefers-reduced-motion: reduce) { .wine-page * { transition: none !important; animation: none !important; } }
+
+/* Sortie d'une bouteille depuis la fiche : barre collée au-dessus des onglets (propriétaire). */
+.wine-page--exit { padding-bottom: calc(var(--size-touch-target) * 2 + var(--space-xl)); }
+.wine-exit { display: flex; flex-direction: column; gap: var(--space-xs); }
+.wine-exit .wine-exit__button { width: 100%; max-width: 640px; margin-inline: auto; }
+.wine-exit__status { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); width: 100%; max-width: 640px; margin: 0 auto; font-weight: 600; }
+.wine-exit__places { display: flex; flex-direction: column; gap: var(--space-sm); }
+.wine-exit__places .btn { justify-content: space-between; text-align: left; }

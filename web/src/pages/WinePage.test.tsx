@@ -126,11 +126,27 @@ it('région de l’IA : signalée dans les caractéristiques', async () => {
   expect(await screen.findByText('Région : Provence (estimée par l’IA)')).toBeInTheDocument();
 });
 
-it('n’a plus de bloc de sortie : la correction du stock s’ouvre depuis le crayon de l’en-tête', async () => {
+it('« Dernière bouteille ouverte en juillet 2024 » quand l’api donne la dernière sortie ; rien sans sortie', async () => {
+  vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, lastOpenedAt: '2024-07-14T18:00:00Z' });
+  const { unmount } = mount();
+  expect(await screen.findByText('Dernière bouteille ouverte en juillet 2024')).toBeInTheDocument();
+  unmount();
+  vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, lastOpenedAt: null });
+  mount();
+  await screen.findByRole('heading', { name: /Domaine Tempier/ });
+  expect(screen.queryByText(/Dernière bouteille ouverte/)).not.toBeInTheDocument();
+});
+
+it('propriétaire : « Sortir une bouteille » en bas de la fiche', async () => {
+  vi.spyOn(api, 'getWine').mockResolvedValue(detail);
+  mount();
+  expect(await screen.findByRole('button', { name: 'Sortir une bouteille' })).toBeEnabled();
+});
+
+it('la correction du stock s’ouvre depuis le crayon de l’en-tête', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue(detail);
   mount();
   await screen.findByRole('heading', { name: /Domaine Tempier/ });
-  expect(screen.queryByRole('button', { name: /Sortir/ })).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Bouteilles comptées')).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Corriger le stock' }));
   expect(screen.getByLabelText('Bouteilles comptées')).toHaveValue('6');

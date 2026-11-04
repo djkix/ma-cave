@@ -178,6 +178,21 @@ export class CaveService {
     return items;
   }
 
+  /**
+   * Dernière bouteille ouverte : la plus récente sortie (OUT, la consommation —
+   * ni correction d'inventaire ni déplacement) qui n'est pas une annulation et
+   * n'a pas été annulée. Null sans sortie.
+   */
+  private async lastOpenedAt(wineId: string): Promise<Date | null> {
+    const reversals = await this.prisma.movement.findMany({ where: { wineId, reversesId: { not: null } }, select: { reversesId: true } });
+    const last = await this.prisma.movement.findFirst({
+      where: { wineId, type: 'OUT', reversesId: null, id: { notIn: reversals.map((r) => r.reversesId!) } },
+      orderBy: { occurredAt: 'desc' },
+      select: { occurredAt: true },
+    });
+    return last?.occurredAt ?? null;
+  }
+
   /** Fiche d'un vin de la cave ; un vin d'une autre cave est « introuvable », comme un identifiant inconnu. */
   async detail(caveId: string, id: string, role: CaveRole = 'VIEWER', { withQuote = true }: { withQuote?: boolean } = {}) {
     const [rows, rules] = await Promise.all([this.allWithStock(caveId, role), this.rules.load()]);
@@ -185,7 +200,7 @@ export class CaveService {
     if (!row) throw new NotFoundException('Vin introuvable');
     const producerKey = producerKeyOf(row.producer);
     const locations = await this.locations.stockByLocation(caveId, id);
-    const [movements, profile, exitDefault, quotes, traits] = await Promise.all([
+    const [movements, profile, exitDefault, quotes, traits, lastOpenedAt] = await Promise.all([
       this.prisma.movement.findMany({
         where: { wineId: id },
         orderBy: { occurredAt: 'desc' },
@@ -202,6 +217,7 @@ export class CaveService {
       // Cote : un prix, jamais lue pour un membre.
       role === 'OWNER' && withQuote ? this.prisma.priceQuote.findMany({ where: { wineId: id }, select: QUOTE_SELECT }) : null,
       this.prisma.wineTraits.findUnique({ where: { wineId: id } }),
+      this.lastOpenedAt(id),
     ]);
     let cote: { quote: QuoteView | null; searchLinks: SearchLink[]; idealwineUrl: string; savedUrl: string | null } | undefined;
     if (quotes) {
@@ -228,6 +244,8 @@ export class CaveService {
         traits: traits && { status: traits.status, tannin: traits.tannin, aromas: traits.aromas, grapes: traits.grapes, country: traits.country, region: traits.region, manualFields: traits.manualFields },
       },
       movements: movements.map(({ location, ...m }) => ({ ...m, locationLabel: location ? labelOf(partsOf(location)) : null })),
+      /** Date de la dernière sortie (consommation) non annulée, null s'il n'y en a pas : « Dernière bouteille ouverte en … ». */
+      lastOpenedAt,
       /** Endroits du vin et leur quantité (> 0) ; « Sans emplacement » : id null, en dernier. */
       locations,
       /** Endroit pré-sélectionné à la sortie : id, null = « Sans emplacement », absent = plus de stock. */

@@ -65,6 +65,14 @@ it('liste chaque endroit et sa quantité, et les déplacements au journal du vin
   expect(screen.getByText(/^\d.+ · Sans emplacement/)).toBeInTheDocument();
 });
 
+it('température de la zone après le libellé de l’endroit (« · 12 °C ») ; zone sans température : rien', async () => {
+  vi.spyOn(api, 'getZones').mockResolvedValue(zones.map((z) => (z.id === 'z1' ? { ...z, temperatureC: 12 } : z)));
+  vi.spyOn(api, 'getWine').mockResolvedValue(detail);
+  mount();
+  await screen.findByRole('region', { name: 'Emplacement en cave' });
+  await waitFor(() => expect(section().getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Cave 2 / B / 3 × 2', 'Garage · 12\u00a0°C × 1', 'Sans emplacement × 3']));
+});
+
 it('toucher un emplacement montre ou cache l’indication et la photo de sa zone', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue(detail);
   mount();

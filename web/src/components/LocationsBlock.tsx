@@ -8,6 +8,9 @@ import { ZoneDetails } from './LocationFields';
 import { PlanCellPicker } from './PlanCellPicker';
 import { PlaceThumbnail, ZonePlan } from './PlanView';
 
+/** « · 12 °C » après le libellé d'un endroit dont la zone a une température ; rien sinon. */
+export const zoneTemperature = (zone: Zone | undefined) => (zone?.temperatureC != null ? ` · ${zone.temperatureC}\u00a0°C` : '');
+
 /**
  * Un endroit du vin ; touché, il montre ou cache l'indication et la photo de sa
  * zone, puis le plan de son repère (pour tous, membre compris). Zone sur un
@@ -22,7 +25,7 @@ function PlaceItem({ place, zone }: { place: Place; zone: Zone | undefined }) {
   const detailsId = useId();
   const text = (
     <>
-      <span className="locations-list__label">{place.label}</span>
+      <span className="locations-list__label">{place.label}{zoneTemperature(zone)}</span>
       <span className="num">{` × ${place.quantity}`}</span>
     </>
   );
@@ -47,7 +50,7 @@ function PlaceDetails({ place, zone }: { place: Place; zone: Zone | undefined })
   const onPlan = !!zone?.marker && !!plans.data?.markers.some((m) => m.zoneId === zone.id);
   return (
     <li>
-      <p className="locations-list__label" style={{ margin: 0 }}>{place.label}<span className="num">{` × ${place.quantity}`}</span></p>
+      <p className="locations-list__label" style={{ margin: 0 }}>{place.label}{zoneTemperature(zone)}<span className="num">{` × ${place.quantity}`}</span></p>
       <ZoneDetails zone={zone} />
       {onPlan && zone && (
         <>
