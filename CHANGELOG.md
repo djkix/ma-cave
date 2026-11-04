@@ -9,6 +9,15 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.44.0](https://github.com/djkix/ma-cave/compare/v2.43.0...v2.44.0) (2026-11-04)
+
+
+### Fonctionnalités
+
+* **cave:** panneau repliable « Filtres actifs » avec puces récapitulatives ([a59fed3](https://github.com/djkix/ma-cave/commit/a59fed342a7ef9b3cff0986ffce9e30649dedc48))
+* **fiche:** sortir une bouteille depuis la fiche, dernière bouteille ouverte, température des zones ([3db1d5e](https://github.com/djkix/ma-cave/commit/3db1d5ec9823bb58fa2a7c41e2eef399f81a9261))
+* **saisie:** couleur, format et apogée estimée sur « À confirmer », avancement des rafales ([d32963f](https://github.com/djkix/ma-cave/commit/d32963f7d012b9348ef2c0291adee608b3d42341))
+
 ## [2.43.0](https://github.com/djkix/ma-cave/compare/v2.42.1...v2.43.0) (2026-11-03)
 
 ### Résumé
