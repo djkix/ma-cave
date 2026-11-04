@@ -122,7 +122,8 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Recherche **sans accents ni casse**, filtres couleur, **arômes**, **millésime** (une année exacte), **région** (pastilles des régions présentes + « Hors de France », aussi posée depuis la carte), **tanin**, emplacement, vins épuisés
 - **Tri** de la liste : nom, apogée (fin de fenêtre la plus proche d'abord), millésime, quantité, note, ajouté récemment ; mémorisé sur l'appareil
 - Recherches et régions toujours visibles ; tri et autres filtres dans un panneau **Filtres actifs (N)** replié, filtres posés en **puces** à retirer une à une, **Tout effacer**
-- **Sortir une bouteille** depuis la fiche (propriétaire) : choix de l'emplacement si le vin est rangé à plusieurs endroits, **Annuler** juste après ; désactivé hors ligne
+- **Sortir une bouteille** depuis la fiche (propriétaire) : choix de l'emplacement si le vin est rangé à plusieurs endroits, **Annuler** juste après ; désactivé hors ligne ; ensuite, facultatif, **Avec quel plat ? Noter l'accord**
+- **Accords vécus** sur la fiche : les plats servis avec ce vin et l'avis (**Bon accord** / **Accord raté**), ajoutés après une sortie ou à tout moment, retirables ; chaque plat ouvre *Accords*
 - **Accords conseillés cliquables** sur la fiche : chaque plat ouvre *Accords* sur ce plat, avec les vins de la cave qui l'accompagnent
 - **Dernière bouteille ouverte** sur la fiche (dernière sortie non annulée, hors corrections et déplacements)
 - **Modifier un vin** depuis sa fiche (propriétaire) : domaine, cuvée, appellation, millésime, couleur, format ; si le vin existe déjà, **Fusionner les deux** réunit bouteilles, mouvements, emplacements, cotes et note sur la fiche existante
@@ -140,9 +141,10 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Règles d'apogée réglables par l'administrateur
 
 ### 🍽️ Accords et descriptifs
-- **Accords immédiats, sans IA** : le plat tapé ou dicté est rapproché d'une **base locale de 243 entrées** (42 entrées, 120 plats, 45 fromages, 36 desserts, `web/src/lib/accords-base/data.ts`) ; l'accord se fait sur l'**ingrédient dominant** (« poulet aux morilles » → Poulet). Les vins en stock sont notés de 0 à 100 (couleur conseillée, tanin, arômes, accords classiques par appellation ou région, vins doux pour les desserts), à note égale l'apogée la plus urgente d'abord. Autres ingrédients reconnus en puces (« Plutôt : Cèpes, morilles »), **suggestions** pendant la frappe, onglets **Entrées / Plats / Fromages / Desserts** pour parcourir la base ; **Demander à l'IA** en complément ou pour un plat non reconnu
+- **Accords immédiats, sans IA** : le plat tapé ou dicté est rapproché d'une **base locale de 248 entrées** (42 entrées, 120 plats, 45 fromages, 41 desserts, `web/src/lib/accords-base/data.ts`) ; l'accord se fait sur l'**ingrédient dominant** (« poulet aux morilles » → Poulet). Les vins en stock sont notés de 0 à 100 (couleur conseillée, tanin, arômes, accords classiques par appellation ou région, vins doux pour les desserts), à note égale l'apogée la plus urgente d'abord. Autres ingrédients reconnus en puces (« Plutôt : Cèpes, morilles »), **suggestions** pendant la frappe, onglets **Entrées / Plats / Fromages / Desserts** pour parcourir la base ; **Demander à l'IA** en complément ou pour un plat non reconnu
 - **Accords par l'IA** : dites (ou écrivez) le plat que vous préparez, l'onglet *Accords* propose jusqu'à 5 vins de votre cave, rangés en groupes (*À ouvrir ce soir*, *À surveiller*, *À garder*), chacun avec l'accord en trois niveaux, sa raison et une frise d'apogée, plus une vue d'ensemble accord × moment repliable ; toucher un vin ouvre sa fiche, le retour ramène à la même liste
-- **J'ai un vin** : choisissez un vin en stock (recherche et filtres couleur, région, millésime), l'onglet *Accords* montre ses plats déjà générés, en cartes (aucun nouvel appel à l'IA)
+- **Vos accords comptent** : un bon accord vécu fait remonter ce vin pour ce plat (+25) et un peu les vins de même appellation et couleur (+8) ; un accord raté le fait descendre (−25). La raison l'indique (« Déjà apprécié avec ce plat »)
+- **J'ai un vin** : choisissez un vin en stock (recherche et filtres couleur, région, millésime) ; comme pour un plat, la base d'accords propose tout de suite les plats qui lui vont, par rubrique, puis ceux déjà conseillés par l'IA (aucun nouvel appel) ; chaque plat ouvre *J'ai un plat* sur ce plat
 - **Jusqu'à 8 plats** suggérés par Gemini pour chaque vin
 - Générés **par lots de 10** en arrière-plan, **Régénérer** à la demande
 - Recherche **Accompagner un plat** dans l'onglet Cave : un plat de la base classe les vins de bon accord (70 et plus), sinon recherche dans les plats suggérés par vin
@@ -801,6 +803,8 @@ celles de `/api/admin` aux administrateurs.
 | `GET` | `/api/appellations?q=` | Suggestions d'appellations |
 | `POST` | `/api/wines/:id/quotes` | Saisie de la cote |
 | `POST` | `/api/wines/:id/pairing/regenerate` | Régénère les accords |
+| `POST` | `/api/wines/:id/tasted-pairings` | Accord vécu (plat, entrée de la base, bon ou raté) |
+| `GET` · `DELETE` | `/api/tasted-pairings` · `/:id` | Accords vécus de la cave (classement local), retrait |
 | `POST` | `/api/wines/:id/image-search` | Recherche d'image d'étiquette |
 | `POST/DELETE` | `/api/wines/:id/reference-image` | Choisir ou retirer l'image trouvée |
 | `PUT` | `/api/wines/:id/traits` | Corriger tanin, arômes, pays, région |
