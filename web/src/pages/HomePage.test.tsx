@@ -25,13 +25,13 @@ function mount() {
 
 const photo = (id: string, status: api.PhotoDto['status']): api.PhotoDto => ({ id, status, createdAt: '' });
 
-it('grandes cartes Rentrer et Sortir pour le propriétaire, ni mode campagne', async () => {
+it('ni cartes Rentrer et Sortir (la barre du bas les porte), ni mode campagne', async () => {
   vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
   const inbox = vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [], inProgress: [], failed: [] });
   mount();
   await waitFor(() => expect(inbox).toHaveBeenCalled());
-  expect(screen.getByRole('link', { name: /Rentrer du vin/ })).toHaveAttribute('href', '/entree');
-  expect(screen.getByRole('link', { name: /Sortir une bouteille/ })).toHaveAttribute('href', '/sortie');
+  expect(screen.queryByRole('link', { name: /Rentrer du vin/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: /Sortir une bouteille/ })).not.toBeInTheDocument();
   expect(screen.queryByText(/Bientôt/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Mode campagne/)).not.toBeInTheDocument();
 });
@@ -62,11 +62,14 @@ it('masque le badge quand rien n’est à confirmer', async () => {
   expect(screen.queryByText(/à confirmer/)).not.toBeInTheDocument();
 });
 
-it('mène le propriétaire à « Ma cave › Réglages »', async () => {
+it('ni « Ma cave › Réglages » ni « Administration » : ils sont dans l’onglet Réglages', async () => {
+  vi.spyOn(api, 'getMe').mockResolvedValue(meFixture({ isAdmin: true }));
   vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
-  vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [], inProgress: [], failed: [] });
+  const inbox = vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [], inProgress: [], failed: [] });
   mount();
-  expect(await screen.findByRole('link', { name: 'Ma cave › Réglages' })).toHaveAttribute('href', '/ma-cave');
+  await waitFor(() => expect(inbox).toHaveBeenCalled());
+  expect(screen.queryByRole('link', { name: 'Ma cave › Réglages' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Administration' })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: /Membres/ })).not.toBeInTheDocument();
 });
 
@@ -90,22 +93,6 @@ it('n’offre à un membre en lecture seule que la cave et les statistiques, san
   expect(screen.queryByRole('link', { name: 'Ma cave › Réglages' })).not.toBeInTheDocument();
   expect(screen.queryByText('Derniers mouvements')).not.toBeInTheDocument();
 });
-
-it('garde le lien d’administration pour un administrateur membre en lecture seule', async () => {
-  vi.spyOn(api, 'getMe').mockResolvedValue(viewerMe({ isAdmin: true }));
-  mount();
-  expect(await screen.findByRole('link', { name: 'Administration' })).toBeInTheDocument();
-});
-
-it('montre l’administration seulement à un administrateur', async () => {
-  vi.spyOn(api, 'getMe').mockResolvedValue(meFixture({ isAdmin: false }));
-  vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
-  vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [], inProgress: [], failed: [] });
-  mount();
-  await screen.findByRole('link', { name: 'Ma cave › Réglages' });
-  expect(screen.queryByRole('link', { name: 'Administration' })).not.toBeInTheDocument();
-});
-
 
 const pending = (id: string): api.Registration => ({ id, email: `${id}@example.com`, displayName: null, createdAt: '2026-11-01T10:00:00Z' });
 

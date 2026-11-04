@@ -17,7 +17,7 @@ import { MovementRow } from './JournalPage';
 export function HomePage() {
   // Journal, photos à confirmer : réservés au propriétaire (403 pour un membre),
   // donc ni requête ni sondage tant que le rôle courant n'est pas OWNER.
-  const { isOwner, isAdmin, role } = useCurrentCave();
+  const { isOwner, role } = useCurrentCave();
   const movements = useQuery({ queryKey: ['movements', 'recent'], queryFn: () => getRecentMovements(3), enabled: isOwner });
   // Fiches à valider et photos illisibles : tout ce qui attend une décision.
   const inbox = useQuery({ queryKey: ['entry-inbox'], queryFn: getEntryInbox, refetchInterval: 30_000, enabled: isOwner });
@@ -38,24 +38,6 @@ export function HomePage() {
         {isOwner && (
           <>
             <AnalysisQueueBanner />
-            <section className="home-actions">
-              <Link to="/entree" className="home-action">
-                <span className="home-action__icon"><Icon name="photo_camera" /></span>
-                <span className="home-action__text">
-                  <strong>+ Rentrer du vin <span className="home-chip">Rafale</span></strong>
-                  <small>Arrivage de cartons ou bouteilles</small>
-                </span>
-                <Icon name="chevron_right" />
-              </Link>
-              <Link to="/sortie" className="home-action">
-                <span className="home-action__icon home-action__icon--out"><Icon name="remove_circle_outline" /></span>
-                <span className="home-action__text">
-                  <strong>− Sortir une bouteille</strong>
-                  <small>Photo de l’étiquette, ou recherche</small>
-                </span>
-                <Icon name="chevron_right" />
-              </Link>
-            </section>
             {toConfirm > 0 && (
               <Link to="/a-confirmer" className="home-confirm">
                 <Icon name="fact_check" />
@@ -79,7 +61,6 @@ export function HomePage() {
               </div>
               <Link to="/journal" className="home-wide-btn">Voir le journal complet <Icon name="arrow_forward" /></Link>
             </section>
-            <Link to="/ma-cave" className="btn btn--link">Ma cave › Réglages</Link>
           </>
         )}
         {role === 'VIEWER' && (
@@ -104,7 +85,6 @@ export function HomePage() {
         )}
         {role === 'VIEWER' && <CaveMap />}
         {role === 'VIEWER' && <DrinkSoonCard />}
-        {isAdmin && <Link to="/admin" className="btn btn--link">Administration</Link>}
       </main>
       <BottomNav />
     </>
