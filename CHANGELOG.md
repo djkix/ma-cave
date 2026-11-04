@@ -11,6 +11,22 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.47.0](https://github.com/djkix/ma-cave/compare/v2.46.0...v2.47.0) (2026-11-04)
 
+### Résumé
+
+**Accords vécus.** Après la sortie d'une bouteille, ou depuis la fiche, on note
+le plat servi et l'avis : bon accord ou accord raté. Le classement des accords
+en tient compte (ce vin remonte ou descend pour ce plat, les vins de même
+appellation et couleur remontent un peu après un bon accord). **« J'ai un
+vin »** propose désormais tout de suite les plats de la base qui vont au vin,
+par rubrique, et chaque plat ouvre « J'ai un plat ». La base d'accords reconnaît
+rhubarbe, figues, prunes et une vingtaine d'autres desserts (248 entrées). Le
+bandeau de mise à jour passe sous l'en-tête et ne masque plus « Sortir une
+bouteille ». Migration additive : nouvelle table `accord_vecu`, aucune donnée
+existante modifiée.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
