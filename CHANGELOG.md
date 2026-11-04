@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.45.1](https://github.com/djkix/ma-cave/compare/v2.45.0...v2.45.1) (2026-11-04)
+
+
+### Corrections
+
+* **web:** micro autorisé pour la dictée du plat ([4fd65b3](https://github.com/djkix/ma-cave/commit/4fd65b3f0428c33ca425110bd3e2e3dc064442b1))
+
 ## [2.45.0](https://github.com/djkix/ma-cave/compare/v2.44.1...v2.45.0) (2026-11-04)
 
 ### Résumé
