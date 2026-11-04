@@ -16,14 +16,15 @@ interface UpdateBannerViewProps {
 }
 
 /**
- * Bandeau de mise à jour, au-dessus de la barre d'onglets (`dock`, comme les
- * autres barres flottantes). La vue est séparée du branchement sur les données :
+ * Bandeau de mise à jour, flottant sous l'en-tête : le bas de l'écran est pris
+ * par les barres d'action (`dock`, « Sortir une bouteille »), qu'il ne doit pas
+ * masquer. La vue est séparée du branchement sur les données :
  * elle se teste sans réseau ni service worker.
  */
 export function UpdateBannerView({ visible, version, onReload }: UpdateBannerViewProps) {
   if (!visible) return null;
   return (
-    <div className="dock">
+    <div className="update-banner">
       <aside className="banner" role="status">
         <Icon name="download" />
         <span>Nouvelle version disponible{version ? ` (${version})` : ''}.</span>

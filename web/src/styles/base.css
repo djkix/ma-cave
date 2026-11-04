@@ -100,6 +100,8 @@ input, select { min-height: var(--size-touch-target); padding: 0 var(--space-md)
 .dock { position: fixed; inset-inline: 0; bottom: calc(var(--size-bottomnav-height) + var(--safe-bottom)); z-index: 45; padding: var(--space-sm) var(--space-md); background: color-mix(in srgb, var(--color-surface) 92%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--color-outline-subtle); }
 .dock__hint { display: block; text-align: center; font-size: 11px; color: var(--color-secondary); margin-top: var(--space-xs); }
 
+.update-banner { position: fixed; inset-inline: var(--space-md); top: calc(var(--size-header-height) + var(--safe-top) + var(--space-xs)); z-index: 50; max-width: 640px; margin-inline: auto; }
+.update-banner .banner { background: var(--color-surface); box-shadow: 0 4px 16px color-mix(in srgb, var(--color-on-surface) 12%, transparent); }
 .banner { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-lg); border: 1px solid var(--color-outline-subtle); background: var(--color-surface-container-low); font-size: 13px; }
 .banner--warn { border-color: var(--color-warning); }
 .banner .btn { margin-left: auto; min-height: 36px; padding-inline: var(--space-md); font-size: 12px; }
