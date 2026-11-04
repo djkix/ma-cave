@@ -14,6 +14,7 @@ import { PairingBlock, pairingPollInterval } from '../components/PairingBlock';
 import { QuoteBlock } from '../components/QuoteBlock';
 import { TraitsBlock, traitsPollInterval } from '../components/TraitsBlock';
 import { RatingBlock } from '../components/RatingBlock';
+import { TastedPairingsBlock } from '../components/TastedPairings';
 import { TopBar } from '../components/TopBar';
 import { WineEditForm } from '../components/WineEditForm';
 import { WineExitBar } from '../components/WineExitBar';
@@ -211,6 +212,7 @@ export function WinePage() {
 
         <ApogeeBlock key={`apogee-${wine.id}`} wine={wine} readOnly={readOnly} />
         <RatingBlock key={`rating-${wine.id}`} wine={wine} readOnly={readOnly} lastOpenedAt={detail.data.lastOpenedAt} />
+        <TastedPairingsBlock key={`tasted-${wine.id}`} wineId={wine.id} items={detail.data.tastedPairings ?? []} readOnly={readOnly} />
         {/* Cote : un prix, propriétaire seulement ; un membre ne reçoit pas les clés et le bloc n'est pas monté. */}
         {isOwner && detail.data.searchLinks !== undefined && (
           <QuoteBlock key={`quote-${wine.id}`} wineId={wine.id} quote={detail.data.quote ?? null}

@@ -74,8 +74,8 @@ async function lockWine(tx: Prisma.TransactionClient, caveId: string, id: string
 
 /**
  * Fusion de `source` dans `target`, dans la transaction de l'appelant : rien ne
- * se perd. Mouvements (donc bouteilles, emplacements et photos), cotes et coûts
- * de recherche d'image passent à la cible ; la note la plus récente gagne ; les
+ * se perd. Mouvements (donc bouteilles, emplacements et photos), cotes, accords
+ * vécus et coûts de recherche d'image passent à la cible ; la note la plus récente gagne ; les
  * corrections manuelles de la cible priment ; la source est supprimée en
  * dernier (la clé étrangère des mouvements refuserait s'il en restait un).
  */
@@ -84,6 +84,7 @@ async function mergeInto(tx: Prisma.TransactionClient, source: Wine, target: Win
   await tx.movement.updateMany(moved);
   await tx.priceQuote.updateMany(moved);
   await tx.imageSearchCost.updateMany(moved);
+  await tx.tastedPairing.updateMany(moved);
 
   const data: Prisma.WineUncheckedUpdateInput = {};
   if (source.ratedAt && (!target.ratedAt || source.ratedAt > target.ratedAt)) {

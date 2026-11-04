@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CaveFilter, getCave, getWine, WineColor } from '../lib/api-client';
+import { CaveFilter, getCave, getWine, Tasted, WineColor } from '../lib/api-client';
+import { DISHES } from '../lib/accords-base/data';
+import { dishesFor, findDishes } from '../lib/accords-base/match';
+import { DishEntry } from '../lib/accords-base/types';
 import { regionCounts } from '../lib/region-counts';
 import { HORS_FRANCE } from './FranceMap';
 import { Button } from './Button';
@@ -14,8 +17,15 @@ const COLORS: Array<{ value: WineColor | ''; label: string }> = [
   { value: 'ROSE', label: 'Rosé' }, { value: 'PETILLANT', label: 'Pétillant' },
 ];
 
-/** « J'ai un vin » : on choisit une bouteille de la cave, on lit ses plats déjà enregistrés (aucune génération ici). */
-export function AccordsParVin({ wineId, onPick }: { wineId: string | null; onPick: (id: string | null) => void }) {
+/**
+ * « J'ai un vin » : on choisit une bouteille de la cave. Comme pour « J'ai un
+ * plat », la base d'accords répond tout de suite (plats qui vont au vin, par
+ * rubrique) ; les plats déjà conseillés par l'IA suivent. Chaque plat ouvre
+ * « J'ai un plat » sur ce plat (aucune génération ici).
+ */
+export function AccordsParVin({ wineId, onPick, onDish, tasted = [] }: {
+  wineId: string | null; onPick: (id: string | null) => void; onDish: (entry: { name: string; id: string | null }) => void; tasted?: Tasted[];
+}) {
   const [q, setQ] = useState('');
   const [color, setColor] = useState<WineColor | ''>('');
   const [region, setRegion] = useState('');
@@ -39,6 +49,12 @@ export function AccordsParVin({ wineId, onPick }: { wineId: string | null; onPic
   });
   const w = wine.data?.wine;
   const pairing = w?.pairing;
+  const fromBase = w ? dishesFor(w, DISHES, tasted) : [];
+  // Plat de l'IA : l'accord se fait sur son ingrédient dominant s'il est reconnu, comme un plat saisi.
+  const openDish = (name: string) => onDish({ name, id: findDishes(name, DISHES)[0]?.id ?? null });
+  const pill = (key: string, label: string, onClick: () => void) => (
+    <li key={key}><button type="button" className="dish-pill dish-pill--link" onClick={onClick}>{label}</button></li>
+  );
   const fiche = `/cave/${wineId}`;
   const ficheLink = <Link to={fiche} state={{ from: '/accords' }}>Voir la fiche</Link>;
 
@@ -56,10 +72,17 @@ export function AccordsParVin({ wineId, onPick }: { wineId: string | null; onPic
                 <span className="list__meta" style={{ display: 'block' }}>{w.vintage ?? 'NV'}</span>
               </span>
             </Link>
+            {fromBase.length > 0 ? fromBase.map((g) => (
+              <section key={g.category} aria-label={g.category}>
+                <h3 className="field__label" style={{ margin: 0 }}>{g.category}</h3>
+                <ul className="dish-pills">{g.dishes.map((d: DishEntry) => pill(d.id, d.name, () => onDish({ name: d.name, id: d.id })))}</ul>
+              </section>
+            )) : <p className="list__meta" style={{ margin: 0 }}>La base d’accords ne trouve pas de plat évident pour ce vin.</p>}
             {pairing?.status === 'DONE' && pairing.dishes.length > 0 ? (
-              <ul className="dish-cards" aria-label="Plats conseillés">
-                {pairing.dishes.map((d) => <li key={d} className="card">{d}</li>)}
-              </ul>
+              <section aria-label="Conseillés par l’IA">
+                <h3 className="field__label" style={{ margin: 0 }}>Conseillés par l’IA</h3>
+                <ul className="dish-pills">{pairing.dishes.map((d) => pill(`ia-${d}`, d, () => openDish(d)))}</ul>
+              </section>
             ) : pairing?.status === 'PENDING' ? (
               <p role="status">Accords en préparation…</p>
             ) : pairing?.status === 'FAILED' ? (

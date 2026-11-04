@@ -52,7 +52,7 @@ const caveRow = (over: Partial<api.CaveRow> = {}): api.CaveRow => ({
   referencePhotoId: null, quantity: 2, tannin: 'LEGER', aromas: ['fruits rouges'], ...over,
 });
 const CAVE = [caveRow(), caveRow({ id: 'b1', producer: 'Domaine Jaune', appellationRaw: 'Arbois', color: 'BLANC', tannin: null, aromas: [], region: 'Jura' })];
-beforeEach(() => { vi.spyOn(api, 'getCave').mockResolvedValue(CAVE); });
+beforeEach(() => { vi.spyOn(api, 'getCave').mockResolvedValue(CAVE); vi.spyOn(api, 'getTastedPairings').mockResolvedValue([]); });
 afterEach(() => {
   vi.restoreAllMocks();
   delete (window as unknown as Record<string, unknown>).SpeechRecognition;
@@ -282,15 +282,23 @@ describe('J’ai un vin', () => {
     expect(await screen.findByText('1 vin')).toBeInTheDocument();
   });
 
-  it('choisir un vin affiche ses plats en cartes', async () => {
+  it('choisir un vin : plats de la base par rubrique, puis ceux de l’IA, tous cliquables', async () => {
     vi.spyOn(api, 'getCave').mockResolvedValue([row()]);
     vi.spyOn(api, 'getWine').mockResolvedValue(detail({ status: 'DONE', dishes: ['Sole meunière', 'Volaille rôtie'], errorMessage: null, generatedAt: null }));
     mount();
     await userEvent.click(screen.getByRole('button', { name: 'J’ai un vin' }));
     await userEvent.click(await screen.findByRole('button', { name: /Raveneau/ }));
-    const plats = await screen.findByRole('list', { name: 'Plats conseillés' });
-    expect(within(plats).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Sole meunière', 'Volaille rôtie']);
+    const ia = await screen.findByRole('region', { name: 'Conseillés par l’IA' });
+    expect(within(ia).getAllByRole('button').map((b) => b.textContent)).toEqual(['Sole meunière', 'Volaille rôtie']);
+    // Chablis : les huîtres sont un accord classique de la base.
+    expect(within(screen.getByRole('region', { name: 'Entrées' })).getByRole('button', { name: 'Huîtres' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Raveneau/ })).toHaveAttribute('href', '/cave/v1');
+
+    // Un plat ouvre « J'ai un plat » sur ce plat, accord immédiat de la base.
+    await userEvent.click(within(ia).getByRole('button', { name: 'Volaille rôtie' }));
+    expect(screen.getByRole('button', { name: 'J’ai un plat' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByText((_, el) => el?.tagName === 'P' && el.textContent === 'Accord sur : Poulet')).toBeInTheDocument();
+    expect(screen.getByLabelText('Le plat')).toHaveValue('Volaille rôtie');
   });
 
   it('vin sans accords : message et lien, aucun POST', async () => {
@@ -313,7 +321,7 @@ describe('J’ai un vin', () => {
     vi.spyOn(api, 'getWine').mockResolvedValue(detail({ status: 'DONE', dishes: ['Sole meunière'], errorMessage: null, generatedAt: null }));
     mount();
     expect(screen.getByRole('button', { name: 'J’ai un vin' })).toHaveAttribute('aria-pressed', 'true');
-    expect(await screen.findByRole('list', { name: 'Plats conseillés' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'Conseillés par l’IA' })).toBeInTheDocument();
   });
 });
 

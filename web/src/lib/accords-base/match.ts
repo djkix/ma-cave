@@ -1,4 +1,4 @@
-import type { AccordPick, AccordsResult, Apogee, CaveRow, Tannin, WineColor } from '../api-client';
+import type { AccordPick, AccordsResult, Apogee, CaveRow, Tannin, Tasted, WineColor } from '../api-client';
 import { TANNIN_LABEL } from '../traits';
 import { DISH_CATEGORIES, DishEntry } from './types';
 
@@ -65,7 +65,22 @@ export function isSweetWine(appellation: string): boolean {
 const TANNINS: Tannin[] = ['LEGER', 'MOYEN', 'PUISSANT'];
 export const COLOR_LABEL: Record<WineColor, string> = { ROUGE: 'Rouge', BLANC: 'Blanc', ROSE: 'Rosé', PETILLANT: 'Pétillant' };
 
-type Wine = Pick<CaveRow, 'color' | 'appellationRaw'> & Partial<Pick<CaveRow, 'tannin' | 'aromas' | 'region'>>;
+type Wine = Pick<CaveRow, 'color' | 'appellationRaw'> & Partial<Pick<CaveRow, 'id' | 'tannin' | 'aromas' | 'region'>>;
+
+export type { Tasted };
+
+/**
+ * Ce que les accords vécus disent du vin pour l'entrée : son propre avis le plus
+ * récent (`own`), sinon un bon accord d'un vin de même appellation et couleur
+ * (`kin`), sinon rien.
+ */
+function tastedOf(entry: DishEntry, wine: Wine, tasted: Tasted[]): { own?: boolean; kin?: boolean } {
+  const onDish = tasted.filter((t) => t.dishId === entry.id);
+  const own = onDish.find((t) => t.wineId === wine.id);
+  if (own) return { own: own.good };
+  const app = normalizeDish(wine.appellationRaw);
+  return { kin: onDish.some((t) => t.good && t.color === wine.color && normalizeDish(t.appellation) === app) };
+}
 
 /** Accord classique de l'entrée trouvé dans le vin (fragment d'appellation ou région), tel qu'écrit dans l'entrée. */
 function classicOf(entry: DishEntry, wine: Wine): string | null {
@@ -83,13 +98,18 @@ const commonAromas = (entry: DishEntry, wine: Wine) => entry.aromas.filter((a) =
  * - tanin, si l'entrée en attend un et que le vin est rouge : identique +12, voisin +4, opposé −10, inconnu 0 ;
  * - arômes en commun : +6 chacun, +12 au plus ;
  * - accord classique (fragment d'appellation ou région de `classics`) : +15 ;
- * - entrée `sweet` : vin doux +20, sinon −15 ; entrée non `sweet` et vin doux : −25.
+ * - entrée `sweet` : vin doux +20, sinon −15 ; entrée non `sweet` et vin doux : −25 ;
+ * - accords vécus : ce vin bon +25 (même d'une couleur non listée, alors comptée 55),
+ *   raté −25 ; sinon un bon accord d'un vin de même appellation et couleur +8.
  * Bornée à 0–100, arrondie.
  */
-export function scoreWine(entry: DishEntry, wine: Wine): number | null {
+export function scoreWine(entry: DishEntry, wine: Wine, tasted: Tasted[] = []): number | null {
   const i = entry.colors.indexOf(wine.color);
-  if (i < 0) return null;
+  const lived = tastedOf(entry, wine, tasted);
+  if (i < 0 && lived.own !== true) return null;
   let score = i === 0 ? 70 : 55;
+  if (lived.own !== undefined) score += lived.own ? 25 : -25;
+  else if (lived.kin) score += 8;
   if (entry.tannin && wine.color === 'ROUGE' && wine.tannin) {
     const gap = Math.abs(TANNINS.indexOf(entry.tannin) - TANNINS.indexOf(wine.tannin));
     score += gap === 0 ? 12 : gap === 1 ? 4 : -10;
@@ -109,10 +129,10 @@ const byApogeePriority = (a: CaveRow, b: CaveRow) =>
   rankOf(a.apogee) - rankOf(b.apogee) || (a.apogee?.max ?? Infinity) - (b.apogee?.max ?? Infinity);
 
 /** Vins en stock qui conviennent, du meilleur accord au moins bon, l'apogée la plus urgente d'abord à score égal ; `max` au plus. */
-export function rankCave(entry: DishEntry, wines: CaveRow[], max = 5): Array<{ wine: CaveRow; score: number }> {
+export function rankCave(entry: DishEntry, wines: CaveRow[], max = 5, tasted: Tasted[] = []): Array<{ wine: CaveRow; score: number }> {
   return wines
     .filter((w) => w.quantity > 0)
-    .map((wine) => ({ wine, score: scoreWine(entry, wine) }))
+    .map((wine) => ({ wine, score: scoreWine(entry, wine, tasted) }))
     .filter((x): x is { wine: CaveRow; score: number } => x.score != null)
     .sort((a, b) => b.score - a.score || byApogeePriority(a.wine, b.wine))
     .slice(0, max);
@@ -131,9 +151,13 @@ export function idealOf(entry: DishEntry): string {
 }
 
 /** Raison courte et factuelle (« Accord classique : Chablis · Blanc comme conseillé · beurré »). */
-function reasonOf(entry: DishEntry, wine: CaveRow): string {
+function reasonOf(entry: DishEntry, wine: CaveRow, tasted: Tasted[]): string {
   const classic = classicOf(entry, wine);
+  const lived = tastedOf(entry, wine, tasted);
   const parts = [
+    lived.own === true && 'Déjà apprécié avec ce plat',
+    lived.own === false && 'Accord raté avec ce plat',
+    lived.kin && 'Même appellation qu’un accord réussi',
     classic && `Accord classique : ${capitalize(classic)}`,
     entry.colors[0] === wine.color ? `${COLOR_LABEL[wine.color]} comme conseillé` : `${COLOR_LABEL[wine.color]} possible`,
     entry.tannin && wine.color === 'ROUGE' && wine.tannin === entry.tannin && `tanin ${TANNIN_LABEL[entry.tannin].toLowerCase()}`,
@@ -146,10 +170,10 @@ function reasonOf(entry: DishEntry, wine: CaveRow): string {
 const NO_APOGEE: Apogee = { min: null, max: null, confidence: null, status: null, reason: null, source: null };
 
 /** Accords de l'entrée choisie, au format de la réponse de l'IA (`AccordsResults` les affiche tels quels). */
-export function accordsFor(entry: DishEntry, dish: string, wines: CaveRow[]): AccordsResult {
-  const picks: AccordPick[] = rankCave(entry, wines).map(({ wine, score }) => ({
+export function accordsFor(entry: DishEntry, dish: string, wines: CaveRow[], tasted: Tasted[] = []): AccordsResult {
+  const picks: AccordPick[] = rankCave(entry, wines, 5, tasted).map(({ wine, score }) => ({
     wineId: wine.id, producer: wine.producer, cuvee: wine.cuvee, appellation: wine.appellationRaw, vintage: wine.vintage, color: wine.color,
-    quantity: wine.quantity, place: null, apogee: wine.apogee ?? NO_APOGEE, score, reason: reasonOf(entry, wine),
+    quantity: wine.quantity, place: null, apogee: wine.apogee ?? NO_APOGEE, score, reason: reasonOf(entry, wine, tasted),
   }));
   const category = DISH_CATEGORIES.find((c) => c.value === entry.category)?.label ?? '';
   return {
@@ -159,7 +183,20 @@ export function accordsFor(entry: DishEntry, dish: string, wines: CaveRow[]): Ac
 }
 
 /** Accord immédiat, sans réseau : sur l'entrée dominante du plat ; `null` si le plat n'est pas reconnu. */
-export function localAccords(text: string, entries: DishEntry[], wines: CaveRow[]): AccordsResult | null {
+export function localAccords(text: string, entries: DishEntry[], wines: CaveRow[], tasted: Tasted[] = []): AccordsResult | null {
   const [first] = findDishes(text, entries);
-  return first ? accordsFor(first, text, wines) : null;
+  return first ? accordsFor(first, text, wines, tasted) : null;
+}
+
+/**
+ * Sens inverse, « J'ai un vin » : les entrées de la base qui vont au vin (bon
+ * accord au moins, ≥ 70), les meilleures d'abord, `perCategory` au plus par
+ * rubrique, dans l'ordre des rubriques.
+ */
+export function dishesFor(wine: Wine, entries: DishEntry[], tasted: Tasted[] = [], perCategory = 4): Array<{ category: string; dishes: DishEntry[] }> {
+  const scored = entries.map((e) => ({ e, score: scoreWine(e, wine, tasted) ?? 0 })).filter((x) => x.score >= 70);
+  return DISH_CATEGORIES.map((c) => ({
+    category: c.label,
+    dishes: scored.filter((x) => x.e.category === c.value).sort((a, b) => b.score - a.score).slice(0, perCategory).map((x) => x.e),
+  })).filter((g) => g.dishes.length > 0);
 }

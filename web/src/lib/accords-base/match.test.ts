@@ -1,5 +1,5 @@
 import type { CaveRow } from '../api-client';
-import { accordsFor, findDishes, isSweetWine, localAccords, normalizeDish, rankCave, scoreWine, suggestDishes } from './match';
+import { accordsFor, dishesFor, findDishes, isSweetWine, localAccords, normalizeDish, rankCave, scoreWine, suggestDishes, Tasted } from './match';
 import type { DishEntry } from './types';
 
 const entry = (over: Partial<DishEntry> & Pick<DishEntry, 'id'>): DishEntry => ({
@@ -127,5 +127,44 @@ describe('localAccords', () => {
   it('accordsFor : raison d’un classique d’appellation', () => {
     const r = accordsFor(huitres, 'Huîtres', [wine({ color: 'BLANC', appellationRaw: 'Chablis' })]);
     expect(r.picks[0].reason).toBe('Accord classique : Chablis · Blanc comme conseillé');
+  });
+});
+
+describe('accords vécus', () => {
+  const lived = (over: Partial<Tasted>): Tasted => ({ wineId: 'w', dishId: 'huitres', good: true, appellation: 'Chablis', color: 'BLANC', ...over });
+  const chablis = wine({ id: 'w', color: 'BLANC', appellationRaw: 'Chablis' });
+  it('ce vin : bon +25, raté −25, l’avis le plus récent compte', () => {
+    const base = scoreWine(huitres, { ...chablis, appellationRaw: 'Mâcon' })!;
+    const other = { ...chablis, appellationRaw: 'Mâcon' };
+    expect(scoreWine(huitres, other, [lived({})])).toBe(base + 25);
+    expect(scoreWine(huitres, other, [lived({ good: false }), lived({})])).toBe(base - 25);
+  });
+  it('autre vin de même appellation et couleur : +8 sur un bon accord seulement', () => {
+    const cousin = { ...chablis, id: 'cousin' };
+    const base = scoreWine(huitres, cousin)!;
+    expect(scoreWine(huitres, cousin, [lived({})])).toBe(Math.min(100, base + 8));
+    expect(scoreWine(huitres, cousin, [lived({ good: false })])).toBe(base);
+    expect(scoreWine(huitres, { ...cousin, color: 'PETILLANT' }, [lived({ color: 'BLANC' })])).toBeNull();
+  });
+  it('un bon accord rend possible une couleur non listée ; un autre plat ne compte pas', () => {
+    const rouge = wine({ id: 'r', appellationRaw: 'Sancerre' });
+    expect(scoreWine(huitres, rouge)).toBeNull();
+    expect(scoreWine(huitres, rouge, [lived({ wineId: 'r' })])).toBe(80);
+    expect(scoreWine(huitres, rouge, [lived({ wineId: 'r', dishId: 'poulet' })])).toBeNull();
+  });
+  it('la raison le dit', () => {
+    const r = accordsFor(huitres, 'Huîtres', [{ ...chablis, appellationRaw: 'Mâcon' }], [lived({})]);
+    expect(r.picks[0].reason.startsWith('Déjà apprécié avec ce plat · ')).toBe(true);
+  });
+});
+
+describe('dishesFor', () => {
+  it('par rubrique, les meilleurs d’abord, bon accord au moins', () => {
+    // Poulet : le blanc n'y est que deuxième couleur (55), sous le seuil.
+    expect(dishesFor(wine({ color: 'BLANC', appellationRaw: 'Chablis' }), ENTRIES)).toEqual([{ category: 'Entrées', dishes: [huitres] }]);
+    const rouge = wine({ appellationRaw: 'Bourgogne', tannin: 'LEGER' });
+    expect(dishesFor(rouge, ENTRIES).map((g) => g.category)).toEqual(['Plats']);
+    expect(dishesFor(rouge, ENTRIES)[0].dishes[0]).toBe(poulet);
+    expect(dishesFor(wine({ color: 'ROSE' }), ENTRIES)).toEqual([]);
   });
 });

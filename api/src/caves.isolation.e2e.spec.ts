@@ -49,7 +49,7 @@ type Expected = { status: number; message?: string };
 type Ids = {
   caveA: string; caveB: string; wineA: string; wineA2: string; movementA: string; movementCancelA: string;
   photoA: string; photoDismissA: string; memberA: string; candidateA: string; producerKeyA: string;
-  pendingUser: string; noCaveUser: string; locationA: string; wineB: string; zoneA: string; zoneDeleteA: string; planA: string;
+  pendingUser: string; noCaveUser: string; locationA: string; wineB: string; zoneA: string; zoneDeleteA: string; planA: string; tastedA: string; tastedDeleteA: string;
 };
 type Request = { url: string; body?: unknown; upload?: boolean; fields?: Record<string, string> };
 
@@ -133,6 +133,15 @@ const ROUTES: Route[] = [
   },
   { method: 'PUT', path: '/api/wines/:id/traits', kind: 'cave-owner', req: (i) => ({ url: `/api/wines/${i.wineA}/traits`, body: { tannin: 'MOYEN', aromas: ['boisé'] } }), foreign: NOT_FOUND_WINE, happy: { status: 200 } },
   { method: 'DELETE', path: '/api/wines/:id/rating', kind: 'cave-owner', req: (i) => ({ url: `/api/wines/${i.wineA}/rating` }), foreign: NOT_FOUND_WINE, happy: { status: 200 } },
+  { method: 'GET', path: '/api/tasted-pairings', kind: 'cave-viewer-read', req: () => ({ url: '/api/tasted-pairings' }), foreign: 'own', readable: contains('wineA') },
+  {
+    method: 'POST', path: '/api/wines/:id/tasted-pairings', kind: 'cave-owner', req: (i) => ({ url: `/api/wines/${i.wineA}/tasted-pairings`, body: { dish: 'Poulet rôti', dishId: 'poulet-roti', good: true } }),
+    foreign: NOT_FOUND_WINE, happy: { status: 201 },
+  },
+  {
+    method: 'DELETE', path: '/api/tasted-pairings/:id', kind: 'cave-owner', req: (i) => ({ url: `/api/tasted-pairings/${i.tastedDeleteA}` }),
+    foreign: { status: 404, message: 'Accord introuvable' }, happy: { status: 200 },
+  },
   { method: 'POST', path: '/api/wines/:id/pairing/regenerate', kind: 'cave-owner', req: (i) => ({ url: `/api/wines/${i.wineA}/pairing/regenerate` }), foreign: NOT_FOUND_WINE, happy: { status: 202 } },
 
   // ── Propriétaire : « Chercher une image » ───────────────────────────────────
@@ -446,6 +455,9 @@ describeIfInfra('étanchéité entre caves, route par route (HTTP)', () => {
     // Cote de A : la fiche du propriétaire en porte une, celle du membre aucune clé.
     await prisma.priceQuote.create({ data: { wineId: ids.wineA, coteCents: 5000, quotedOn: new Date('2026-02-01'), sourceUrl: 'https://www.idealwine.com/fr/iso.jsp' } });
     ids.zoneA = (await prisma.caveZone.create({ data: { caveId: ids.caveA, name: 'Cave A' } })).id;
+    const tasted = { wineId: ids.wineA, dish: 'Comté', dishId: 'comte', good: true };
+    ids.tastedA = (await prisma.tastedPairing.create({ data: tasted })).id;
+    ids.tastedDeleteA = (await prisma.tastedPairing.create({ data: tasted })).id;
     ids.zoneDeleteA = (await prisma.caveZone.create({ data: { caveId: ids.caveA, name: 'Iso à supprimer', sortOrder: 1 } })).id;
     ids.locationA = (await prisma.location.create({ data: { caveId: ids.caveA, zoneId: ids.zoneA, casier: 'Iso' } })).id;
     // Deux bouteilles rangées dans la zone de A, casier « Iso » : ses cases occupées.

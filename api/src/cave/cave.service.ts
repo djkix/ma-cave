@@ -14,6 +14,7 @@ import { ExitCandidate, ExitOutcome, ExitRead, rankExitCandidates } from '../win
 import { CaveFilter, CaveRow, countryOf, filterCave, publishedRegion, RegionInput } from './cave-filter';
 import { TraitsInput } from '../traits/traits.dto';
 import { matchDish } from './dish-filter';
+import { TastedPairingInput } from './tasted-pairing.dto';
 
 export type ExitCandidatesResponse =
   | { status: 'PENDING' | 'PROCESSING' }
@@ -97,6 +98,8 @@ function toItem(row: CaveDbRow, rules: CompiledApogeeRules, currentYear: number)
  * rôle reste OWNER, car l'auteur de la note est alors l'e-mail à défaut de nom.
  */
 const NO_QUOTE = { withQuote: false } as const;
+
+const TASTED_SELECT = { id: true, dish: true, dishId: true, good: true, createdAt: true } as const;
 
 @Injectable()
 export class CaveService {
@@ -200,7 +203,7 @@ export class CaveService {
     if (!row) throw new NotFoundException('Vin introuvable');
     const producerKey = producerKeyOf(row.producer);
     const locations = await this.locations.stockByLocation(caveId, id);
-    const [movements, profile, exitDefault, quotes, traits, lastOpenedAt] = await Promise.all([
+    const [movements, profile, exitDefault, quotes, traits, lastOpenedAt, tastedPairings] = await Promise.all([
       this.prisma.movement.findMany({
         where: { wineId: id },
         orderBy: { occurredAt: 'desc' },
@@ -218,6 +221,7 @@ export class CaveService {
       role === 'OWNER' && withQuote ? this.prisma.priceQuote.findMany({ where: { wineId: id }, select: QUOTE_SELECT }) : null,
       this.prisma.wineTraits.findUnique({ where: { wineId: id } }),
       this.lastOpenedAt(id),
+      this.prisma.tastedPairing.findMany({ where: { wineId: id }, orderBy: { createdAt: 'desc' }, select: TASTED_SELECT }),
     ]);
     let cote: { quote: QuoteView | null; searchLinks: SearchLink[]; idealwineUrl: string; savedUrl: string | null } | undefined;
     if (quotes) {
@@ -246,6 +250,8 @@ export class CaveService {
       movements: movements.map(({ location, ...m }) => ({ ...m, locationLabel: location ? labelOf(partsOf(location)) : null })),
       /** Date de la dernière sortie (consommation) non annulée, null s'il n'y en a pas : « Dernière bouteille ouverte en … ». */
       lastOpenedAt,
+      /** Accords vécus du vin, le plus récent d'abord. */
+      tastedPairings,
       /** Endroits du vin et leur quantité (> 0) ; « Sans emplacement » : id null, en dernier. */
       locations,
       /** Endroit pré-sélectionné à la sortie : id, null = « Sans emplacement », absent = plus de stock. */
@@ -323,6 +329,30 @@ export class CaveService {
       update: { ...fields, manualFields, reservedUntil: null },
     });
     return { status: t.status, tannin: t.tannin, aromas: t.aromas, grapes: t.grapes, country: t.country, region: t.region, manualFields: t.manualFields };
+  }
+
+  async addTastedPairing(caveId: string, wineId: string, input: TastedPairingInput) {
+    if (!(await this.prisma.wine.findFirst({ where: { id: wineId, caveId }, select: { id: true } }))) throw new NotFoundException('Vin introuvable');
+    return this.prisma.tastedPairing.create({ data: { wineId, ...input }, select: TASTED_SELECT });
+  }
+
+  async deleteTastedPairing(caveId: string, id: string): Promise<null> {
+    const { count } = await this.prisma.tastedPairing.deleteMany({ where: { id, wine: { caveId } } });
+    if (count === 0) throw new NotFoundException('Accord introuvable');
+    return null;
+  }
+
+  /**
+   * Accords vécus de la cave sur une entrée de la base, le plus récent d'abord,
+   * avec l'appellation et la couleur du vin : le client en tire bonus et malus.
+   */
+  async tastedPairings(caveId: string) {
+    const rows = await this.prisma.tastedPairing.findMany({
+      where: { wine: { caveId }, dishId: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      select: { wineId: true, dishId: true, good: true, wine: { select: { appellationRaw: true, color: true } } },
+    });
+    return rows.map(({ wine, ...t }) => ({ ...t, appellation: wine.appellationRaw, color: wine.color }));
   }
 
   async clearRating(caveId: string, id: string): Promise<null> {

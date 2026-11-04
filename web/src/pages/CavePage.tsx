@@ -7,7 +7,7 @@ import { HORS_FRANCE } from '../components/FranceMap';
 import { TopBar } from '../components/TopBar';
 import { Icon } from '../components/Icon';
 import { WineThumb } from '../components/WineThumb';
-import { CaveFilter, getCave, Tannin, WineColor } from '../lib/api-client';
+import { CaveFilter, getCave, getTastedPairings, Tannin, WineColor } from '../lib/api-client';
 import { apogeeShortLabel } from '../lib/apogee';
 import { activeFilters, ActiveFilterKey, apogeeTone, CAVE_SORTS, CaveSort, caveSummary, sortCave } from '../lib/cave-list';
 import { useCurrentCave } from '../lib/use-current-cave';
@@ -76,6 +76,7 @@ export function CavePage() {
   const aromasLabel = aromas.length ? `Arômes : ${aromas.join(', ')}` : 'Arômes : tous';
   const filter: CaveFilter = apogeeFilter ? { ...base, [apogeeFilter]: true } : base;
   const cave = useQuery({ queryKey: ['cave', filter], queryFn: () => getCave(filter) });
+  const tasted = useQuery({ queryKey: ['tasted'], queryFn: getTastedPairings, enabled: !!dishEntry });
   // Avec « à boire en priorité », les vins sans estimation ne sont pas oubliés : on les compte à part.
   const missingFilter: CaveFilter = { ...base, noApogee: true };
   const missing = useQuery({
@@ -86,7 +87,7 @@ export function CavePage() {
   const missingCount = apogeeFilter === 'drinkSoon' ? missing.data?.length ?? 0 : 0;
   // Bon accord au moins (≥ 70), du meilleur au moins bon : le tri choisi ne s'applique pas tant que ce filtre est posé.
   const listed = cave.data && dishEntry
-    ? cave.data.map((w) => ({ ...w, score: scoreWine(dishEntry, w) ?? 0, matchedDish: dishEntry.name })).filter((w) => w.score >= 70).sort((a, b) => b.score - a.score)
+    ? cave.data.map((w) => ({ ...w, score: scoreWine(dishEntry, w, tasted.data ?? []) ?? 0, matchedDish: dishEntry.name })).filter((w) => w.score >= 70).sort((a, b) => b.score - a.score)
     : cave.data;
   const summary = listed ? caveSummary(listed) : null;
   const rows = listed && !dishEntry ? sortCave(listed, sort) : listed;

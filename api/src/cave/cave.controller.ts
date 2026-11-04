@@ -13,6 +13,7 @@ import { CaveService } from './cave.service';
 import { traitsSchema } from '../traits/traits.dto';
 import { TANNINS } from '../traits/traits';
 import { ratingSchema } from './rating.dto';
+import { tastedPairingSchema } from './tasted-pairing.dto';
 import { WineEditService } from '../wines/wine-edit.service';
 
 const listQuerySchema = z.object({
@@ -132,5 +133,26 @@ export class CaveController {
   @CaveRole('OWNER')
   clearRating(@CurrentCave() cave: CaveAccess, @Param('id', ParseUUIDPipe) id: string) {
     return this.cave.clearRating(cave.caveId, id);
+  }
+
+  /** Accords vécus de la cave (entrées de la base reconnues seulement), pour classer les vins d'un plat. */
+  @Get('tasted-pairings')
+  @CaveRole('VIEWER')
+  tastedPairings(@CurrentCave() cave: CaveAccess) {
+    return this.cave.tastedPairings(cave.caveId);
+  }
+
+  @Post('wines/:id/tasted-pairings')
+  @CaveRole('OWNER')
+  addTastedPairing(@CurrentCave() cave: CaveAccess, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown) {
+    const parsed = tastedPairingSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues.map((i) => i.message).join(' ; '));
+    return this.cave.addTastedPairing(cave.caveId, id, parsed.data);
+  }
+
+  @Delete('tasted-pairings/:id')
+  @CaveRole('OWNER')
+  deleteTastedPairing(@CurrentCave() cave: CaveAccess, @Param('id', ParseUUIDPipe) id: string) {
+    return this.cave.deleteTastedPairing(cave.caveId, id);
   }
 }

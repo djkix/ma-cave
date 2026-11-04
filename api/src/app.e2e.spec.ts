@@ -357,6 +357,31 @@ describeIfInfra('api HTTP', () => {
     }
   });
 
+  it('records tasted pairings on a wine, lists them for the cave, deletes them', async () => {
+    const wine = await prisma.wine.create({
+      data: { caveId, matchKey: `e2e-tasted-${Date.now()}`, producer: 'Domaine e2e accord vécu', appellationRaw: 'Chablis', color: 'BLANC' },
+    });
+    try {
+      const ok = await agent.post(`/api/wines/${wine.id}/tasted-pairings`).send({ dish: 'Huîtres creuses', dishId: 'huitres', good: true });
+      expect(ok.status).toBe(201);
+      expect(ok.body).toMatchObject({ id: expect.any(String), dish: 'Huîtres creuses', dishId: 'huitres', good: true });
+      const free = await agent.post(`/api/wines/${wine.id}/tasted-pairings`).send({ dish: 'Soupe miso', good: false });
+      expect(free.body.dishId).toBeNull();
+      expect((await agent.post(`/api/wines/${wine.id}/tasted-pairings`).send({ dish: '' , good: true })).status).toBe(400);
+
+      const detail = await agent.get(`/api/wines/${wine.id}`);
+      expect(detail.body.tastedPairings.map((t: { dish: string }) => t.dish)).toEqual(['Soupe miso', 'Huîtres creuses']);
+      // La liste de la cave ne garde que les plats reconnus, avec appellation et couleur du vin.
+      const list = (await agent.get('/api/tasted-pairings')).body.filter((t: { wineId: string }) => t.wineId === wine.id);
+      expect(list).toEqual([{ wineId: wine.id, dishId: 'huitres', good: true, appellation: 'Chablis', color: 'BLANC' }]);
+
+      expect((await agent.delete(`/api/tasted-pairings/${ok.body.id}`)).status).toBe(200);
+      expect((await agent.delete(`/api/tasted-pairings/${ok.body.id}`)).status).toBe(404);
+    } finally {
+      await prisma.wine.delete({ where: { id: wine.id } });
+    }
+  });
+
   it('puts a pairing regeneration back to pending for the next batch, 404 otherwise', async () => {
     const wine = await prisma.wine.create({
       data: { caveId, matchKey: `e2e-pairing-${Date.now()}`, producer: 'Domaine e2e accords', appellationRaw: 'Bandol', color: 'ROUGE' },

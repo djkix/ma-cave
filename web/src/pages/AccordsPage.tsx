@@ -7,7 +7,7 @@ import { AccordsResults } from '../components/AccordsResults';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { TopBar } from '../components/TopBar';
-import { AccordsResult, ApiError, getCave, postAccords } from '../lib/api-client';
+import { AccordsResult, ApiError, getCave, getTastedPairings, postAccords } from '../lib/api-client';
 import { DISHES } from '../lib/accords-base/data';
 import { accordsFor, findDishes, normalizeDish, suggestDishes } from '../lib/accords-base/match';
 import { DISH_CATEGORIES, DishCategory, DishEntry } from '../lib/accords-base/types';
@@ -176,10 +176,12 @@ export function AccordsPage() {
 
   // Accord local, immédiat : sur l'entrée choisie (suggestion, pastille, « Plutôt »), sinon la dominante du plat.
   const cave = useQuery({ queryKey: ['cave', {}], queryFn: () => getCave({}) });
+  // Accords vécus : bonus et malus du classement local ; sans eux (erreur, api ancienne), le classement reste celui de la base.
+  const tasted = useQuery({ queryKey: ['tasted'], queryFn: getTastedPairings });
   const recognized = dish ? findDishes(dish, DISHES) : [];
   const chosen = DISHES.find((d) => d.id === plat?.entryId) ?? recognized[0];
   const others = recognized.filter((d) => d !== chosen);
-  const local = chosen && dish && cave.data ? accordsFor(chosen, dish, cave.data) : null;
+  const local = chosen && dish && cave.data ? accordsFor(chosen, dish, cave.data, tasted.data ?? []) : null;
   const suggestions = writing && normalizeDish(text) !== normalizeDish(dish ?? '') ? suggestDishes(text, DISHES) : [];
 
   function submit(value: string) {
@@ -285,7 +287,8 @@ export function AccordsPage() {
           ))}
         </div>
         {entree.mode === 'vin' ? (
-          <AccordsParVin wineId={entree.wineId ?? null} onPick={(id) => choose({ mode: 'vin', wineId: id ?? undefined })} />
+          <AccordsParVin wineId={entree.wineId ?? null} onPick={(id) => choose({ mode: 'vin', wineId: id ?? undefined })} tasted={tasted.data ?? []}
+            onDish={(d) => { choose({ mode: 'plat', wineId: entree.wineId }); setText(d.name); setPlat({ dish: d.name, entryId: d.id, ai: false }); }} />
         ) : (
         <>
         <section className="accords-head">

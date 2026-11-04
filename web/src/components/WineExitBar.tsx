@@ -4,6 +4,7 @@ import { ApiError, cancelMovement, createOut, MovementResult, Place } from '../l
 import { BottomSheet } from './BottomSheet';
 import { Button } from './Button';
 import { Icon } from './Icon';
+import { TastedPairingForm } from './TastedPairings';
 
 /** Lectures rafraîchies après une sortie ou son annulation : fiche, cave, accueil (mouvements), stats, emplacements. */
 const REFRESHED = ['cave', 'wine', 'movements', 'stats', 'locations', 'zone-cells'];
@@ -24,6 +25,8 @@ export function WineExitBar({ wineId, quantity, places }: { wineId: string; quan
   const [cancelled, setCancelled] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [tasting, setTasting] = useState(false);
+  const [tasted, setTasted] = useState(false);
   const sending = useRef(false);
   // Une clé par sortie voulue : gardée après un échec (le nouvel essai ne débite qu'une fois), neuve après un succès.
   const key = useRef<string | null>(null);
@@ -52,6 +55,7 @@ export function WineExitBar({ wineId, quantity, places }: { wineId: string; quan
       key.current = null;
       setResult(r);
       setCancelled(null);
+      setTasted(false);
       void refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sortie impossible');
@@ -95,6 +99,9 @@ export function WineExitBar({ wineId, quantity, places }: { wineId: string; quan
           <Button variant="link" onClick={annuler} disabled={busy} aria-label="Annuler la sortie">Annuler</Button>
         </p>
       )}
+      {/* Facultatif : le plat servi avec cette bouteille, pour les accords proposés ensuite. */}
+      {result?.created && !tasting && !tasted && <Button variant="link" onClick={() => setTasting(true)}>Avec quel plat ? Noter l’accord</Button>}
+      {result && tasted && <p role="status" className="wine-exit__status">Accord noté, merci</p>}
       {cancelled !== null && <p role="status" className="wine-exit__status">Sortie annulée — {cancelled} en stock</p>}
       {error && <p role="alert" className="text-error wine-exit__status">{error}</p>}
       {quantity > 0 && (
@@ -107,6 +114,9 @@ export function WineExitBar({ wineId, quantity, places }: { wineId: string; quan
         </>
       )}
       {/* Montée seulement ouverte : un <dialog> fermé resterait dans l'arbre d'accessibilité des tests. */}
+      {tasting && <BottomSheet open title="Noter l’accord" onClose={() => setTasting(false)}>
+        <TastedPairingForm wineId={wineId} onDone={() => { setTasting(false); setTasted(true); }} />
+      </BottomSheet>}
       {choosing && <BottomSheet open title="Sortir depuis quel endroit ?" onClose={() => setChoosing(false)}>
         <div className="wine-exit__places">
           {places?.map((p) => (

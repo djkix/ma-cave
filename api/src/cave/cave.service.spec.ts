@@ -19,6 +19,7 @@ function service(photo: any, rows: any[] = [tempier19], rules = compileApogeeRul
   const prisma = {
     producerProfile: { findUnique: jest.fn(async () => profile) },
     wineTraits: { findUnique: jest.fn(async () => null) },
+    tastedPairing: { findMany: jest.fn(async () => []) },
     $queryRaw: jest.fn(async () => rows),
     photo: { findFirst: jest.fn(async () => photo) },
     movement: { findMany: jest.fn<Promise<any[]>, [any?]>(async () => []), findFirst: jest.fn(async (): Promise<any> => null) },
@@ -228,6 +229,7 @@ describe('CaveService — apogée', () => {
       $queryRaw: jest.fn(async () => [cdp]), movement: { findMany: jest.fn(async () => []), findFirst: jest.fn(async () => null) },
       producerProfile: { findUnique: jest.fn(async () => null) },
       wineTraits: { findUnique: jest.fn(async () => null) },
+      tastedPairing: { findMany: jest.fn(async () => []) },
     };
     const s = new CaveService(prisma as any, { load: async () => loads.shift()! } as any, new LocationsService(prisma as any));
     expect((await s.detail('c1', 'w16')).wine.apogee).toMatchObject({ min: 2024, max: 2036 });

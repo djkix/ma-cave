@@ -99,3 +99,16 @@ it('hors ligne : bouton désactivé avec l’explication', () => {
   expect(screen.getByRole('button', { name: 'Sortir une bouteille' })).toBeDisabled();
   expect(screen.getByText('Hors ligne : la sortie sera possible au retour du réseau.')).toBeInTheDocument();
 });
+
+it('après la sortie : « Avec quel plat ? » note l’accord, facultatif', async () => {
+  vi.spyOn(api, 'createOut').mockResolvedValue(result(2));
+  const add = vi.spyOn(api, 'addTastedPairing').mockResolvedValue({ id: 't1', dish: 'Comté', dishId: 'comte', good: true, createdAt: '' });
+  mount({ places: [cave] });
+  await userEvent.click(screen.getByRole('button', { name: 'Sortir une bouteille' }));
+  await userEvent.click(await screen.findByRole('button', { name: /Avec quel plat/ }));
+  await userEvent.type(screen.getByLabelText('Avec quel plat ?'), 'Comté');
+  await userEvent.click(screen.getByRole('button', { name: /Bon accord/ }));
+  expect(add).toHaveBeenCalledWith('w1', { dish: 'Comté', dishId: 'comte', good: true });
+  expect(await screen.findByText('Accord noté, merci')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Avec quel plat/ })).not.toBeInTheDocument();
+});

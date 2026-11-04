@@ -416,6 +416,8 @@ export interface WineDetail {
   movements: Array<{ id: string; delta: number; type: MovementType; occurredAt: string; note: string | null; reversesId: string | null; locationId?: string | null; locationLabel?: string | null }>;
   /** Date de la dernière sortie (consommation) non annulée, null sans sortie ; absente d'une api d'avant la 2.44. */
   lastOpenedAt?: string | null;
+  /** Accords vécus du vin, le plus récent d'abord ; absents d'une api d'avant la 2.47. */
+  tastedPairings?: TastedPairing[];
   /** Endroits du vin (quantités > 0), « Sans emplacement » en dernier. */
   locations?: Place[];
   /** Pré-sélection de la sortie (null = « Sans emplacement ») ; clé absente quand il ne reste rien. */
@@ -465,6 +467,16 @@ export const revertReferenceImage = (wineId: string) =>
 export const setRating = (wineId: string, rating: number) =>
   apiFetch<Rating>(`/wines/${wineId}/rating`, { method: 'PUT', body: JSON.stringify({ rating }) });
 export const clearRating = (wineId: string) => apiFetch<null>(`/wines/${wineId}/rating`, { method: 'DELETE' });
+/** Accord vécu : plat servi avec une bouteille et l'avis ; `dishId` : entrée de la base d'accords reconnue, sinon null. */
+export interface TastedPairing { id: string; dish: string; dishId: string | null; good: boolean; createdAt: string }
+export const addTastedPairing = (wineId: string, body: { dish: string; dishId: string | null; good: boolean }) =>
+  apiFetch<TastedPairing>(`/wines/${wineId}/tasted-pairings`, { method: 'POST', body: JSON.stringify(body) });
+export const deleteTastedPairing = (id: string) => apiFetch<null>(`/tasted-pairings/${id}`, { method: 'DELETE' });
+/** Accord vécu sur une entrée de la base (le plus récent d'abord), avec l'appellation et la couleur du vin. */
+export interface Tasted { wineId: string; dishId: string; good: boolean; appellation: string; color: WineColor }
+/** Accords vécus de la cave sur des plats reconnus (bonus et malus du classement local). */
+export const getTastedPairings = () => apiFetch<Tasted[]>('/tasted-pairings');
+
 export const regeneratePairing = (wineId: string) => apiFetch<void>(`/wines/${wineId}/pairing/regenerate`, { method: 'POST' });
 
 export const setWineTraits = (id: string, body: { tannin?: Tannin | null; aromas?: string[]; grapes?: string[]; country?: Country | null; region?: string | null }) =>
