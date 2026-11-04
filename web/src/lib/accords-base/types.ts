@@ -19,7 +19,7 @@ export interface DishEntry {
   category: DishCategory;
   /**
    * Mots ou expressions qui désignent cette entrée dans un plat tapé ou dicté,
-   * en minuscules (accents permis : la comparaison les ignore). 3 à 6 en
+   * en minuscules (accents permis : la comparaison les ignore). 3 à 8 en
    * général, du plus précis au plus courant (« poulet rôti », « poulet », « volaille »).
    */
   keywords: string[];
