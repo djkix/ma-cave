@@ -9,6 +9,14 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.47.2](https://github.com/djkix/ma-cave/compare/v2.47.1...v2.47.2) (2026-11-04)
+
+
+### Corrections
+
+* **api:** une étiquette lisible n'est plus rejetée pour un champ mal formé ([2bd015c](https://github.com/djkix/ma-cave/commit/2bd015ca8139d92c334eee12f0e1dee07ced3f64))
+* **web:** « Corriger le stock » dans le bloc du stock ([7964611](https://github.com/djkix/ma-cave/commit/7964611c0914ec2c668fc8611f4d1eb6451cc995))
+
 ## [2.47.1](https://github.com/djkix/ma-cave/compare/v2.47.0...v2.47.1) (2026-11-04)
 
 ### Résumé
