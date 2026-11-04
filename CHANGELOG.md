@@ -9,6 +9,19 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.45.0](https://github.com/djkix/ma-cave/compare/v2.44.1...v2.45.0) (2026-11-04)
+
+
+### Fonctionnalités
+
+* statistiques tanin et arômes, accords de la fiche cliquables, millésime et tanin harmonisés dans les filtres ([e556f42](https://github.com/djkix/ma-cave/commit/e556f42065061f5c83276b710ca867a9f7ac5a7f))
+* **web:** filtres dans « J'ai un vin », apogée de la fiche allégée ([4137c8c](https://github.com/djkix/ma-cave/commit/4137c8cbe32c292246f28d2b15860782b4f863c4))
+
+
+### Corrections
+
+* **web:** accueil sans cartes Rentrer/Sortir ni liens Réglages et Administration, déjà dans la barre du bas ([30fe5fc](https://github.com/djkix/ma-cave/commit/30fe5fcbf6b244fb8bc5e9c86769b804c977b437))
+
 ## [2.44.1](https://github.com/djkix/ma-cave/compare/v2.44.0...v2.44.1) (2026-11-04)
 
 ### Résumé
