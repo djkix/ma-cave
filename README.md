@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.47.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.47.1-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -869,6 +869,15 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.47.1 — 4 novembre 2026
+
+Publiée ([v2.47.1](https://github.com/djkix/ma-cave/releases/tag/v2.47.1)),
+images `ghcr.io/djkix/ma-cave-api:2.47.1`, `-web:2.47.1` et
+`-sauvegarde:2.47.1`.
+
+**Menu du bas** sur les écrans d'entrée, de sortie et « À confirmer ». Aucune
+migration.
+
 ### 2.47.0 — 4 novembre 2026
 
 Publiée ([v2.47.0](https://github.com/djkix/ma-cave/releases/tag/v2.47.0)),
@@ -960,6 +969,9 @@ Publiée ([v2.42.0](https://github.com/djkix/ma-cave/releases/tag/v2.42.0)),
 Plus Jakarta Sans) et refonte de l'accueil, de la cave, de la fiche vin et de
 « À confirmer ». Aucune migration.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.41.0 → 1.0.0)</summary>
+
 ### 2.41.0 — 3 novembre 2026
 
 Publiée ([v2.41.0](https://github.com/djkix/ma-cave/releases/tag/v2.41.0)),
@@ -971,9 +983,6 @@ d'appellations, modification et fusion des vins, région et apogée estimées pa
 l'IA, filtres région et millésime, stats par année. Migration automatique
 (`20261103120000_region_garde_quantite`) : nouvelles colonnes et remise en
 file d'analyse des vins sans apogée ou sans région.
-
-<details>
-<summary><strong>Versions antérieures</strong> (2.40.0 → 1.0.0)</summary>
 
 ### 2.40.0 — 2 novembre 2026
 

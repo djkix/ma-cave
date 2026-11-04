@@ -11,6 +11,16 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.47.1](https://github.com/djkix/ma-cave/compare/v2.47.0...v2.47.1) (2026-11-04)
 
+### Résumé
+
+**Menu du bas sur les écrans d'entrée et de sortie.** « Rentrer du vin »,
+« Nouvelle entrée », « Sortir une bouteille » et « À confirmer » n'affichaient
+pas la barre de navigation : on peut désormais passer d'un onglet à l'autre
+depuis ces écrans. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Corrections
 
