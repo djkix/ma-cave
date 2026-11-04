@@ -11,6 +11,15 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.44.1](https://github.com/djkix/ma-cave/compare/v2.44.0...v2.44.1) (2026-11-04)
 
+### Résumé
+
+**Manifeste de la PWA servi avec son type MIME** (`application/manifest+json`
+au lieu de `application/octet-stream`), pour une installation et une ouverture
+en plein écran fiables, notamment sur iPhone. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Corrections
 
