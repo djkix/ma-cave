@@ -1,5 +1,5 @@
 import { Apogee, CaveRow } from './api-client';
-import { apogeeTone, caveSummary, sortCave } from './cave-list';
+import { ActiveFilterState, activeFilters, apogeeTone, caveSummary, sortCave } from './cave-list';
 
 const ap = (status: Apogee['status']): Apogee => ({ min: 2020, max: 2030, confidence: null, status, reason: null, source: null });
 
@@ -35,4 +35,14 @@ it('trie la cave ; valeur absente en dernier, égalités dans l’ordre de l’a
   expect(ids('note')).toEqual(['c', 'a', 'b']);
   expect(ids('recent')).toEqual(['b', 'a', 'c']);
   expect(wines.map((w) => w.id)).toEqual(['a', 'b', 'c']);
+});
+
+const none: ActiveFilterState = { color: '', colorLabel: '', aromas: [], vintage: '', tannin: '', locationLabel: '', regionLabel: '', apogeeFilter: '', includeEmpty: false };
+
+it('liste les filtres actifs dans l’ordre du panneau', () => {
+  expect(activeFilters({ ...none, aromas: [] })).toEqual([]);
+  expect(activeFilters({ ...none, vintage: 'abc' })).toEqual([]);
+  expect(activeFilters({ color: 'ROUGE', colorLabel: 'Rouge', aromas: ['boisé', 'noisette'], vintage: '2018', tannin: 'PUISSANT', locationLabel: 'Cave 1 / A',
+    regionLabel: 'Bourgogne', apogeeFilter: 'drinkSoon', includeEmpty: true }).map((f) => f.label)).toEqual([
+    'Rouge', 'Arômes : boisé, noisette', 'Millésime 2018', 'Tanin : puissant', 'Emplacement : Cave 1 / A', 'Bourgogne', 'À boire en priorité', 'Vins épuisés']);
 });

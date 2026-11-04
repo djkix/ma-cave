@@ -214,7 +214,7 @@ it('les filtres sont dans l’ordre demandé', async () => {
   await screen.findByText(/Domaine Leflaive/);
   const names = Array.from(container.querySelectorAll('.cave-filters input, .cave-filters select, .cave-filters button')).map((el) =>
     el.getAttribute('aria-label') ?? el.textContent ?? '');
-  const wanted = ['Rechercher', 'Accompagner un plat', 'Couleur', 'Arômes', 'Millésime', 'Tanin', 'Emplacement', 'Bourgogne', 'Hors de France', 'À boire en priorité', 'Afficher les vins épuisés', 'Sans apogée'];
+  const wanted = ['Rechercher', 'Accompagner un plat', 'Bourgogne', 'Hors de France', 'Couleur', 'Arômes', 'Millésime', 'Tanin', 'Emplacement', 'À boire en priorité', 'Afficher les vins épuisés', 'Sans apogée'];
   const pos = wanted.map((n) => names.findIndex((x) => x.startsWith(n)));
   expect(pos.every((p) => p >= 0)).toBe(true);
   expect(pos).toEqual([...pos].sort((a, b) => a - b));
@@ -246,6 +246,7 @@ it('cocher boisé et noisette envoie deux aromas', async () => {
   const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(rows);
   mount();
   await screen.findByText(/Domaine Tempier/);
+  await userEvent.click(screen.getByRole('button', { name: 'Filtres' }));
   await userEvent.click(screen.getByRole('button', { name: /Arômes : tous/ }));
   await userEvent.click(screen.getByLabelText('boisé'));
   await userEvent.click(screen.getByLabelText('noisette'));
@@ -282,4 +283,37 @@ it('propose photo et ajout au propriétaire', async () => {
   mount();
   expect(await screen.findByRole('link', { name: 'Ajouter un vin' })).toHaveAttribute('href', '/entree');
   expect(screen.getByRole('link', { name: 'Reconnaître une étiquette par photo' })).toHaveAttribute('href', '/sortie');
+});
+
+it('panneau Filtres : replié par défaut, s’ouvre et se ferme', async () => {
+  vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  mount();
+  const head = await screen.findByRole('button', { name: 'Filtres' });
+  expect(head).toHaveAttribute('aria-expanded', 'false');
+  expect(head).toHaveAttribute('aria-controls', 'cave-filters-panel');
+  expect(document.getElementById('cave-filters-panel')).not.toBeVisible();
+  await userEvent.click(head);
+  expect(head).toHaveAttribute('aria-expanded', 'true');
+  expect(document.getElementById('cave-filters-panel')).toBeVisible();
+  await userEvent.click(head);
+  expect(head).toHaveAttribute('aria-expanded', 'false');
+});
+
+it('récapitule les filtres posés, retire l’un d’eux, puis tout efface sans toucher à la recherche', async () => {
+  const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  mount('/cave?q=tempier&filtre=priorite&region=Bourgogne');
+  await userEvent.click(await screen.findByRole('button', { name: 'Filtres actifs (2)' }));
+  await userEvent.selectOptions(screen.getByLabelText('Couleur'), 'ROUGE');
+  await userEvent.type(screen.getByLabelText('Millésime'), '2018');
+  await userEvent.click(screen.getByRole('button', { name: 'Filtres actifs (4)' })); // replie
+  expect(screen.getByText('Millésime 2018')).toBeInTheDocument();
+  expect(within(screen.getByRole('list', { name: '' })).getByText('Rouge')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Retirer le filtre Rouge' }));
+  expect(screen.queryByRole('button', { name: 'Retirer le filtre Rouge' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Filtres actifs (3)' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Tout effacer' }));
+  expect(screen.getByRole('button', { name: 'Filtres' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Rechercher')).toHaveValue('tempier');
+  expect(screen.getByLabelText('À boire en priorité')).not.toBeChecked();
+  await waitFor(() => expect(getCave).toHaveBeenLastCalledWith({ q: 'tempier', color: undefined, includeEmpty: false }));
 });

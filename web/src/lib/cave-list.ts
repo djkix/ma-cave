@@ -1,4 +1,5 @@
-import { Apogee, CaveRow } from './api-client';
+import { Apogee, CaveRow, Tannin, WineColor } from './api-client';
+import { TANNIN_LABEL } from './traits';
 
 /** « 142 bouteilles · 38 références » : somme des quantités, nombre de lignes (singulier jusqu'à 1). */
 export function caveSummary(rows: Pick<CaveRow, 'quantity'>[]): { bottles: string; references: string } {
@@ -43,4 +44,27 @@ export function sortCave<T extends CaveRow>(rows: T[], sort: CaveSort): T[] {
     const [ka, kb] = [key(a), key(b)];
     return ka === kb ? 0 : ka < kb ? -1 : 1;
   });
+}
+
+export type ActiveFilterKey = 'color' | 'aromas' | 'vintage' | 'tannin' | 'location' | 'region' | 'drinkSoon' | 'noApogee' | 'includeEmpty';
+
+/** Filtres posés, hors recherche texte et hors tri. `locationLabel` et `regionLabel` : libellés déjà résolus (vides si le filtre est absent). */
+export interface ActiveFilterState {
+  color: WineColor | ''; colorLabel: string; aromas: string[]; vintage: string; tannin: Tannin | '';
+  locationLabel: string; regionLabel: string; apogeeFilter: '' | 'drinkSoon' | 'noApogee'; includeEmpty: boolean;
+}
+
+/** Puces récapitulatives des filtres posés, dans l'ordre d'affichage du panneau ; leur nombre est le N de « Filtres actifs (N) ». */
+export function activeFilters(f: ActiveFilterState): Array<{ key: ActiveFilterKey; label: string }> {
+  const out: Array<{ key: ActiveFilterKey; label: string }> = [];
+  if (f.color) out.push({ key: 'color', label: f.colorLabel });
+  if (f.aromas.length) out.push({ key: 'aromas', label: `Arômes : ${f.aromas.join(', ')}` });
+  if (f.vintage && Number.isFinite(Number(f.vintage))) out.push({ key: 'vintage', label: `Millésime ${Math.trunc(Number(f.vintage))}` });
+  if (f.tannin) out.push({ key: 'tannin', label: `Tanin : ${TANNIN_LABEL[f.tannin]}` });
+  if (f.locationLabel) out.push({ key: 'location', label: `Emplacement : ${f.locationLabel}` });
+  if (f.regionLabel) out.push({ key: 'region', label: f.regionLabel });
+  if (f.apogeeFilter === 'drinkSoon') out.push({ key: 'drinkSoon', label: 'À boire en priorité' });
+  if (f.apogeeFilter === 'noApogee') out.push({ key: 'noApogee', label: 'Sans apogée' });
+  if (f.includeEmpty) out.push({ key: 'includeEmpty', label: 'Vins épuisés' });
+  return out;
 }

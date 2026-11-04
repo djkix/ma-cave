@@ -23,6 +23,17 @@
 .cave-pills .filter-vintage input { min-height: 48px; }
 .cave-pills__count { margin-left: var(--space-sm); padding: 0 8px; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); font-size: 12px; }
 
+/* Panneau « Filtres » repliable : en-tête bouton, puces récapitulatives quand il est replié. */
+.cave-filters-head { display: flex; align-items: center; gap: var(--space-sm); min-height: 48px; padding: 0 var(--space-md); border-radius: var(--radius-xl); border: 1px solid var(--color-outline-variant); background: var(--color-surface-lowest); color: var(--color-primary); font: 600 14px var(--font-sans); cursor: pointer; }
+.cave-filters-head > .material-symbols-outlined:last-child { margin-left: auto; }
+.cave-filters-head:focus-visible, .cave-active button:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
+.cave-filters-panel { display: flex; flex-direction: column; gap: var(--space-sm); }
+.cave-filters-panel[hidden] { display: none; }
+.cave-active { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin: 0; padding: 0; list-style: none; }
+.cave-active__chip { padding-right: 0; font-size: 13px; }
+.cave-active__chip button { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 48px; margin: -12px 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
+.cave-active__clear { min-height: 48px; padding: 0 var(--space-sm); border: 0; background: transparent; color: var(--color-primary); font: 600 14px var(--font-sans); text-decoration: underline; cursor: pointer; }
+
 .cave-summary { display: flex; align-items: baseline; gap: var(--space-sm); margin: var(--space-sm) 0 0; }
 .cave-summary strong { font-size: 20px; color: var(--color-primary); }
 .cave-summary span { font-size: 14px; color: var(--color-secondary); }

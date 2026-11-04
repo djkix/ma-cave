@@ -9,7 +9,7 @@ import { Icon } from '../components/Icon';
 import { WineThumb } from '../components/WineThumb';
 import { CaveFilter, getCave, Tannin, WineColor } from '../lib/api-client';
 import { apogeeShortLabel } from '../lib/apogee';
-import { apogeeTone, CAVE_SORTS, CaveSort, caveSummary, sortCave } from '../lib/cave-list';
+import { activeFilters, ActiveFilterKey, apogeeTone, CAVE_SORTS, CaveSort, caveSummary, sortCave } from '../lib/cave-list';
 import { useCurrentCave } from '../lib/use-current-cave';
 import { regionCounts } from '../lib/region-counts';
 import { NO_LOCATION, useLocations } from '../lib/locations';
@@ -82,6 +82,22 @@ export function CavePage() {
   const missingCount = apogeeFilter === 'drinkSoon' ? missing.data?.length ?? 0 : 0;
   const summary = cave.data ? caveSummary(cave.data) : null;
   const rows = cave.data ? sortCave(cave.data, sort) : undefined;
+  const [panelOpen, setPanelOpen] = useState(false);
+  const locationLabel = location === 'none' ? NO_LOCATION : location ? locations.data?.find((l) => l.id === location)?.label ?? 'choisi' : '';
+  const active = activeFilters({
+    color, colorLabel: COLORS.find((c) => c.value === color)?.label ?? '', aromas, vintage, tannin, locationLabel,
+    regionLabel: region === HORS_FRANCE ? 'Hors de France' : region, apogeeFilter, includeEmpty,
+  });
+  const clearFilter = (key: ActiveFilterKey) => {
+    if (key === 'color') setColor('');
+    else if (key === 'aromas') setAromas([]);
+    else if (key === 'vintage') setVintage('');
+    else if (key === 'tannin') setTannin('');
+    else if (key === 'location') setLocation('');
+    else if (key === 'region') setParams((p) => { p.delete('region'); return p; }, { replace: true });
+    else if (key === 'includeEmpty') setIncludeEmpty(false);
+    else setApogeeFilter('');
+  };
   const toggle = (which: 'drinkSoon' | 'noApogee') => (checked: boolean) => setApogeeFilter(checked ? which : '');
 
   return (
@@ -98,6 +114,29 @@ export function CavePage() {
             <Icon name="restaurant" />
             <input type="search" value={dish} onChange={(e) => setDish(e.target.value)} placeholder="Accords : Agneau, comté, poisson…" aria-label="Accompagner un plat" maxLength={100} />
           </div>
+          {regionPills.length > 0 && (
+            <div className="cave-pills">
+              {regionPills.map((r) => (
+                <button key={r.value} type="button" aria-pressed={region === r.value} className={`filter-pill filter-pill--btn${region === r.value ? ' filter-pill--on' : ''}`} onClick={() => toggleRegion(r.value)}>
+                  {r.label}{regionCount(r.value) != null && <span className="cave-pills__count" aria-hidden="true">{regionCount(r.value)}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          <button type="button" className="cave-filters-head" aria-expanded={panelOpen} aria-controls="cave-filters-panel" onClick={() => setPanelOpen((o) => !o)}>
+            <Icon name="tune" />{active.length ? `Filtres actifs (${active.length})` : 'Filtres'}<Icon name={panelOpen ? 'expand_less' : 'expand_more'} />
+          </button>
+          {!panelOpen && active.length > 0 && (
+            <ul className="cave-active">
+              {active.map((f) => (
+                <li key={f.key} className="cave-chip cave-active__chip">{f.label}
+                  <button type="button" aria-label={`Retirer le filtre ${f.label}`} onClick={() => clearFilter(f.key)}><Icon name="close" /></button>
+                </li>
+              ))}
+              <li><button type="button" className="cave-active__clear" onClick={() => active.forEach((f) => clearFilter(f.key))}>Tout effacer</button></li>
+            </ul>
+          )}
+          <div id="cave-filters-panel" className="cave-filters-panel" hidden={!panelOpen}>
           <div className="cave-pills">
             <label htmlFor="cave-sort" className="visually-hidden">Tri</label>
             <select id="cave-sort" className={`filter-pill${sort !== 'nom' ? ' filter-pill--on' : ''}`} value={sort} onChange={(e) => chooseSort(e.target.value as CaveSort)}>
@@ -127,15 +166,6 @@ export function CavePage() {
               <option value="none">{NO_LOCATION}</option>
             </select>
           </div>
-          {regionPills.length > 0 && (
-            <div className="cave-pills">
-              {regionPills.map((r) => (
-                <button key={r.value} type="button" aria-pressed={region === r.value} className={`filter-pill filter-pill--btn${region === r.value ? ' filter-pill--on' : ''}`} onClick={() => toggleRegion(r.value)}>
-                  {r.label}{regionCount(r.value) != null && <span className="cave-pills__count" aria-hidden="true">{regionCount(r.value)}</span>}
-                </button>
-              ))}
-            </div>
-          )}
           <div className="cave-pills">
             <label className="filter-toggle">
               <input type="checkbox" className="visually-hidden" checked={apogeeFilter === 'drinkSoon'} onChange={(e) => toggle('drinkSoon')(e.target.checked)} aria-label="À boire en priorité" />
@@ -149,6 +179,7 @@ export function CavePage() {
               <input type="checkbox" className="visually-hidden" checked={apogeeFilter === 'noApogee'} onChange={(e) => toggle('noApogee')(e.target.checked)} aria-label="Sans apogée" />
               Sans apogée
             </label>
+          </div>
           </div>
         </section>
         <BottomSheet open={aromasOpen} title="Arômes" onClose={() => setAromasOpen(false)}>
