@@ -9,6 +9,19 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.46.0](https://github.com/djkix/ma-cave/compare/v2.45.1...v2.46.0) (2026-11-04)
+
+
+### Fonctionnalités
+
+* **web:** accords immédiats depuis la base locale ([70e0cd6](https://github.com/djkix/ma-cave/commit/70e0cd6b61ff0801028238e0b22ac8796ffa87ab))
+* **web:** base d'accords de 240 entrées (entrées, plats, fromages, desserts) ([db15787](https://github.com/djkix/ma-cave/commit/db15787629dc5aad15d82206af3caf7fd6537db6))
+
+
+### Corrections
+
+* **web:** propositions d'Accords plus aérées ([5046eb5](https://github.com/djkix/ma-cave/commit/5046eb50dcf5b17a8be9939b64e100cfa2f649a6))
+
 ## [2.45.1](https://github.com/djkix/ma-cave/compare/v2.45.0...v2.45.1) (2026-11-04)
 
 ### Résumé
