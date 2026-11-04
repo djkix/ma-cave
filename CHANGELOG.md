@@ -11,6 +11,19 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.46.0](https://github.com/djkix/ma-cave/compare/v2.45.1...v2.46.0) (2026-11-04)
 
+### Résumé
+
+**Accords immédiats depuis une base locale.** Une base de 243 entrées
+(42 entrées, 120 plats, 45 fromages, 36 desserts) décrit chaque ingrédient
+dominant : couleurs, tanin, arômes, appellations classiques, vin doux. Un plat
+tapé ou dicté est reconnu par son ingrédient principal (« poulet aux morilles »
+→ poulet) et les vins de la cave sont classés aussitôt, sans appel à l'IA ;
+« Demander à l'IA » reste disponible en complément. Les propositions d'accords
+sont plus aérées. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
