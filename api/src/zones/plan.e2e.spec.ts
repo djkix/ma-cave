@@ -511,7 +511,7 @@ describeIfInfra('plans de la cave (HTTP)', () => {
       accepted.push(res.body.id);
       expect(res.body).toEqual({
         id: expect.any(String), name: 'Casier A', indication: null, hasPhoto: false, sortOrder: expect.any(Number),
-        marker: { planId: p2.id, x: 0.5, y: 0.75 }, grid: { rows: 5, cols: 4 }, cellPrefix: 'A', cellNames: {}, cellBoxes: {},
+        marker: { planId: p2.id, x: 0.5, y: 0.75 }, grid: { rows: 5, cols: 4 }, cellPrefix: 'A', cellNames: {}, cellBoxes: {}, temperatureC: null,
       });
       const listed = await zones();
       expect(listed[listed.length - 1]).toEqual(res.body);

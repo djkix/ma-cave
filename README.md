@@ -83,6 +83,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Envoi une par une en arrière-plan, tant que l'application est ouverte
 - Le worker lit **jusqu'à 8 photos par appel Gemini**, toutes les 15 s
 - Résultat en général **entre 15 s et 1 min**
+- **Avancement de la rafale** : chaque série de photos forme un lot ; tant qu'il n'est pas entièrement analysé, l'accueil et l'onglet *En cours d'analyse* affichent « 6/8 photos traitées » (photos rejouées après une coupure comprises)
 
 ### ✅ À confirmer
 - Trois sections : **À valider**, **En cours d'analyse**, **Lecture impossible**
@@ -91,6 +92,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Valider**, **Tout valider**, **Mettre de côté** ou **Écarter**
 - **Saisir à la main** une photo illisible
 - **Rien n'entre en stock** sans validation explicite
+- Chaque fiche montre la **couleur et le format lus** (« Rouge · 75 cl ») et, si l'appellation est reconnue et le millésime lu, l'**apogée estimée** (« À boire entre 2026 et 2034 · estimée »), calculée avec les règles des vins en cave, sans appel Gemini
 
 ### 🤖 Lecture d'étiquette (Gemini)
 - **Bascule sur lenteur ou saturation** : un modèle qui ne répond pas dans le délai d'essai (45 s par défaut, `GEMINI_ATTEMPT_TIMEOUT_MS` ; 2 min pour les lots d'accords, de descriptifs et l'analyse de plan), qui renvoie 503 ou un 429 non journalier est mis de côté 15 min et le modèle suivant est essayé aussitôt ; badge « lent ou saturé, repris à HH:MM » dans l'Administration
@@ -119,6 +121,9 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 ### 🍾 Cave et fiche vin
 - Recherche **sans accents ni casse**, filtres couleur, **arômes**, **millésime** (une année exacte), **région** (pastilles des régions présentes + « Hors de France », aussi posée depuis la carte), **tanin**, emplacement, vins épuisés
 - **Tri** de la liste : nom, apogée (fin de fenêtre la plus proche d'abord), millésime, quantité, note, ajouté récemment ; mémorisé sur l'appareil
+- Recherches et régions toujours visibles ; tri et autres filtres dans un panneau **Filtres actifs (N)** replié, filtres posés en **puces** à retirer une à une, **Tout effacer**
+- **Sortir une bouteille** depuis la fiche (propriétaire) : choix de l'emplacement si le vin est rangé à plusieurs endroits, **Annuler** juste après ; désactivé hors ligne
+- **Dernière bouteille ouverte** sur la fiche (dernière sortie non annulée, hors corrections et déplacements)
 - **Modifier un vin** depuis sa fiche (propriétaire) : domaine, cuvée, appellation, millésime, couleur, format ; si le vin existe déjà, **Fusionner les deux** réunit bouteilles, mouvements, emplacements, cotes et note sur la fiche existante
 - Fiche : photo, **descriptif du domaine** avec **Voir le domaine**, **tanin, cépages et arômes**, **accords**, apogée, note, cote, emplacements, mouvements
 - **Cépages par vin** (assemblage de la cuvée), déterminés par l'IA avec les autres caractéristiques et corrigeables (« Corriger ») ; tant qu'ils manquent, la fiche affiche les **cépages du domaine**
@@ -154,7 +159,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Emplacement = **zone · casier · position** ; **Ranger / déplacer** depuis la fiche
 - **Emplacement au doigt** : à l'entrée, au déplacement et à la correction du stock, on touche sur la photo du plan la case où est la bouteille (un onglet par plan, cases repérées par l'IA) ; la case s'allume et le nombre de bouteilles déjà rangées s'affiche
 - **Saisir à la main** reste disponible pour une zone sans plan ou une case non repérée
-- **Zones** : nom, indication, photo, ordre ; archivées si elles ont servi
+- **Zones** : nom, indication, **température** (°C, facultative, affichée sur la fiche vin : « Cave 1 · 12 °C »), photo, ordre ; archivées si elles ont servi
 - **Jusqu'à 20 plans** par cave, **repères numérotés** des zones
 - **Propositions de zones** : Gemini repère les casiers sur la photo du plan
 - **Grille de cases** numérotées par casier, rangée par rangée (C1…C48, *Lettre des cases* au choix), à toucher pour ranger ; **noms de cases** (« Champagnes (C15) »)
