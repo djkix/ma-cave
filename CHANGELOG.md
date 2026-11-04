@@ -11,6 +11,19 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.45.0](https://github.com/djkix/ma-cave/compare/v2.44.1...v2.45.0) (2026-11-04)
 
+### Résumé
+
+**Accueil épuré, statistiques et accords enrichis.** L'accueil perd les cartes
+Rentrer / Sortir et les liens Réglages / Administration, déjà dans la barre du
+bas. **Statistiques** : tanin des rouges et arômes les plus présents. Sur la
+fiche, chaque **accord conseillé ouvre « Accords »** sur ce plat ; l'apogée
+n'est plus répétée au-dessus de la frise et la confiance devient une pastille.
+**« J'ai un vin »** gagne les filtres couleur, région et millésime. Champ
+Millésime et libellés de tanin harmonisés dans les filtres. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Fonctionnalités
 
