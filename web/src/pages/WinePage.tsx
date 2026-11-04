@@ -159,18 +159,21 @@ export function WinePage() {
               {places && places.length > 0 && <LocationButton places={places} label={places.map((p) => p.label).join(' · ')} />}
             </div>
             {!readOnly && !counting && !editing && (
-              <button type="button" className="wine-head__edit" aria-label="Corriger le stock"
-                onClick={() => { setCounting(true); setCounted(String(wine.quantity)); setInventoryMessage(null); setInventoryPlace(null); setIncreaseTo(EMPTY_LOCATION); }}>
+              <button type="button" className="wine-head__edit" aria-label="Modifier le vin" onClick={() => setEditing(true)}>
                 <Icon name="edit" />
               </button>
             )}
           </div>
           <div className="wine-stock">
             <p className="wine-stock__qty"><span className="num wine-stock__n">{wine.quantity}</span> en stock</p>
-            {!readOnly && !counting && !editing && <Button variant="link" onClick={() => setEditing(true)}>Modifier</Button>}
+            {!readOnly && !counting && !editing && (
+              <Button variant="link" onClick={() => { setCounting(true); setCounted(String(wine.quantity)); setInventoryMessage(null); setInventoryPlace(null); setIncreaseTo(EMPTY_LOCATION); }}>
+                Corriger le stock
+              </Button>
+            )}
           </div>
           {inventoryMessage && <p role="status" className="list__meta" style={{ margin: 0 }}>{inventoryMessage}</p>}
-          {/* Correction du stock (inventaire, casse, oubli) : ouverte par le crayon à côté du stock. */}
+          {/* Correction du stock (inventaire, casse, oubli) : ouverte depuis le bloc du stock. */}
           {!readOnly && counting && (
             <div className="stock-edit">
               <p className="field__label" style={{ margin: 0 }}>Corriger le stock : ajouter ou enlever des bouteilles</p>
@@ -199,7 +202,7 @@ export function WinePage() {
               <Button variant="link" onClick={() => setCounting(false)}>Abandonner</Button>
             </div>
           )}
-          {/* Modifier l'identité du vin, ouvert comme la correction du stock ; la région se corrige dans les caractéristiques. */}
+          {/* Modifier l'identité du vin, ouvert par le crayon de l'en-tête ; la région se corrige dans les caractéristiques. */}
           {!readOnly && editing && <WineEditForm key={wine.id} wine={wine} onClose={() => setEditing(false)} />}
           <ImageSearchBlock wine={wine} readOnly={readOnly} />
         </section>

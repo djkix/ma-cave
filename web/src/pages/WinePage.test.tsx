@@ -100,7 +100,7 @@ it('« Modifier » ouvre le formulaire dans l’en-tête, enregistre et rafraîc
   vi.spyOn(api, 'getAppellations').mockResolvedValue([]);
   const update = vi.spyOn(api, 'updateWine').mockResolvedValue({ id: 'w1' });
   mount();
-  await userEvent.click(await screen.findByRole('button', { name: 'Modifier' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Modifier le vin' }));
   expect(screen.getByLabelText('Domaine').closest('.wine-head')).not.toBeNull();
   await userEvent.clear(screen.getByLabelText('Millésime'));
   await userEvent.type(screen.getByLabelText('Millésime'), '2020');
@@ -143,7 +143,7 @@ it('propriétaire : « Sortir une bouteille » en bas de la fiche', async () => 
   expect(await screen.findByRole('button', { name: 'Sortir une bouteille' })).toBeEnabled();
 });
 
-it('la correction du stock s’ouvre depuis le crayon de l’en-tête', async () => {
+it('la correction du stock s’ouvre depuis le bloc du stock', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue(detail);
   mount();
   await screen.findByRole('heading', { name: /Domaine Tempier/ });
@@ -402,7 +402,7 @@ describe('selon le rôle', () => {
     expect(screen.getByText(/notée le/)).toBeInTheDocument();
     expect(screen.queryByText(/null/)).not.toBeInTheDocument();
     expect(screen.queryAllByRole('button')).toHaveLength(0);
-    for (const name of ['Noter ce vin', 'Modifier', 'Retirer', 'Corriger', 'Régénérer', 'Chercher une image', 'Revenir à ma photo', 'Corriger le stock']) {
+    for (const name of ['Noter ce vin', 'Modifier le vin', 'Retirer', 'Corriger', 'Régénérer', 'Chercher une image', 'Revenir à ma photo', 'Corriger le stock']) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     }
   });

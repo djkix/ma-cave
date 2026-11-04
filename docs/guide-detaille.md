@@ -426,7 +426,7 @@ en bas à droite, une icône d'emplacement (elle ouvre une fenêtre avec la phot
 de la zone, son indication et le plan) ; le descriptif du domaine ; les accords
 mets-vins ; puis l'apogée, la note, la cote, les emplacements et les 10
 derniers mouvements. La fiche ne porte plus de bouton de sortie (onglet
-*Sortie* de la barre du bas) ; le crayon à côté du stock (*Corriger le stock*)
+*Sortie* de la barre du bas) ; *Corriger le stock*, dans le bloc du stock,
 ouvre un inventaire physique — le nombre compté, l'écart annoncé avant d'enregistrer
 (« −2 bouteilles », « Stock déjà juste »), écrit comme un mouvement `ADJUST`
 daté (« Inventaire : N comptées »).

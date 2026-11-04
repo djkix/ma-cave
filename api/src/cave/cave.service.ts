@@ -279,6 +279,7 @@ export class CaveService {
     try {
       const e = parseExtraction(photo.rawExtraction);
       read = { producer: e.producer.value, cuvee: e.cuvee.value, appellation: e.appellation.value, vintage: e.vintage.value };
+      if (!read.producer && !read.cuvee && !read.appellation) throw new Error('rien de lu');
     } catch {
       // Un prix faux est pire qu'un prix absent ; une sortie fausse aussi : une
       // lecture inexploitable renvoie vers la liste, jamais vers un vin deviné.
