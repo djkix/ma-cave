@@ -66,7 +66,7 @@ en Docker derrière un proxy TLS, par exemple sur <https://cave.example.org/>.
 | **Sortie** | Photo de l'étiquette, comparée aux vins en stock |
 | **Cave** | Liste, recherche, filtres, fiche vin complète |
 | **Journal** | 20 derniers mouvements, annulables en un tap |
-| **Stats** | Stock, apogée, couleurs, régions, valeur, classements |
+| **Stats** | Stock, apogée, couleurs, régions, tanin, arômes, valeur, classements |
 | **Réglages** | Moi, Ma cave (zones, plans, membres, sauvegarde), Administration, À propos |
 
 ---
@@ -123,6 +123,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Tri** de la liste : nom, apogée (fin de fenêtre la plus proche d'abord), millésime, quantité, note, ajouté récemment ; mémorisé sur l'appareil
 - Recherches et régions toujours visibles ; tri et autres filtres dans un panneau **Filtres actifs (N)** replié, filtres posés en **puces** à retirer une à une, **Tout effacer**
 - **Sortir une bouteille** depuis la fiche (propriétaire) : choix de l'emplacement si le vin est rangé à plusieurs endroits, **Annuler** juste après ; désactivé hors ligne
+- **Accords conseillés cliquables** sur la fiche : chaque plat ouvre *Accords* sur ce plat, avec les vins de la cave qui l'accompagnent
 - **Dernière bouteille ouverte** sur la fiche (dernière sortie non annulée, hors corrections et déplacements)
 - **Modifier un vin** depuis sa fiche (propriétaire) : domaine, cuvée, appellation, millésime, couleur, format ; si le vin existe déjà, **Fusionner les deux** réunit bouteilles, mouvements, emplacements, cotes et note sur la fiche existante
 - Fiche : photo, **descriptif du domaine** avec **Voir le domaine**, **tanin, cépages et arômes**, **accords**, apogée, note, cote, emplacements, mouvements
@@ -140,7 +141,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 
 ### 🍽️ Accords et descriptifs
 - **Accords vins** : dites (ou écrivez) le plat que vous préparez, l'onglet *Accords* propose jusqu'à 5 vins de votre cave, rangés en groupes (*À ouvrir ce soir*, *À surveiller*, *À garder*), chacun avec l'accord en trois niveaux, sa raison et une frise d'apogée, plus une vue d'ensemble accord × moment repliable ; toucher un vin ouvre sa fiche, le retour ramène à la même liste
-- **J'ai un vin** : choisissez un vin en stock, l'onglet *Accords* montre ses plats déjà générés, en cartes (aucun nouvel appel à l'IA)
+- **J'ai un vin** : choisissez un vin en stock (recherche et filtres couleur, région, millésime), l'onglet *Accords* montre ses plats déjà générés, en cartes (aucun nouvel appel à l'IA)
 - **Jusqu'à 8 plats** suggérés par Gemini pour chaque vin
 - Générés **par lots de 10** en arrière-plan, **Régénérer** à la demande
 - Recherche **Accompagner un plat** dans l'onglet Cave
@@ -170,6 +171,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Carte de France** sur l'accueil : régions viticoles colorées selon le nombre de bouteilles, case « Hors de France », mention « dont N sans région » ; toucher une région ouvre ses domaines et un lien vers la cave filtrée
 - Bouteilles, références, **valeur au prix d'achat** et **à la cote** (propriétaire)
 - Répartition par **apogée**, **couleur**, **région** (avec une ligne « Hors de France ») et **millésime année par année** (« Non millésimé » en dernier)
+- **Tanin des rouges** (léger, moyen, puissant, non renseigné) et **arômes** les plus présents (un vin compte pour chacun de ses arômes)
 - **Mouvements sur 12 mois** et rythme de consommation
 - Classements : plus bus, producteurs, plus chères, mieux notés
 

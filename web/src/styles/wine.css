@@ -52,7 +52,7 @@
 .wine-chip--warn { background: var(--color-warning-container); color: var(--color-warning); }
 .wine-chip--past { background: var(--color-error-container); color: var(--color-error); }
 .wine-chip--neutral { background: var(--color-surface-container-high); color: var(--color-primary); }
-.wine-apogee__range { margin: 0; font-weight: 600; }
+.wine-apogee__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin: 0; }
 .apogee-line { margin-top: var(--space-md); }
 .apogee-line__track { position: relative; height: 8px; margin-top: 28px; border-radius: 999px; background: var(--color-surface-container-high); }
 .apogee-line__window { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--color-primary-fixed); }

@@ -20,9 +20,9 @@ function mount(wine: api.CaveRow = base) {
   );
 }
 
-it('affiche la fourchette, la confiance et le statut', () => {
+it('affiche la confiance et le statut, la fourchette seulement sur la frise', () => {
   mount();
-  expect(screen.getByText('À boire entre 2024 et 2036')).toBeInTheDocument();
+  expect(screen.queryByText('À boire entre 2024 et 2036')).not.toBeInTheDocument();
   expect(screen.getByText('Confiance faible')).toBeInTheDocument();
   expect(screen.getByText('À boire — jusqu’en 2036')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Revenir à l’estimation' })).not.toBeInTheDocument();

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import * as api from '../lib/api-client';
@@ -172,6 +172,19 @@ describe('J’ai un vin', () => {
     color: 'BLANC', formatCl: 75, referencePhotoId: null, quantity: 2, ...over,
   });
   const detail = (pairing: unknown) => ({ wine: { ...row(), pairing } }) as unknown as api.WineDetail;
+
+  it('filtres couleur, région et millésime transmis à la recherche ; compte des vins', async () => {
+    const cave = vi.spyOn(api, 'getCave').mockImplementation(async (f) =>
+      (Object.keys(f ?? {}).length ? [row()] : [row(), row({ id: 'v2', producer: 'Domaine Tempier', color: 'ROUGE', region: 'Provence' })]));
+    mount();
+    await userEvent.click(screen.getByRole('button', { name: 'J’ai un vin' }));
+    expect(await screen.findByText('2 vins')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Couleur'), 'BLANC');
+    await userEvent.selectOptions(screen.getByLabelText('Région'), 'Provence');
+    await userEvent.type(screen.getByLabelText('Millésime'), '2019');
+    await waitFor(() => expect(cave).toHaveBeenCalledWith({ color: 'BLANC', region: 'Provence', vintageMin: 2019, vintageMax: 2019 }));
+    expect(await screen.findByText('1 vin')).toBeInTheDocument();
+  });
 
   it('choisir un vin affiche ses plats en cartes', async () => {
     vi.spyOn(api, 'getCave').mockResolvedValue([row()]);

@@ -98,9 +98,14 @@ export function ApogeeBlock({ wine, readOnly = false }: { wine: CaveRow; readOnl
       </h3>
       {range ? (
         <>
-          <p className="wine-apogee__range">{range}{apogee.source === 'IA' ? ' (estimée par l’IA)' : ''}</p>
-          {apogee.confidence && (
-            <span className={`badge ${apogee.confidence === 'FAIBLE' ? 'badge--warn' : 'badge--ok'}`}>{CONFIDENCE_LABEL[apogee.confidence]}</span>
+          {/* La fourchette est lue sur la frise ; seules la confiance et l'origine IA restent au-dessus. */}
+          {(apogee.confidence || apogee.source === 'IA') && (
+            <p className="wine-apogee__meta">
+              {apogee.confidence && (
+                <span className={`badge ${apogee.confidence === 'FAIBLE' ? 'badge--warn' : 'badge--ok'}`}>{CONFIDENCE_LABEL[apogee.confidence]}</span>
+              )}
+              {apogee.source === 'IA' && <span className="list__meta">Estimée par l’IA</span>}
+            </p>
           )}
           {status && <p className="list__meta" style={{ margin: 'var(--space-xs) 0 0' }}>{status}</p>}
           {apogee.min != null && apogee.max != null && <Timeline vintage={wine.vintage} min={apogee.min} max={apogee.max} />}

@@ -114,7 +114,7 @@ it('apogée estimée par l’IA : signalée sur la fiche', async () => {
   const apogee: api.Apogee = { min: 2026, max: 2032, confidence: 'FAIBLE', status: 'A_BOIRE', reason: null, source: 'IA' };
   vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, wine: { ...detail.wine, apogee } });
   mount();
-  expect(await screen.findByText(/estimée par l’IA/)).toBeInTheDocument();
+  expect(await screen.findByText('Estimée par l’IA')).toBeInTheDocument();
 });
 
 it('région de l’IA : signalée dans les caractéristiques', async () => {
