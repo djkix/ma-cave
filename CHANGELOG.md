@@ -11,6 +11,20 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.47.2](https://github.com/djkix/ma-cave/compare/v2.47.1...v2.47.2) (2026-11-04)
 
+### Résumé
+
+**Étiquettes lisibles plus rejetées.** Un seul champ mal formé dans la réponse
+de Gemini (millésime écrit en texte, confiance absente…) faisait passer toute
+l'étiquette en « Lecture impossible », définitivement dans un envoi de
+plusieurs photos. Ce champ vaut désormais « non lu », les nombres écrits en
+texte sont lus, une photo rejetée dans un envoi est relue seule, et la raison
+du rejet est écrite dans les logs. **Correction du stock** : le bloc du stock
+de la fiche ouvre « Corriger le stock » (il ouvrait la modification du vin) ;
+le crayon de l'en-tête modifie le vin. Aucune migration.
+
+### Détail par commit
+
+
 
 ### Corrections
 
