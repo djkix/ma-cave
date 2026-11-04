@@ -5,6 +5,17 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import * as api from '../lib/api-client';
 import { AccordsPage } from './AccordsPage';
 
+// Base d'accords de test : l'écran ne dépend pas de la vraie base.
+vi.mock('../lib/accords-base/data', () => ({
+  DISHES: [
+    { id: 'poulet', name: 'Poulet', category: 'PLAT', keywords: ['poulet', 'volaille'], colors: ['ROUGE', 'BLANC'], tannin: 'LEGER', aromas: ['fruits rouges'], classics: ['Bourgogne'] },
+    { id: 'champignons', name: 'Champignons', category: 'PLAT', keywords: ['champignons', 'morilles'], colors: ['BLANC'], tannin: null, aromas: [] },
+    { id: 'agneau', name: 'Agneau', category: 'PLAT', keywords: ['agneau'], colors: ['ROUGE'], tannin: 'MOYEN', aromas: [] },
+    { id: 'comte', name: 'Comté', category: 'FROMAGE', keywords: ['comté'], colors: ['BLANC'], tannin: null, aromas: [], classics: ['Jura'] },
+    { id: 'huitres', name: 'Huîtres', category: 'ENTREE', keywords: ['huîtres'], colors: ['BLANC'], tannin: null, aromas: [] },
+  ],
+}));
+
 const year = new Date().getFullYear();
 const pick = (over: Partial<api.AccordPick> = {}): api.AccordPick => ({
   wineId: 'w1', producer: 'Domaine Raveneau', cuvee: 'Montée de Tonnerre', appellation: 'Chablis 1er cru', vintage: 2019, color: 'BLANC',
@@ -35,6 +46,13 @@ function setTouch(touch: boolean) {
 }
 
 beforeEach(() => setTouch(true));
+/** Cave de la base locale : un rouge de Bourgogne, un blanc du Jura. */
+const caveRow = (over: Partial<api.CaveRow> = {}): api.CaveRow => ({
+  id: 'r1', producer: 'Domaine Rouge', cuvee: null, appellationRaw: 'Bourgogne', vintage: 2020, color: 'ROUGE', formatCl: 75,
+  referencePhotoId: null, quantity: 2, tannin: 'LEGER', aromas: ['fruits rouges'], ...over,
+});
+const CAVE = [caveRow(), caveRow({ id: 'b1', producer: 'Domaine Jaune', appellationRaw: 'Arbois', color: 'BLANC', tannin: null, aromas: [], region: 'Jura' })];
+beforeEach(() => { vi.spyOn(api, 'getCave').mockResolvedValue(CAVE); });
 afterEach(() => {
   vi.restoreAllMocks();
   delete (window as unknown as Record<string, unknown>).SpeechRecognition;
@@ -54,19 +72,97 @@ function mount(client = new QueryClient({ defaultOptions: { queries: { retry: fa
   return { router, client };
 }
 
-it('arrivée depuis un accord de la fiche (?plat=) : recherche lancée sur ce plat', async () => {
+/** Plat écrit puis validé ; l'IA est demandée ensuite, par son bouton. */
+async function askAi(dish: string) {
+  await userEvent.type(await screen.findByLabelText('Le plat'), dish);
+  await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Demander à l’IA' }));
+}
+
+it('arrivée depuis un accord de la fiche (?plat=) : accord local sur ce plat, sans IA', async () => {
+  const post = vi.spyOn(api, 'postAccords');
+  mount(undefined, '/accords?plat=Volaille%20r%C3%B4tie');
+  expect(screen.getByText('Poulet', { selector: 'strong' })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /^Domaine Rouge/ })).toHaveAttribute('href', '/cave/r1');
+  expect(post).not.toHaveBeenCalled();
+});
+
+it('?plat= non reconnu : message et bouton IA, pas d’appel automatique', async () => {
   const post = vi.spyOn(api, 'postAccords').mockResolvedValue(result({ dish: 'Daube provençale' }));
   mount(undefined, '/accords?plat=Daube%20proven%C3%A7ale');
+  expect(screen.getByText('Plat non reconnu dans la base.')).toBeInTheDocument();
+  expect(post).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole('button', { name: 'Demander à l’IA' }));
   await screen.findByRole('list', { name: 'À ouvrir ce soir' });
   expect(post).toHaveBeenCalledWith('Daube provençale');
+});
+
+it('accord local immédiat sur l’ingrédient dominant, bascule vers un autre ingrédient reconnu', async () => {
+  const post = vi.spyOn(api, 'postAccords');
+  mount();
+  await userEvent.type(screen.getByLabelText('Le plat'), 'Poulet aux morilles');
+  await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
+  expect(screen.getByText('Poulet', { selector: 'strong' })).toBeInTheDocument();
+  const row = await screen.findByRole('link', { name: /^Domaine Rouge, 2020/ });
+  expect(within(row).getByText('Bourgogne · Rouge · 2 btl')).toBeInTheDocument();
+  expect(within(row).getByText(/Excellent accord/)).toBeInTheDocument();
+  expect(within(row).getByText(/Accord classique : Bourgogne · Rouge comme conseillé · tanin léger · fruits rouges/)).toBeInTheDocument();
+  expect(screen.queryByRole('tablist', { name: 'Rubriques' })).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Plutôt : Champignons' }));
+  expect(screen.getByText('Champignons', { selector: 'strong' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /^Domaine Jaune/ })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: /^Domaine Rouge/ })).not.toBeInTheDocument();
+  expect(post).not.toHaveBeenCalled();
+});
+
+it('suggestions pendant la frappe : toucher une entrée lance l’accord', async () => {
+  const post = vi.spyOn(api, 'postAccords');
+  mount();
+  await userEvent.type(screen.getByLabelText('Le plat'), 'v');
+  expect(screen.queryByRole('list', { name: 'Suggestions' })).not.toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText('Le plat'), 'ol');
+  const list = screen.getByRole('list', { name: 'Suggestions' });
+  await userEvent.click(within(list).getByRole('button', { name: 'Poulet' }));
+  expect(screen.getByText('Poulet', { selector: 'strong' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Le plat')).toHaveValue('Poulet');
+  expect(screen.queryByRole('list', { name: 'Suggestions' })).not.toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /^Domaine Rouge/ })).toBeInTheDocument();
+  expect(post).not.toHaveBeenCalled();
+});
+
+it('Parcourir : onglets au clavier, pastilles en ordre alphabétique, une pastille lance l’accord', async () => {
+  mount();
+  const tabs = within(screen.getByRole('tablist', { name: 'Rubriques' })).getAllByRole('tab');
+  expect(tabs.map((t) => t.textContent)).toEqual(['Entrées', 'Plats', 'Fromages', 'Desserts']);
+  expect(screen.getByRole('tab', { name: 'Plats' })).toHaveAttribute('aria-selected', 'true');
+  expect(within(screen.getByRole('tabpanel')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Agneau', 'Champignons', 'Poulet']);
+  screen.getByRole('tab', { name: 'Plats' }).focus();
+  await userEvent.keyboard('{ArrowRight}');
+  expect(screen.getByRole('tab', { name: 'Fromages' })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('tab', { name: 'Fromages' })).toHaveFocus();
+  await userEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Comté' }));
+  expect(screen.getByText('Comté', { selector: 'strong' })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /^Domaine Jaune/ })).toBeInTheDocument();
+  expect(screen.queryByRole('tablist', { name: 'Rubriques' })).not.toBeInTheDocument();
+});
+
+it('plat non reconnu : message, bouton IA et Parcourir, sans appel', async () => {
+  const post = vi.spyOn(api, 'postAccords');
+  mount();
+  await userEvent.type(screen.getByLabelText('Le plat'), 'Soupe miso');
+  await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
+  expect(screen.getByText('Plat non reconnu dans la base.')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Demander à l’IA' })).toBeInTheDocument();
+  expect(screen.getByRole('tablist', { name: 'Rubriques' })).toBeInTheDocument();
+  expect(post).not.toHaveBeenCalled();
 });
 
 it('sans API vocale : champ texte d’office, pas de micro ; texte → vins classés, liens vers la fiche', async () => {
   const post = vi.spyOn(api, 'postAccords').mockResolvedValue(result());
   mount();
   expect(screen.queryByRole('button', { name: 'Dicter le plat' })).not.toBeInTheDocument();
-  await userEvent.type(screen.getByLabelText('Le plat'), 'Sole meunière');
-  await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
+  await askAi('Sole meunière');
   expect(post).toHaveBeenCalledWith('Sole meunière');
 
   const wines = await screen.findByRole('list', { name: 'À ouvrir ce soir' });
@@ -82,8 +178,7 @@ it('sans API vocale : champ texte d’office, pas de micro ; texte → vins clas
 it('retour depuis la fiche : la même liste, sans nouvel appel (cache puis sessionStorage)', async () => {
   const post = vi.spyOn(api, 'postAccords').mockResolvedValue(result());
   const { router, client } = mount();
-  await userEvent.type(screen.getByLabelText('Le plat'), 'Sole meunière');
-  await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
+  await askAi('Sole meunière');
   await userEvent.click(await screen.findByRole('link', { name: /^Domaine Raveneau/ }));
   expect(await screen.findByText('Fiche')).toBeInTheDocument();
   expect(router.state.location.state).toEqual({ from: '/accords' });
@@ -114,6 +209,9 @@ it('dictée : texte intermédiaire en direct, la fin de la dictée lance la rech
   act(() => rec.onresult!({ results: [[{ transcript: 'Daube ' }], [{ transcript: 'provençale' }]] }));
   expect(screen.getByText('Daube provençale')).toBeInTheDocument();
   act(() => rec.onend!());
+  expect(screen.getByText('Plat non reconnu dans la base.')).toBeInTheDocument();
+  expect(post).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole('button', { name: 'Demander à l’IA' }));
   expect(post).toHaveBeenCalledWith('Daube provençale');
   expect(await screen.findByRole('link', { name: /^Domaine Raveneau/ })).toBeInTheDocument();
 });
@@ -142,18 +240,16 @@ it.each([
 ])('%s : message', async (_, value, text) => {
   vi.spyOn(api, 'postAccords').mockResolvedValue(value);
   mount();
-  await userEvent.type(screen.getByLabelText('Le plat'), 'Sole');
-  await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
+  await askAi('Sole');
   expect(await screen.findByText(text)).toBeInTheDocument();
 });
 
 it('IA indisponible : le message de l’api, et on peut réessayer', async () => {
   const post = vi.spyOn(api, 'postAccords').mockRejectedValueOnce(new api.ApiError(503, 'Accords impossibles : quota Gemini épuisé')).mockResolvedValueOnce(result());
   mount();
-  await userEvent.type(screen.getByLabelText('Le plat'), 'Sole');
-  await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
+  await askAi('Sole');
   expect(await screen.findByRole('alert')).toHaveTextContent('Accords impossibles : quota Gemini épuisé');
-  await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Demander à l’IA' }));
   expect(await screen.findByRole('link', { name: /^Domaine Raveneau/ })).toBeInTheDocument();
   expect(post).toHaveBeenCalledTimes(2);
 });
@@ -229,6 +325,7 @@ it('recherche en cours : secondes écoulées, puis explication si l’IA est len
   vi.useFakeTimers({ shouldAdvanceTime: true });
   try {
     await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Demander à l’IA' }));
     expect(await screen.findByText(/Je cherche dans votre cave/)).toBeInTheDocument();
     expect(screen.getByText('0 s')).toBeInTheDocument();
     expect(screen.queryByText(/L’IA est lente/)).not.toBeInTheDocument();
@@ -247,8 +344,7 @@ it('groupes selon le moment du vin et vue d’ensemble repliable avec un point p
     pick({ wineId: 'point', producer: 'Pommard', cuvee: null, score: 72, apogee: { min: year - 4, max: year + 6, confidence: null, status: 'A_BOIRE', reason: null, source: 'REGLE' } }),
   ] }));
   mount();
-  await userEvent.type(screen.getByLabelText('Le plat'), 'Magret');
-  await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
+  await askAi('Magret');
   const lists = await screen.findAllByRole('list');
   expect(lists.map((l) => l.getAttribute('aria-label')).filter((n) => n !== 'Ce que l’IA a compris'))
     .toEqual(['À ouvrir ce soir', 'À surveiller : apogée dépassée', 'Bel accord, mais à garder']);

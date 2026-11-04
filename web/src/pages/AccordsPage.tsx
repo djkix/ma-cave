@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { AccordsParVin } from '../components/AccordsParVin';
@@ -7,7 +7,10 @@ import { AccordsResults } from '../components/AccordsResults';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { TopBar } from '../components/TopBar';
-import { AccordsResult, ApiError, postAccords } from '../lib/api-client';
+import { AccordsResult, ApiError, getCave, postAccords } from '../lib/api-client';
+import { DISHES } from '../lib/accords-base/data';
+import { accordsFor, findDishes, normalizeDish, suggestDishes } from '../lib/accords-base/match';
+import { DISH_CATEGORIES, DishCategory, DishEntry } from '../lib/accords-base/types';
 
 /** Dernier plat et sa réponse : la liste revient telle quelle au retour de la fiche, sans nouvel appel. */
 const STORAGE_KEY = 'accords:dernier';
@@ -29,6 +32,30 @@ function writeStored(value: Stored) {
     /* stockage indisponible (navigation privée) : la liste sera simplement redemandée */
   }
 }
+
+/** Dernier plat, entrée choisie et passage par l'IA : l'écran se retrouve tel quel au retour de la fiche. */
+const PLAT_KEY = 'accords:plat';
+type Plat = { dish: string; entryId: string | null; ai: boolean };
+
+function readPlat(): Plat | null {
+  try {
+    const raw = sessionStorage.getItem(PLAT_KEY);
+    return raw ? (JSON.parse(raw) as Plat) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePlat(value: Plat) {
+  try {
+    sessionStorage.setItem(PLAT_KEY, JSON.stringify(value));
+  } catch {
+    /* stockage indisponible : on repartira d'un écran vide */
+  }
+}
+
+/** Entrées de la base par rubrique, en ordre alphabétique. */
+const byCategory = (c: DishCategory) => DISHES.filter((d) => d.category === c).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 
 /** Onglet et vin choisis : on les retrouve au retour de la fiche. */
 const ENTREE_KEY = 'accords:entree';
@@ -117,8 +144,16 @@ export function AccordsPage() {
   const [entree, setEntree] = useState<Entree>(() => (linked ? { mode: 'plat' } : readEntree()));
   const choose = (next: Entree) => { setEntree(next); writeEntree(next); };
   const [stored] = useState(readStored);
-  const [dish, setDish] = useState<string | null>(linked ?? stored?.dish ?? null);
-  const [text, setText] = useState(linked ?? stored?.dish ?? '');
+  const [plat, setPlatState] = useState<Plat | null>(() => {
+    if (!linked) return readPlat();
+    const v = { dish: linked, entryId: null, ai: false };
+    writePlat(v);
+    return v;
+  });
+  const setPlat = (next: Plat) => { setPlatState(next); writePlat(next); };
+  const dish = plat?.dish ?? null;
+  const [text, setText] = useState(dish ?? '');
+  const [browse, setBrowse] = useState<DishCategory>('PLAT');
   const [writing, setWriting] = useState(!Speech);
   const [listening, setListening] = useState(false);
   const [heard, setHeard] = useState('');
@@ -132,21 +167,48 @@ export function AccordsPage() {
       writeStored({ dish: dish!, result });
       return result;
     },
-    enabled: !!dish,
+    enabled: !!dish && !!plat?.ai,
     initialData: () => (stored && stored.dish === dish ? stored.result : undefined),
     staleTime: Infinity,
     gcTime: 60 * 60_000,
     retry: false,
   });
 
+  // Accord local, immédiat : sur l'entrée choisie (suggestion, pastille, « Plutôt »), sinon la dominante du plat.
+  const cave = useQuery({ queryKey: ['cave', {}], queryFn: () => getCave({}) });
+  const recognized = dish ? findDishes(dish, DISHES) : [];
+  const chosen = DISHES.find((d) => d.id === plat?.entryId) ?? recognized[0];
+  const others = recognized.filter((d) => d !== chosen);
+  const local = chosen && dish && cave.data ? accordsFor(chosen, dish, cave.data) : null;
+  const suggestions = writing && normalizeDish(text) !== normalizeDish(dish ?? '') ? suggestDishes(text, DISHES) : [];
+
   function submit(value: string) {
     const clean = value.trim();
     if (!clean) return;
     setText(clean);
-    // Même plat après une erreur : on redemande ; après un succès, la liste en cache suffit.
-    if (clean === dish && query.isError) void query.refetch();
-    else setDish(clean);
+    setPlat({ dish: clean, entryId: null, ai: false });
   }
+
+  function pickEntry(e: DishEntry) {
+    setText(e.name);
+    setPlat({ dish: e.name, entryId: e.id, ai: false });
+  }
+
+  function askAi() {
+    if (!dish) return;
+    // Même plat après une erreur : on redemande ; après un succès, la liste en cache suffit.
+    if (plat?.ai && query.isError) void query.refetch();
+    else setPlat({ ...plat!, ai: true });
+  }
+
+  const onBrowseKey = (e: KeyboardEvent<HTMLButtonElement>) => {
+    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const i = (DISH_CATEGORIES.findIndex((c) => c.value === browse) + step + DISH_CATEGORIES.length) % DISH_CATEGORIES.length;
+    setBrowse(DISH_CATEGORIES[i].value);
+    document.getElementById(`browse-tab-${DISH_CATEGORIES[i].value}`)?.focus();
+  };
 
   function toggleMic() {
     if (listening) {
@@ -194,8 +256,23 @@ export function AccordsPage() {
     submit(text);
   }
 
-  const result = query.data;
+  const ai = !!plat?.ai;
+  const result = ai ? query.data : undefined;
   const year = new Date().getFullYear();
+  const askButton = <Button variant="outline" onClick={askAi} disabled={query.isFetching}>Demander à l’IA</Button>;
+
+  /** Liste des vins (IA ou base locale) : cave vide, aucun vin adapté, ou vins classés. */
+  const picksView = (r: AccordsResult) => (r.wineCount === 0 ? (
+    <p className="centered">Votre cave est vide : ajoutez des bouteilles pour recevoir des accords.</p>
+  ) : r.picks.length === 0 ? (
+    <div className="card">
+      <p style={{ margin: 0 }}>Aucun vin de votre cave ne convient vraiment à ce plat.</p>
+      {r.ideal && <p className="list__meta" style={{ margin: 'var(--space-xs) 0 0', fontSize: 13 }}>{`L’idéal : ${r.ideal}`}</p>}
+    </div>
+  ) : (
+    <AccordsResults picks={r.picks} year={year} />
+  ));
+
   return (
     <>
       <TopBar title="Accords" />
@@ -225,7 +302,12 @@ export function AccordsPage() {
           {writing ? (
             <form className="accords-form" onSubmit={onSubmit}>
               <label className="field__label" htmlFor="accords-dish">Le plat</label>
-              <input id="accords-dish" value={text} maxLength={200} onChange={(e) => setText(e.target.value)} placeholder="Ex. sole meunière, daube provençale" />
+              <input id="accords-dish" value={text} maxLength={200} onChange={(e) => setText(e.target.value)} placeholder="Ex. sole meunière, daube provençale" autoComplete="off" />
+              {suggestions.length > 0 && (
+                <ul className="accords-suggest" aria-label="Suggestions">
+                  {suggestions.map((d) => <li key={d.id}><button type="button" className="accords-chip" onClick={() => pickEntry(d)}>{d.name}</button></li>)}
+                </ul>
+              )}
               <Button type="submit" disabled={!text.trim() || query.isFetching}>Proposer des vins</Button>
             </form>
           ) : (
@@ -234,36 +316,56 @@ export function AccordsPage() {
         </section>
 
         <section aria-live="polite" aria-busy={query.isFetching} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+          {dish && !ai && (chosen ? (
+            <>
+              <div className="accords-on">
+                <p style={{ margin: 0 }}>Accord sur : <strong>{chosen.name}</strong></p>
+                {others.length > 0 && (
+                  <ul className="accords-suggest" aria-label="Autres ingrédients reconnus">
+                    {others.map((d) => <li key={d.id}><button type="button" className="accords-chip" onClick={() => setPlat({ dish, entryId: d.id, ai: false })}>{`Plutôt : ${d.name}`}</button></li>)}
+                  </ul>
+                )}
+              </div>
+              {cave.isError && <p role="alert" className="text-error">Impossible de charger la cave.</p>}
+              {local && picksView(local)}
+            </>
+          ) : (
+            <p className="centered">Plat non reconnu dans la base.</p>
+          ))}
           {query.isFetching && <SearchProgress />}
-          {query.isError && !query.isFetching && <p role="alert" className="text-error">{errorText(query.error)}</p>}
+          {ai && query.isError && !query.isFetching && <p role="alert" className="text-error">{errorText(query.error)}</p>}
           {result && !query.isFetching && (
             <>
               {result.dish && <p className="list__meta" style={{ margin: 0 }}>{`Pour : ${result.dish}`}</p>}
-              {result.wineCount === 0 ? (
-                <p className="centered">Votre cave est vide : ajoutez des bouteilles pour recevoir des accords.</p>
-              ) : (
-                <>
-                  {result.understood.length > 0 && (
-                    <div>
-                      <h3 className="field__label" style={{ margin: 0 }}>Ce que l’IA a compris</h3>
-                      <ul className="dish-pills" aria-label="Ce que l’IA a compris">
-                        {result.understood.map((u) => <li key={u} className="dish-pill">{u}</li>)}
-                      </ul>
-                    </div>
-                  )}
-                  {result.picks.length === 0 ? (
-                    <div className="card">
-                      <p style={{ margin: 0 }}>Aucun vin de votre cave ne convient vraiment à ce plat.</p>
-                      {result.ideal && <p className="list__meta" style={{ margin: 'var(--space-xs) 0 0', fontSize: 13 }}>{`L’idéal : ${result.ideal}`}</p>}
-                    </div>
-                  ) : (
-                    <AccordsResults picks={result.picks} year={year} />
-                  )}
-                </>
+              {result.wineCount > 0 && result.understood.length > 0 && (
+                <div>
+                  <h3 className="field__label" style={{ margin: 0 }}>Ce que l’IA a compris</h3>
+                  <ul className="dish-pills" aria-label="Ce que l’IA a compris">
+                    {result.understood.map((u) => <li key={u} className="dish-pill">{u}</li>)}
+                  </ul>
+                </div>
               )}
+              {picksView(result)}
             </>
           )}
+          {dish && (!ai || query.isError) && askButton}
         </section>
+
+        {(!dish || (!ai && !chosen)) && (
+          <section className="accords-browse" aria-label="Parcourir la base">
+            <div role="tablist" aria-label="Rubriques" className="confirm-tabs">
+              {DISH_CATEGORIES.map((c) => (
+                <button key={c.value} type="button" role="tab" id={`browse-tab-${c.value}`} aria-selected={browse === c.value} aria-controls="browse-panel"
+                  tabIndex={browse === c.value ? 0 : -1} className="confirm-tab" onClick={() => setBrowse(c.value)} onKeyDown={onBrowseKey}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <ul role="tabpanel" id="browse-panel" aria-labelledby={`browse-tab-${browse}`} className="accords-suggest">
+              {byCategory(browse).map((d) => <li key={d.id}><button type="button" className="accords-chip" onClick={() => pickEntry(d)}>{d.name}</button></li>)}
+            </ul>
+          </section>
+        )}
         </>
         )}
       </main>

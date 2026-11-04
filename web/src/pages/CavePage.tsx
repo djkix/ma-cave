@@ -15,6 +15,8 @@ import { regionCounts } from '../lib/region-counts';
 import { NO_LOCATION, useLocations } from '../lib/locations';
 import { formatRatingShort } from '../lib/rating';
 import { AROMAS, MAX_AROMAS, TANNIN_LABEL } from '../lib/traits';
+import { DISHES } from '../lib/accords-base/data';
+import { findDishes, scoreWine } from '../lib/accords-base/match';
 
 const COLORS: Array<{ value: WineColor | ''; label: string }> = [
   { value: '', label: 'Couleur : toutes' }, { value: 'ROUGE', label: 'Rouge' }, { value: 'BLANC', label: 'Blanc' },
@@ -58,7 +60,9 @@ export function CavePage() {
   const { isOwner } = useCurrentCave();
   // Un seul filtre d'apogée à la fois : « à boire en priorité » exclut par définition les vins sans estimation.
   const [apogeeFilter, setApogeeFilter] = useState<'' | 'drinkSoon' | 'noApogee'>(FILTER_FROM_URL[params.get('filtre') ?? ''] ?? '');
-  const base: CaveFilter = { q, color: color || undefined, includeEmpty, ...(dish.trim() ? { dish: dish.trim() } : {}), ...(location ? { location } : {}),
+  // Plat reconnu par la base d'accords : filtre et classement côté web ; sinon, le filtre `dish` de l'api.
+  const dishEntry = dish.trim() ? findDishes(dish, DISHES)[0] : undefined;
+  const base: CaveFilter = { q, color: color || undefined, includeEmpty, ...(dish.trim() && !dishEntry ? { dish: dish.trim() } : {}), ...(location ? { location } : {}),
     ...(aromas.length ? { aromas } : {}),
     ...(vintage && Number.isFinite(Number(vintage)) ? { vintageMin: Math.trunc(Number(vintage)), vintageMax: Math.trunc(Number(vintage)) } : {}),
     ...(tannin ? { tannin } : {}), ...(region ? { region } : {}) };
@@ -80,8 +84,12 @@ export function CavePage() {
     enabled: apogeeFilter === 'drinkSoon',
   });
   const missingCount = apogeeFilter === 'drinkSoon' ? missing.data?.length ?? 0 : 0;
-  const summary = cave.data ? caveSummary(cave.data) : null;
-  const rows = cave.data ? sortCave(cave.data, sort) : undefined;
+  // Bon accord au moins (≥ 70), du meilleur au moins bon : le tri choisi ne s'applique pas tant que ce filtre est posé.
+  const listed = cave.data && dishEntry
+    ? cave.data.map((w) => ({ ...w, score: scoreWine(dishEntry, w) ?? 0, matchedDish: dishEntry.name })).filter((w) => w.score >= 70).sort((a, b) => b.score - a.score)
+    : cave.data;
+  const summary = listed ? caveSummary(listed) : null;
+  const rows = listed && !dishEntry ? sortCave(listed, sort) : listed;
   const [panelOpen, setPanelOpen] = useState(false);
   const locationLabel = location === 'none' ? NO_LOCATION : location ? locations.data?.find((l) => l.id === location)?.label ?? 'choisi' : '';
   const active = activeFilters({
@@ -207,7 +215,8 @@ export function CavePage() {
         )}
         {cave.isError && <p role="alert" className="text-error">Impossible de charger la cave.</p>}
         {summary && <p className="cave-summary"><strong>{summary.bottles}</strong><span>{summary.references}</span></p>}
-        {cave.data?.length === 0 && <p className="centered">Aucun vin ne correspond.</p>}
+        {dishEntry && <p className="list__meta" style={{ margin: 0 }}>{`Classés par accord avec : ${dishEntry.name}`}</p>}
+        {listed?.length === 0 && <p className="centered">Aucun vin ne correspond.</p>}
         <div className="list">
           {rows?.map((w) => {
             const empty = w.quantity <= 0;

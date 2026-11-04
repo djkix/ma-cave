@@ -461,6 +461,16 @@ select:focus-visible { outline: 3px solid var(--color-primary-container); outlin
 @keyframes mic-pulse { 50% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--color-primary-action) 20%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .mic--on { animation: none; } }
 .accords-form { display: flex; flex-direction: column; gap: var(--space-sm); width: 100%; }
+/* Base d'accords : suggestions, autres ingrédients reconnus et pastilles « Parcourir », cibles de 48 px. */
+.accords-suggest { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-xs); justify-content: center; }
+.accords-chip {
+  min-height: var(--size-touch-target); padding: 0 14px; border-radius: 999px; border: 1px solid var(--color-outline-subtle);
+  background: var(--color-surface-container-low); color: var(--color-on-surface); font: 500 14px var(--font-sans); cursor: pointer;
+}
+.accords-chip:focus-visible { outline: 3px solid var(--color-primary-container); outline-offset: 2px; }
+.accords-on { display: flex; flex-direction: column; gap: var(--space-sm); align-items: flex-start; }
+.accords-on .accords-suggest { justify-content: flex-start; }
+.accords-browse { display: flex; flex-direction: column; gap: var(--space-md); margin-top: var(--space-lg); }
 .accord-row { align-items: flex-start; gap: var(--space-sm); min-height: var(--size-touch-target); padding-top: var(--space-md); padding-bottom: var(--space-md); }
 .accord-row__num { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font: 600 13px var(--font-sans); color: #fff; }
 .accord-row__level { display: block; margin-top: var(--space-sm); font-size: 13px; line-height: 1.5; }

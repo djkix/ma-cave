@@ -6,6 +6,11 @@ import * as api from '../lib/api-client';
 import { viewerMe } from '../test-fixtures';
 import { CavePage } from './CavePage';
 
+// Base d'accords de test : la page ne dépend pas de la vraie base.
+vi.mock('../lib/accords-base/data', () => ({
+  DISHES: [{ id: 'poulet', name: 'Poulet', category: 'PLAT', keywords: ['poulet'], colors: ['ROUGE', 'BLANC'], tannin: 'LEGER', aromas: [] }],
+}));
+
 // jsdom n'a ni showModal ni close : simulés comme dans les tests de BottomSheet.
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.open = true; };
@@ -122,6 +127,25 @@ it('cherche un vin pour accompagner un plat et dit lequel correspond', async () 
   const row = await screen.findByRole('link', { name: /Domaine Tempier/ });
   expect(within(row).getByText('avec : Agneau de sept heures')).toBeInTheDocument();
   expect(screen.queryByText(/Domaine Leflaive/)).not.toBeInTheDocument();
+});
+
+it('plat reconnu par la base d’accords : filtre et classement côté web, sans filtre dish à l’api', async () => {
+  const moyen = { ...rows[0], id: 'w8', producer: 'Domaine Moyen', vintage: 2010, tannin: 'MOYEN' as const };
+  const fort = { ...rows[0], id: 'w9', producer: 'Domaine Fort', appellationRaw: 'Madiran', tannin: 'PUISSANT' as const };
+  const leger = { ...rows[0], tannin: 'LEGER' as const };
+  const getCave = vi.spyOn(api, 'getCave').mockResolvedValue([moyen, fort, rows[1], leger]);
+  mount();
+  await screen.findByText(/Domaine Leflaive/);
+  await userEvent.selectOptions(screen.getByLabelText('Tri'), 'millesime');
+  await userEvent.type(screen.getByLabelText('Accompagner un plat'), 'Poulet aux morilles');
+  expect(await screen.findByText('Classés par accord avec : Poulet')).toBeInTheDocument();
+  // Pendant la frappe (« poul… »), le filtre de l'api ; une fois « poulet » reconnu, plus rien.
+  expect(getCave).toHaveBeenLastCalledWith(expect.not.objectContaining({ dish: expect.anything() }));
+  expect(getCave).not.toHaveBeenCalledWith(expect.objectContaining({ dish: 'Poulet aux morilles' }));
+  // Tempier (tanin léger, 82) avant Moyen (74), malgré le tri par millésime ; Fort (60) et Leflaive blanc (55) écartés.
+  const links = screen.getAllByRole('link', { name: /^Domaine/ });
+  expect(links.map((l) => l.getAttribute('href'))).toEqual(['/cave/w1', '/cave/w8']);
+  expect(within(links[0]).getByText('avec : Poulet')).toBeInTheDocument();
 });
 
 it('dit quand la cave est vide', async () => {
