@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.47.1](https://github.com/djkix/ma-cave/compare/v2.47.0...v2.47.1) (2026-11-04)
+
+
+### Corrections
+
+* **web:** menu du bas sur les écrans d'entrée et de sortie ([fdc94cc](https://github.com/djkix/ma-cave/commit/fdc94cc84c794042a2e953da23a99e13637168e2))
+
 ## [2.47.0](https://github.com/djkix/ma-cave/compare/v2.46.0...v2.47.0) (2026-11-04)
 
 ### Résumé
