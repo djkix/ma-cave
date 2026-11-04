@@ -9,6 +9,19 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.47.0](https://github.com/djkix/ma-cave/compare/v2.46.0...v2.47.0) (2026-11-04)
+
+
+### Fonctionnalités
+
+* accords vécus, et plats cliquables dans « J'ai un vin » ([bd28f08](https://github.com/djkix/ma-cave/commit/bd28f088411b86afcc11ce545a8b237a55152766))
+
+
+### Corrections
+
+* **web:** bandeau de mise à jour sous l'en-tête, sans masquer la sortie ([569e1c3](https://github.com/djkix/ma-cave/commit/569e1c36c9c5ec10432673b141857f5c712dea2b))
+* **web:** rhubarbe, figues, prunes et autres desserts reconnus ([311aa9f](https://github.com/djkix/ma-cave/commit/311aa9f82d64461c52d694f1f94625f966be4d4e))
+
 ## [2.46.0](https://github.com/djkix/ma-cave/compare/v2.45.1...v2.46.0) (2026-11-04)
 
 ### Résumé
