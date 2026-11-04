@@ -41,6 +41,7 @@
 .wine-tile__hint { margin-top: var(--space-xs) !important; font-size: 12px; }
 .wine-tile .dish-pills { margin: var(--space-sm) 0 0; }
 .wine-tile .dish-pill { background: var(--color-surface-lowest); }
+.dish-pill--link { display: inline-flex; align-items: center; min-height: 40px; color: var(--color-primary); text-decoration: none; }
 .wine-traits__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
 .wine-traits__region { margin: 0; font-size: 13px; color: var(--color-secondary); }
 .wine-page .dish-pills { margin: 0; }

@@ -39,7 +39,7 @@ export class StatsService {
     const year = now.getFullYear();
     const wines = rows.map((r) => ({
       id: r.id, producer: r.producer, cuvee: r.cuvee, vintage: r.vintage, color: r.color,
-      region: r.region ?? null, country: countryOf(r), quantity: r.quantity, apogee: apogeeOf(r, rules, year), rating: r.rating ?? null,
+      region: r.region ?? null, country: countryOf(r), tannin: r.tannin ?? null, aromas: r.aromas ?? [], quantity: r.quantity, apogee: apogeeOf(r, rules, year), rating: r.rating ?? null,
     }));
     const current = [...currentQuoteByWine(quotes).values()];
     return statsForRole(computeStats({ wines, movements: movements as StatsMovement[], quotes: current }, now), role);

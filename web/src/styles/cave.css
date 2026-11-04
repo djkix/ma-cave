@@ -20,7 +20,10 @@
 .cave-pills .filter-pill, .cave-pills .filter-toggle { min-height: 48px; white-space: nowrap; }
 .cave-pills .filter-toggle { gap: var(--space-xs); }
 .cave-pills .filter-toggle .material-symbols-outlined { font-size: 18px; }
-.cave-pills .filter-vintage input { min-height: 48px; }
+.cave-pills .filter-vintage input { min-height: 48px; border-color: transparent; background-color: var(--color-surface-container); color: var(--color-on-surface); font-weight: 600; }
+.cave-pills .filter-vintage input::placeholder { color: var(--color-on-surface); opacity: 1; }
+/* Millésime saisi : même teinte qu'un filtre posé. */
+.cave-pills .filter-vintage input:not(:placeholder-shown) { background-color: var(--color-primary); color: var(--color-on-primary); }
 .cave-pills__count { margin-left: var(--space-sm); padding: 0 8px; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); font-size: 12px; }
 
 /* Panneau « Filtres » repliable : en-tête bouton, puces récapitulatives quand il est replié. */

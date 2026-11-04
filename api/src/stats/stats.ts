@@ -15,6 +15,8 @@ export const RANKING_SIZE = 5;
 export { NO_REGION };
 export const NO_VINTAGE = 'Non millésimé';
 export const APOGEE_KEYS = ['TROP_JEUNE', 'A_BOIRE', 'A_BOIRE_VITE', 'PASSEE', 'SANS_ESTIMATION'] as const;
+/** Tanin des rouges, du plus léger au plus puissant ; `SANS_TANIN` : rouge non caractérisé. */
+export const TANNIN_KEYS = ['LEGER', 'MOYEN', 'PUISSANT', 'SANS_TANIN'] as const;
 
 export interface StatsWine {
   id: string;
@@ -26,6 +28,8 @@ export interface StatsWine {
   region: string | null;
   /** Pays publié (`countryOf`). */
   country?: Country | null;
+  tannin?: string | null;
+  aromas?: string[];
   quantity: number;
   apogee: Apogee;
   rating: number | null;
@@ -67,6 +71,10 @@ export interface Stats {
   /** Une entrée par millésime, croissant, « Non millésimé » en dernier. */
   byYear: Share[];
   byApogee: Share[];
+  /** Bouteilles de rouge par tanin, part sur les seuls rouges. */
+  byTannin: Share[];
+  /** Bouteilles par arôme (un vin compte pour chacun de ses arômes), part sur toutes les bouteilles. */
+  byAroma: Share[];
   months: MonthFlow[];
   drinkRate: number;
   yearsLeft: number | null;
@@ -155,6 +163,11 @@ export function computeStats(input: { wines: StatsWine[]; movements: StatsMoveme
   const cessionValueCents = quotedValueCents == null ? null : cessionCents(valueOf(withFees)) + quotedValueCents - valueOf(withFees);
 
   const apogeeGroups = group(inStock, (w) => w.apogee.status ?? 'SANS_ESTIMATION', qty);
+  const reds = inStock.filter((w) => w.color === 'ROUGE');
+  const redBottles = reds.reduce((s, w) => s + w.quantity, 0);
+  const tanninGroups = group(reds, (w) => w.tannin ?? 'SANS_TANIN', qty);
+  const aromaGroups = new Map<string, number>();
+  for (const w of inStock) for (const a of w.aromas ?? []) aromaGroups.set(a, (aromaGroups.get(a) ?? 0) + w.quantity);
 
   const keys = lastMonths(now);
   const flows = new Map(keys.map((k) => [k, { month: k, in: 0, out: 0 }]));
@@ -191,6 +204,11 @@ export function computeStats(input: { wines: StatsWine[]; movements: StatsMoveme
       const b = apogeeGroups.get(key) ?? 0;
       return { key, bottles: b, share: bottles ? b / bottles : 0 };
     }),
+    byTannin: redBottles ? TANNIN_KEYS.map((key) => {
+      const b = tanninGroups.get(key) ?? 0;
+      return { key, bottles: b, share: b / redBottles };
+    }) : [],
+    byAroma: shares(aromaGroups, bottles, biggestFirst),
     months,
     drinkRate: Math.round((totalOut / STATS_MONTHS) * 10) / 10,
     // bouteilles ÷ (rythme mensuel × 12) = bouteilles ÷ sorties de l'année.

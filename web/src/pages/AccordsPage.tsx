@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { AccordsParVin } from '../components/AccordsParVin';
 import { AccordsResults } from '../components/AccordsResults';
@@ -110,11 +111,14 @@ function SearchProgress() {
 /** « Accords » : on dit (ou écrit) le plat, l'IA propose des vins de la cave, à boire d'abord. */
 export function AccordsPage() {
   const Speech = speechRecognition();
-  const [entree, setEntree] = useState(readEntree);
+  // `?plat=` : arrivée depuis un accord de la fiche vin, recherche lancée sur ce plat.
+  const [params] = useSearchParams();
+  const linked = params.get('plat')?.trim().slice(0, 200) || null;
+  const [entree, setEntree] = useState<Entree>(() => (linked ? { mode: 'plat' } : readEntree()));
   const choose = (next: Entree) => { setEntree(next); writeEntree(next); };
   const [stored] = useState(readStored);
-  const [dish, setDish] = useState<string | null>(stored?.dish ?? null);
-  const [text, setText] = useState(stored?.dish ?? '');
+  const [dish, setDish] = useState<string | null>(linked ?? stored?.dish ?? null);
+  const [text, setText] = useState(linked ?? stored?.dish ?? '');
   const [writing, setWriting] = useState(!Speech);
   const [listening, setListening] = useState(false);
   const [heard, setHeard] = useState('');

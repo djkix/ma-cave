@@ -60,6 +60,27 @@ it('mène des barres d’apogée vers la cave filtrée', async () => {
   expect(card.getAllByRole('link')).toHaveLength(2);
 });
 
+it('tanin des rouges et 8 premiers arômes, sans « Autres »', async () => {
+  const byAroma = Array.from({ length: 10 }, (_, i) => ({ key: `arôme ${i + 1}`, bottles: 10 - i, share: (10 - i) / 12 }));
+  const byTannin = [{ key: 'LEGER', bottles: 0, share: 0 }, { key: 'MOYEN', bottles: 3, share: 1 / 3 }, { key: 'PUISSANT', bottles: 6, share: 2 / 3 }, { key: 'SANS_TANIN', bottles: 0, share: 0 }];
+  vi.spyOn(api, 'getStats').mockResolvedValue({ ...base, byTannin, byAroma });
+  mount();
+  const tannin = (await screen.findByRole('heading', { name: 'Tanin des rouges' })).closest('section')!;
+  expect(within(tannin).getByText('Puissant')).toBeInTheDocument();
+  const aromas = screen.getByRole('heading', { name: 'Arômes' }).closest('section')!;
+  expect(within(aromas).getByText('Arôme 8')).toBeInTheDocument();
+  expect(within(aromas).queryByText('Arôme 9')).not.toBeInTheDocument();
+  expect(within(aromas).queryByText('Autres')).not.toBeInTheDocument();
+});
+
+it('sans tanin ni arômes connus : pas de carte', async () => {
+  vi.spyOn(api, 'getStats').mockResolvedValue({ ...base, byTannin: [], byAroma: [] });
+  mount();
+  await screen.findByRole('heading', { name: 'Région' });
+  expect(screen.queryByRole('heading', { name: 'Tanin des rouges' })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Arômes' })).toBeNull();
+});
+
 it('montre les 8 premières régions puis « Autres »', async () => {
   const byRegion = Array.from({ length: 10 }, (_, i) => ({ key: `Région ${i + 1}`, bottles: 100 - i, share: (100 - i) / 955 }));
   vi.spyOn(api, 'getStats').mockResolvedValue({ ...base, byRegion });

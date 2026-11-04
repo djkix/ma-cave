@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Pairing, regeneratePairing } from '../lib/api-client';
 import { Button } from './Button';
 import { Icon } from './Icon';
@@ -43,7 +44,10 @@ export function PairingBlock({ wineId, pairing, readOnly = false }: { wineId: st
       {pairing?.status === 'DONE' && (
         <>
           <ul className="dish-pills">
-            {pairing.dishes.map((d) => <li key={d} className="dish-pill">{d}</li>)}
+            {/* Chaque plat ouvre « Accords » sur ce plat : les vins de la cave qui l'accompagnent. */}
+            {pairing.dishes.map((d) => (
+              <li key={d}><Link to={`/accords?plat=${encodeURIComponent(d)}`} className="dish-pill dish-pill--link">{d}</Link></li>
+            ))}
           </ul>
           <p className="list__meta" style={{ margin: 0 }}>Suggestions générées par Gemini</p>
         </>

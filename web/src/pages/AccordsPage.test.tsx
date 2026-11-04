@@ -41,10 +41,10 @@ afterEach(() => {
   delete (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
 });
 
-function mount(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
+function mount(client = new QueryClient({ defaultOptions: { queries: { retry: false } } }), entry = '/accords') {
   const router = createMemoryRouter(
     [{ path: '/accords', element: <AccordsPage /> }, { path: '/cave/:id', element: <p>Fiche</p> }],
-    { initialEntries: ['/accords'] },
+    { initialEntries: [entry] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -53,6 +53,13 @@ function mount(client = new QueryClient({ defaultOptions: { queries: { retry: fa
   );
   return { router, client };
 }
+
+it('arrivée depuis un accord de la fiche (?plat=) : recherche lancée sur ce plat', async () => {
+  const post = vi.spyOn(api, 'postAccords').mockResolvedValue(result({ dish: 'Daube provençale' }));
+  mount(undefined, '/accords?plat=Daube%20proven%C3%A7ale');
+  await screen.findByRole('list', { name: 'À ouvrir ce soir' });
+  expect(post).toHaveBeenCalledWith('Daube provençale');
+});
 
 it('sans API vocale : champ texte d’office, pas de micro ; texte → vins classés, liens vers la fiche', async () => {
   const post = vi.spyOn(api, 'postAccords').mockResolvedValue(result());

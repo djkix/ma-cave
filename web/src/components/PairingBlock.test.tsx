@@ -1,17 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import * as api from '../lib/api-client';
 import { PairingBlock, pairingPollInterval } from './PairingBlock';
 
 afterEach(() => vi.restoreAllMocks());
 
 const mount = (pairing: api.Pairing | null) =>
-  render(<QueryClientProvider client={new QueryClient()}><PairingBlock wineId="w1" pairing={pairing} /></QueryClientProvider>);
+  render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><PairingBlock wineId="w1" pairing={pairing} /></MemoryRouter></QueryClientProvider>);
 
 it('montre les plats suggérés et leur origine', () => {
   mount({ status: 'DONE', dishes: ['Agneau de sept heures', 'Daube provençale'], errorMessage: null, generatedAt: '2026-10-05T10:00:00Z' });
-  expect(screen.getByText('Agneau de sept heures')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Agneau de sept heures' })).toHaveAttribute('href', '/accords?plat=Agneau%20de%20sept%20heures');
   expect(screen.getByText('Suggestions générées par Gemini')).toBeInTheDocument();
 });
 

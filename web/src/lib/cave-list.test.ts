@@ -44,5 +44,5 @@ it('liste les filtres actifs dans l’ordre du panneau', () => {
   expect(activeFilters({ ...none, vintage: 'abc' })).toEqual([]);
   expect(activeFilters({ color: 'ROUGE', colorLabel: 'Rouge', aromas: ['boisé', 'noisette'], vintage: '2018', tannin: 'PUISSANT', locationLabel: 'Cave 1 / A',
     regionLabel: 'Bourgogne', apogeeFilter: 'drinkSoon', includeEmpty: true }).map((f) => f.label)).toEqual([
-    'Rouge', 'Arômes : boisé, noisette', 'Millésime 2018', 'Tanin : puissant', 'Emplacement : Cave 1 / A', 'Bourgogne', 'À boire en priorité', 'Vins épuisés']);
+    'Rouge', 'Arômes : boisé, noisette', 'Millésime 2018', 'Tanin : Puissant', 'Emplacement : Cave 1 / A', 'Bourgogne', 'À boire en priorité', 'Vins épuisés']);
 });

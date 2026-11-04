@@ -543,6 +543,8 @@ export interface Stats {
   /** Vins en stock cotés, sur les vins en stock. */
   quotedReferences?: number; quotableReferences?: number;
   byColor: StatsShare[]; byRegion: StatsShare[]; /** Par millésime croissant, « Non millésimé » en dernier. */ byYear: StatsShare[]; byApogee: StatsShare[];
+  /** Rouges par tanin (part sur les rouges), vide sans rouge ; arômes par bouteille (part sur toutes, un vin compte pour chacun). */
+  byTannin?: StatsShare[]; byAroma?: StatsShare[];
   months: Array<{ month: string; in: number; out: number }>;
   drinkRate: number; yearsLeft: number | null;
   mostDrunk: StatsRankedWine[]; topProducers: Array<{ producer: string; bottles: number }>; mostExpensive?: StatsRankedWine[];

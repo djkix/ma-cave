@@ -7,6 +7,7 @@ import { MonthlyChart } from '../components/stats/MonthlyChart';
 import { getStats, Stats, StatsRankedWine, StatsShare } from '../lib/api-client';
 import { CESSION_NOTE, formatEurosRounded } from '../lib/quote';
 import { formatRatingShort } from '../lib/rating';
+import { TANNIN_LABEL } from '../lib/traits';
 
 const COLOR_LABEL: Record<string, string> = { ROUGE: 'Rouge', BLANC: 'Blanc', ROSE: 'Rosé', PETILLANT: 'Pétillant' };
 const COLOR_VAR: Record<string, string> = {
@@ -19,6 +20,8 @@ const APOGEE_LINK: Record<string, string> = {
   A_BOIRE_VITE: '/cave?filtre=priorite', PASSEE: '/cave?filtre=priorite', SANS_ESTIMATION: '/cave?filtre=sans-apogee',
 };
 const REGIONS_SHOWN = 8;
+const AROMAS_SHOWN = 8;
+const TANNIN_LABEL_STATS: Record<string, string> = { ...TANNIN_LABEL, SANS_TANIN: 'Non renseigné' };
 
 const EUROS = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
 const euros = (cents: number) => `~${EUROS.format(Math.round(cents / 100))} €`;
@@ -118,6 +121,9 @@ export function StatsPage() {
             <BarList title="Couleur" rows={s.byColor.map((r) => ({ ...r, label: COLOR_LABEL[r.key] ?? r.key, color: COLOR_VAR[r.key] }))} />
             <BarList title="Région" rows={plain(topWithOthers(s.byRegion, REGIONS_SHOWN))} />
             <BarList title="Millésime" rows={s.byYear.map((r) => ({ ...r, label: r.key }))} />
+            {!!s.byTannin?.length && <BarList title="Tanin des rouges" rows={s.byTannin.map((r) => ({ ...r, label: TANNIN_LABEL_STATS[r.key] ?? r.key }))} />}
+            {/* Un vin a jusqu'à cinq arômes : les parts ne s'additionnent pas, d'où pas de ligne « Autres ». */}
+            {!!s.byAroma?.length && <BarList title="Arômes" rows={plain(s.byAroma.slice(0, AROMAS_SHOWN)).map((r) => ({ ...r, label: r.key.charAt(0).toUpperCase() + r.key.slice(1) }))} />}
           </>
         )}
         {s && (s.bottles > 0 || anyMovement) && (

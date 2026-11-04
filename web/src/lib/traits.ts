@@ -6,7 +6,7 @@ export const AROMAS: readonly string[] = [
   'vanille', 'boisé', 'toasté', 'beurré', 'miel', 'minéral', 'végétal', 'sous-bois', 'cuir', 'réglisse',
 ];
 export const MAX_AROMAS = 5;
-export const TANNIN_LABEL: Record<Tannin, string> = { LEGER: 'léger', MOYEN: 'moyen', PUISSANT: 'puissant' };
+export const TANNIN_LABEL: Record<Tannin, string> = { LEGER: 'Léger', MOYEN: 'Moyen', PUISSANT: 'Puissant' };
 /** Liste fermée des régions viticoles de France, dans l'ordre d'affichage (recopiée de l'api). */
 export const REGIONS: readonly string[] = [
   'Alsace', 'Beaujolais', 'Bordeaux', 'Bourgogne', 'Champagne', 'Jura', 'Languedoc-Roussillon', 'Loire', 'Provence', 'Rhône', 'Savoie', 'Sud-Ouest',

@@ -242,3 +242,26 @@ describe('statsForRole', () => {
     expect([viewer, leaked]).toHaveLength(2);
   });
 });
+
+describe('computeStats — tanin et arômes', () => {
+  it('tanin sur les seuls rouges en stock, arômes comptés par bouteille pour chaque arôme', () => {
+    const wines = [
+      wine('r1', { color: 'ROUGE', quantity: 3, tannin: 'PUISSANT', aromas: ['fruits noirs', 'épicé'] }),
+      wine('r2', { color: 'ROUGE', quantity: 1, tannin: null, aromas: ['fruits noirs'] }),
+      wine('r3', { color: 'ROUGE', quantity: 0, tannin: 'LEGER', aromas: ['floral'] }),
+      wine('b1', { color: 'BLANC', quantity: 4, tannin: null, aromas: ['agrumes'] }),
+    ];
+    const s = computeStats({ wines, movements: [] }, NOW);
+    expect(s.byTannin).toEqual([
+      { key: 'LEGER', bottles: 0, share: 0 }, { key: 'MOYEN', bottles: 0, share: 0 },
+      { key: 'PUISSANT', bottles: 3, share: 0.75 }, { key: 'SANS_TANIN', bottles: 1, share: 0.25 },
+    ]);
+    expect(s.byAroma).toEqual([
+      { key: 'agrumes', bottles: 4, share: 0.5 }, { key: 'fruits noirs', bottles: 4, share: 0.5 }, { key: 'épicé', bottles: 3, share: 0.375 },
+    ]);
+  });
+
+  it('sans rouge en stock : pas de répartition du tanin', () => {
+    expect(computeStats({ wines: [wine('b1', { color: 'BLANC', quantity: 2 })], movements: [] }, NOW).byTannin).toEqual([]);
+  });
+});
