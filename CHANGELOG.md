@@ -11,6 +11,14 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.48.0](https://github.com/djkix/ma-cave/compare/v2.47.2...v2.48.0) (2026-11-05)
 
+### Résumé
+
+**L'onglet Cave ouvre l'accueil**, comme le logo : il reste allumé sur
+l'accueil et sur la liste ; un bouton « Voir mes N bouteilles » en haut de
+l'accueil ouvre la liste. **Bandeau de mise à jour** en bordeaux plein, bien
+visible. Aucune migration.
+
+### Détail par commit
 
 ### Fonctionnalités
 

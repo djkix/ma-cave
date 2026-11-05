@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.47.2-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.48.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -870,6 +870,15 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.48.0 — 5 novembre 2026
+
+Publiée ([v2.48.0](https://github.com/djkix/ma-cave/releases/tag/v2.48.0)),
+images `ghcr.io/djkix/ma-cave-api:2.48.0`, `-web:2.48.0` et
+`-sauvegarde:2.48.0`.
+
+**L'onglet Cave ouvre l'accueil** (bouton « Voir mes N bouteilles » vers la
+liste) ; **bandeau de mise à jour** en bordeaux. Aucune migration.
+
 ### 2.47.2 — 4 novembre 2026
 
 Publiée ([v2.47.2](https://github.com/djkix/ma-cave/releases/tag/v2.47.2)),
@@ -962,6 +971,9 @@ images `ghcr.io/djkix/ma-cave-api:2.43.0`, `-web:2.43.0` et
 (`20261103180000_cepages`) : nouvelle colonne et remise en file de
 caractérisation de tous les vins.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.42.1 → 1.0.0)</summary>
+
 ### 2.42.1 — 3 novembre 2026
 
 Publiée ([v2.42.1](https://github.com/djkix/ma-cave/releases/tag/v2.42.1)),
@@ -970,9 +982,6 @@ images `ghcr.io/djkix/ma-cave-api:2.42.1`, `-web:2.42.1` et
 
 **Image web de nouveau construite** ; contient la nouvelle charte de la 2.42.0.
 Aucune migration.
-
-<details>
-<summary><strong>Versions antérieures</strong> (2.42.0 → 1.0.0)</summary>
 
 ### 2.42.0 — 3 novembre 2026
 
