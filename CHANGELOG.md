@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.48.1](https://github.com/djkix/ma-cave/compare/v2.48.0...v2.48.1) (2026-11-05)
+
+
+### Corrections
+
+* **web:** le plat venu de la fiche ne reste plus dans l'adresse des Accords ([a8b78bd](https://github.com/djkix/ma-cave/commit/a8b78bd540bbe712e1dbe1fd50c2020af3b73857))
+
 ## [2.48.0](https://github.com/djkix/ma-cave/compare/v2.47.2...v2.48.0) (2026-11-05)
 
 ### Résumé
