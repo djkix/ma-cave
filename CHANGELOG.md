@@ -9,6 +9,18 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.48.0](https://github.com/djkix/ma-cave/compare/v2.47.2...v2.48.0) (2026-11-05)
+
+
+### Fonctionnalités
+
+* **web:** l'onglet Cave ouvre l'accueil, « Voir mes N bouteilles » mène à la liste ([403c89f](https://github.com/djkix/ma-cave/commit/403c89f4e8459341005ee2041d33b7cd35586178))
+
+
+### Corrections
+
+* **web:** bandeau de mise à jour en bordeaux, bien visible ([70233ec](https://github.com/djkix/ma-cave/commit/70233ec000e875ae0c26e0ad259d152c3cb522cd))
+
 ## [2.47.2](https://github.com/djkix/ma-cave/compare/v2.47.1...v2.47.2) (2026-11-04)
 
 ### Résumé
