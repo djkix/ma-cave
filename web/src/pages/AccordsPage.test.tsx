@@ -81,10 +81,12 @@ async function askAi(dish: string) {
 
 it('arrivée depuis un accord de la fiche (?plat=) : accord local sur ce plat, sans IA', async () => {
   const post = vi.spyOn(api, 'postAccords');
-  mount(undefined, '/accords?plat=Volaille%20r%C3%B4tie');
+  const { router } = mount(undefined, '/accords?plat=Volaille%20r%C3%B4tie');
   expect(screen.getByText('Poulet', { selector: 'strong' })).toBeInTheDocument();
   expect(await screen.findByRole('link', { name: /^Domaine Rouge/ })).toHaveAttribute('href', '/cave/r1');
   expect(post).not.toHaveBeenCalled();
+  // Lu puis retiré de l'adresse : il ne réimpose plus ce plat ensuite.
+  expect(router.state.location.search).toBe('');
 });
 
 it('?plat= non reconnu : message et bouton IA, pas d’appel automatique', async () => {

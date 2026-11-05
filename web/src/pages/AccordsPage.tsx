@@ -139,8 +139,11 @@ function SearchProgress() {
 export function AccordsPage() {
   const Speech = speechRecognition();
   // `?plat=` : arrivée depuis un accord de la fiche vin, recherche lancée sur ce plat.
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const linked = params.get('plat')?.trim().slice(0, 200) || null;
+  // Lu une fois puis retiré : le plat est gardé en mémoire, l'adresse ne doit pas
+  // le réimposer après un autre choix (retour arrière, rechargement).
+  useEffect(() => { if (params.has('plat')) setParams({}, { replace: true }); }, [params, setParams]);
   const [entree, setEntree] = useState<Entree>(() => (linked ? { mode: 'plat' } : readEntree()));
   const choose = (next: Entree) => { setEntree(next); writeEntree(next); };
   const [stored] = useState(readStored);
