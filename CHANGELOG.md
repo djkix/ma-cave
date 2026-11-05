@@ -11,6 +11,13 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.48.1](https://github.com/djkix/ma-cave/compare/v2.48.0...v2.48.1) (2026-11-05)
 
+### Résumé
+
+**Accords** : le plat venu d'une fiche vin (`?plat=`) est lu puis retiré de
+l'adresse ; il ne réimpose plus ce plat après un autre choix, un retour ou un
+rechargement. Aucune migration.
+
+### Détail par commit
 
 ### Corrections
 

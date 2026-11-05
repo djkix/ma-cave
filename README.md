@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.48.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.48.1-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -870,6 +870,15 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.48.1 — 5 novembre 2026
+
+Publiée ([v2.48.1](https://github.com/djkix/ma-cave/releases/tag/v2.48.1)),
+images `ghcr.io/djkix/ma-cave-api:2.48.1`, `-web:2.48.1` et
+`-sauvegarde:2.48.1`.
+
+**Accords** : le plat venu d'une fiche ne reste plus dans l'adresse. Aucune
+migration.
+
 ### 2.48.0 — 5 novembre 2026
 
 Publiée ([v2.48.0](https://github.com/djkix/ma-cave/releases/tag/v2.48.0)),
@@ -960,6 +969,9 @@ estimée, avancement des rafales, panneau **Filtres actifs**. Migrations
 automatiques (`20261104100000_zone_temperature`, `20261104110000_photo_lot`) :
 colonnes vides ajoutées.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.43.0 → 1.0.0)</summary>
+
 ### 2.43.0 — 3 novembre 2026
 
 Publiée ([v2.43.0](https://github.com/djkix/ma-cave/releases/tag/v2.43.0)),
@@ -970,9 +982,6 @@ images `ghcr.io/djkix/ma-cave-api:2.43.0`, `-web:2.43.0` et
 **cépages par vin**, estimés par l'IA et corrigeables. Migration automatique
 (`20261103180000_cepages`) : nouvelle colonne et remise en file de
 caractérisation de tous les vins.
-
-<details>
-<summary><strong>Versions antérieures</strong> (2.42.1 → 1.0.0)</summary>
 
 ### 2.42.1 — 3 novembre 2026
 
