@@ -3,8 +3,9 @@ import { useCurrentCave, usePendingRegistrations } from '../lib/use-current-cave
 import { Icon } from './Icon';
 import { SETTINGS_PATH } from './TopBar';
 
+// Cave ouvre l'accueil (carte, mouvements) et reste allumé sur la liste /cave.
 const tabs = [
-  { to: '/cave', icon: 'shelves', label: 'Cave', soon: false, ownerOnly: false },
+  { to: '/', icon: 'shelves', label: 'Cave', soon: false, ownerOnly: false },
   { to: '/entree', icon: 'add_circle', label: 'Entrée', soon: false, ownerOnly: true },
   { to: '/sortie', icon: 'remove_circle_outline', label: 'Sortie', soon: false, ownerOnly: true },
   { to: '/accords', icon: 'restaurant', label: 'Accords', soon: false, ownerOnly: false },
@@ -29,7 +30,7 @@ export function BottomNav() {
             <span>{t.label}</span>
           </span>
         ) : (
-          <NavLink key={t.to} to={t.to} className={({ isActive }) => `bottomnav__tab${isActive || (t.to === '/compte' && SETTINGS_PATH.test(pathname)) ? ' bottomnav__tab--active' : ''}`}>
+          <NavLink key={t.to} to={t.to} end={t.to === '/'} className={({ isActive }) => `bottomnav__tab${isActive || (t.to === '/compte' && SETTINGS_PATH.test(pathname)) || (t.to === '/' && pathname.startsWith('/cave')) ? ' bottomnav__tab--active' : ''}`}>
             <span className="bottomnav__icon">
               <Icon name={t.icon} />
               {t.to === '/compte' && pending > 0 && (

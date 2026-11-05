@@ -171,6 +171,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Ajuster les cases sur le plan** (*Modifier la zone*) : toucher une case puis son endroit, poser les cases oubliées
 
 ### 📊 Statistiques
+- **Onglet Cave = accueil** (comme le logo) : il reste allumé sur la liste ; le bouton « Voir mes N bouteilles » de l'accueil ouvre la liste
 - **Carte de France** sur l'accueil : régions viticoles colorées selon le nombre de bouteilles, case « Hors de France », mention « dont N sans région » ; toucher une région ouvre ses domaines et un lien vers la cave filtrée
 - Bouteilles, références, **valeur au prix d'achat** et **à la cote** (propriétaire)
 - Répartition par **apogée**, **couleur**, **région** (avec une ligne « Hors de France ») et **millésime année par année** (« Non millésimé » en dernier)

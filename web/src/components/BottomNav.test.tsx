@@ -27,6 +27,17 @@ it('montre les six onglets au propriétaire, Accords à la place du Journal, Ré
   expect(labels()).toEqual(['shelvesCave', 'add_circleEntrée', 'remove_circle_outlineSortie', 'restaurantAccords', 'bar_chartStats', 'settingsRéglages']);
 });
 
+it.each(['/', '/cave'])('l’onglet Cave ouvre l’accueil et s’allume sur %s', async (path) => {
+  mount(path);
+  expect(await screen.findByRole('link', { name: /Cave/ })).toHaveAttribute('href', '/');
+  expect(screen.getByRole('link', { name: /Cave/ })).toHaveClass('bottomnav__tab--active');
+});
+
+it('l’onglet Cave reste éteint ailleurs', async () => {
+  mount('/stats');
+  expect(await screen.findByRole('link', { name: /Cave/ })).not.toHaveClass('bottomnav__tab--active');
+});
+
 it.each(['/compte', '/compte/a-propos', '/ma-cave', '/journal', '/admin/comptes'])('allume l’onglet Réglages sur %s', async (path) => {
   mount(path);
   expect(await screen.findByRole('link', { name: /Réglages/ })).toHaveAttribute('href', '/compte');

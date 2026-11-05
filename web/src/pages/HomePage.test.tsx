@@ -79,7 +79,7 @@ it('n’offre à un membre en lecture seule que la cave et les statistiques, san
   const inbox = vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [photo('a', 'DONE')], inProgress: [], failed: [] });
   const queue = vi.spyOn(api, 'getPhotoQueueStatus').mockResolvedValue({ waiting: 3, oldestWaitingAt: null, lastReason: null });
   mount();
-  expect(await screen.findByRole('link', { name: /Voir la cave/ })).toHaveAttribute('href', '/cave');
+  expect(await screen.findByRole('link', { name: /Voir mes/ })).toHaveAttribute('href', '/cave');
   await waitFor(() => expect(me).toHaveBeenCalled());
   await new Promise((r) => setTimeout(r, 20));
   expect(movements).not.toHaveBeenCalled();
@@ -141,6 +141,12 @@ it('carte de France aussi pour un membre en lecture seule', async () => {
   vi.spyOn(api, 'getCave').mockResolvedValue([caveRow({ region: 'Loire', quantity: 3 })]);
   mount();
   expect(await screen.findByRole('heading', { name: 'Ma cave en France · 3 btl' })).toBeInTheDocument();
+});
+
+it('propriétaire : l’accueil mène à la liste, avec le nombre de bouteilles', async () => {
+  vi.spyOn(api, 'getCave').mockResolvedValue([caveRow({ quantity: 3 }), caveRow({ id: 'w2', quantity: 2 }), caveRow({ id: 'w3', quantity: 0 })]);
+  mount();
+  expect(await screen.findByRole('link', { name: /Voir mes 5 bouteilles/ })).toHaveAttribute('href', '/cave');
 });
 
 it('pastilles de régions : la plus fournie d’abord, toucher une pastille ouvre le volet', async () => {

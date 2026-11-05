@@ -46,6 +46,7 @@ export function HomePage() {
                 <Icon name="chevron_right" />
               </Link>
             )}
+            <section className="actions"><CaveLink /></section>
             <CaveMap />
             <DrinkSoonCard />
             <section className="card">
@@ -65,14 +66,7 @@ export function HomePage() {
         )}
         {role === 'VIEWER' && (
           <section className="actions">
-            <Link to="/cave" className="action action--in">
-              <Icon name="shelves" />
-              <span className="action__text">
-                <strong>Voir la cave</strong>
-                <small>Fiches, apogées, accords mets-vins</small>
-              </span>
-              <Icon name="arrow_forward" />
-            </Link>
+            <CaveLink />
             <Link to="/stats" className="action action--out">
               <Icon name="bar_chart" />
               <span className="action__text">
@@ -88,6 +82,22 @@ export function HomePage() {
       </main>
       <BottomNav />
     </>
+  );
+}
+
+/** L'onglet Cave ouvre l'accueil : ce lien mène à la liste des bouteilles. */
+function CaveLink() {
+  const cave = useQuery({ queryKey: ['cave', {}], queryFn: () => getCave({}) });
+  const total = cave.data?.reduce((n, r) => n + Math.max(r.quantity, 0), 0);
+  return (
+    <Link to="/cave" className="action action--in">
+      <Icon name="shelves" />
+      <span className="action__text">
+        <strong>{total === undefined ? 'Voir mes bouteilles' : `Voir mes ${total} bouteille${total > 1 ? 's' : ''}`}</strong>
+        <small>Fiches, apogées, accords mets-vins</small>
+      </span>
+      <Icon name="arrow_forward" />
+    </Link>
   );
 }
 

@@ -131,7 +131,7 @@ describe('changement de cave', () => {
     await waitFor(() => expect(queue).toHaveBeenCalled());
     const counts = [inbox.mock.calls.length, queue.mock.calls.length, movements.mock.calls.length];
     await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Cave' }), 'c2');
-    expect(await screen.findByRole('link', { name: /Voir la cave/ })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /Statistiques/ })).toBeInTheDocument();
     await new Promise((r) => setTimeout(r, 30));
     expect([inbox.mock.calls.length, queue.mock.calls.length, movements.mock.calls.length]).toEqual(counts);
   });

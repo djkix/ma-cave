@@ -725,6 +725,11 @@ continue de fonctionner. Une fois l'image choisie, la fiche affiche « Image : {
 minute. API : `POST /api/wines/:id/image-search`, `GET
 /api/image-candidates/:id`, `POST`/`DELETE /api/wines/:id/reference-image`.
 
+**Onglet Cave.** L'onglet *Cave* de la barre du bas ouvre l'accueil, comme le
+logo : carte de France, à boire prochainement, derniers mouvements. Le bouton
+« Voir mes N bouteilles » en haut de l'accueil ouvre la liste (`/cave`) ; l'onglet
+reste allumé sur l'accueil comme sur la liste.
+
 **Réglages.** L'onglet *Réglages* de la barre du bas (ou l'icône en haut à
 droite des autres écrans) ouvre les Réglages (`/compte`), un **hub** ouvert à tout compte connecté, avec le profil (initiales, nom,
 e-mail) puis une carte par écran, chacune avec son résumé. Dans les Réglages et
