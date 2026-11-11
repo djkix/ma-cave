@@ -9,6 +9,14 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.50.1](https://github.com/djkix/ma-cave/compare/v2.50.0...v2.50.1) (2026-11-11)
+
+
+### Corrections
+
+* correctifs de l'audit de sécurité ([aa35df3](https://github.com/djkix/ma-cave/commit/aa35df32dac0f7f08812bcfd258ceb31de65b435))
+* **sauvegarde:** .env aussi en 600, et la CI lit la sauvegarde avec sudo ([ace49be](https://github.com/djkix/ma-cave/commit/ace49bee977c1a102b69d231d076d205d81e36d6))
+
 ## [2.50.0](https://github.com/djkix/ma-cave/compare/v2.49.0...v2.50.0) (2026-11-11)
 
 ### Résumé
