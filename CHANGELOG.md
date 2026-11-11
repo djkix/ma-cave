@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.49.0](https://github.com/djkix/ma-cave/compare/v2.48.1...v2.49.0) (2026-11-11)
+
+
+### Fonctionnalités
+
+* entrée par code-barres ([2587601](https://github.com/djkix/ma-cave/commit/25876012f0cb621318d0563b40cfa2f29205df23))
+
 ## [2.48.1](https://github.com/djkix/ma-cave/compare/v2.48.0...v2.48.1) (2026-11-05)
 
 ### Résumé
