@@ -9,6 +9,13 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.50.0](https://github.com/djkix/ma-cave/compare/v2.49.0...v2.50.0) (2026-11-11)
+
+
+### Fonctionnalités
+
+* **web:** sortie par code-barres, le scan ouvre la fiche du vin en stock ([2fe447e](https://github.com/djkix/ma-cave/commit/2fe447e80259d9f6c2d21c5e4ed8910fed46aed6))
+
 ## [2.49.0](https://github.com/djkix/ma-cave/compare/v2.48.1...v2.49.0) (2026-11-11)
 
 ### Résumé
