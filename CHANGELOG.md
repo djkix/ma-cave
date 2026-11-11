@@ -11,6 +11,19 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.50.1](https://github.com/djkix/ma-cave/compare/v2.50.0...v2.50.1) (2026-11-11)
 
+### Résumé
+
+**Correctifs d'un audit de sécurité.** Connexion Google avec paramètre `state`
+vérifié ; notifications push limitées aux services des navigateurs ; recherche
+d'image limitée aux ports web ; clés d'idempotence rejouées vérifiées par
+opération, entrée sous verrou du vin ; budget Gemini qui compte les
+caractéristiques et le journal des appels ; photo écartée puis renvoyée de
+nouveau proposée ; file hors ligne envoyée vers la cave de la prise ; limites
+de débit sur les routes coûteuses ; réponses de l'api jamais mises en cache,
+en-têtes COOP et CORP ; sauvegarde : base et `.env` en 600 sur le NAS.
+Aucune migration.
+
+### Détail par commit
 
 ### Corrections
 
