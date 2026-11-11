@@ -1,9 +1,20 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import * as api from '../lib/api-client';
 import { SortieCapturePage } from './SortieCapturePage';
+
+// La caméra n'existe pas sous jsdom : le scanner rend un bouton qui « lit » un code.
+vi.mock('../components/BarcodeScanner', () => ({
+  BarcodeScanner: ({ onCode }: { onCode: (c: string) => void }) => <button type="button" onClick={() => onCode('3760123456784')}>Lire le code</button>,
+}));
+
+// jsdom n'a ni showModal ni close : on les simule comme les autres tests de <dialog>.
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.open = true; };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) { this.open = false; };
+});
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -14,6 +25,7 @@ function mount() {
         <Routes>
           <Route path="/sortie" element={<SortieCapturePage />} />
           <Route path="/sortie/:photoId" element={<p>Résolution</p>} />
+          <Route path="/cave/:id" element={<p>Fiche</p>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -49,4 +61,36 @@ it('réessaie l’envoi de la même photo puis ouvre la résolution', async () =
   await waitFor(() => expect(upload).toHaveBeenCalledTimes(2));
   expect(upload).toHaveBeenNthCalledWith(2, file, 'EXIT');
   expect(await screen.findByText('Résolution')).toBeInTheDocument();
+});
+
+const row = (o: Partial<api.CaveRow>): api.CaveRow => ({
+  id: 'w1', producer: 'Domaine du Code', cuvee: null, appellationRaw: 'Cahors', vintage: 2019, color: 'ROUGE', formatCl: 75, referencePhotoId: null, quantity: 2, ...o,
+});
+
+async function scanCode() {
+  await userEvent.click(screen.getByRole('button', { name: /Scanner le code-barres/ }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Lire le code' }));
+}
+
+it('code-barres : un seul vin en stock ouvre sa fiche (sortie depuis la fiche)', async () => {
+  vi.spyOn(api, 'getWinesByEan').mockResolvedValue([row({}), row({ id: 'w2', vintage: 2016, quantity: 0 })]);
+  mount();
+  await scanCode();
+  expect(await screen.findByText('Fiche')).toBeInTheDocument();
+});
+
+it('code-barres : plusieurs millésimes en stock, on choisit', async () => {
+  vi.spyOn(api, 'getWinesByEan').mockResolvedValue([row({}), row({ id: 'w2', vintage: 2016 })]);
+  mount();
+  await scanCode();
+  expect(await screen.findByText(/2016 · 2 en stock/)).toBeInTheDocument();
+  expect(screen.getAllByRole('link', { name: 'Choisir' }).map((l) => l.getAttribute('href'))).toEqual(['/cave/w1', '/cave/w2']);
+});
+
+it('code-barres sans vin en stock : retour à la photo', async () => {
+  vi.spyOn(api, 'getWinesByEan').mockResolvedValue([row({ quantity: 0 })]);
+  mount();
+  await scanCode();
+  expect(await screen.findByText(/Aucun vin en stock avec ce code/)).toBeInTheDocument();
+  expect(within(screen.getByRole('dialog')).getByRole('button', { name: /Prendre la photo/ })).toBeInTheDocument();
 });

@@ -107,6 +107,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 
 ### 📤 Sortie
 - Par **photo** : seuls les vins en stock sont proposés
+- Par **code-barres** (retenu à l'entrée) : un seul vin en stock ouvre sa fiche (*Sortir une bouteille*, endroit et *Annuler*) ; plusieurs millésimes : on choisit ; aucun : retour à la photo
 - Un candidat clair : **confirmation** ; plusieurs : **1 à 4 vignettes** avec le millésime
 - Aucun candidat : **Chercher dans la cave** ou **Rentrer ce vin**
 - Par la **liste** : sélecteur de quantité borné par le stock

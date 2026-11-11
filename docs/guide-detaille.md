@@ -379,6 +379,13 @@ propriétaire) :
   fiche, il est retenu sur le vin s'il n'en a pas déjà un. Le scan suivant de
   ce code ajoutera donc directement la bouteille.
 
+**Sortie par code-barres.** L'écran *Sortir une bouteille* propose le même
+scan. Seuls les vins **en stock** qui portent le code comptent : un seul ouvre
+directement sa fiche, dont la barre *Sortir une bouteille* demande l'endroit
+(s'il y en a plusieurs), permet d'annuler et de noter le plat servi ; plusieurs
+millésimes sont listés pour choisir ; aucun (ou recherche impossible) renvoie
+à la photo.
+
 Un même code peut couvrir plusieurs millésimes d'une cuvée : chaque vin garde
 le sien, et le scan les propose tous. Un code n'est jamais remplacé une fois
 retenu ; deux vins fusionnés gardent celui du vin conservé.
