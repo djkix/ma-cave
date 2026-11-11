@@ -197,6 +197,16 @@ export class CaveService {
   }
 
   /** Fiche d'un vin de la cave ; un vin d'une autre cave est « introuvable », comme un identifiant inconnu. */
+  /** Vins de la cave qui portent ce code-barres (millésimes récents d'abord), avec leur stock. */
+  byEan(caveId: string, ean: string): Promise<CaveRow[]> {
+    return this.prisma.$queryRaw<CaveRow[]>`
+      SELECT w.id, w.producer, w.cuvee, w.appellation_raw AS "appellationRaw", w.vintage, w.color::text AS color,
+             w.format_cl AS "formatCl", w.reference_photo_id AS "referencePhotoId", COALESCE(s.quantity, 0)::int AS quantity
+      FROM wine w LEFT JOIN stock_courant s ON s.wine_id = w.id
+      WHERE w.cave_id = ${caveId} AND w.ean = ${ean}
+      ORDER BY w.vintage DESC NULLS LAST, w.created_at DESC`;
+  }
+
   async detail(caveId: string, id: string, role: CaveRole = 'VIEWER', { withQuote = true }: { withQuote?: boolean } = {}) {
     const [rows, rules] = await Promise.all([this.allWithStock(caveId, role), this.rules.load()]);
     const row = rows.find((r) => r.id === id);

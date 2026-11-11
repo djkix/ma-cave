@@ -18,6 +18,8 @@ import { PhotosService } from './photos.service';
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const quantitySchema = z.coerce.number().int().min(1);
 const batchIdSchema = z.string().uuid();
+/** EAN-8, EAN-13, UPC-A ou GTIN-14 : chiffres seulement. */
+export const eanSchema = z.string().regex(/^\d{8,14}$/);
 const purposeSchema = z.enum(['ENTRY', 'EXIT']).default('ENTRY');
 
 /**
@@ -45,7 +47,7 @@ export class PhotosController {
   @CaveRole('OWNER')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }))
-  async upload(@CurrentCave() cave: CaveAccess, @UploadedFile() file?: Express.Multer.File, @Body('purpose') rawPurpose?: string, @Body('quantity') rawQuantity?: string, @Body('batchId') rawBatchId?: string) {
+  async upload(@CurrentCave() cave: CaveAccess, @UploadedFile() file?: Express.Multer.File, @Body('purpose') rawPurpose?: string, @Body('quantity') rawQuantity?: string, @Body('batchId') rawBatchId?: string, @Body('ean') rawEan?: string) {
     if (!file) throw new BadRequestException('Fichier « file » manquant');
     if (!ALLOWED.has(file.mimetype)) throw new BadRequestException('Format d’image non pris en charge');
     const purpose = purposeSchema.safeParse(rawPurpose ?? undefined);
@@ -56,7 +58,10 @@ export class PhotosController {
     // Lot de la rafale (uuid choisi par le téléphone) : facultatif, sert seulement à l'avancement « 6/8 ».
     const batchId = rawBatchId === undefined || rawBatchId === '' ? null : batchIdSchema.safeParse(rawBatchId);
     if (batchId && !batchId.success) throw new BadRequestException('Lot invalide');
-    const { photo, duplicate } = await this.photos.ingest(cave.caveId, file.buffer, file.mimetype, purpose.data, quantity ? quantity.data : null, batchId ? batchId.data : null);
+    // Code-barres scanné juste avant (code inconnu de la cave) : facultatif, posé sur le vin à la validation.
+    const ean = rawEan === undefined || rawEan === '' ? null : eanSchema.safeParse(rawEan);
+    if (ean && !ean.success) throw new BadRequestException('Code-barres invalide');
+    const { photo, duplicate } = await this.photos.ingest(cave.caveId, file.buffer, file.mimetype, purpose.data, quantity ? quantity.data : null, batchId ? batchId.data : null, ean ? ean.data : null);
     return { id: photo.id, status: photo.status, duplicate };
   }
 

@@ -361,6 +361,28 @@ invitation. Un compte actif qui n'a aucune cave (ni la sienne, ni une
 invitation) voit « Vous n’avez pas encore de cave. Un administrateur peut
 vous en créer une, ou un propriétaire peut vous inviter. »
 
+**Entrée par code-barres.** Sur l'écran *Rentrer du vin*, *Scanner le
+code-barres* ouvre la caméra arrière en direct (EAN-13, EAN-8, UPC). Le
+navigateur lit le code avec son lecteur natif quand il en a un (Chrome
+Android) ; sinon, sur iPhone notamment, avec ZXing compilé en WebAssembly
+(`zxing_reader.wasm`, environ 950 ko, chargé au premier scan et servi par
+l'application : la CSP autorise `'wasm-unsafe-eval'` pour le compiler, aucun
+autre hôte). Le code est cherché dans la cave (`GET /api/wines/by-ean/:ean`,
+propriétaire) :
+- **code connu** : les vins qui le portent, millésimes récents d'abord, avec
+  leur stock ; *Ajouter N* (N = le sélecteur Bouteilles) écrit l'entrée
+  aussitôt, sans photo ni analyse, *Sans emplacement* (à ranger depuis la
+  fiche). *Autre millésime : prendre une photo* passe à la photo ;
+- **code inconnu** (ou recherche impossible, hors réseau) : *Prendre la photo*.
+  Le code part avec cette photo (champ multipart `ean` de `POST /api/photos`,
+  8 à 14 chiffres, gardé aussi dans la file hors ligne) ; à la validation de la
+  fiche, il est retenu sur le vin s'il n'en a pas déjà un. Le scan suivant de
+  ce code ajoutera donc directement la bouteille.
+
+Un même code peut couvrir plusieurs millésimes d'une cuvée : chaque vin garde
+le sien, et le scan les propose tous. Un code n'est jamais remplacé une fois
+retenu ; deux vins fusionnés gardent celui du vin conservé.
+
 **Entrée de stock par photo, en rafale.** Bouton *Rentrer*, un grand bouton photo
 et un compteur « N photos prises » : on enchaîne photo après photo, sans
 attendre ni confirmer une fiche entre deux prises. Un sélecteur **Bouteilles**

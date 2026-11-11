@@ -109,6 +109,8 @@ model Wine {
   /// Provenance de la vignette quand elle vient du web (« Open Food Facts (CC BY-SA) », nom de domaine).
   referencePhotoSource     String?         @map("reference_photo_source")
   referencePhotoSourceUrl  String?         @map("reference_photo_source_url")
+  /// Code-barres (EAN/UPC) retenu à la première entrée scannée ; plusieurs millésimes peuvent le partager.
+  ean                      String?
   createdAt                DateTime        @default(now()) @map("created_at")
   rating                   Decimal?        @db.Decimal(3, 1)
   ratedAt                  DateTime?       @map("rated_at")
@@ -123,6 +125,7 @@ model Wine {
   /// Rapprochement par cave : le même vin peut exister dans deux caves.
   /// L'index commence par cave_id et sert aussi de filtre par cave.
   @@unique([caveId, matchKey])
+  @@index([caveId, ean])
   @@map("wine")
 }
 
@@ -171,6 +174,8 @@ model Photo {
   requestedQuantity Int?         @map("requested_quantity")
   /// Lot de prises (rafale) choisi par le téléphone ; null = envoi unitaire ou photo d'avant la 2.44.
   batchId           String?      @map("batch_id") @db.Uuid
+  /// Code-barres scanné juste avant la photo (code inconnu) : posé sur le vin à la validation.
+  ean               String?
   movements         Movement[]
 
   /// Doublon détecté par cave : deux caves peuvent envoyer la même image.

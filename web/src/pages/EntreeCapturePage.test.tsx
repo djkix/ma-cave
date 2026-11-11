@@ -8,6 +8,17 @@ import * as sender from '../lib/photo-sender';
 import { _resetSenderForTests, setSenderAccount } from '../lib/photo-sender';
 import { EntreeCapturePage } from './EntreeCapturePage';
 
+// La caméra n'existe pas sous jsdom : le scanner rend un bouton qui « lit » un code.
+vi.mock('../components/BarcodeScanner', () => ({
+  BarcodeScanner: ({ onCode }: { onCode: (c: string) => void }) => <button type="button" onClick={() => onCode('3760123456789')}>Lire le code</button>,
+}));
+
+// jsdom n'a ni showModal ni close : on les simule comme les autres tests de <dialog>.
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.open = true; };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) { this.open = false; };
+});
+
 beforeEach(async () => {
   await _resetForTests();
   _resetSenderForTests();
@@ -107,4 +118,54 @@ it('propose le nombre de bouteilles avant la prise, l’envoie avec la photo pui
   expect(await screen.findByText('1 photo prise')).toBeInTheDocument();
   expect(enqueue.mock.calls[0][3]).toBe(6);
   expect(within(screen.getByRole('group', { name: 'Bouteilles' })).getByRole('button', { name: /^1 ?btl/ })).toHaveAttribute('aria-pressed', 'true');
+});
+
+const scanned = (o: Partial<api.CaveRow> = {}): api.CaveRow => ({
+  id: 'w1', producer: 'Domaine du Code', cuvee: null, appellationRaw: 'Cahors', vintage: 2019, color: 'ROUGE', formatCl: 75, referencePhotoId: null, quantity: 4, ...o,
+});
+
+it('code-barres connu : ajoute les bouteilles au vin choisi, sans photo', async () => {
+  vi.spyOn(api, 'getWinesByEan').mockResolvedValue([scanned()]);
+  const create = vi.spyOn(api, 'createMovement').mockResolvedValue({} as api.MovementResult);
+  const enqueue = vi.spyOn(queue, 'enqueuePhoto');
+  mount();
+  fireEvent.click(screen.getByRole('button', { name: /Scanner le code-barres/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Lire le code' }));
+  expect(api.getWinesByEan).toHaveBeenCalledWith('3760123456789');
+  expect(await screen.findByText(/2019 · 4 en stock/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Ajouter 1' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('+1 · Domaine du Code 2019');
+  expect(create).toHaveBeenCalledWith(expect.objectContaining({
+    quantity: 1, wine: expect.objectContaining({ producer: 'Domaine du Code', appellationRaw: 'Cahors', vintage: 2019, color: 'ROUGE', formatCl: 75 }),
+  }));
+  expect(create.mock.calls[0][0]).not.toHaveProperty('photoId');
+  expect(enqueue).not.toHaveBeenCalled();
+});
+
+it('code-barres inconnu : la photo suivante emporte le code', async () => {
+  vi.spyOn(api, 'getWinesByEan').mockResolvedValue([]);
+  vi.spyOn(api, 'uploadPhoto').mockReturnValue(new Promise(() => {}));
+  const enqueue = vi.spyOn(queue, 'enqueuePhoto');
+  mount();
+  await waitFor(() => expect(api.getMe).toHaveBeenCalled());
+  await new Promise((r) => setTimeout(r, 0));
+  fireEvent.click(screen.getByRole('button', { name: /Scanner le code-barres/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Lire le code' }));
+  expect(await screen.findByText(/Code inconnu dans votre cave/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Prendre la photo/ }));
+  expect(screen.getByText(/joint à la prochaine photo/)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Prendre une photo'), { target: { files: [photo(1)] } });
+  await waitFor(() => expect(enqueue).toHaveBeenCalled());
+  expect(enqueue.mock.calls[0][5]).toBe('3760123456789');
+  // Une seule photo emporte le code.
+  expect(screen.queryByText(/joint à la prochaine photo/)).not.toBeInTheDocument();
+});
+
+it('recherche impossible (réseau) : la photo reste proposée avec le code', async () => {
+  vi.spyOn(api, 'getWinesByEan').mockRejectedValue(new TypeError('Failed to fetch'));
+  mount();
+  fireEvent.click(screen.getByRole('button', { name: /Scanner le code-barres/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Lire le code' }));
+  expect(await screen.findByText(/Recherche impossible \(réseau\)/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Prendre la photo/ })).toBeInTheDocument();
 });

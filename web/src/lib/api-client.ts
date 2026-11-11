@@ -298,14 +298,17 @@ export interface MovementResult { movement: { id: string; delta: number; type: s
 export interface PhotoEvent { status: PhotoDto['status']; extraction?: WineExtraction; errorMessage?: string | null }
 
 /** `batchId` : lot de la rafale (uuid choisi au début de la prise), pour l'avancement « 6/8 photos traitées ». */
-export function uploadPhoto(file: File | Blob, purpose: 'ENTRY' | 'EXIT' = 'ENTRY', quantity?: number, batchId?: string) {
+export function uploadPhoto(file: File | Blob, purpose: 'ENTRY' | 'EXIT' = 'ENTRY', quantity?: number, batchId?: string, ean?: string) {
   const form = new FormData();
   form.append('file', file, 'photo.jpg');
   form.append('purpose', purpose);
   if (quantity !== undefined) form.append('quantity', String(quantity));
   if (batchId) form.append('batchId', batchId);
+  if (ean) form.append('ean', ean);
   return apiFetch<{ id: string; status: string; duplicate: boolean }>('/photos', { method: 'POST', body: form });
 }
+/** Vins de la cave qui portent ce code-barres, millésimes récents d'abord ; vide = code inconnu. */
+export const getWinesByEan = (ean: string) => apiFetch<CaveRow[]>(`/wines/by-ean/${ean}`);
 export const getPhoto = (id: string) => apiFetch<PhotoDto>(`/photos/${id}`);
 
 /** Photos stockées qui attendent encore leur analyse, avec le motif du dernier report. */

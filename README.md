@@ -84,6 +84,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Le worker lit **jusqu'à 8 photos par appel Gemini**, toutes les 15 s
 - Résultat en général **entre 15 s et 1 min**
 - **Avancement de la rafale** : chaque série de photos forme un lot ; tant qu'il n'est pas entièrement analysé, l'accueil et l'onglet *En cours d'analyse* affichent « 6/8 photos traitées » (photos rejouées après une coupure comprises)
+- **Code-barres** : *Scanner le code-barres* (caméra en direct) ; un code déjà connu de la cave propose ses vins (millésimes récents d'abord) et **ajoute les bouteilles sans photo ni analyse** ; un code inconnu part avec la photo suivante et est **retenu sur le vin à sa validation** (lecteur natif sur Android, ZXing en WebAssembly sur iPhone, servi par l'application)
 
 ### ✅ À confirmer
 - Trois sections : **À valider**, **En cours d'analyse**, **Lecture impossible**
@@ -119,6 +120,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Stock **calculé à la lecture** depuis le journal, **jamais négatif**
 
 ### 🍾 Cave et fiche vin
+- **Onglet Cave = accueil** (comme le logo) : il reste allumé sur la liste ; le bouton « Voir mes N bouteilles » de l'accueil ouvre la liste
 - Recherche **sans accents ni casse**, filtres couleur, **arômes**, **millésime** (une année exacte), **région** (pastilles des régions présentes + « Hors de France », aussi posée depuis la carte), **tanin**, emplacement, vins épuisés
 - **Tri** de la liste : nom, apogée (fin de fenêtre la plus proche d'abord), millésime, quantité, note, ajouté récemment ; mémorisé sur l'appareil
 - Recherches et régions toujours visibles ; tri et autres filtres dans un panneau **Filtres actifs (N)** replié, filtres posés en **puces** à retirer une à une, **Tout effacer**
@@ -171,7 +173,6 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Ajuster les cases sur le plan** (*Modifier la zone*) : toucher une case puis son endroit, poser les cases oubliées
 
 ### 📊 Statistiques
-- **Onglet Cave = accueil** (comme le logo) : il reste allumé sur la liste ; le bouton « Voir mes N bouteilles » de l'accueil ouvre la liste
 - **Carte de France** sur l'accueil : régions viticoles colorées selon le nombre de bouteilles, case « Hors de France », mention « dont N sans région » ; toucher une région ouvre ses domaines et un lien vers la cave filtrée
 - Bouteilles, références, **valeur au prix d'achat** et **à la cote** (propriétaire)
 - Répartition par **apogée**, **couleur**, **région** (avec une ligne « Hors de France ») et **millésime année par année** (« Non millésimé » en dernier)

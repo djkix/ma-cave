@@ -76,19 +76,19 @@ describe('PhotosController — POST / quantité', () => {
   it('quantity=6 : transmise à l’ingestion', async () => {
     const { controller, photos } = setup();
     await controller.upload(cave, file, undefined, '6');
-    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', 6, null);
+    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', 6, null, null);
   });
 
   it('sans champ : null', async () => {
     const { controller, photos } = setup();
     await controller.upload(cave, file);
-    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', null, null);
+    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', null, null, null);
   });
 
   it('quantity=121 : acceptée, sans maximum (comme les mouvements)', async () => {
     const { controller, photos } = setup();
     await controller.upload(cave, file, undefined, '121');
-    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', 121, null);
+    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', 121, null, null);
   });
 
   it.each(['0', '2.5', 'abc'])('quantity=%s : 400 « Quantité invalide »', async (q) => {
@@ -116,12 +116,24 @@ describe('PhotosController — lot de rafale', () => {
   it('batchId transmis à l’ingestion', async () => {
     const { controller, photos } = setup();
     await controller.upload(cave, file, undefined, undefined, lot);
-    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', null, lot);
+    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', null, lot, null);
   });
 
   it('batchId qui n’est pas un uuid : 400 « Lot invalide »', async () => {
     const { controller, photos } = setup();
     await expect(controller.upload(cave, file, undefined, undefined, 'lot-1')).rejects.toThrow(new BadRequestException('Lot invalide'));
+    expect(photos.ingest).not.toHaveBeenCalled();
+  });
+
+  it('code-barres scanné : passé à l’enregistrement de la photo', async () => {
+    const { controller, photos } = setup();
+    await controller.upload(cave, file, undefined, undefined, undefined, '3760123456789');
+    expect(photos.ingest).toHaveBeenCalledWith('c1', file.buffer, 'image/jpeg', 'ENTRY', null, null, '3760123456789');
+  });
+
+  it('code-barres qui n’est pas fait de 8 à 14 chiffres : 400 « Code-barres invalide »', async () => {
+    const { controller, photos } = setup();
+    await expect(controller.upload(cave, file, undefined, undefined, undefined, '37601-2345')).rejects.toThrow(new BadRequestException('Code-barres invalide'));
     expect(photos.ingest).not.toHaveBeenCalled();
   });
 

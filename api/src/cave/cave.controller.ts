@@ -15,6 +15,7 @@ import { TANNINS } from '../traits/traits';
 import { ratingSchema } from './rating.dto';
 import { tastedPairingSchema } from './tasted-pairing.dto';
 import { WineEditService } from '../wines/wine-edit.service';
+import { eanSchema } from '../photos/photos.controller';
 
 const listQuerySchema = z.object({
   q: z.string().trim().max(200).optional(),
@@ -52,6 +53,15 @@ export class CaveController {
       throw new BadRequestException('Choisis « à boire en priorité » ou « sans apogée », pas les deux');
     }
     return this.cave.list(cave.caveId, { q, color, includeEmpty: includeEmpty === 'true', drinkSoon: drinkSoon === 'true', noApogee: noApogee === 'true', dish: dish || undefined, location, aromas, vintageMin, vintageMax, tannin, region: region || undefined }, cave.role);
+  }
+
+  /** Entrée par code-barres : les vins de la cave qui le portent ; vide = code inconnu, place à la photo. */
+  @Get('wines/by-ean/:ean')
+  @CaveRole('OWNER')
+  byEan(@CurrentCave() cave: CaveAccess, @Param('ean') raw: string) {
+    const ean = eanSchema.safeParse(raw);
+    if (!ean.success) throw new BadRequestException('Code-barres invalide');
+    return this.cave.byEan(cave.caveId, ean.data);
   }
 
   @Get('wines/:id')

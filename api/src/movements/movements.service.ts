@@ -127,7 +127,7 @@ export class MovementsService {
     }
 
     const photo = input.photoId
-      ? await this.prisma.photo.findFirst({ where: { id: input.photoId, caveId }, select: { status: true, purpose: true } })
+      ? await this.prisma.photo.findFirst({ where: { id: input.photoId, caveId }, select: { status: true, purpose: true, ean: true } })
       : null;
     // Une photo d'une autre cave est traitée comme une photo inconnue.
     if (input.photoId && !photo) throw new NotFoundException('Photo introuvable');
@@ -171,6 +171,10 @@ export class MovementsService {
         // valeur lue en mémoire. Deux premières entrées concurrentes ne gagnent
         // donc pas toutes les deux — la seconde ne modifie plus aucune ligne.
         await this.prisma.wine.updateMany({ where: { id: wine.id, referencePhotoId: null }, data: { referencePhotoId: input.photoId } });
+      }
+      // Code-barres scanné avant la photo : retenu sur le vin, le prochain scan l'ajoutera directement.
+      if (photo?.ean && !wine.ean) {
+        await this.prisma.wine.updateMany({ where: { id: wine.id, ean: null }, data: { ean: photo.ean } });
       }
 
       // Nouveau vin : ses accords sont demandés (ligne en attente, prise par le

@@ -118,6 +118,7 @@ const ROUTES: Route[] = [
     req: (i) => ({ url: `/api/wines/${i.wineA}/move`, body: { from: null, to: { zone: 'Iso', casier: 'B' }, quantity: 1 } }), foreign: NOT_FOUND_WINE,
     happy: { status: 201, check: (res) => expect(res.body.locations).toEqual(expect.arrayContaining([expect.objectContaining({ label: 'Iso / B', quantity: 1 })])) },
   },
+  { method: 'GET', path: '/api/wines/by-ean/:ean', kind: 'cave-owner', req: () => ({ url: '/api/wines/by-ean/3760123456789' }), foreign: 'own', happy: { status: 200 } },
   { method: 'GET', path: '/api/photos/:id/exit-candidates', kind: 'cave-owner', req: (i) => ({ url: `/api/photos/${i.photoA}/exit-candidates` }), foreign: NOT_FOUND_PHOTO, happy: { status: 200 } },
   {
     method: 'POST', path: '/api/wines/:id/quotes', kind: 'cave-owner',
