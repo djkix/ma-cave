@@ -35,7 +35,8 @@ copier_config() {
     fi
   done
   [ "$trouve" = 1 ] || return 2
-  cp "$PILE/.env" "$TMP/config/" && chmod 600 "$TMP/config/"*
+  # « * » ne prend pas les fichiers cachés : .env est nommé à part.
+  cp "$PILE/.env" "$TMP/config/" && chmod 600 "$TMP/config/"* "$TMP/config/.env"
 }
 
 sauvegarder() {

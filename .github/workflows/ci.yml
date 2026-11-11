@@ -99,11 +99,13 @@ jobs:
             sleep 2
           done
           docker compose logs api sauvegarde
-          ls -la nas/ nas/derniere/ nas/derniere/config/
+          # Base et configuration réservées au compte du conteneur (root) : lues avec sudo.
+          sudo ls -la nas/ nas/derniere/ nas/derniere/config/
           cat nas/derniere/sauvegarde.txt
-          test -s nas/derniere/base/cave.dump
-          test -f nas/derniere/config/docker-compose.yml
-          test -f nas/derniere/config/.env
+          sudo test -s nas/derniere/base/cave.dump
+          sudo test -f nas/derniere/config/docker-compose.yml
+          sudo test -f nas/derniere/config/.env
+          ! test -r nas/derniere/config/.env
           for i in $(seq 1 10); do
             n=$(docker compose exec -T postgres psql -U cave -d cave -tAc 'SELECT count(*) FROM backup_run WHERE succeeded')
             [ "$n" = 1 ] && break
