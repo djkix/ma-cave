@@ -11,6 +11,17 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.49.0](https://github.com/djkix/ma-cave/compare/v2.48.1...v2.49.0) (2026-11-11)
 
+### Résumé
+
+**Entrée par code-barres.** *Scanner le code-barres* sur « Rentrer du vin » :
+un code déjà retenu propose ses vins (millésimes récents d'abord) et ajoute les
+bouteilles sans photo ni analyse ; un code inconnu part avec la photo suivante
+et est retenu sur le vin à sa validation. Lecteur natif quand il existe, ZXing
+en WebAssembly sur iPhone, servi par l'application (CSP : `'wasm-unsafe-eval'`).
+Migration automatique (`20261111120000_code_barres`) : colonnes `ean` sur les
+vins et les photos.
+
+### Détail par commit
 
 ### Fonctionnalités
 
