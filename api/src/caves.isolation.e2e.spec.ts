@@ -333,9 +333,9 @@ const ROUTES: Route[] = [
   { method: 'GET', path: '/api/push/key', kind: 'admin', req: () => ({ url: '/api/push/key' }), happy: { status: 200, check: (res) => expect(res.body.publicKey).toEqual(expect.any(String)) } },
   {
     method: 'POST', path: '/api/push/subscriptions', kind: 'admin',
-    req: () => ({ url: '/api/push/subscriptions', body: { endpoint: `https://push.example.test/iso-${run}`, keys: { p256dh: 'cle', auth: 'secret' } } }), happy: { status: 204 },
+    req: () => ({ url: '/api/push/subscriptions', body: { endpoint: `https://fcm.googleapis.com/fcm/send/iso-${run}`, keys: { p256dh: 'cle', auth: 'secret' } } }), happy: { status: 204 },
   },
-  { method: 'DELETE', path: '/api/push/subscriptions', kind: 'admin', req: () => ({ url: '/api/push/subscriptions', body: { endpoint: `https://push.example.test/iso-${run}` } }), happy: { status: 204 } },
+  { method: 'DELETE', path: '/api/push/subscriptions', kind: 'admin', req: () => ({ url: '/api/push/subscriptions', body: { endpoint: `https://fcm.googleapis.com/fcm/send/iso-${run}` } }), happy: { status: 204 } },
   { method: 'GET', path: '/api/admin/reading-quality', kind: 'admin', req: () => ({ url: '/api/admin/reading-quality' }), happy: { status: 200 } },
   {
     method: 'PUT', path: '/api/producers/:key/fields/:field', kind: 'admin',

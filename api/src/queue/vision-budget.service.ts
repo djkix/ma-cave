@@ -51,26 +51,31 @@ export class VisionBudgetService {
   ) {}
 
   /**
-   * Sans cave : photos, accords, descriptifs de domaine et recherches d'image du
-   * mois — un seul plafond pour toute la dépense Gemini.
+   * Sans cave : photos, accords, caractéristiques, descriptifs de domaine et
+   * recherches d'image du mois — un seul plafond pour toute la dépense Gemini.
+   * Le journal des appels (gemini_call, gardé 92 jours au moins) compte aussi
+   * ce qu'aucune de ces lignes ne garde : analyses de plan, accords d'un plat,
+   * coûts d'une génération remplacée par une régénération ou d'un vin fusionné.
+   * La plus grande des deux sommes fait foi.
    *
    * Avec une cave : seulement ce qui lui est attribuable — ses photos (lectures
    * d'entrée, parts de lot et analyses de sortie, cumulées sur la photo), ses
-   * recherches d'image et les accords de ses vins. Les descriptifs de domaine,
+   * recherches d'image, les accords et les caractéristiques de ses vins. Les descriptifs de domaine,
    * communs à toutes les caves, n'entrent pas dans la part d'une cave.
    */
   async spentThisMonthCents(caveId?: string): Promise<number> {
     const start = startOfMonth();
     if (caveId !== undefined) return this.spentInCaves(start, caveId);
-    const [photos, pairings, producers, imageSearches] = await Promise.all([
+    const [photos, pairings, traits, producers, imageSearches, journal] = await Promise.all([
       this.prisma.photo.aggregate({ _sum: { costCents: true }, where: { createdAt: { gte: start } } }),
       this.prisma.pairing.aggregate({ _sum: { costCents: true }, where: { generatedAt: { gte: start } } }),
+      this.prisma.wineTraits.aggregate({ _sum: { costCents: true }, where: { generatedAt: { gte: start } } }),
       this.prisma.producerProfile.aggregate({ _sum: { costCents: true }, where: { generatedAt: { gte: start } } }),
       this.prisma.imageSearchCost.aggregate({ _sum: { costCents: true }, where: { createdAt: { gte: start } } }),
+      this.prisma.geminiCall.aggregate({ _sum: { costCents: true }, where: { createdAt: { gte: start } } }),
     ]);
-    return (
-      (photos._sum.costCents ?? 0) + (pairings._sum.costCents ?? 0) + (producers._sum.costCents ?? 0) + (imageSearches._sum.costCents ?? 0)
-    );
+    const lines = [photos, pairings, traits, producers, imageSearches].reduce((n, a) => n + (a._sum.costCents ?? 0), 0);
+    return Math.max(lines, journal._sum.costCents ?? 0);
   }
 
   async assertUnderCap(): Promise<void> {
@@ -79,12 +84,13 @@ export class VisionBudgetService {
 
   /** Dépense attribuable aux caves désignées : une cave, ou toutes sauf une (`{ not }`). */
   private async spentInCaves(start: Date, caveId: string | { not: string } | undefined): Promise<number> {
-    const [photos, pairings, imageSearches] = await Promise.all([
+    const [photos, pairings, traits, imageSearches] = await Promise.all([
       this.prisma.photo.aggregate({ _sum: { costCents: true }, where: { createdAt: { gte: start }, caveId } }),
       this.prisma.pairing.aggregate({ _sum: { costCents: true }, where: { generatedAt: { gte: start }, wine: { caveId } } }),
+      this.prisma.wineTraits.aggregate({ _sum: { costCents: true }, where: { generatedAt: { gte: start }, wine: { caveId } } }),
       this.prisma.imageSearchCost.aggregate({ _sum: { costCents: true }, where: { createdAt: { gte: start }, caveId } }),
     ]);
-    return (photos._sum.costCents ?? 0) + (pairings._sum.costCents ?? 0) + (imageSearches._sum.costCents ?? 0);
+    return [photos, pairings, traits, imageSearches].reduce((n, a) => n + (a._sum.costCents ?? 0), 0);
   }
 
   /** `share` = 1 pour le plafond complet (photos), `PAIRING_BUDGET_SHARE` pour les accords. */

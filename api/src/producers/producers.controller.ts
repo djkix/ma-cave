@@ -1,3 +1,4 @@
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { AppUser } from '@prisma/client';
 import { AdminGuard } from '../auth/admin.guard';
@@ -37,6 +38,9 @@ export class ProducersController {
     return this.producers.setField(key, field as ProducerField, parsed.data.value, user.id);
   }
 
+  // Met une génération Gemini en file : 10 par minute.
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post(':key/regenerate')
   @UseGuards(AdminGuard)
   @HttpCode(202)

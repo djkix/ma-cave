@@ -64,6 +64,9 @@ export class AuthController {
   @UseGuards(AuthGuard('google'))
   google() {}
 
+  // Chaque nouveau compte Google crée une inscription et notifie les administrateurs : 20 par minute et par IP.
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   @UseFilters(OAuthRedirectFilter)

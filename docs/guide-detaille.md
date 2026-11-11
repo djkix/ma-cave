@@ -404,7 +404,10 @@ aussitôt prêt pour la suivante. La file locale accepte jusqu'à 200 photos (ou
 après chaque prise, au retour du réseau, au retour au premier plan et toutes
 les 15 s tant que la file n'est pas vide, quelle que soit la page ouverte
 (il est porté une seule fois, à la racine des pages protégées) — il ne
-fonctionne que tant que l'application est ouverte. Sur le serveur, un travail planifié passe toutes les
+fonctionne que tant que l'application est ouverte. Chaque photo garde la cave
+courante au moment de la prise et ne part que vers elle : après un changement
+de cave, celles de l'autre cave attendent qu'on y revienne (« N photos en
+attente : elles partiront quand leur cave sera sélectionnée »). Sur le serveur, un travail planifié passe toutes les
 15 s et analyse les photos d'entrée par lots : jusqu'à 8 photos en un seul
 appel Gemini (un lot part dès 8 photos en attente, ou dès que la plus ancienne
 patiente depuis 45 s), pour limiter le coût par photo ; une photo seule part
@@ -422,7 +425,9 @@ de 1 ; à 1, c'est la quantité lue sur le carton, sinon 1) ; *Valider* fiche pa
 de côté* sort la fiche de *Tout valider* pour la visite en cours seulement —
 elle reste à confirmer et revient à la prochaine ouverture ; *Écarter* retire
 définitivement la photo sans créer de mouvement, après confirmation « Écarter
-cette photo ? Elle ne sera plus proposée. »), *En cours d'analyse* (photos pas
+cette photo ? Elle ne sera plus proposée. » ; la même image renvoyée plus tard
+revient pourtant dans *À valider*, avec le nombre et le lot du nouvel envoi,
+tant qu'elle n'est pas entrée en stock), *En cours d'analyse* (photos pas
 encore lues, avec le motif d'un report éventuel) et *Lecture impossible*
 (photos en échec, avec *Saisir à la main* vers l'écran de confirmation unitaire
 et *Écarter*). La liste se rafraîchit toutes les 10 s. Rien n'est jamais écrit

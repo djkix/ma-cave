@@ -46,6 +46,20 @@ function ownReplay<T extends { wine: Wine }>(found: T | null, caveId: string): T
   return found;
 }
 
+/** Rejeu d'une entrée : la clé doit avoir servi à une entrée, pas à une sortie, un inventaire ou une annulation. */
+function ownEntryReplay<T extends { wine: Wine; type: string; reversesId: string | null }>(found: T | null, caveId: string): T | null {
+  const own = ownReplay(found, caveId);
+  if (own && (own.type !== 'IN' || own.reversesId)) throw new ConflictException(KEY_REUSED);
+  return own;
+}
+
+/** Rejeu d'une annulation : la clé doit avoir annulé ce mouvement-là, pas un autre. */
+function ownCancelReplay<T extends { wine: Wine; reversesId: string | null }>(found: T | null, caveId: string, movementId: string): T | null {
+  const own = ownReplay(found, caveId);
+  if (own && own.reversesId !== movementId) throw new ConflictException(KEY_REUSED);
+  return own;
+}
+
 /**
  * Lien entre les deux moitiés d'un déplacement : elles partagent la clé
  * d'idempotence de la demande, suffixée `:from` (−N à l'origine) et `:to` (+N à
@@ -117,7 +131,7 @@ export class MovementsService {
     if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
       throw new BadRequestException('La quantité doit être un entier positif');
     }
-    const existing = ownReplay(
+    const existing = ownEntryReplay(
       await this.prisma.movement.findUnique({ where: { idempotencyKey: input.idempotencyKey }, include: { wine: true } }),
       caveId,
     );
@@ -146,6 +160,9 @@ export class MovementsService {
       // Emplacement et mouvement dans une même transaction : une insertion qui
       // échoue ne laisse pas derrière elle un emplacement créé pour rien.
       const movement = await this.prisma.$transaction(async (tx) => {
+        // Verrou du vin, comme les autres mouvements : une fusion en cours (qui le
+        // supprime) passe d'abord, et l'entrée répond alors « Vin introuvable ».
+        await lockWine(tx, caveId, wine.id);
         const location = input.location ? await this.locations.resolve(caveId, input.location, tx) : null;
         return tx.movement.create({
           data: {
@@ -202,7 +219,7 @@ export class MovementsService {
       return { movement, wine, stock: await this.stockOf(wine.id), created: true };
     } catch (e) {
       if (isUniqueViolation(e, 'idempotency')) {
-        const raced = ownReplay(
+        const raced = ownEntryReplay(
           await this.prisma.movement.findUnique({ where: { idempotencyKey: input.idempotencyKey }, include: { wine: true } }),
           caveId,
         );
@@ -214,9 +231,9 @@ export class MovementsService {
       // Une photo ne crédite le stock qu'une fois (index partiel idx_movement_photo_in) :
       // une seconde confirmation de la même photo — deux téléphones, ou un envoi en
       // double qui ramène sur une fiche déjà validée — renvoie le premier mouvement.
-      if (isUniqueViolation(e, 'photo')) {
+      if (input.photoId && isUniqueViolation(e, 'photo')) {
         const already = await this.prisma.movement.findFirst({
-          where: { photoId: input.photoId ?? null, type: 'IN' },
+          where: { photoId: input.photoId, type: 'IN', wine: { caveId } },
           include: { wine: true },
         });
         if (already) {
@@ -230,7 +247,7 @@ export class MovementsService {
 
   /** Annule un mouvement de la cave ; un mouvement d'une autre cave est « introuvable ». */
   async cancel(caveId: string, movementId: string, idempotencyKey: string): Promise<MovementResult> {
-    const already = ownReplay(await this.prisma.movement.findUnique({ where: { idempotencyKey }, include: { wine: true } }), caveId);
+    const already = ownCancelReplay(await this.prisma.movement.findUnique({ where: { idempotencyKey }, include: { wine: true } }), caveId, movementId);
     if (already) {
       const { wine, ...movement } = already;
       return { movement, wine, stock: await this.stockOf(already.wineId), created: false };
@@ -288,7 +305,7 @@ export class MovementsService {
         throw new ConflictException('Ce mouvement a déjà été annulé');
       }
       if (isUniqueViolation(e, 'idempotency')) {
-        const raced = ownReplay(await this.prisma.movement.findUnique({ where: { idempotencyKey }, include: { wine: true } }), caveId);
+        const raced = ownCancelReplay(await this.prisma.movement.findUnique({ where: { idempotencyKey }, include: { wine: true } }), caveId, movementId);
         if (raced) {
           const { wine: racedWine, ...movement } = raced;
           return { movement, wine: racedWine, stock: await this.stockOf(raced.wineId), created: false };
@@ -358,7 +375,7 @@ export class MovementsService {
    *   d'idempotence protège toujours contre le double tap).
    */
   private async planOut(caveId: string, input: CreateOutInput): Promise<{ replay: MovementResult } | { photoId: string | null }> {
-    const byKey = await this.prisma.movement.findUnique({ where: { idempotencyKey: input.idempotencyKey }, include: { wine: true } });
+    const byKey = ownReplay(await this.prisma.movement.findUnique({ where: { idempotencyKey: input.idempotencyKey }, include: { wine: true } }), caveId);
     if (byKey) {
       // La clé appartient déjà à un autre mouvement (une entrée, un inventaire, ou
       // la sortie d'un autre vin) : la rejouer comme une sortie mentirait au client
@@ -376,7 +393,7 @@ export class MovementsService {
     // Une image du web choisie comme vignette n'est pas la photo d'une bouteille sortie.
     if (photo?.purpose === 'REFERENCE') throw new BadRequestException(WEB_IMAGE_FOR_MOVEMENT);
 
-    const byPhoto = await this.prisma.movement.findFirst({ where: { photoId: input.photoId, type: 'OUT' }, include: { wine: true } });
+    const byPhoto = await this.prisma.movement.findFirst({ where: { photoId: input.photoId, type: 'OUT', wine: { caveId } }, include: { wine: true } });
     if (!byPhoto) return { photoId: input.photoId };
     const reversal = await this.prisma.movement.findFirst({ where: { reversesId: byPhoto.id } });
     if (reversal) return { photoId: null };

@@ -49,7 +49,7 @@ it('dans une cave où l’on n’est que membre, signale ses propres photos en a
   await enqueuePhoto(blob(), 'entry', 'u1');
   await enqueuePhoto(blob(), 'entry', 'u1');
   mount(true);
-  expect(await screen.findByText('2 photos en attente : elles partiront quand votre cave sera sélectionnée')).toBeInTheDocument();
+  expect(await screen.findByText('2 photos en attente : elles partiront quand leur cave sera sélectionnée')).toBeInTheDocument();
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
 });
 
@@ -57,7 +57,7 @@ it('accorde la note au singulier pour une seule photo', async () => {
   vi.spyOn(api, 'getMe').mockResolvedValue(viewerMe());
   await enqueuePhoto(blob(), 'entry', 'u1');
   mount(true);
-  expect(await screen.findByText('1 photo en attente : elle partira quand votre cave sera sélectionnée')).toBeInTheDocument();
+  expect(await screen.findByText('1 photo en attente : elle partira quand sa cave sera sélectionnée')).toBeInTheDocument();
 });
 
 it('sans photo à soi, pas de note de membre', async () => {
@@ -65,5 +65,5 @@ it('sans photo à soi, pas de note de membre', async () => {
   await enqueuePhoto(blob(), 'entry', 'u2');
   mount(true);
   expect(await screen.findByText('Photos en attente d’un autre compte : 1')).toBeInTheDocument();
-  expect(screen.queryByText(/quand votre cave sera sélectionnée/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/cave sera sélectionnée/)).not.toBeInTheDocument();
 });

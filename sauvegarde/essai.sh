@@ -46,6 +46,13 @@ done
 grep -q true "$R/sql.log" || echec "première nuit : tentative non inscrite"
 grep -q backup_run "$R/sql.log" || echec "première nuit : table backup_run"
 grep -q -- '--lock-wait-timeout=10min' "$R/pg_dump.args" || echec "pg_dump sans délai d'attente des verrous"
+# Base et secrets du .env : lisibles par leur seul propriétaire sur le NAS.
+for f in base/cave.dump config/.env config/compose.yaml; do
+  [ "$(stat -c %a "$R/nas/2026-10-01/$f")" = 600 ] || echec "droits de $f : $(stat -c %a "$R/nas/2026-10-01/$f")"
+done
+for d in base config; do
+  [ "$(stat -c %a "$R/nas/2026-10-01/$d")" = 700 ] || echec "droits du dossier $d"
+done
 
 # photo inchangée : lien physique
 echo b > "$R/photos/b.jpg"

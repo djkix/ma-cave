@@ -1,3 +1,4 @@
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { BadRequestException, Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import { AppUser, WineColor } from '@prisma/client';
 import { Response } from 'express';
@@ -21,6 +22,9 @@ const querySchema = z.object({
 export class ExportController {
   constructor(private readonly exporter: ExportService) {}
 
+  // Classeur construit en mémoire à chaque appel : 6 par minute.
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
   @Get()
   @CaveRole('OWNER')
   async download(@CurrentCave() cave: CaveAccess, @Query() query: unknown, @CurrentUser() user: AppUser, @Res() res: Response) {

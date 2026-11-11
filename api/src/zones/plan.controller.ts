@@ -61,6 +61,9 @@ export class CavePlansController {
   }
 
   /** Relance l'analyse de la photo : 202 avec le plan ; analyse déjà en cours : 409. */
+  // Relance une analyse Gemini du plan : 10 par minute.
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post(':id/analysis')
   @CaveRole('OWNER')
   @HttpCode(202)

@@ -647,8 +647,9 @@ sauvegarde.
 Chaque jour dès 3 h (heure de Paris), le service `sauvegarde` copie tout ce
 qu'il faut pour remonter Ma Cave dans un dossier daté du NAS, monté en NFS
 (volume `nas`, `NAS_OPTIONS` et `NAS_CHEMIN` dans le `.env`). **Sans
-chiffrement** : le `.env` et ses secrets y sont en clair, lisibles par qui a
-accès au dossier partagé.
+chiffrement** : le `.env` et ses secrets y sont en clair. La base et la
+configuration ne sont lisibles que par leur propriétaire sur le NAS (dossiers
+`base/` et `config/` en 700, fichiers en 600) ; les photos restent lisibles.
 
 ```
 <dossier>/

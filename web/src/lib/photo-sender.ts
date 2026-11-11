@@ -5,9 +5,12 @@ let inFlight: Promise<void> | null = null;
 // Compte dont la file part : le propriétaire connecté, posé par useBackgroundSender.
 // Nul (déconnecté, membre en lecture seule, compte en attente) : rien ne part.
 let account: string | null = null;
+// Cave courante : seules ses photos partent (le serveur range chaque envoi dans la cave de la session).
+let cave: string | null = null;
 
-export function setSenderAccount(userId: string | null): void {
+export function setSenderAccount(userId: string | null, caveId: string | null = null): void {
   account = userId;
+  cave = caveId;
 }
 
 /**
@@ -18,10 +21,11 @@ export function setSenderAccount(userId: string | null): void {
  */
 export function sendQueuedPhotos(): Promise<void> {
   const owner = account;
+  const here = cave;
   if (!owner) return Promise.resolve();
   inFlight ??= (async () => {
     try {
-      await flushQueue(uploadPhoto, owner);
+      await flushQueue(uploadPhoto, owner, here);
     } finally {
       inFlight = null;
       notifyQueueChanged();
@@ -38,4 +42,5 @@ export function kickSender(): void {
 export function _resetSenderForTests(): void {
   inFlight = null;
   account = null;
+  cave = null;
 }

@@ -31,7 +31,13 @@ function fakePrisma() {
       }),
       findMany: async () => photos,
       updateMany: jest.fn(async ({ where, data }: any) => {
-        const hit = photos.filter((p) => p.id === where.id && p.purpose === where.purpose && !p.hasMovement);
+        const hit = photos.filter(
+          (p) =>
+            p.id === where.id && !p.hasMovement &&
+            (where.purpose === undefined || p.purpose === where.purpose) &&
+            (where.status === undefined || p.status === where.status) &&
+            (where.dismissedAt === undefined || p.dismissedAt != null),
+        );
         hit.forEach((p) => Object.assign(p, data));
         return { count: hit.length };
       }),
@@ -109,6 +115,37 @@ describe('PhotosService.ingest', () => {
     expect(entry.photo.id).toBe(exit.photo.id);
     expect(entry.photo.purpose).toBe('ENTRY');
     expect(prisma.photos[0].purpose).toBe('ENTRY');
+  });
+
+  it('une sortie en échec rendue à l’entrée repart en file, sans l’erreur de la sortie', async () => {
+    const prisma = fakePrisma();
+    const service = new PhotosService(prisma as any, new ImageNormalizationService(), dir, { add: jest.fn() } as any);
+    const img = await sharp({ create: { width: 40, height: 40, channels: 3, background: '#2a2a2a' } }).jpeg().toBuffer();
+    await service.ingest('c1', img, 'image/jpeg', 'EXIT');
+    Object.assign(prisma.photos[0], { status: 'FAILED', errorMessage: 'Photo de sortie abandonnée', attempts: 3 });
+    const entry = await service.ingest('c1', img, 'image/jpeg', 'ENTRY');
+    expect(entry.photo).toMatchObject({ purpose: 'ENTRY', status: 'PENDING', errorMessage: null, attempts: 0 });
+  });
+
+  it('une photo écartée puis renvoyée revient dans « À confirmer », avec le nombre, le lot et le code du nouvel envoi', async () => {
+    const prisma = fakePrisma();
+    const service = new PhotosService(prisma as any, new ImageNormalizationService(), dir, { add: jest.fn() } as any);
+    const img = await sharp({ create: { width: 40, height: 40, channels: 3, background: '#2b2b2b' } }).jpeg().toBuffer();
+    await service.ingest('c1', img, 'image/jpeg', 'ENTRY');
+    prisma.photos[0].dismissedAt = new Date();
+    const lot = '11111111-1111-4111-8111-111111111111';
+    const again = await service.ingest('c1', img, 'image/jpeg', 'ENTRY', 6, lot, '3760123456784');
+    expect(again.duplicate).toBe(true);
+    expect(again.photo).toMatchObject({ dismissedAt: null, requestedQuantity: 6, batchId: lot, ean: '3760123456784' });
+  });
+
+  it('une photo écartée déjà entrée en stock reste écartée', async () => {
+    const prisma = fakePrisma();
+    const service = new PhotosService(prisma as any, new ImageNormalizationService(), dir, { add: jest.fn() } as any);
+    const img = await sharp({ create: { width: 40, height: 40, channels: 3, background: '#2c2c2c' } }).jpeg().toBuffer();
+    await service.ingest('c1', img, 'image/jpeg', 'ENTRY');
+    Object.assign(prisma.photos[0], { dismissedAt: new Date(), hasMovement: true });
+    expect((await service.ingest('c1', img, 'image/jpeg', 'ENTRY')).photo.dismissedAt).not.toBeNull();
   });
 
   it('laisse en sortie une photo de sortie qui a déjà servi à un mouvement', async () => {

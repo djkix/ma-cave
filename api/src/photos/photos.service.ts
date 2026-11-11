@@ -45,7 +45,7 @@ export class PhotosService {
   async ingest(caveId: string, input: Buffer, mimeType: string, purpose: PhotoPurpose = 'ENTRY', requestedQuantity: number | null = null, batchId: string | null = null, ean: string | null = null): Promise<{ photo: Photo; duplicate: boolean }> {
     const contentHash = createHash('sha256').update(input).digest('hex');
     const existing = await this.prisma.photo.findUnique({ where: { caveId_contentHash: { caveId, contentHash } } });
-    if (existing) return { photo: await this.reclaimForEntry(existing, purpose), duplicate: true };
+    if (existing) return { photo: await this.reopenForEntry(await this.reclaimForEntry(existing, purpose), purpose, { requestedQuantity, batchId, ean }), duplicate: true };
 
     let buffer: Buffer;
     try {
@@ -74,7 +74,7 @@ export class PhotosService {
         await unlinkIgnoringMissing(originalAbsolutePath);
         await unlinkIgnoringMissing(normalizedAbsolutePath);
         const existingAfterRace = await this.prisma.photo.findUnique({ where: { caveId_contentHash: { caveId, contentHash } } });
-        if (existingAfterRace) return { photo: await this.reclaimForEntry(existingAfterRace, purpose), duplicate: true };
+        if (existingAfterRace) return { photo: await this.reopenForEntry(await this.reclaimForEntry(existingAfterRace, purpose), purpose, { requestedQuantity, batchId, ean }), duplicate: true };
       }
       throw e;
     }
@@ -112,9 +112,35 @@ export class PhotosService {
     if (purpose !== 'ENTRY' || photo.purpose !== 'EXIT') return photo;
     // updateMany : la condition « aucun mouvement » est vérifiée par la base au
     // moment de l'écriture, pas sur la ligne lue un instant plus tôt.
+    // Une sortie en échec repart en file d'entrée, sans l'erreur de la sortie.
+    const reset = photo.status === 'FAILED' ? { status: 'PENDING' as const, errorMessage: null, attempts: 0, nextAttemptAt: null } : {};
     const { count } = await this.prisma.photo.updateMany({
-      where: { id: photo.id, purpose: 'EXIT', movements: { none: {} } },
-      data: { purpose: 'ENTRY' },
+      where: { id: photo.id, purpose: 'EXIT', status: photo.status, movements: { none: {} } },
+      data: { purpose: 'ENTRY', ...reset },
+    });
+    if (count === 0) return photo;
+    return (await this.prisma.photo.findUnique({ where: { id: photo.id } })) ?? photo;
+  }
+
+  /**
+   * Photo écartée puis renvoyée en entrée (même image) : elle revient dans
+   * « À confirmer » au lieu de rester invisible, avec le nombre, le lot et le
+   * code-barres du nouvel envoi. Jamais une photo déjà entrée en stock.
+   */
+  private async reopenForEntry(
+    photo: Photo,
+    purpose: PhotoPurpose,
+    sent: { requestedQuantity: number | null; batchId: string | null; ean: string | null },
+  ): Promise<Photo> {
+    if (purpose !== 'ENTRY' || photo.purpose !== 'ENTRY' || !photo.dismissedAt) return photo;
+    const { count } = await this.prisma.photo.updateMany({
+      where: { id: photo.id, dismissedAt: { not: null }, movements: { none: {} } },
+      data: {
+        dismissedAt: null,
+        ...(sent.requestedQuantity !== null ? { requestedQuantity: sent.requestedQuantity } : {}),
+        ...(sent.batchId !== null ? { batchId: sent.batchId } : {}),
+        ...(sent.ean !== null ? { ean: sent.ean } : {}),
+      },
     });
     if (count === 0) return photo;
     return (await this.prisma.photo.findUnique({ where: { id: photo.id } })) ?? photo;

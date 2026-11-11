@@ -109,7 +109,7 @@ it('désigne le propriétaire connecté comme compte d’envoi de la file', asyn
   vi.spyOn(sender, 'sendQueuedPhotos').mockResolvedValue(undefined);
   mount();
   expect(await screen.findByText('Protégé')).toBeInTheDocument();
-  expect(account).toHaveBeenLastCalledWith('u1');
+  expect(account).toHaveBeenLastCalledWith('u1', expect.any(String));
 });
 
 it('relit la session depuis l’écran d’attente et ouvre l’application une fois le compte validé', async () => {

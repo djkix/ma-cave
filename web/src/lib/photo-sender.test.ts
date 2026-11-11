@@ -23,7 +23,7 @@ it('sends with a single flight: two concurrent calls share one flushQueue run', 
   const b = sendQueuedPhotos();
   expect(a).toBe(b);
   expect(flushQueue).toHaveBeenCalledTimes(1);
-  expect(flushQueue).toHaveBeenCalledWith(uploadPhoto, 'u1');
+  expect(flushQueue).toHaveBeenCalledWith(uploadPhoto, 'u1', null);
 
   resolveFlush({ sent: 1, failed: 0 });
   await a;

@@ -226,7 +226,7 @@ describe('MovementsService', () => {
     expect(r.movement.id).toBe('m-first');
     expect(r.stock).toBe(6);
     expect(createCalls).toBe(1);
-    expect(findFirstArgs[0].where).toEqual({ photoId: 'ph1', type: 'IN' });
+    expect(findFirstArgs[0].where).toEqual({ photoId: 'ph1', type: 'IN', wine: { caveId: 'c1' } });
     expect((r.movement as unknown as { wine?: unknown }).wine).toBeUndefined();
   });
 
@@ -244,6 +244,24 @@ describe('MovementsService', () => {
     expect(c.movement.reversesId).toBe(r.movement.id);
     expect(c.stock).toBe(0);
     expect(h.movements).toHaveLength(2);
+  });
+
+  it('refuse de rejouer comme entrée une clé qui a servi à une annulation (409, rien d’écrit)', async () => {
+    const h = harness();
+    const r = await h.service.createIn('c1', input);
+    await h.service.cancel('c1', r.movement.id, 'cancel-1');
+    await expect(h.service.createIn('c1', { ...input, idempotencyKey: 'cancel-1' })).rejects.toThrow(/déjà utilisée pour un autre mouvement/);
+    expect(h.movements).toHaveLength(2);
+  });
+
+  it('refuse de rejouer l’annulation d’un autre mouvement : le second n’est pas annulé en silence', async () => {
+    const h = harness();
+    const a = await h.service.createIn('c1', input);
+    const b = await h.service.createIn('c1', { ...input, idempotencyKey: 'k-b' });
+    await h.service.cancel('c1', a.movement.id, 'cancel-1');
+    await expect(h.service.cancel('c1', b.movement.id, 'cancel-1')).rejects.toThrow(/déjà utilisée pour un autre mouvement/);
+    // Le même rejeu, sur le bon mouvement, reste idempotent.
+    expect((await h.service.cancel('c1', a.movement.id, 'cancel-1')).created).toBe(false);
   });
 
   it('refuses to cancel twice', async () => {

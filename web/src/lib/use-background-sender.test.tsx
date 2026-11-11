@@ -4,7 +4,7 @@ import { sendQueuedPhotos, setSenderAccount } from './photo-sender';
 import { useBackgroundSender } from './use-background-sender';
 
 vi.mock('./offline-queue', () => ({
-  queueStats: vi.fn().mockResolvedValue({ count: 0, bytes: 0, others: 0 }),
+  queueStats: vi.fn().mockResolvedValue({ count: 0, bytes: 0, others: 0, elsewhere: 0 }),
   subscribeQueueChanged: vi.fn().mockReturnValue(vi.fn()),
 }));
 vi.mock('./photo-sender', () => ({
@@ -29,7 +29,7 @@ beforeEach(() => {
   // Réinitialisés à chaque test : `restoreAllMocks` efface aussi les retours des faux du module.
   vi.mocked(sendQueuedPhotos).mockReset().mockResolvedValue(undefined);
   vi.mocked(subscribeQueueChanged).mockReset().mockReturnValue(vi.fn());
-  vi.mocked(queueStats).mockReset().mockResolvedValue({ count: 0, bytes: 0, others: 0 });
+  vi.mocked(queueStats).mockReset().mockResolvedValue({ count: 0, bytes: 0, others: 0, elsewhere: 0 });
 });
 
 afterEach(() => {
@@ -70,7 +70,7 @@ it('relance l’envoi au retour du réseau et quand l’application redevient vi
 });
 
 it('relance l’envoi toutes les 15 s tant que la file n’est pas vide, puis s’arrête', async () => {
-  vi.mocked(queueStats).mockResolvedValue({ count: 2, bytes: 10, others: 0 });
+  vi.mocked(queueStats).mockResolvedValue({ count: 2, bytes: 10, others: 0, elsewhere: 0 });
   render(<Probe />);
   await flush();
   expect(sendQueuedPhotos).toHaveBeenCalledTimes(1);
@@ -82,7 +82,7 @@ it('relance l’envoi toutes les 15 s tant que la file n’est pas vide, puis s�
   expect(sendQueuedPhotos).toHaveBeenCalledTimes(2);
 
   // La file se vide : la prochaine notification arrête la minuterie.
-  vi.mocked(queueStats).mockResolvedValue({ count: 0, bytes: 0, others: 0 });
+  vi.mocked(queueStats).mockResolvedValue({ count: 0, bytes: 0, others: 0, elsewhere: 0 });
   const onChange = vi.mocked(subscribeQueueChanged).mock.calls[0][0];
   act(() => onChange());
   await flush();
@@ -96,7 +96,7 @@ it('relance l’envoi toutes les 15 s tant que la file n’est pas vide, puis s�
 it('n’arme rien tant que l’utilisateur n’est pas connecté, et tout se désarme au démontage', async () => {
   const unsubscribe = vi.fn();
   vi.mocked(subscribeQueueChanged).mockReturnValue(unsubscribe);
-  vi.mocked(queueStats).mockResolvedValue({ count: 2, bytes: 10, others: 0 });
+  vi.mocked(queueStats).mockResolvedValue({ count: 2, bytes: 10, others: 0, elsewhere: 0 });
   const { rerender, unmount } = render(<Probe enabled={false} />);
   await flush();
   expect(sendQueuedPhotos).not.toHaveBeenCalled();
@@ -119,11 +119,11 @@ it('n’arme rien tant que l’utilisateur n’est pas connecté, et tout se dé
 it('désigne le compte dont la file part, et l’efface quand l’envoi s’arrête', async () => {
   const { rerender, unmount } = render(<Probe />);
   await flush();
-  expect(setSenderAccount).toHaveBeenLastCalledWith('u1');
+  expect(setSenderAccount).toHaveBeenLastCalledWith('u1', null);
   rerender(<Probe enabled={false} />);
-  expect(setSenderAccount).toHaveBeenLastCalledWith(null);
+  expect(setSenderAccount).toHaveBeenLastCalledWith(null, null);
   rerender(<Probe />);
   unmount();
   expect(setSenderAccount).toHaveBeenLastCalledWith(null);
-  expect(queueStats).toHaveBeenCalledWith('u1');
+  expect(queueStats).toHaveBeenCalledWith('u1', null);
 });

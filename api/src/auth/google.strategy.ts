@@ -13,6 +13,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: env.GOOGLE_CLIENT_SECRET || 'unset',
       callbackURL: env.GOOGLE_CALLBACK_URL,
       scope: ['openid', 'email', 'profile'],
+      // Jeton aléatoire gardé en session et vérifié au retour : un lien de rappel
+      // forgé ailleurs ne connecte pas le navigateur au compte d'un autre (CSRF de connexion).
+      state: true,
     });
   }
 

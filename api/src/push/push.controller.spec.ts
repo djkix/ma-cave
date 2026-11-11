@@ -22,9 +22,24 @@ describe('PushController', () => {
   });
 
   it.each([
+    'https://fcm.googleapis.com/fcm/send/abc',
+    'https://updates.push.services.mozilla.com/wpush/v2/abc',
+    'https://web.push.apple.com/abc',
+    'https://wns2-par02p.notify.windows.com/w/?token=abc',
+  ])('POST subscriptions accepte le service push %s', async (endpoint) => {
+    const { push, controller } = setup();
+    await controller.subscribe({ ...valid, endpoint }, user);
+    expect(push.subscribe).toHaveBeenCalled();
+  });
+
+  it.each([
     ['sans clés', { endpoint: valid.endpoint }],
     ['adresse en http', { ...valid, endpoint: 'http://push.example/x' }],
     ['adresse invalide', { ...valid, endpoint: 'pas une adresse' }],
+    ['hôte du réseau local', { ...valid, endpoint: 'https://192.168.1.1/x' }],
+    ['hôte inconnu', { ...valid, endpoint: 'https://push.example/x' }],
+    ['service push sur un autre port', { ...valid, endpoint: 'https://fcm.googleapis.com:8443/x' }],
+    ['faux sous-domaine', { ...valid, endpoint: 'https://fcm.googleapis.com.evil.test/x' }],
     ['clé vide', { ...valid, keys: { p256dh: '', auth: 'x' } }],
   ])('POST subscriptions refuse un corps %s', async (_name, body) => {
     const { push, controller } = setup();

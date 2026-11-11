@@ -34,7 +34,11 @@ export function EntreeCapturePage() {
   const [batchId] = useState(() => crypto.randomUUID());
   // Lu au moment de ranger la photo (après la réduction), pas à celui du rendu.
   const userId = useRef<string | undefined>(undefined);
-  userId.current = useCurrentCave().me?.id;
+  const { me } = useCurrentCave();
+  userId.current = me?.id;
+  // Cave de la prise : la photo ne partira que vers elle, même après un changement de cave.
+  const caveId = useRef<string | null>(null);
+  caveId.current = me?.currentCaveId ?? null;
   // Feuille du scan : caméra, puis vins trouvés (vide = code inconnu, null = recherche impossible).
   const [scan, setScan] = useState<{ ean: string | null; wines?: CaveRow[] | null } | null>(null);
   // Code inconnu joint à la prochaine photo.
@@ -85,7 +89,7 @@ export function EntreeCapturePage() {
     setError(null);
     try {
       const blob = await shrinkPhoto(file);
-      await enqueuePhoto(blob, 'entry', userId.current, chosen, batchId, ean);
+      await enqueuePhoto(blob, 'entry', userId.current, chosen, batchId, ean, caveId.current);
     } catch (err) {
       setError(err instanceof QueueFullError ? err.message : 'Photo non enregistrée sur le téléphone — reprenez-la');
       return;

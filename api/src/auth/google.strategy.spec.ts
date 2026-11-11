@@ -9,6 +9,11 @@ function profileWith(emails: Profile['emails'], json: Record<string, unknown> = 
   return { id: 'sub-1', displayName: 'Anne', emails, provider: 'google', _json: json } as unknown as Profile;
 }
 
+it('vérifie le paramètre state au retour de Google (jeton gardé en session)', () => {
+  const strategy = new GoogleStrategy({} as any) as unknown as { _stateStore: { constructor: { name: string } } };
+  expect(strategy._stateStore.constructor.name).toBe('SessionStore');
+});
+
 describe('GoogleStrategy.validate', () => {
   function setup() {
     const auth = { findOrCreateGoogleUser: jest.fn(async (p: unknown) => p) };

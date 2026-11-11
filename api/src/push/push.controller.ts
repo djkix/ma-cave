@@ -6,8 +6,22 @@ import { AuthenticatedGuard } from '../auth/authenticated.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { PushService } from './push.service';
 
-// Forme de PushSubscription.toJSON() ; https seulement : l'api envoie ses requêtes à cette adresse.
-const endpoint = z.string().max(2048).url().refine((u) => u.startsWith('https://'), 'Adresse du service push invalide');
+/**
+ * Services push des navigateurs (Chrome/Android, Firefox, Safari/iOS, Edge) : l'api
+ * envoie ses requêtes à cette adresse, jamais ailleurs (pas d'hôte du réseau local).
+ */
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^([a-z0-9-]+\.)*push\.services\.mozilla\.com$/, /^([a-z0-9-]+\.)*push\.apple\.com$/, /^[a-z0-9-]+\.notify\.windows\.com$/];
+function isPushService(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'https:' && u.port === '' && !u.username && !u.password && PUSH_HOSTS.some((re) => re.test(u.hostname));
+  } catch {
+    return false;
+  }
+}
+
+// Forme de PushSubscription.toJSON().
+const endpoint = z.string().max(2048).url().refine(isPushService, 'Adresse du service push invalide');
 const key = z.string().min(1).max(256);
 export const subscriptionSchema = z.object({ endpoint, keys: z.object({ p256dh: key, auth: key }) });
 export const unsubscribeSchema = z.object({ endpoint });

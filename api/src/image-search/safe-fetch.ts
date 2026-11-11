@@ -130,6 +130,8 @@ function v6Blocked(ip: string): boolean {
     if (g[5] === 0 && g[6] === 0) return true; // ::, ::1 et ::/112
     return v4Blocked(embeddedV4());
   }
+  // ::ffff:0:a.b.c.d (IPv4 traduite, SIIT, RFC 2765).
+  if (g.slice(0, 4).every((x) => x === 0) && g[4] === 0xffff && g[5] === 0) return v4Blocked(embeddedV4());
   if (g[0] === 0x64 && g[1] === 0xff9b && g.slice(2, 6).every((x) => x === 0)) return v4Blocked(embeddedV4());
   // 6to4 (2002::/16) : l'IPv4 est dans les groupes 2 et 3.
   if (g[0] === 0x2002) return v4Blocked(`${g[1] >> 8}.${g[1] & 0xff}.${g[2] >> 8}.${g[2] & 0xff}`);
@@ -202,6 +204,8 @@ export const nodeTransport: Transport = (url, pinned, init) =>
 async function assertAllowedUrl(url: URL, lookup: LookupFn): Promise<ResolvedAddress> {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new SafeFetchError(`Téléchargement refusé : schéma ${url.protocol} interdit`);
   if (url.username || url.password) throw new SafeFetchError('Téléchargement refusé : identifiants dans l’adresse');
+  // Ports web seulement : une page ne fait pas sonder d'autres services (Redis, SSH…) depuis le serveur.
+  if (url.port && url.port !== '80' && url.port !== '443') throw new SafeFetchError(`Téléchargement refusé : port ${url.port} interdit`);
   const hostname = url.hostname.replace(/^\[(.*)\]$/, '$1');
   if (!hostname) throw new SafeFetchError('Téléchargement refusé : adresse sans hôte');
   let addresses: ResolvedAddress[];

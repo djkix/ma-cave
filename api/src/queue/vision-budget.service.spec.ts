@@ -1,11 +1,22 @@
 import { CaveBudgetShareExceededError, PAIRING_BUDGET_SHARE, VisionBudgetExceededError, VisionBudgetService } from './vision-budget.service';
 
 describe('VisionBudgetService', () => {
-  const prismaWith = (sum: number | null, pairingSum: number | null = null, producerSum: number | null = null, imageSearchSum: number | null = null) => ({
+  const prismaWith = (sum: number | null, pairingSum: number | null = null, producerSum: number | null = null, imageSearchSum: number | null = null, traitsSum: number | null = null, journalSum: number | null = null) => ({
     photo: { aggregate: async () => ({ _sum: { costCents: sum } }) },
     pairing: { aggregate: jest.fn(async () => ({ _sum: { costCents: pairingSum } })) },
     producerProfile: { aggregate: jest.fn(async () => ({ _sum: { costCents: producerSum } })) },
     imageSearchCost: { aggregate: jest.fn(async () => ({ _sum: { costCents: imageSearchSum } })) },
+    wineTraits: { aggregate: jest.fn(async () => ({ _sum: { costCents: traitsSum } })) },
+    geminiCall: { aggregate: jest.fn(async () => ({ _sum: { costCents: journalSum } })) },
+  });
+
+  it('compte les caractéristiques des vins dans le plafond du mois', async () => {
+    await expect(new VisionBudgetService(prismaWith(300, 0, 0, 0, 200) as any, 500).assertUnderCap()).rejects.toBeInstanceOf(VisionBudgetExceededError);
+  });
+
+  it('le journal des appels fait foi quand il dépasse les lignes (plans, accords d’un plat, régénérations)', async () => {
+    await expect(new VisionBudgetService(prismaWith(100, 0, 0, 0, 0, 500) as any, 500).assertUnderCap()).rejects.toBeInstanceOf(VisionBudgetExceededError);
+    await expect(new VisionBudgetService(prismaWith(100, 0, 0, 0, 0, 499) as any, 500).assertUnderCap()).resolves.toBeUndefined();
   });
 
   it('passes when under the cap', async () => {
@@ -58,6 +69,7 @@ describe('VisionBudgetService — part par cave', () => {
     photos?: number | null;
     pairings?: number | null;
     imageSearches?: number | null;
+    traits?: number | null;
     setting?: string | null;
     firstAdmin?: { id: string } | null;
     adminCave?: { id: string } | null;
@@ -66,6 +78,8 @@ describe('VisionBudgetService — part par cave', () => {
     pairing: { aggregate: jest.fn(async () => ({ _sum: { costCents: opts.pairings ?? null } })) },
     producerProfile: { aggregate: jest.fn(async () => ({ _sum: { costCents: 999 } })) },
     imageSearchCost: { aggregate: jest.fn(async () => ({ _sum: { costCents: opts.imageSearches ?? null } })) },
+    wineTraits: { aggregate: jest.fn(async () => ({ _sum: { costCents: opts.traits ?? null } })) },
+    geminiCall: { aggregate: jest.fn(async () => ({ _sum: { costCents: null } })) },
     appSetting: {
       findUnique: jest.fn(async () => (opts.setting === undefined || opts.setting === null ? null : { key: 'cave_budget_share', value: opts.setting })),
       upsert: jest.fn(async (args: any) => ({ key: 'cave_budget_share', value: args.update.value })),
@@ -75,9 +89,10 @@ describe('VisionBudgetService — part par cave', () => {
   });
 
   describe('spentThisMonthCents(caveId)', () => {
-    it('ne compte que les photos, accords (par le vin) et recherches d’image de la cave, jamais les descriptifs', async () => {
-      const prisma = fake({ photos: 30, pairings: 12, imageSearches: 3 });
-      await expect(new VisionBudgetService(prisma as any, 500).spentThisMonthCents(CAVE)).resolves.toBe(45);
+    it('ne compte que les photos, accords et caractéristiques (par le vin) et recherches d’image de la cave, jamais les descriptifs', async () => {
+      const prisma = fake({ photos: 30, pairings: 12, imageSearches: 3, traits: 4 });
+      await expect(new VisionBudgetService(prisma as any, 500).spentThisMonthCents(CAVE)).resolves.toBe(49);
+      expect(prisma.wineTraits.aggregate).toHaveBeenCalledWith({ _sum: { costCents: true }, where: { generatedAt: { gte: expect.any(Date) }, wine: { caveId: CAVE } } });
       expect(prisma.photo.aggregate).toHaveBeenCalledWith({ _sum: { costCents: true }, where: { createdAt: { gte: expect.any(Date) }, caveId: CAVE } });
       expect(prisma.pairing.aggregate).toHaveBeenCalledWith({
         _sum: { costCents: true },

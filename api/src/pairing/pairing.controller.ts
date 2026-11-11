@@ -1,3 +1,4 @@
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { Controller, HttpCode, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { AuthenticatedGuard } from '../auth/authenticated.guard';
 import { CaveRole, CurrentCave } from '../caves/cave-access.decorators';
@@ -11,6 +12,9 @@ import { PairingService } from './pairing.service';
 export class PairingController {
   constructor(private readonly pairings: PairingService) {}
 
+  // Met une génération Gemini en file : 10 par minute.
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post(':id/pairing/regenerate')
   @HttpCode(202)
   @CaveRole('OWNER')

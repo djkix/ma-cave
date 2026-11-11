@@ -24,8 +24,8 @@ import { StatsModule } from './stats/stats.module';
 import { WinesModule } from './wines/wines.module';
 import { ZonesModule } from './zones/zones.module';
 
-// Pas de limitation de débit globale : seules les routes coûteuses ou sensibles
-// (upload de photo, connexion locale) portent ThrottlerGuard, avec leur propre
+// Pas de limitation de débit globale (une liste de cave charge une vignette par vin) : seules les routes coûteuses ou sensibles
+// (upload, connexion, retour Google, export, régénérations Gemini, invitations) portent ThrottlerGuard, avec leur propre
 // plafond. La seule garde globale est PendingGuard (AuthModule).
 @Module({
   imports: [

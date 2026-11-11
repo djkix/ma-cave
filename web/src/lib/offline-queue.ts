@@ -18,6 +18,8 @@ export interface QueuedPhoto {
   batchId?: string;
   /** Code-barres scanné juste avant (inconnu de la cave) : retenu sur le vin à la validation. */
   ean?: string;
+  /** Cave courante à la prise : la photo ne part que vers elle. Absente : photo d'avant la 2.51. */
+  caveId?: string;
 }
 
 /**
@@ -28,6 +30,11 @@ export interface QueuedPhoto {
  */
 export function belongsTo(item: QueuedPhoto, userId: string): boolean {
   return item.userId === undefined || item.userId === userId;
+}
+
+/** Photo du compte prise dans cette cave (ou sans cave notée) : la seule qui puisse partir maintenant. */
+export function belongsHere(item: QueuedPhoto, userId: string, caveId: string | null | undefined): boolean {
+  return belongsTo(item, userId) && (item.caveId === undefined || !caveId || item.caveId === caveId);
 }
 
 interface CaveDB extends DBSchema {
@@ -85,18 +92,22 @@ export async function listQueue(): Promise<QueuedPhoto[]> {
 /**
  * Sans compte : toute la file. Avec un compte : ses photos (et les anciennes sans
  * estampille) dans `count`/`bytes`, celles des autres comptes dans `others`.
+ * Avec une cave : `count`/`bytes` ne gardent que celles de cette cave, celles
+ * de ses autres caves vont dans `elsewhere` (elles attendent qu'on y revienne).
  */
-export async function queueStats(userId?: string | null): Promise<{ count: number; bytes: number; others: number }> {
+export async function queueStats(userId?: string | null, caveId?: string | null): Promise<{ count: number; bytes: number; others: number; elsewhere: number }> {
   const all = await listQueue();
-  const mine = userId ? all.filter((p) => belongsTo(p, userId)) : all;
-  return { count: mine.length, bytes: mine.reduce((s, p) => s + p.bytes, 0), others: all.length - mine.length };
+  if (!userId) return { count: all.length, bytes: all.reduce((s, p) => s + p.bytes, 0), others: 0, elsewhere: 0 };
+  const mine = all.filter((p) => belongsTo(p, userId));
+  const here = mine.filter((p) => belongsHere(p, userId, caveId));
+  return { count: here.length, bytes: here.reduce((s, p) => s + p.bytes, 0), others: all.length - mine.length, elsewhere: mine.length - here.length };
 }
 
-export async function enqueuePhoto(blob: Blob, mode: QueuedPhoto['mode'], userId?: string, quantity?: number, batchId?: string, ean?: string): Promise<QueuedPhoto> {
+export async function enqueuePhoto(blob: Blob, mode: QueuedPhoto['mode'], userId?: string, quantity?: number, batchId?: string, ean?: string, caveId?: string | null): Promise<QueuedPhoto> {
   // Les limites protègent le téléphone : elles portent sur toute la file, tous comptes confondus.
   const { count, bytes } = await queueStats();
   if (count >= QUEUE_LIMITS.maxItems || bytes + blob.size > QUEUE_LIMITS.maxBytes) throw new QueueFullError();
-  const item: QueuedPhoto = { id: crypto.randomUUID(), blob, bytes: blob.size, createdAt: Date.now(), mode, ...(userId ? { userId } : {}), ...(quantity ? { quantity } : {}), ...(batchId ? { batchId } : {}), ...(ean ? { ean } : {}) };
+  const item: QueuedPhoto = { id: crypto.randomUUID(), blob, bytes: blob.size, createdAt: Date.now(), mode, ...(userId ? { userId } : {}), ...(quantity ? { quantity } : {}), ...(batchId ? { batchId } : {}), ...(ean ? { ean } : {}), ...(caveId ? { caveId } : {}) };
   await (await db()).put('photos', item);
   return item;
 }
@@ -110,10 +121,11 @@ export async function removeFromQueue(id: string): Promise<void> {
  * d'un autre compte restent dans la file, intactes : jamais envoyées dans la cave
  * d'un autre, jamais effacées.
  */
-export async function flushQueue(upload: (blob: Blob, purpose: 'ENTRY', quantity?: number, batchId?: string, ean?: string) => Promise<unknown>, userId: string): Promise<{ sent: number; failed: number }> {
+export async function flushQueue(upload: (blob: Blob, purpose: 'ENTRY', quantity?: number, batchId?: string, ean?: string) => Promise<unknown>, userId: string, caveId?: string | null): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
-  for (const item of (await listQueue()).filter((p) => belongsTo(p, userId))) {
+  // Une photo prise dans une autre cave attend qu'elle redevienne la cave courante.
+  for (const item of (await listQueue()).filter((p) => belongsHere(p, userId, caveId))) {
     try {
       await upload(item.blob, 'ENTRY', item.quantity, item.batchId, item.ean);
       await removeFromQueue(item.id);

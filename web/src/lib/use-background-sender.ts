@@ -10,10 +10,10 @@ const SENDER_INTERVAL_MS = 15_000;
  * des pages protégées) : au montage, au retour du réseau, quand l'application
  * redevient visible, et toutes les 15 s tant que la file n'est pas vide.
  */
-export function useBackgroundSender(accountId: string | null): void {
+export function useBackgroundSender(accountId: string | null, caveId: string | null = null): void {
   useEffect(() => {
     // Seul le propriétaire connecté envoie, et seulement ses propres photos.
-    setSenderAccount(accountId);
+    setSenderAccount(accountId, caveId);
     if (!accountId) return;
     let timer: number | undefined;
     let active = true;
@@ -25,7 +25,7 @@ export function useBackgroundSender(accountId: string | null): void {
       sendQueuedPhotos().catch(() => undefined);
     };
     const armTimer = () =>
-      void queueStats(accountId).then(({ count }) => {
+      void queueStats(accountId, caveId).then(({ count }) => {
         if (!active) return;
         if (count > 0 && timer === undefined) timer = window.setInterval(send, SENDER_INTERVAL_MS);
         if (count === 0 && timer !== undefined) {
@@ -50,5 +50,5 @@ export function useBackgroundSender(accountId: string | null): void {
       if (timer !== undefined) window.clearInterval(timer);
       setSenderAccount(null);
     };
-  }, [accountId]);
+  }, [accountId, caveId]);
 }

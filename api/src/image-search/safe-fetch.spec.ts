@@ -26,9 +26,11 @@ describe('isBlockedAddress', () => {
     '100::1', '2001:db8::1', '2001:db8:ffff::1',
     // Réseaux de documentation (TEST-NET-1, 2, 3) et relais 6to4 anycast.
     '192.0.2.1', '192.0.2.255', '198.51.100.7', '203.0.113.200', '192.88.99.1', '::ffff:203.0.113.5',
+    // IPv4 traduite (SIIT) et NAT64 bien connu vers une IPv4 interdite.
+    '::ffff:0:127.0.0.1', '::ffff:0:a00:1', '64:ff9b::7f00:1', '64:ff9b::c0a8:101',
   ])('refuse %s', (ip) => expect(isBlockedAddress(ip)).toBe(true));
 
-  it.each(['93.184.216.34', '8.8.8.8', '172.15.0.1', '172.32.0.1', '192.169.0.1', '2606:4700::1111', '::ffff:8.8.8.8', '2002:808:808::1', '2001:4860::8888', '2001:1::1', '192.0.3.1', '198.51.101.1', '203.0.114.1', '192.88.100.1'])(
+  it.each(['93.184.216.34', '8.8.8.8', '172.15.0.1', '172.32.0.1', '192.169.0.1', '2606:4700::1111', '::ffff:8.8.8.8', '::ffff:0:808:808', '2002:808:808::1', '2001:4860::8888', '2001:1::1', '192.0.3.1', '198.51.101.1', '203.0.114.1', '192.88.100.1'])(
     'accepte %s', (ip) => expect(isBlockedAddress(ip)).toBe(false),
   );
 
@@ -55,6 +57,21 @@ describe('safeFetch', () => {
       expect(transport).not.toHaveBeenCalled();
     },
   );
+
+  it.each(['http://exemple.fr:6379/x', 'https://exemple.fr:22/x', 'http://exemple.fr:8080/x'])(
+    'refuse le port non web de %s sans résoudre ni télécharger', async (url) => {
+      const lookup = jest.fn(publicLookup);
+      const transport = jest.fn();
+      await expect(safeFetch(url, { maxBytes: 100, lookup, transport })).rejects.toThrow(/port .* interdit/);
+      expect(lookup).not.toHaveBeenCalled();
+      expect(transport).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['http://exemple.fr:80/x', 'https://exemple.fr:443/x', 'https://exemple.fr:80/x'])('accepte le port web de %s', async (url) => {
+    const transport: Transport = jest.fn(async () => response(200, 'ok', { 'content-type': 'text/plain' }));
+    await expect(safeFetch(url, { maxBytes: 100, lookup: publicLookup, transport })).resolves.toBeDefined();
+  });
 
   it('refuse une adresse avec identifiants', async () => {
     const transport = jest.fn();

@@ -1,6 +1,7 @@
 #!/bin/sh
 # Une sauvegarde vers le NAS : base, puis photos, puis configuration de la stack, dans un dossier daté.
-# Sept jours gardés ; une photo inchangée est un lien physique vers celle de la veille. Sans chiffrement.
+# Sept jours gardés ; une photo inchangée est un lien physique vers celle de la veille. Sans chiffrement :
+# la base et la configuration (secrets du .env) ne sont lisibles que par leur propriétaire (dossiers 700, fichiers 600).
 # Une tentative ratée ne supprime rien. Chaque tentative est inscrite dans la table backup_run, lue par
 # l'Administration. Usage : /app/sauvegarder.sh (lancé par planifier.sh, ou à la main). Sort en 0 si tout a réussi.
 set -u
@@ -34,14 +35,14 @@ copier_config() {
     fi
   done
   [ "$trouve" = 1 ] || return 2
-  cp "$PILE/.env" "$TMP/config/"
+  cp "$PILE/.env" "$TMP/config/" && chmod 600 "$TMP/config/"*
 }
 
 sauvegarder() {
-  rm -rf "$TMP" && mkdir -p "$TMP/base" "$TMP/config" || echouer base $? || return
+  rm -rf "$TMP" && mkdir -p "$TMP/base" "$TMP/config" && chmod 700 "$TMP/base" "$TMP/config" || echouer base $? || return
   # La base d'abord : toute photo qu'elle référence sera dans les photos copiées ensuite.
   # Une table verrouillée ne bloque pas la nuit : pg_dump abandonne au bout de 10 minutes.
-  pg_dump -Fc --lock-wait-timeout=10min --dbname="$DATABASE_URL" -f "$TMP/base/cave.dump" || echouer base $? || return
+  pg_dump -Fc --lock-wait-timeout=10min --dbname="$DATABASE_URL" -f "$TMP/base/cave.dump" && chmod 600 "$TMP/base/cave.dump" || echouer base $? || return
   # Sans propriétaire ni groupe : le NAS les écrase (squash) ; la restauration remet le compte node (1000).
   set -- -rlt
   [ -d "$CIBLE/derniere/photos" ] && set -- "$@" --link-dest="$CIBLE/derniere/photos"
@@ -74,7 +75,9 @@ else
   REUSSIE=false
   echo "Sauvegarde en échec : $MESSAGE." >&2
 fi
+# Apostrophes doublées : le message reste une chaîne SQL, quoi qu'il contienne.
+MESSAGE_SQL="$(printf '%s' "$MESSAGE" | sed "s/'/''/g")"
 psql "$DATABASE_URL" -q -v ON_ERROR_STOP=1 -c "INSERT INTO backup_run (started_at, finished_at, succeeded, message) \
-VALUES (to_timestamp($DEBUT) AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC', $REUSSIE, '$MESSAGE')" > /dev/null \
+VALUES (to_timestamp($DEBUT) AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC', $REUSSIE, '$MESSAGE_SQL')" > /dev/null \
   || echo "Inscription de la sauvegarde impossible : l'Administration alertera si rien ne réussit en 36 h." >&2
 [ "$REUSSIE" = true ]

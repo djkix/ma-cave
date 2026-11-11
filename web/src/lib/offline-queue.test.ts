@@ -19,7 +19,7 @@ it('stores photos and reports stats', async () => {
   await enqueuePhoto(blob(10), 'single');
   await enqueuePhoto(blob(20), 'campaign');
   await enqueuePhoto(blob(5), 'entry');
-  expect(await queueStats()).toEqual({ count: 3, bytes: 35, others: 0 });
+  expect(await queueStats()).toEqual({ count: 3, bytes: 35, others: 0, elsewhere: 0 });
   expect((await listQueue()).map((p) => p.mode).sort()).toEqual(['campaign', 'entry', 'single']);
 });
 
@@ -145,8 +145,20 @@ describe('file rattachée au compte', () => {
     await enqueuePhoto(blob(1), 'entry', 'u1');
     await enqueuePhoto(blob(2), 'entry');
     await enqueuePhoto(blob(4), 'entry', 'u2');
-    expect(await queueStats('u1')).toEqual({ count: 2, bytes: 3, others: 1 });
-    expect(await queueStats('u2')).toEqual({ count: 2, bytes: 6, others: 1 });
+    expect(await queueStats('u1')).toEqual({ count: 2, bytes: 3, others: 1, elsewhere: 0 });
+    expect(await queueStats('u2')).toEqual({ count: 2, bytes: 6, others: 1, elsewhere: 0 });
+  });
+
+  it('n’envoie que les photos prises dans la cave courante ; celles d’une autre cave attendent', async () => {
+    await enqueuePhoto(blob(1), 'entry', 'u1', undefined, undefined, undefined, 'cave-a');
+    await enqueuePhoto(blob(2), 'entry', 'u1', undefined, undefined, undefined, 'cave-b');
+    await enqueuePhoto(blob(4), 'entry', 'u1');
+    expect(await queueStats('u1', 'cave-b')).toEqual({ count: 2, bytes: 6, others: 0, elsewhere: 1 });
+    const upload = vi.fn().mockResolvedValue({});
+    expect(await flushQueue(upload, 'u1', 'cave-b')).toEqual({ sent: 2, failed: 0 });
+    const left = await listQueue();
+    expect(left.map((p) => p.caveId)).toEqual(['cave-a']);
+    expect(await flushQueue(upload, 'u1', 'cave-a')).toEqual({ sent: 1, failed: 0 });
   });
 
   it('applique les limites à toute la file, tous comptes confondus', async () => {

@@ -1,3 +1,4 @@
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthenticatedGuard } from '../auth/authenticated.guard';
 import { CaveRole, CurrentCave } from './cave-access.decorators';
@@ -18,6 +19,9 @@ export class CurrentCaveController {
     return this.members.list(cave.caveId);
   }
 
+  // Invitations : 20 par minute.
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('members')
   @CaveRole('OWNER')
   add(@CurrentCave() cave: CaveAccess, @Body() body: unknown) {
