@@ -11,6 +11,14 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.50.0](https://github.com/djkix/ma-cave/compare/v2.49.0...v2.50.0) (2026-11-11)
 
+### Résumé
+
+**Sortie par code-barres.** L'écran *Sortir une bouteille* propose le scan :
+un seul vin en stock portant le code ouvre sa fiche (*Sortir une bouteille*,
+endroit, *Annuler*), plusieurs millésimes se choisissent, aucun renvoie à la
+photo. Aucune migration.
+
+### Détail par commit
 
 ### Fonctionnalités
 

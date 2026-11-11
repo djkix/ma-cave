@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.49.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.50.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -872,6 +872,15 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.50.0 — 11 novembre 2026
+
+Publiée ([v2.50.0](https://github.com/djkix/ma-cave/releases/tag/v2.50.0)),
+images `ghcr.io/djkix/ma-cave-api:2.50.0`, `-web:2.50.0` et
+`-sauvegarde:2.50.0`.
+
+**Sortie par code-barres** : le scan ouvre la fiche du vin en stock. Aucune
+migration.
+
 ### 2.49.0 — 11 novembre 2026
 
 Publiée ([v2.49.0](https://github.com/djkix/ma-cave/releases/tag/v2.49.0)),
@@ -960,6 +969,9 @@ images `ghcr.io/djkix/ma-cave-api:2.45.0`, `-web:2.45.0` et
 la fiche, filtres dans **« J'ai un vin »**, apogée de la fiche allégée. Aucune
 migration.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.44.1 → 1.0.0)</summary>
+
 ### 2.44.1 — 4 novembre 2026
 
 Publiée ([v2.44.1](https://github.com/djkix/ma-cave/releases/tag/v2.44.1)),
@@ -968,9 +980,6 @@ images `ghcr.io/djkix/ma-cave-api:2.44.1`, `-web:2.44.1` et
 
 **Manifeste de la PWA servi avec le bon type MIME** (installation sur iPhone).
 Aucune migration.
-
-<details>
-<summary><strong>Versions antérieures</strong> (2.44.0 → 1.0.0)</summary>
 
 ### 2.44.0 — 4 novembre 2026
 
