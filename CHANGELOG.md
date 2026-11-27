@@ -9,6 +9,20 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.51.0](https://github.com/djkix/ma-cave/compare/v2.50.1...v2.51.0) (2026-11-27)
+
+
+### Fonctionnalités
+
+* **web:** écran Mouvements (rentrer, sortir, à confirmer, derniers mouvements) ([d2c2b28](https://github.com/djkix/ma-cave/commit/d2c2b284c92dc5916267776c4e3c76b7f3d630f1))
+* **web:** onglet Mouvements à la place d'Entrée et Sortie, avec la pastille des vins à confirmer ([6d2277e](https://github.com/djkix/ma-cave/commit/6d2277eb2d16ff117d377423e839beafb91190d7))
+
+
+### Corrections
+
+* **web:** « Annulation » et « Inventaire » au lieu d'« Ajustement », sans sur-titre Ma Cave ([2dd84cc](https://github.com/djkix/ma-cave/commit/2dd84cc1c4efd3a166f33bb7fbc6afbadc3b2000))
+* **web:** rester sur l'onglet Mouvements après un changement de cave ([8f45357](https://github.com/djkix/ma-cave/commit/8f453579191b54f297d63ed197ce0d2eac475de0))
+
 ## [2.50.1](https://github.com/djkix/ma-cave/compare/v2.50.0...v2.50.1) (2026-11-11)
 
 ### Résumé
