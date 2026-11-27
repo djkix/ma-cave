@@ -204,3 +204,11 @@ it('l’accueil ne double plus : ni titre de carte, ni derniers mouvements, ni �
   expect(screen.queryByText(/À boire prochainement/)).not.toBeInTheDocument();
   expect(movements).not.toHaveBeenCalled();
 });
+
+it('tant que la cave n’est pas lue, ou si la lecture échoue, les tuiles n’affichent pas « 0 »', async () => {
+  vi.spyOn(api, 'getCave').mockRejectedValue(new Error('hors ligne'));
+  mount();
+  await new Promise((r) => setTimeout(r, 30));
+  expect(screen.queryByRole('group', { name: /^0 / })).toBeNull();
+  expect(screen.getAllByRole('group', { name: /bouteilles|références/ })[0]).toHaveTextContent('…');
+});

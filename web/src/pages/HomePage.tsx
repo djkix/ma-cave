@@ -66,19 +66,21 @@ const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : 
 function HomeTiles() {
   const cave = useQuery({ queryKey: ['cave', {}], queryFn: () => getCave({}) });
   const soon = useDrinkSoon();
-  const inStock = (cave.data ?? []).filter((r) => r.quantity > 0);
-  const bottles = inStock.reduce((n, r) => n + r.quantity, 0);
-  const urgent = (soon.data ?? []).reduce((n, r) => n + Math.max(r.quantity, 0), 0);
+  // Pas encore lue, ou illisible (hors ligne) : « … », jamais un « 0 » qui ferait croire la cave vide.
+  const inStock = cave.data?.filter((r) => r.quantity > 0);
+  const bottles = inStock?.reduce((n, r) => n + r.quantity, 0);
+  const urgent = soon.data?.reduce((n, r) => n + Math.max(r.quantity, 0), 0);
+  const tile = (n: number | undefined, one: string, many: string) => (n === undefined ? `… ${many}` : plural(n, one, many));
   return (
     <section className="home-tiles">
-      <div className="home-tile" role="group" aria-label={plural(bottles, 'bouteille', 'bouteilles')}>
-        <strong className="num">{bottles}</strong><span>{bottles > 1 ? 'bouteilles' : 'bouteille'}</span>
+      <div className="home-tile" role="group" aria-label={tile(bottles, 'bouteille', 'bouteilles')}>
+        <strong className="num">{bottles ?? '…'}</strong><span>{bottles === 1 ? 'bouteille' : 'bouteilles'}</span>
       </div>
-      <div className="home-tile" role="group" aria-label={plural(inStock.length, 'référence', 'références')}>
-        <strong className="num">{inStock.length}</strong><span>{inStock.length > 1 ? 'références' : 'référence'}</span>
+      <div className="home-tile" role="group" aria-label={tile(inStock?.length, 'référence', 'références')}>
+        <strong className="num">{inStock?.length ?? '…'}</strong><span>{inStock?.length === 1 ? 'référence' : 'références'}</span>
       </div>
       <Link to="/a-boire" className="home-tile home-tile--link">
-        <strong className="num">{urgent}</strong><span>à boire vite</span>
+        <strong className="num">{urgent ?? '…'}</strong><span>à boire vite</span>
       </Link>
     </section>
   );

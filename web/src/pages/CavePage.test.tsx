@@ -342,3 +342,10 @@ it('ligne compacte : nom, emplacement court, quantité', async () => {
   expect(within(screen.getByRole('link', { name: /Leflaive/ })).getByText('2 endroits')).toBeInTheDocument();
   expect(within(screen.getByRole('link', { name: /Domaine Sans/ })).getByText('—')).toBeInTheDocument();
 });
+
+it('le nom accessible d’une ligne dit l’emplacement et le nombre de bouteilles', async () => {
+  vi.spyOn(api, 'getCave').mockResolvedValue([{ ...rows[0], quantity: 6, places: [{ id: 'l1', label: 'Garage / C15', quantity: 6, casier: 'C15' }] }, { ...rows[1], quantity: 1 }]);
+  mount();
+  expect(await screen.findByRole('link', { name: /Domaine Tempier.*emplacement C15.*6 bouteilles/ })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /Leflaive.*aucun emplacement.*1 bouteille$/ })).toBeInTheDocument();
+});

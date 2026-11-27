@@ -236,8 +236,15 @@ export function CavePage() {
                   </span>
                   {w.matchedDish && <span className="list__meta">{`avec : ${w.matchedDish}`}</span>}
                 </span>
-                <span className="cave-row__place" aria-label={`Emplacement : ${place === '—' ? 'aucun' : place}`}>{place}</span>
-                <span className="cave-row__qty num">{empty ? 'Épuisé' : w.quantity}</span>
+                {/* Textes cachés : le nom du lien se lit « … emplacement C15, 6 bouteilles ». */}
+                <span className="cave-row__place">
+                  {place === '—'
+                    ? <><span aria-hidden="true">—</span><span className="visually-hidden">aucun emplacement</span></>
+                    : <><span className="visually-hidden">emplacement </span>{place}</>}
+                </span>
+                <span className="cave-row__qty num">
+                  {empty ? 'Épuisé' : <>{w.quantity}<span className="visually-hidden">{w.quantity > 1 ? ' bouteilles' : ' bouteille'}</span></>}
+                </span>
               </Link>
             );
           })}
