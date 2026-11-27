@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { movementNote } from '../lib/movement-note';
+import { movementNote, movementTypeLabel } from '../lib/movement-note';
 import { useState } from 'react';
 import { BottomNav } from '../components/BottomNav';
 import { Button } from '../components/Button';
@@ -11,7 +11,6 @@ import { NO_LOCATION } from '../lib/locations';
 const fmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 /** `all` : la liste affichée, où une annulation retrouve le mouvement qu'elle annule (voir movementNote). */
-const TYPE_LABEL = { IN: 'Entrée', OUT: 'Sortie', MOVE: 'Déplacement', ADJUST: 'Ajustement' } as const;
 
 export function MovementRow({ m, all = [m], onCancel, cancelling, cancelled }: { m: MovementWithWine; all?: MovementWithWine[]; onCancel?: (id: string) => void; cancelling?: boolean; cancelled?: boolean }) {
   const note = movementNote(m, all);
@@ -20,7 +19,7 @@ export function MovementRow({ m, all = [m], onCancel, cancelling, cancelled }: {
     <div className="mv">
       <span className={`mv__badge${isIn ? ' mv__badge--in' : ''}`}><Icon name={isIn ? 'add' : 'remove'} /></span>
       <div className="mv__body">
-        <p className="mv__title">{TYPE_LABEL[m.type]} · {m.wine.producer}</p>
+        <p className="mv__title">{movementTypeLabel(m)} · {m.wine.producer}</p>
         <span className="mv__meta">
           {[[m.wine.cuvee, m.wine.vintage].filter(Boolean).join(' '), fmt.format(new Date(m.occurredAt))].filter(Boolean).join(' · ')}
           {/* Une moitié de déplacement : l'emplacement d'origine (−) ou de destination (+). */}

@@ -544,7 +544,6 @@ select:focus-visible { outline: 3px solid var(--color-primary-container); outlin
 
 /* Barre du haut (charte « Ma Cave Design Language ») : sur-titre de marque, sélecteur de cave en pastille. */
 .topbar__heading { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; line-height: 1.15; }
-.topbar__eyebrow { font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-secondary); }
 .topbar__title { font-size: 20px; font-weight: 600; }
 .topbar__select { min-height: 40px; border-radius: var(--radius-lg); border-color: var(--color-outline-subtle); background-color: var(--color-surface-container); font-size: 14px; padding-left: var(--space-sm); }
 .card { border-radius: var(--radius-xl); }

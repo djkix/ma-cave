@@ -1,6 +1,14 @@
 /** Ce que désigne une annulation : « Annulation de la sortie du 23 oct. 2026, 14:02 ». */
-const KIND = { IN: "de l'entrée", OUT: 'de la sortie', ADJUST: 'de la correction', MOVE: 'du déplacement' } as const;
+const KIND = { IN: "de l'entrée", OUT: 'de la sortie', ADJUST: "de l'inventaire", MOVE: 'du déplacement' } as const;
 const when = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const TYPE = { IN: 'Entrée', OUT: 'Sortie', MOVE: 'Déplacement' } as const;
+
+/** Nom d'un mouvement : un ajustement est une « Annulation » s'il en annule un autre, sinon un « Inventaire ». */
+export function movementTypeLabel(m: { type: keyof typeof KIND; reversesId: string | null }, move: string = TYPE.MOVE): string {
+  if (m.type === 'ADJUST') return m.reversesId ? 'Annulation' : 'Inventaire';
+  return m.type === 'MOVE' ? move : TYPE[m.type];
+}
+
 /** Note écrite par l'api avant la 2.34 : l'identifiant technique du mouvement annulé. */
 const OLD_NOTE = /^Annulation du mouvement [0-9a-f-]{36}$/i;
 

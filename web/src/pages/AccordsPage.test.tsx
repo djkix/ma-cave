@@ -106,7 +106,7 @@ it('accord local immédiat sur l’ingrédient dominant, bascule vers un autre i
   await userEvent.click(screen.getByRole('button', { name: 'Proposer des vins' }));
   expect(screen.getByText('Poulet', { selector: 'strong' })).toBeInTheDocument();
   const row = await screen.findByRole('link', { name: /^Domaine Rouge, 2020/ });
-  expect(within(row).getByText('Bourgogne · Rouge · 2 btl')).toBeInTheDocument();
+  expect(within(row).getByText('Bourgogne · Rouge · 2 bouteilles')).toBeInTheDocument();
   expect(within(row).getByText(/Excellent accord/)).toBeInTheDocument();
   expect(within(row).getByText(/Accord classique : Bourgogne · Rouge comme conseillé · tanin léger · fruits rouges/)).toBeInTheDocument();
   expect(screen.queryByRole('tablist', { name: 'Rubriques' })).not.toBeInTheDocument();
@@ -170,7 +170,7 @@ it('sans API vocale : champ texte d’office, pas de micro ; texte → vins clas
   const wines = await screen.findByRole('list', { name: 'À ouvrir ce soir' });
   const link = within(wines).getByRole('link', { name: /^Domaine Raveneau — Montée de Tonnerre, 2019/ });
   expect(link).toHaveAttribute('href', '/cave/w1');
-  expect(within(link).getByText('Chablis 1er cru · Blanc · 2 btl · Cave 1 / A')).toBeInTheDocument();
+  expect(within(link).getByText('Chablis 1er cru · Blanc · 2 bouteilles · Cave 1 / A')).toBeInTheDocument();
   expect(within(link).getByText(`À boire vite, fin d’apogée en ${year}`)).toBeInTheDocument();
   expect(within(link).getByText(/Excellent accord/)).toBeInTheDocument();
   expect(screen.queryByText('92 %')).not.toBeInTheDocument();

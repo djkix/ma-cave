@@ -49,6 +49,12 @@ it.each(['/compte', '/compte/moi', '/ma-cave', '/admin/comptes'])('affiche la ve
   expect(screen.queryByRole('link', { name: 'Réglages' })).not.toBeInTheDocument();
 });
 
+it('n’affiche plus « Ma Cave » au-dessus du titre de l’écran', () => {
+  mount({ title: 'Journal' });
+  expect(screen.getByRole('banner')).not.toHaveTextContent('Ma Cave');
+  expect(screen.getByRole('heading', { name: 'Journal' })).toBeInTheDocument();
+});
+
 it('annonce « dev » quand aucune version n’a été injectée à la construction', () => {
   // Les tests tournent sans VITE_APP_VERSION : c'est exactement le cas d'une
   // construction locale, qui ne doit jamais afficher un numéro inventé.

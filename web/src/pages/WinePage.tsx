@@ -21,13 +21,12 @@ import { WineExitBar } from '../components/WineExitBar';
 import { WineThumb } from '../components/WineThumb';
 import { ApiError, getWine, LocationInput, postInventory, WineColor } from '../lib/api-client';
 import { EMPTY_LOCATION, NO_LOCATION, toLocationInput, useLocations, useZones } from '../lib/locations';
-import { movementNote } from '../lib/movement-note';
+import { movementNote, movementTypeLabel } from '../lib/movement-note';
 import { useCurrentCave } from '../lib/use-current-cave';
 
 /** Mouvements : jour et heure (« 23 oct. 2026, 14:05 »), heure de l'appareil. */
 const fmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const COLOR_LABEL: Record<WineColor, string> = { ROUGE: 'Rouge', BLANC: 'Blanc', ROSE: 'Rosé', PETILLANT: 'Pétillant' };
-const TYPE_LABEL = { IN: 'Entrée', OUT: 'Sortie', ADJUST: 'Correction', MOVE: 'Déplacé' } as const;
 
 function plural(n: number) {
   return `${n} bouteille${Math.abs(n) > 1 ? 's' : ''}`;
@@ -126,7 +125,7 @@ export function WinePage() {
     <div key={m.id} className="wine-move">
       <span className={`wine-move__dot ${m.delta > 0 ? 'wine-move__dot--in' : 'wine-move__dot--out'}`}><Icon name={m.delta > 0 ? 'add' : 'remove'} /></span>
       <span className="wine-move__body">
-        <span className="wine-move__title">{TYPE_LABEL[m.type]}</span>
+        <span className="wine-move__title">{movementTypeLabel(m, 'Déplacé')}</span>
         {/* Date et heure, puis la description (emplacement, note). */}
         <span className="list__meta wine-move__meta">
           {fmt.format(new Date(m.occurredAt))}
