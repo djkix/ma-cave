@@ -561,3 +561,14 @@ select:focus-visible { outline: 3px solid var(--color-primary-container); outlin
 .geo .france-map__note { grid-column: 1 / -1; }
 .geo .france-map__name { font-size: 10px; }
 .geo .france-map__count { font-size: 13px; }
+/* Section repliable (fiche vin, statistiques) : le titre est la cible, le contenu sans carte dans la carte. */
+.fold { padding: 0; }
+.fold__summary { display: flex; align-items: center; gap: var(--space-sm); min-height: 52px; padding: 0 var(--space-md); list-style: none; cursor: pointer; font: 700 16px var(--font-sans); color: var(--color-primary); }
+.fold__summary::-webkit-details-marker { display: none; }
+.fold__title { flex: 1; }
+.fold__note { font-weight: 500; font-size: 14px; color: var(--color-secondary); }
+.fold__chevron { transition: transform 0.15s; }
+.fold[open] > .fold__summary .fold__chevron { transform: rotate(180deg); }
+.fold--disabled .fold__summary { cursor: default; color: var(--color-secondary); }
+.fold__body { display: flex; flex-direction: column; gap: var(--space-sm); padding: 0 var(--space-md) var(--space-md); }
+.fold__body > .card { border: 0; padding: 0; background: none; }
