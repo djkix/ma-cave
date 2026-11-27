@@ -11,6 +11,19 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.53.0](https://github.com/djkix/ma-cave/compare/v2.52.0...v2.53.0) (2026-11-27)
 
+### Résumé
+
+**Fiche vin repliée et statistiques par thème.** La fiche montre l'étiquette en
+grand (un bandeau de la couleur du vin sans photo), deux tuiles — bouteilles et
+emplacement, fin d'apogée —, la note et les accords conseillés ; le domaine, les
+caractéristiques et l'apogée, les accords vécus, la cote et les mouvements sont
+repliés dessous. Le menu « ⋯ » réunit *Modifier le vin* et *Chercher une image*.
+Les statistiques s'ouvrent sur trois tuiles (bouteilles, références, bues dans
+l'année), puis la rubrique *Stock* (anneau des couleurs, colonnes des millésimes,
+régions) et des rubriques repliables ; les lignes à zéro sont masquées. Aucune
+migration.
+
+### Détail par commit
 
 ### Fonctionnalités
 

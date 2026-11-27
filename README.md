@@ -4,7 +4,7 @@
 
 **Cave à vin sans saisie clavier — photo à l'entrée, photo à la sortie, classeur Excel**
 
-[![Version](https://img.shields.io/badge/version-2.52.0-purple?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.53.0-purple?style=for-the-badge)](CHANGELOG.md)
 [![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_PostgreSQL-blue?style=for-the-badge)](#stack-technique)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -871,6 +871,16 @@ Une entrée par version publiée, la plus récente en haut. Le détail par commi
 est dans [`CHANGELOG.md`](CHANGELOG.md). **Les 10 dernières versions** sont
 affichées ; le reste est replié sous **Versions antérieures**.
 
+### 2.53.0 — 27 novembre 2026
+
+Publiée ([v2.53.0](https://github.com/djkix/ma-cave/releases/tag/v2.53.0)),
+images `ghcr.io/djkix/ma-cave-api:2.53.0`, `-web:2.53.0` et
+`-sauvegarde:2.53.0`.
+
+**Fiche vin** en étiquette, tuiles et sections repliées ; **statistiques** en
+tuiles et rubriques (anneau des couleurs, colonnes des millésimes). Aucune
+migration.
+
 ### 2.52.0 — 27 novembre 2026
 
 Publiée ([v2.52.0](https://github.com/djkix/ma-cave/releases/tag/v2.52.0)),
@@ -957,6 +967,9 @@ images `ghcr.io/djkix/ma-cave-api:2.47.1`, `-web:2.47.1` et
 **Menu du bas** sur les écrans d'entrée, de sortie et « À confirmer ». Aucune
 migration.
 
+<details>
+<summary><strong>Versions antérieures</strong> (2.47.0 → 1.0.0)</summary>
+
 ### 2.47.0 — 4 novembre 2026
 
 Publiée ([v2.47.0](https://github.com/djkix/ma-cave/releases/tag/v2.47.0)),
@@ -967,9 +980,6 @@ images `ghcr.io/djkix/ma-cave-api:2.47.0`, `-web:2.47.0` et
 compte dans le classement des accords ; **« J'ai un vin »** propose les plats de
 la base, cliquables ; desserts manquants ajoutés à la base (248 entrées) ;
 bandeau de mise à jour sous l'en-tête. Migration additive (table `accord_vecu`).
-
-<details>
-<summary><strong>Versions antérieures</strong> (2.46.0 → 1.0.0)</summary>
 
 ### 2.46.0 — 4 novembre 2026
 
