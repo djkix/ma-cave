@@ -1,5 +1,5 @@
-import { Apogee, CaveRow } from './api-client';
-import { ActiveFilterState, activeFilters, apogeeTone, caveSummary, sortCave } from './cave-list';
+import { Apogee, CaveRow, Place } from './api-client';
+import { ActiveFilterState, activeFilters, apogeeTone, caveSummary, shortPlace, sortCave } from './cave-list';
 
 const ap = (status: Apogee['status']): Apogee => ({ min: 2020, max: 2030, confidence: null, status, reason: null, source: null });
 
@@ -45,4 +45,15 @@ it('liste les filtres actifs dans l’ordre du panneau', () => {
   expect(activeFilters({ color: 'ROUGE', colorLabel: 'Rouge', aromas: ['boisé', 'noisette'], vintage: '2018', tannin: 'PUISSANT', locationLabel: 'Cave 1 / A',
     regionLabel: 'Bourgogne', apogeeFilter: 'drinkSoon', includeEmpty: true }).map((f) => f.label)).toEqual([
     'Rouge', 'Arômes : boisé, noisette', 'Millésime 2018', 'Tanin : Puissant', 'Emplacement : Cave 1 / A', 'Bourgogne', 'À boire en priorité', 'Vins épuisés']);
+});
+
+it('libellé court de l’emplacement : case, dernier segment, plusieurs endroits, aucun', () => {
+  const p = (o: Partial<Place>): Place => ({ id: 'l', label: 'Garage / C15', quantity: 1, zoneId: 'z', casier: 'C15', ...o });
+  expect(shortPlace([p({})])).toBe('C15');
+  expect(shortPlace([p({ casier: null, label: 'Cellier / Étagère haute' })])).toBe('Étagère haute');
+  expect(shortPlace([p({}), p({ id: 'l2', casier: 'C3' })])).toBe('2 endroits');
+  expect(shortPlace([p({ id: null, label: 'Sans emplacement', casier: null })])).toBe('—');
+  expect(shortPlace([])).toBe('—');
+  expect(shortPlace(undefined)).toBe('—');
+  expect(shortPlace([p({}), p({ id: null, label: 'Sans emplacement', casier: null })])).toBe('C15');
 });

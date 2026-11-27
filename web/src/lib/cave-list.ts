@@ -1,4 +1,4 @@
-import { Apogee, CaveRow, Tannin, WineColor } from './api-client';
+import { Apogee, CaveRow, Place, Tannin, WineColor } from './api-client';
 import { TANNIN_LABEL } from './traits';
 
 /** « 142 bouteilles · 38 références » : somme des quantités, nombre de lignes (singulier jusqu'à 1). */
@@ -67,4 +67,16 @@ export function activeFilters(f: ActiveFilterState): Array<{ key: ActiveFilterKe
   if (f.apogeeFilter === 'noApogee') out.push({ key: 'noApogee', label: 'Sans apogée' });
   if (f.includeEmpty) out.push({ key: 'includeEmpty', label: 'Vins épuisés' });
   return out;
+}
+
+/**
+ * Emplacement en quelques caractères pour la ligne de la liste : la case
+ * (« C15 »), sinon le dernier segment du libellé ; « 2 endroits » ; « — » si
+ * le vin n'est rangé nulle part. « Sans emplacement » ne compte pas comme un endroit.
+ */
+export function shortPlace(places: Place[] | undefined): string {
+  const stored = (places ?? []).filter((p) => p.id !== null);
+  if (stored.length === 0) return '—';
+  if (stored.length > 1) return `${stored.length} endroits`;
+  return stored[0].casier ?? stored[0].label.split('/').pop()!.trim();
 }
