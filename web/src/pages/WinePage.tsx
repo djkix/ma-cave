@@ -29,9 +29,17 @@ import { useCurrentCave } from '../lib/use-current-cave';
 const fmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const COLOR_LABEL: Record<WineColor, string> = { ROUGE: 'Rouge', BLANC: 'Blanc', ROSE: 'Rosé', PETILLANT: 'Pétillant' };
 
-/** Domaine décrit : un descriptif ou au moins un des cinq champs rempli. */
-function hasProfile(p: { description: string | null; fields: Record<string, string | null> } | null | undefined): boolean {
-  return !!p && (!!p.description || Object.values(p.fields).some(Boolean));
+/**
+ * État du domaine dans le titre de son bloc : rien quand il est décrit, sinon
+ * « en préparation » (pas encore généré), « peu documenté » (Gemini n'en sait
+ * rien) ou « indisponible » (échec). Le bloc reste ouvrable : « Voir le domaine »
+ * mène à la page où la fiche se complète.
+ */
+function domaineNote(p: { status: string; description: string | null; fields: Record<string, string | null> } | null | undefined): string | undefined {
+  if (p && (p.description || Object.values(p.fields).some(Boolean))) return undefined;
+  if (p?.status === 'UNKNOWN') return 'peu documenté';
+  if (p?.status === 'FAILED') return 'indisponible';
+  return 'en préparation';
 }
 
 /** L'étiquette en grand (vignette « display », recadrée) ; sans photo ou image cassée, un bandeau de couleur. */
@@ -237,9 +245,9 @@ export function WinePage() {
         <RatingBlock key={`rating-${wine.id}`} wine={wine} readOnly={readOnly} lastOpenedAt={detail.data.lastOpenedAt} />
         <PairingBlock key={`pairing-${wine.id}`} wineId={wine.id} pairing={wine.pairing} readOnly={readOnly} />
 
-        {/* Le reste, replié à chaque visite. Domaine sans descriptif : rien à ouvrir. */}
+        {/* Le reste, replié à chaque visite. */}
         {wine.producerKey && (
-          <Fold title="Le domaine" icon="storefront" note={hasProfile(wine.producerProfile) ? undefined : 'en préparation'} disabled={!hasProfile(wine.producerProfile)}>
+          <Fold title="Le domaine" icon="storefront" note={domaineNote(wine.producerProfile)}>
             <DomaineBlock key={`domaine-${wine.id}`} producerKey={wine.producerKey} producerProfile={wine.producerProfile} />
           </Fold>
         )}

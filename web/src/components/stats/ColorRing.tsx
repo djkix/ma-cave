@@ -23,7 +23,7 @@ export function ColorRing({ rows }: { rows: BarRow[] }) {
           })}
         </svg>
         <ul className="ring__legend">
-          {shown.map((r) => <li key={r.key}><i style={{ background: r.color }} />{`${r.label} ${r.bottles}`}</li>)}
+          {shown.map((r) => <li key={r.key}><i style={{ background: r.color }} />{`${r.label} ${r.bottles} · ${Math.round((r.bottles / total) * 100)} %`}</li>)}
         </ul>
       </div>
     </section>

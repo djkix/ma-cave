@@ -13,8 +13,8 @@ it('BarList masque les lignes à zéro, et ne rend rien si tout est à zéro', (
 
 it('ColorRing : légende chiffrée en texte, un cercle plein pour une seule couleur', () => {
   const { container, rerender } = render(<ColorRing rows={[{ key: 'ROUGE', label: 'Rouge', bottles: 22, share: 0.786, color: 'red' }, { key: 'BLANC', label: 'Blanc', bottles: 6, share: 0.214, color: 'gold' }, { key: 'ROSE', label: 'Rosé', bottles: 0, share: 0 }]} />);
-  expect(screen.getByText('Rouge 22')).toBeInTheDocument();
-  expect(screen.getByText('Blanc 6')).toBeInTheDocument();
+  expect(screen.getByText('Rouge 22 · 79 %')).toBeInTheDocument();
+  expect(screen.getByText('Blanc 6 · 21 %')).toBeInTheDocument();
   expect(screen.queryByText(/Rosé/)).toBeNull();
   expect(container.querySelectorAll('.ring__arc')).toHaveLength(2);
   rerender(<ColorRing rows={[{ key: 'ROUGE', label: 'Rouge', bottles: 3, share: 1, color: 'red' }]} />);
@@ -24,6 +24,8 @@ it('ColorRing : légende chiffrée en texte, un cercle plein pour une seule coul
 it('YearColumns : une colonne par millésime, nommée, dans l’ordre reçu ; une seule colonne sans NaN', () => {
   const { container, rerender } = render(<YearColumns rows={[{ key: '2015', label: '2015', bottles: 4, share: 0.4 }, { key: 'Non millésimé', label: 'Non millésimé', bottles: 2, share: 0.2 }]} />);
   expect(screen.getAllByRole('img').map((c) => c.getAttribute('aria-label'))).toEqual(['2015 : 4 bouteilles', 'Non millésimé : 2 bouteilles']);
+  // Le nombre se lit aussi à l'écran, au-dessus de chaque colonne.
+  expect(container.querySelectorAll('.years__count')[0]).toHaveTextContent('4');
   rerender(<YearColumns rows={[{ key: 'Non millésimé', label: 'Non millésimé', bottles: 1, share: 1 }]} />);
   expect(container.innerHTML).not.toContain('NaN');
   expect(screen.getByRole('img', { name: 'Non millésimé : 1 bouteille' })).toBeInTheDocument();

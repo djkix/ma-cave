@@ -487,13 +487,23 @@ describe('fiche repliée', () => {
     expect(screen.getByText('Derniers mouvements')).toBeVisible();
   });
 
-  it('domaine sans descriptif : « (en préparation) », fermé', async () => {
+  it('domaine sans descriptif : « (en préparation) », mais le lien vers la page Domaine reste accessible', async () => {
     vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, wine: { ...detail.wine, producerProfile: null } });
     mount();
     await screen.findByRole('heading', { name: /Domaine Tempier/ });
     const summary = screen.getByText('Le domaine', { selector: '.fold__title', exact: false }).closest('summary')!;
     expect(summary).toHaveTextContent('Le domaine (en préparation)');
-    expect(summary).toHaveAttribute('aria-disabled', 'true');
+    expect(summary).not.toHaveAttribute('aria-disabled');
+    await userEvent.click(summary);
+    expect(screen.getByRole('link', { name: /Voir le domaine/ })).toBeVisible();
+  });
+
+  it.each([['UNKNOWN', 'peu documenté'], ['FAILED', 'indisponible']] as const)('domaine %s : « (%s) », jamais « en préparation »', async (status, note) => {
+    const producerProfile = { ...detail.wine.producerProfile!, status, description: null, fields: { histoire: null, terroir: null, cepages: null, style: null, nez: null } };
+    vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, wine: { ...detail.wine, producerProfile } });
+    mount();
+    await screen.findByRole('heading', { name: /Domaine Tempier/ });
+    expect(screen.getByText('Le domaine', { selector: '.fold__title', exact: false }).closest('summary')).toHaveTextContent(`Le domaine (${note})`);
   });
 
   it('propriétaire : le menu du crayon propose « Modifier le vin » et « Chercher une image », qui lance la recherche', async () => {
