@@ -9,6 +9,20 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.53.0](https://github.com/djkix/ma-cave/compare/v2.52.0...v2.53.0) (2026-11-27)
+
+
+### Fonctionnalités
+
+* **web:** fiche vin en étiquette, tuiles et sections repliées ([9032b35](https://github.com/djkix/ma-cave/commit/9032b35eb1ce3224c8ff2f4b1dfb5fb0d5c05fee))
+* **web:** section repliable partagée ([acd92ae](https://github.com/djkix/ma-cave/commit/acd92aed66e0c0368b7d1ec191339364d7a126f2))
+* **web:** statistiques en tuiles et rubriques repliables ([dd05db3](https://github.com/djkix/ma-cave/commit/dd05db3f720b5626504ce1b01e84fea7f7ab57da))
+
+
+### Corrections
+
+* **web:** domaine ouvrable avec son état réel, chiffres visibles dans les graphiques ([ae74f8c](https://github.com/djkix/ma-cave/commit/ae74f8c543fb5fd7a42bfcd23c1c557cb0c06c5f))
+
 ## [2.52.0](https://github.com/djkix/ma-cave/compare/v2.51.0...v2.52.0) (2026-11-27)
 
 ### Résumé
