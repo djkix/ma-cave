@@ -35,3 +35,10 @@ it('cave vide : « Aucune bouteille pour l’instant »', () => {
   render(<FranceMap counts={regionCounts([])} onSelect={() => {}} />);
   expect(screen.getByText('Aucune bouteille pour l’instant')).toBeInTheDocument();
 });
+
+it('n’écrit pas « 0 » sur les régions vides, mais les nomme toujours', () => {
+  const { container } = render(<FranceMap counts={regionCounts([row({ region: 'Bourgogne', quantity: 12 })])} onSelect={() => {}} />);
+  const counts = [...container.querySelectorAll('.france-map__count')].map((t) => t.textContent);
+  expect(counts).toEqual(['12']);
+  expect(screen.getByRole('button', { name: 'Loire, 0 bouteille' })).toBeInTheDocument();
+});

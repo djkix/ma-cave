@@ -144,7 +144,8 @@ describe('changement de cave', () => {
     await waitFor(() => expect(queue).toHaveBeenCalled());
     const counts = [inbox.mock.calls.length, queue.mock.calls.length, movements.mock.calls.length];
     await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Cave' }), 'c2');
-    expect(await screen.findByRole('link', { name: /Statistiques/ })).toBeInTheDocument();
+    // Cave en lecture : l'onglet Mouvements disparaît de la barre du bas.
+    await waitFor(() => expect(screen.queryByRole('link', { name: /Mouvements/ })).not.toBeInTheDocument());
     await new Promise((r) => setTimeout(r, 30));
     expect([inbox.mock.calls.length, queue.mock.calls.length, movements.mock.calls.length]).toEqual(counts);
   });

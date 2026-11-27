@@ -4,22 +4,20 @@ import { Link } from 'react-router-dom';
 import { AnalysisQueueBanner } from '../components/AnalysisQueueBanner';
 import { BottomNav } from '../components/BottomNav';
 import { BottomSheet } from '../components/BottomSheet';
-import { DrinkSoonCard } from '../components/DrinkSoonCard';
 import { FranceMap, HORS_FRANCE } from '../components/FranceMap';
 import { Icon } from '../components/Icon';
 import { OfflineQueueBanner } from '../components/OfflineQueueBanner';
 import { TopBar } from '../components/TopBar';
-import { getCave, getRecentMovements } from '../lib/api-client';
+import { getCave } from '../lib/api-client';
+import { useDrinkSoon } from '../lib/drink-soon';
 import { regionCounts } from '../lib/region-counts';
 import { useCurrentCave, usePendingRegistrations } from '../lib/use-current-cave';
 import { useToConfirmCount } from '../lib/use-to-confirm';
-import { MovementRow } from './JournalPage';
 
 export function HomePage() {
   // Journal, photos à confirmer : réservés au propriétaire (403 pour un membre),
   // donc ni requête ni sondage tant que le rôle courant n'est pas OWNER.
-  const { isOwner, role } = useCurrentCave();
-  const movements = useQuery({ queryKey: ['movements', 'recent'], queryFn: () => getRecentMovements(3), enabled: isOwner });
+  const { isOwner } = useCurrentCave();
   // Fiches à valider et photos illisibles : tout ce qui attend une décision.
   const toConfirm = useToConfirmCount();
   const registrations = usePendingRegistrations() ?? 0;
@@ -46,42 +44,43 @@ export function HomePage() {
                 <Icon name="chevron_right" />
               </Link>
             )}
-            <section className="actions"><CaveLink /></section>
-            <CaveMap />
-            <DrinkSoonCard />
-            <section className="card">
-              <header className="home-head">
-                <div>
-                  <p className="home-eyebrow">Historique</p>
-                  <h2 className="home-title">Derniers mouvements</h2>
-                </div>
-              </header>
-              <div className="mv-list">
-                {movements.data?.map((m) => <MovementRow key={m.id} m={m} all={movements.data} />)}
-                {movements.data?.length === 0 && <p className="centered">Aucun mouvement pour l’instant.</p>}
-              </div>
-              <Link to="/journal" className="home-wide-btn">Voir le journal complet <Icon name="arrow_forward" /></Link>
-            </section>
           </>
         )}
-        {role === 'VIEWER' && (
-          <section className="actions">
-            <CaveLink />
-            <Link to="/stats" className="action action--out">
-              <Icon name="bar_chart" />
-              <span className="action__text">
-                <strong>Statistiques</strong>
-                <small>Couleurs, régions, millésimes</small>
-              </span>
-              <Icon name="arrow_forward" />
-            </Link>
-          </section>
-        )}
-        {role === 'VIEWER' && <CaveMap />}
-        {role === 'VIEWER' && <DrinkSoonCard />}
+        {/* Chiffres, carte, puis la liste : pour le propriétaire comme pour le membre. */}
+        <HomeTiles />
+        <CaveMap />
+        <section className="actions"><CaveLink /></section>
       </main>
       <BottomNav />
     </>
+  );
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
+
+/**
+ * Trois chiffres : bouteilles et références en stock (lecture `['cave', {}]`,
+ * partagée avec la carte), bouteilles à boire vite (la liste de `/a-boire`, où
+ * mène la tuile : son nombre est toujours celui de la page).
+ */
+function HomeTiles() {
+  const cave = useQuery({ queryKey: ['cave', {}], queryFn: () => getCave({}) });
+  const soon = useDrinkSoon();
+  const inStock = (cave.data ?? []).filter((r) => r.quantity > 0);
+  const bottles = inStock.reduce((n, r) => n + r.quantity, 0);
+  const urgent = (soon.data ?? []).reduce((n, r) => n + Math.max(r.quantity, 0), 0);
+  return (
+    <section className="home-tiles">
+      <div className="home-tile" role="group" aria-label={plural(bottles, 'bouteille', 'bouteilles')}>
+        <strong className="num">{bottles}</strong><span>{bottles > 1 ? 'bouteilles' : 'bouteille'}</span>
+      </div>
+      <div className="home-tile" role="group" aria-label={plural(inStock.length, 'référence', 'références')}>
+        <strong className="num">{inStock.length}</strong><span>{inStock.length > 1 ? 'références' : 'référence'}</span>
+      </div>
+      <Link to="/a-boire" className="home-tile home-tile--link">
+        <strong className="num">{urgent}</strong><span>à boire vite</span>
+      </Link>
+    </section>
   );
 }
 
@@ -124,7 +123,6 @@ function CaveMap() {
       <header className="home-head">
         <div>
           <p className="home-eyebrow">Répartition géographique</p>
-          <h2 className="home-title">Ma cave en France · <span className="num">{counts.total}</span> btl</h2>
         </div>
       </header>
       <FranceMap counts={counts} onSelect={setSelected} />

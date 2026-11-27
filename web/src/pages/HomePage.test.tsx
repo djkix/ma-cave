@@ -76,7 +76,7 @@ it('ni « Ma cave › Réglages » ni « Administration » : ils sont dans l’o
   expect(screen.queryByRole('link', { name: /Membres/ })).not.toBeInTheDocument();
 });
 
-it('n’offre à un membre en lecture seule que la cave et les statistiques, sans requête réservée', async () => {
+it('membre en lecture seule : la cave et les tuiles, sans requête réservée ni lien Statistiques', async () => {
   const me = vi.spyOn(api, 'getMe').mockResolvedValue(viewerMe());
   const movements = vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
   const inbox = vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [photo('a', 'DONE')], inProgress: [], failed: [] });
@@ -95,6 +95,8 @@ it('n’offre à un membre en lecture seule que la cave et les statistiques, san
   expect(screen.queryByRole('link', { name: /journal/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Ma cave › Réglages' })).not.toBeInTheDocument();
   expect(screen.queryByText('Derniers mouvements')).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: /Statistiques/ })).not.toBeInTheDocument();
+  expect(screen.getByRole('group', { name: /bouteilles?$/ })).toBeInTheDocument();
 });
 
 const pending = (id: string): api.Registration => ({ id, email: `${id}@example.com`, displayName: null, createdAt: '2026-11-01T10:00:00Z' });
@@ -131,7 +133,7 @@ it('carte de France : toucher Bourgogne ouvre le volet des domaines et le lien v
     caveRow({ id: 'c', region: 'Loire', quantity: 3 }),
   ]);
   mount();
-  expect(await screen.findByRole('heading', { name: 'Ma cave en France · 13 btl' })).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: 'Bourgogne, 10 bouteilles' })).toBeInTheDocument();
   expect(cave).toHaveBeenCalledWith({});
   await userEvent.click(screen.getByRole('button', { name: 'Bourgogne, 10 bouteilles' }));
   const sheet = screen.getByRole('dialog', { name: 'Bourgogne · 10 bouteilles' });
@@ -143,7 +145,7 @@ it('carte de France aussi pour un membre en lecture seule', async () => {
   vi.spyOn(api, 'getMe').mockResolvedValue(viewerMe());
   vi.spyOn(api, 'getCave').mockResolvedValue([caveRow({ region: 'Loire', quantity: 3 })]);
   mount();
-  expect(await screen.findByRole('heading', { name: 'Ma cave en France · 3 btl' })).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: 'Loire, 3 bouteilles' })).toBeInTheDocument();
 });
 
 it('propriétaire : l’accueil mène à la liste, avec le nombre de bouteilles', async () => {
@@ -165,4 +167,40 @@ it('pastilles de régions : la plus fournie d’abord, toucher une pastille ouvr
   expect(chips.map((c) => c.textContent)).toEqual(['Bourgogne 8', 'Loire 3']);
   await userEvent.click(chips[1]);
   expect(screen.getByRole('dialog', { name: 'Loire · 3 bouteilles' })).toBeInTheDocument();
+});
+
+/** `getCave({})` : toute la cave ; `getCave({ drinkSoon: true })` : la liste « à boire ». */
+function caveWith(all: api.CaveRow[], soon: api.CaveRow[]) {
+  return vi.spyOn(api, 'getCave').mockImplementation(async (f) => (f.drinkSoon ? soon : all) as never);
+}
+
+it('trois tuiles : bouteilles, références en stock, et à boire vite vers /a-boire', async () => {
+  vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [], inProgress: [], failed: [] });
+  caveWith([caveRow({ id: 'a', quantity: 3 }), caveRow({ id: 'b', quantity: 2 }), caveRow({ id: 'c', quantity: 0 })], [caveRow({ id: 'a', quantity: 2 })]);
+  mount();
+  expect(await screen.findByRole('group', { name: '5 bouteilles' })).toHaveTextContent('5');
+  expect(screen.getByRole('group', { name: '2 références' })).toHaveTextContent('2');
+  const soon = await screen.findByRole('link', { name: /2.*à boire vite/ });
+  expect(soon).toHaveAttribute('href', '/a-boire');
+});
+
+it('cave vide : tuiles à zéro et carte qui le dit', async () => {
+  caveWith([], []);
+  mount();
+  expect(await screen.findByRole('group', { name: '0 bouteille' })).toHaveTextContent('0');
+  expect(screen.getByRole('group', { name: '0 référence' })).toBeInTheDocument();
+  expect(await screen.findByText('Aucune bouteille pour l’instant')).toBeInTheDocument();
+});
+
+it('l’accueil ne double plus : ni titre de carte, ni derniers mouvements, ni « à boire prochainement »', async () => {
+  const movements = vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
+  vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [], inProgress: [], failed: [] });
+  caveWith([caveRow({ region: 'Loire', quantity: 3 })], []);
+  mount();
+  await screen.findByRole('button', { name: 'Loire, 3 bouteilles' });
+  await new Promise((r) => setTimeout(r, 20));
+  expect(screen.queryByText(/Ma cave en France ·/)).not.toBeInTheDocument();
+  expect(screen.queryByText('Derniers mouvements')).not.toBeInTheDocument();
+  expect(screen.queryByText(/À boire prochainement/)).not.toBeInTheDocument();
+  expect(movements).not.toHaveBeenCalled();
 });

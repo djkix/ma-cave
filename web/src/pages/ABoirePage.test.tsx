@@ -3,7 +3,6 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import * as api from '../lib/api-client';
-import { DrinkSoonCard } from '../components/DrinkSoonCard';
 import { viewerMe } from '../test-fixtures';
 import { ABoirePage } from './ABoirePage';
 
@@ -96,15 +95,4 @@ it('dit qu’il n’y a rien d’urgent quand la liste est vide', async () => {
   vi.spyOn(api, 'getCave').mockResolvedValue([]);
   mount(<ABoirePage />);
   expect(await screen.findByText('Rien d’urgent à boire.')).toBeInTheDocument();
-});
-
-it('la carte de l’accueil montre les trois plus urgents, leur emplacement et « Tout voir »', async () => {
-  vi.spyOn(api, 'getCave').mockResolvedValue(
-    ['a', 'b', 'c', 'd'].map((id, i) => row(id, 2026 + i, [{ id: 'g', label: 'Garage', quantity: 1 }])),
-  );
-  mount(<DrinkSoonCard />);
-  expect(await screen.findByText('À boire prochainement')).toBeInTheDocument();
-  expect(screen.getAllByText(/Garage/)).toHaveLength(3);
-  expect(screen.queryByText(/Domaine d/)).not.toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Tout voir (4)' })).toHaveAttribute('href', '/a-boire');
 });

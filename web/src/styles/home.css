@@ -30,14 +30,6 @@
 .geo__chip--active { background: var(--color-primary); color: var(--color-on-primary); }
 
 /* À boire prochainement */
-.drink-soon__list { display: flex; flex-direction: column; gap: var(--space-sm); }
-.drink-soon__item { display: flex; flex-direction: column; gap: 4px; padding: var(--space-md); border-radius: var(--radius-xl); background: var(--color-surface-container-low); color: inherit; text-decoration: none; }
-.drink-soon__top, .drink-soon__bottom { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); }
-.drink-soon__producer { font-size: 16px; font-weight: 700; color: var(--color-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.drink-soon__wine { font-size: 13px; color: var(--color-secondary); }
-.drink-soon__where { display: inline-flex; align-items: center; gap: 4px; min-width: 0; font-size: 12px; color: var(--color-secondary); }
-.drink-soon__where .material-symbols-outlined { font-size: 16px; }
-.drink-soon__bottom .num { font-weight: 700; white-space: nowrap; }
 
 /* Mouvements (accueil et journal) */
 .mv { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) 0; border-bottom: 1px solid var(--color-outline-subtle); }
@@ -56,3 +48,8 @@
 .mv-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); }
 .mv-action { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 88px; border-radius: var(--radius-xl); background: var(--color-surface-lowest); border: 1px solid var(--color-outline-subtle); color: var(--color-primary); font-weight: 600; text-decoration: none; }
 .mv-action .material-symbols-outlined { font-size: 28px; }
+/* Accueil : trois chiffres de la cave, le dernier mène à « À boire ». */
+.home-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-sm); }
+.home-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 72px; padding: var(--space-sm); border-radius: var(--radius-xl); background: var(--color-surface-lowest); border: 1px solid var(--color-outline-subtle); color: var(--color-secondary); font-size: 13px; text-align: center; text-decoration: none; }
+.home-tile strong { font-size: 24px; font-weight: 700; color: var(--color-primary); }
+.home-tile--link { color: var(--color-primary); }

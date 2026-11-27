@@ -41,7 +41,7 @@ export function FranceMap({ counts, onSelect }: { counts: ReturnType<typeof regi
               />
               {SMALL.has(r.name) && <circle cx={r.labelX} cy={r.labelY} r={14} className="france-map__hit" aria-hidden="true" onClick={() => onSelect(r.name)} />}
               <text x={r.nameAt?.x ?? r.labelX} y={r.nameAt ? r.nameAt.y : r.labelY - 5} textAnchor={r.nameAt?.anchor ?? 'middle'} className="france-map__name" aria-hidden="true">{r.name}</text>
-              <text x={r.labelX} y={r.labelY + (r.nameAt ? 3 : 6)} textAnchor="middle" className="france-map__count" aria-hidden="true">{count}</text>
+              {count > 0 && <text x={r.labelX} y={r.labelY + (r.nameAt ? 3 : 6)} textAnchor="middle" className="france-map__count" aria-hidden="true">{count}</text>}
             </g>
           );
         })}
