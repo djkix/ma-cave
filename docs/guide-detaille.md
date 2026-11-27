@@ -459,8 +459,7 @@ l'ordre : la photo de référence (celle de la première entrée) avec le stock 
 en bas à droite, une icône d'emplacement (elle ouvre une fenêtre avec la photo
 de la zone, son indication et le plan) ; le descriptif du domaine ; les accords
 mets-vins ; puis l'apogée, la note, la cote, les emplacements et les 10
-derniers mouvements. La fiche ne porte plus de bouton de sortie (onglet
-*Sortie* de la barre du bas) ; *Corriger le stock*, dans le bloc du stock,
+derniers mouvements. La fiche porte la barre *Sortir une bouteille* ; *Corriger le stock*, dans le bloc du stock,
 ouvre un inventaire physique — le nombre compté, l'écart annoncé avant d'enregistrer
 (« −2 bouteilles », « Stock déjà juste »), écrit comme un mouvement `ADJUST`
 daté (« Inventaire : N comptées »).
@@ -482,8 +481,8 @@ n'étant stockée par emplacement), les cotes et la note la plus récente
 (les corrections manuelles de la fiche existante priment), puis l'autre fiche
 disparaît. L'ancienne adresse affiche « Vin introuvable » avec un lien *Voir la
 cave*. Côté API : `PUT /api/wines/:id` ; en cas de doublon, 409 avec le vin
-existant, et le même appel renvoyé avec `merge: true` fusionne. La **sortie par photo** (onglet *Sortie* de la
-barre du bas) ne reconnaît que les vins en
+existant, et le même appel renvoyé avec `merge: true` fusionne. La **sortie par photo** (*Sortir* de l'onglet
+*Mouvements*) ne reconnaît que les vins en
 stock : l'étiquette est lue par Gemini puis comparée sur domaine/cuvée/
 appellation, le millésime pesant fortement. Un candidat clair déclenche une
 confirmation ; plusieurs candidats (ou un candidat incertain) affichent 1 à 4
@@ -759,6 +758,18 @@ continue de fonctionner. Une fois l'image choisie, la fiche affiche « Image : {
 minute. API : `POST /api/wines/:id/image-search`, `GET
 /api/image-candidates/:id`, `POST`/`DELETE /api/wines/:id/reference-image`.
 
+**Onglet Mouvements.** La barre du bas compte cinq onglets pour le
+propriétaire : *Cave*, *Mouvements*, *Accords*, *Stats* et *Réglages* (un membre
+en lecture seule n'a pas *Mouvements*). L'onglet *Mouvements* (`/mouvements`)
+réunit les boutons *Rentrer* (`/entree`) et *Sortir* (`/sortie`), la ligne
+*N vins à confirmer* vers `/a-confirmer` quand des fiches attendent, puis les 10
+derniers mouvements et *Voir le journal complet*. Il porte une pastille avec le
+nombre de vins à confirmer (fiches à valider et photos illisibles, relu toutes
+les 30 s) et reste allumé sur l'entrée, la sortie, *À confirmer* et le journal.
+Dans le journal et sur la fiche, un mouvement d'ajustement s'appelle
+*Annulation* quand il annule un autre mouvement, *Inventaire* sinon. Le titre
+des écrans n'a plus de sur-titre « Ma Cave ».
+
 **Onglet Cave.** L'onglet *Cave* de la barre du bas ouvre l'accueil, comme le
 logo : carte de France, à boire prochainement, derniers mouvements. Le bouton
 « Voir mes N bouteilles » en haut de l'accueil ouvre la liste (`/cave`) ; l'onglet
@@ -778,7 +789,8 @@ leurs écrans (Moi, Ma cave, Journal, Application, À propos), la version de l'a
 - **Ma cave** (propriétaire seulement) : la page `/ma-cave` décrite plus haut,
   sauvegarde Excel comprise ;
 - **Journal** (propriétaire seulement) : les derniers mouvements et leur
-  annulation (`/journal`, voir *Journal et annulation*) ;
+  annulation (`/journal`, voir *Journal et annulation*), aussi ouvert depuis
+  l'onglet *Mouvements*, où mène son retour ;
 - **Application** (administrateur seulement) : l'Administration, en trois
   onglets (voir *Comptes et administration*), avec le nombre d'inscriptions en
   attente (la page d'accueil garde aussi un lien *Administration* pour les
@@ -824,7 +836,7 @@ partent ».
 
 **Journal et annulation.** Les 20 derniers mouvements de la cave sont
 consultables et annulables en un tap, par son propriétaire seulement, depuis la
-carte *Journal* des Réglages (`/journal` ; l'onglet du bas est devenu *Accords*). Une annulation écrit un mouvement inverse : rien n'est
+carte *Journal* des Réglages ou l'onglet *Mouvements* (`/journal`). Une annulation écrit un mouvement inverse : rien n'est
 jamais supprimé, l'historique reste vrai.
 
 **Apogée.** Une fourchette de buvabilité est estimée par règles pour chaque vin

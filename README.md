@@ -114,7 +114,8 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Rien ne sort** sans confirmation
 
 ### 📒 Journal et inventaire
-- **Journal dans les Réglages** (carte *Journal*, propriétaire seulement) ; l'onglet du bas devient *Accords*, ouvert aussi aux membres
+- **Onglet Mouvements** (propriétaire) : *Rentrer*, *Sortir*, *N vins à confirmer* et les 10 derniers mouvements, avec une **pastille** du nombre de vins à confirmer ; barre du bas à cinq onglets (*Cave*, *Mouvements*, *Accords*, *Stats*, *Réglages*)
+- **Journal** depuis l'onglet Mouvements ou la carte *Journal* des Réglages (propriétaire seulement) ; un ajustement s'y appelle *Annulation* ou *Inventaire*
 - **20 derniers mouvements**, annulables en un tap (propriétaire)
 - Une annulation écrit un **mouvement inverse** : rien n'est supprimé
 - **Corriger le stock** (lien dans le bloc du stock, sur la fiche ; le crayon de l'en-tête modifie le vin) : inventaire physique, écart annoncé avant d'enregistrer
