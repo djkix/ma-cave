@@ -11,6 +11,16 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.51.0](https://github.com/djkix/ma-cave/compare/v2.50.1...v2.51.0) (2026-11-27)
 
+### Résumé
+
+**Onglet Mouvements.** La barre du bas passe à cinq onglets (*Cave*,
+*Mouvements*, *Accords*, *Stats*, *Réglages*) : *Mouvements* remplace *Entrée*
+et *Sortie* et réunit *Rentrer*, *Sortir*, *N vins à confirmer* et les 10
+derniers mouvements, avec une pastille du nombre de vins à confirmer. Un
+ajustement s'appelle désormais *Annulation* ou *Inventaire* ; plus de
+sur-titre « Ma Cave » au-dessus des titres. Aucune migration.
+
+### Détail par commit
 
 ### Fonctionnalités
 
