@@ -11,6 +11,20 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.52.0](https://github.com/djkix/ma-cave/compare/v2.51.0...v2.52.0) (2026-11-27)
 
+### Résumé
+
+**Accueil en chiffres et liste compacte.** L'accueil montre trois tuiles
+(*bouteilles*, *références*, *à boire vite* vers `/a-boire`), une carte de France
+réduite (légende à côté, plus de « 0 » sur les régions vides) et *Voir mes N
+bouteilles* ; les derniers mouvements sont dans l'onglet Mouvements. La liste de
+la cave passe à une ligne par vin avec son **emplacement** (« C15 »,
+« 2 endroits », « — ») ; une seule recherche, qui propose *Vins pour « plat »*
+quand elle reconnaît un plat de la base ; pastilles Tous · Rouge · Blanc · Rosé ·
+Pétillant · À boire et tri sous le champ, le reste dans *Filtres* ; plus de
+bouton flottant. Côté api, `GET /api/cave` renvoie les endroits de chaque vin.
+Aucune migration.
+
+### Détail par commit
 
 ### Fonctionnalités
 
