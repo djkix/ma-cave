@@ -11,6 +11,15 @@ tout premiers lots sont en anglais ; les suivants sont en français.
 
 ## [2.53.1](https://github.com/djkix/ma-cave/compare/v2.53.0...v2.53.1) (2026-11-27)
 
+### Résumé
+
+**Nettoyage après la refonte.** Dans la liste, « Tous » ne reste plus allumé
+sous « Sans apogée » et l'efface ; changer de vin ne relance plus une recherche
+d'image demandée sur le précédent ; la valeur au prix d'achat occupe toute sa
+carte dans les statistiques ; l'onglet Accords ne lit plus les emplacements de
+toute la cave. Code et styles morts retirés. Aucune migration.
+
+### Détail par commit
 
 ### Corrections
 
