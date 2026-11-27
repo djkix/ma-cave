@@ -83,6 +83,8 @@ export function WinePage() {
   const [editing, setEditing] = useState(false);
   // Recherche d'image demandée depuis le menu du crayon : chaque appui relance.
   const [imageRequest, setImageRequest] = useState(0);
+  // Autre vin : la demande ne vaut que pour le vin où elle a été faite.
+  useEffect(() => setImageRequest(0), [wineId]);
   const [counted, setCounted] = useState('');
   const [inventoryMessage, setInventoryMessage] = useState<string | null>(null);
   const [inventoryError, setInventoryError] = useState<string | null>(null);

@@ -19,7 +19,7 @@ function setup(wines: ReturnType<typeof wine>[], raw: unknown = { compris: ['Bla
   const budget = { assertUnderShare: jest.fn(async () => undefined), assertCaveUnderShare: jest.fn(async () => undefined) };
   const journal = { currentPause: jest.fn(async () => null) };
   const service = new AccordsService(cave as never, locations as never, budget as never, journal as never, provider as never);
-  return { service, provider, budget };
+  return { service, provider, budget, cave };
 }
 
 describe('validation du plat', () => {
@@ -59,6 +59,12 @@ describe('rankPicks', () => {
 });
 
 describe('AccordsService.suggest', () => {
+  it('lit la cave sans ses endroits : il a sa propre lecture des emplacements', async () => {
+    const { service, cave } = setup([]);
+    await service.suggest('c1', 'Sole');
+    expect(cave.list).toHaveBeenCalledWith('c1', {}, 'VIEWER', { withPlaces: false });
+  });
+
   it('cave vide : réponse vide, aucun appel à l’IA', async () => {
     const { service, provider, budget } = setup([]);
     expect(await service.suggest('c1', 'Sole')).toEqual({ dish: 'Sole', wineCount: 0, understood: [], ideal: null, picks: [] });

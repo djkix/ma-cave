@@ -15,8 +15,8 @@ import { useCurrentCave, usePendingRegistrations } from '../lib/use-current-cave
 import { useToConfirmCount } from '../lib/use-to-confirm';
 
 export function HomePage() {
-  // Journal, photos à confirmer : réservés au propriétaire (403 pour un membre),
-  // donc ni requête ni sondage tant que le rôle courant n'est pas OWNER.
+  // Photos à confirmer et file d'analyse : réservées au propriétaire (403 pour un
+  // membre), donc ni requête ni sondage tant que le rôle courant n'est pas OWNER.
   const { isOwner } = useCurrentCave();
   // Fiches à valider et photos illisibles : tout ce qui attend une décision.
   const toConfirm = useToConfirmCount();

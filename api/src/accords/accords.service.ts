@@ -114,7 +114,8 @@ export class AccordsService {
   ) {}
 
   async suggest(caveId: string, dish: string): Promise<AccordsResponse> {
-    const inStock = await this.cave.list(caveId, {});
+    // Les emplacements des vins choisis sont lus à part (emplacement principal) : pas ceux de toute la cave.
+    const inStock = await this.cave.list(caveId, {}, 'VIEWER', { withPlaces: false });
     if (inStock.length === 0) return { dish, wineCount: 0, understood: [], ideal: null, picks: [] };
     const sent = [...inStock].sort(byApogeePriority).slice(0, MAX_WINES);
 

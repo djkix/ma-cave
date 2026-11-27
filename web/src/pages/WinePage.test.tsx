@@ -518,3 +518,25 @@ describe('fiche repliée', () => {
     await waitFor(() => expect(search).toHaveBeenCalledWith('w1'));
   });
 });
+
+it('changer de vin ne relance pas la recherche d’image demandée sur le précédent', async () => {
+  const detail2 = { ...detail, wine: { ...detail.wine, id: 'w2', producer: 'Domaine Tempier 2' } };
+  vi.spyOn(api, 'getWine').mockImplementation((id: string) => Promise.resolve(id === 'w2' ? detail2 : detail));
+  const search = vi.spyOn(api, 'searchWineImages').mockResolvedValue({ candidates: [] });
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={['/cave/w1']}>
+        <Link to="/cave/w2">suivant</Link>
+        <Routes>
+          <Route path="/cave/:wineId" element={<WinePage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  await openImageSearch();
+  await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+  await userEvent.click(screen.getByRole('link', { name: 'suivant' }));
+  await screen.findByRole('heading', { name: /Domaine Tempier 2/ });
+  await new Promise((r) => setTimeout(r, 30));
+  expect(search).toHaveBeenCalledTimes(1);
+});

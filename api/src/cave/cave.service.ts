@@ -149,7 +149,8 @@ export class CaveService {
     return rows.map((r) => ({ ...r, ...publishedRegion(r) }));
   }
 
-  async list(caveId: string, filter: CaveFilter, role: CaveRole = 'VIEWER'): Promise<CaveItem[]> {
+  /** `withPlaces: false` : sans les endroits de chaque vin (un appelant qui ne les affiche pas évite cette lecture). */
+  async list(caveId: string, filter: CaveFilter, role: CaveRole = 'VIEWER', { withPlaces = true }: { withPlaces?: boolean } = {}): Promise<CaveItem[]> {
     // Un emplacement d'une autre cave est « introuvable », comme un identifiant inconnu.
     if (filter.location && filter.location !== 'none') await this.locations.findOwn(caveId, filter.location);
     const [rows, rules, atPlace] = await Promise.all([
@@ -164,8 +165,10 @@ export class CaveService {
     else if (filter.noApogee) items = items.filter((i) => i.apogee.max == null);
     // Où est chaque vin : la liste l'affiche, « À boire prochainement » regroupe par emplacement.
     // Une seule lecture pour tous les vins retenus.
-    const places = await this.locations.placesByWine(caveId, items.map((i) => i.id));
-    items = items.map((i) => ({ ...i, places: places.get(i.id) ?? [] }));
+    if (withPlaces || filter.drinkSoon) {
+      const places = await this.locations.placesByWine(caveId, items.map((i) => i.id));
+      items = items.map((i) => ({ ...i, places: places.get(i.id) ?? [] }));
+    }
     if (filter.dish) {
       const dishesById = new Map(kept.map((r) => [r.id, r.pairingDishes ?? null]));
       const query = filter.dish;

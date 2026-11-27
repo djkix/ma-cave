@@ -125,8 +125,8 @@ export function CavePage() {
             </button>
           )}
           <div className="cave-pills" role="group" aria-label="Filtres rapides">
-            <button type="button" aria-pressed={!color && apogeeFilter !== 'drinkSoon'} className={`filter-pill filter-pill--btn${!color && apogeeFilter !== 'drinkSoon' ? ' filter-pill--on' : ''}`}
-              onClick={() => { setColor(''); if (apogeeFilter === 'drinkSoon') setApogeeFilter(''); }}>Tous</button>
+            <button type="button" aria-pressed={!color && !apogeeFilter} className={`filter-pill filter-pill--btn${!color && !apogeeFilter ? ' filter-pill--on' : ''}`}
+              onClick={() => { setColor(''); setApogeeFilter(''); }}>Tous</button>
             {COLORS.filter((c) => c.value).map((c) => (
               <button key={c.value} type="button" aria-pressed={color === c.value} className={`filter-pill filter-pill--btn${color === c.value ? ' filter-pill--on' : ''}`}
                 onClick={() => setColor(color === c.value ? '' : (c.value as WineColor))}>{c.label}</button>

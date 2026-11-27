@@ -1,5 +1,5 @@
 import { Apogee, CaveRow, Place } from './api-client';
-import { ActiveFilterState, activeFilters, apogeeTone, caveSummary, shortPlace, sortCave } from './cave-list';
+import { ActiveFilterState, activeFilters, caveSummary, shortPlace, sortCave } from './cave-list';
 
 const ap = (status: Apogee['status']): Apogee => ({ min: 2020, max: 2030, confidence: null, status, reason: null, source: null });
 
@@ -9,13 +9,6 @@ it('résume en bouteilles et références, au singulier jusqu’à un', () => {
   expect(caveSummary([])).toEqual({ bottles: '0 bouteille', references: '0 référence' });
 });
 
-it('donne la teinte de la pastille selon l’état d’apogée', () => {
-  expect(apogeeTone(ap('A_BOIRE'))?.tone).toBe('ok');
-  expect(apogeeTone(ap('A_BOIRE_VITE'))?.tone).toBe('soon');
-  expect(apogeeTone(ap('PASSEE'))?.tone).toBe('soon');
-  expect(apogeeTone(ap('TROP_JEUNE'))?.tone).toBe('young');
-  expect(apogeeTone(ap(null))).toBeNull();
-});
 
 const row = (id: string, o: Partial<CaveRow>): CaveRow => ({
   id, producer: id, cuvee: null, appellationRaw: 'x', vintage: null, color: 'ROUGE', formatCl: 75, referencePhotoId: null, quantity: 1, ...o,

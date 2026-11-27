@@ -322,6 +322,14 @@ describe('CaveService — apogée', () => {
       places.mockRestore();
     });
 
+    it('sans endroits sur demande : aucune lecture des emplacements', async () => {
+      const places = jest.spyOn(LocationsService.prototype, 'placesByWine');
+      const items = await service(null, rows).list('c1', {}, 'VIEWER', { withPlaces: false });
+      expect(places).not.toHaveBeenCalled();
+      expect(items[0].places).toBeUndefined();
+      places.mockRestore();
+    });
+
     it('« sans apogée » ne garde que les vins sans estimation', async () => {
       const items = await service(null, rows).list('c1', { noApogee: true });
       expect(items.map((i) => i.id)).toEqual(['nv']);

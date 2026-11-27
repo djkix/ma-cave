@@ -151,7 +151,7 @@ export function StatsPage() {
         )}
         {s && s.bottles > 0 && showValue && (
           <Fold title="Valeur et cote" icon="euro">
-            <section className="card stats-head">
+            <section className="card stats-head stats-head--single">
               <span>
                 <span className="stats-head__value num">{s.purchaseValueCents == null ? '—' : euros(s.purchaseValueCents)}</span>
                 <span className="list__meta">au prix d’achat</span>

@@ -553,8 +553,7 @@ select:focus-visible { outline: 3px solid var(--color-primary-container); outlin
 .scan-wines li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
 /* Accueil : carte réduite, la légende à côté plutôt que dessous ; noms et chiffres grossis pour rester lisibles. */
 .geo .france-map { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: center; gap: var(--space-sm); }
-.geo .france-map__side { flex-direction: column; align-items: stretch; margin-top: 0; }
-.geo .france-map__side { min-width: 0; }
+.geo .france-map__side { flex-direction: column; align-items: stretch; margin-top: 0; min-width: 0; }
 .geo .france-map__abroad { font-size: 13px; padding: 4px 6px; width: 100%; }
 .geo .france-map__legend { flex-wrap: wrap; justify-content: center; gap: 2px; }
 .geo .france-map__legend i { width: 9px; }
@@ -582,3 +581,4 @@ select:focus-visible { outline: 3px solid var(--color-primary-container); outlin
 .years__bar { width: 100%; max-width: 28px; min-height: 2px; border-radius: 3px 3px 0 0; background: var(--color-primary); }
 .years__label { font-size: 10px; color: var(--color-secondary); white-space: nowrap; }
 .years__count { font-size: 11px; font-weight: 600; color: var(--color-primary); }
+.stats-head--single { grid-template-columns: 1fr; }

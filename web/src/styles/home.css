@@ -29,8 +29,6 @@
 .geo__chip { flex: none; min-height: 48px; padding: 0 var(--space-md); border: 0; border-radius: 999px; background: var(--color-surface-container); color: var(--color-primary); font: 600 14px var(--font-sans); cursor: pointer; }
 .geo__chip--active { background: var(--color-primary); color: var(--color-on-primary); }
 
-/* À boire prochainement */
-
 /* Mouvements (accueil et journal) */
 .mv { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) 0; border-bottom: 1px solid var(--color-outline-subtle); }
 .mv:last-child { border-bottom: 0; }

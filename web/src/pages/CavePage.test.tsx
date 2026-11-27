@@ -349,3 +349,13 @@ it('le nom accessible d’une ligne dit l’emplacement et le nombre de bouteill
   expect(await screen.findByRole('link', { name: /Domaine Tempier.*emplacement C15.*6 bouteilles/ })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /Leflaive.*aucun emplacement.*1 bouteille$/ })).toBeInTheDocument();
 });
+
+it('« Tous » ne s’allume pas sous « Sans apogée », et l’efface', async () => {
+  const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  mount('/cave?filtre=sans-apogee');
+  await screen.findByText(/Domaine Tempier/);
+  expect(screen.getByRole('button', { name: 'Tous' })).toHaveAttribute('aria-pressed', 'false');
+  await userEvent.click(screen.getByRole('button', { name: 'Tous' }));
+  expect(screen.getByRole('button', { name: 'Tous' })).toHaveAttribute('aria-pressed', 'true');
+  await waitFor(() => expect(getCave).toHaveBeenLastCalledWith(expect.not.objectContaining({ noApogee: true })));
+});

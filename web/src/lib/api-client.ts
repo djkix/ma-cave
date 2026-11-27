@@ -383,7 +383,7 @@ export interface CaveRow {
   /** Toujours fourni par la liste et la fiche ; absent des candidats de sortie. */
   apogee?: Apogee;
   rating?: Rating | null;
-  /** Plat demandé en filtre, uniquement présent quand `GET /cave?dish=` l'a retenu. */
+  /** Plat retenu : par `GET /cave?dish=`, ou par le classement d'un plat de la base (liste de la cave). */
   matchedDish?: string;
   /** Endroits du vin : liste de la cave et « à boire en priorité ». */
   places?: Place[];
