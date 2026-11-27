@@ -385,7 +385,7 @@ export interface CaveRow {
   rating?: Rating | null;
   /** Plat demandé en filtre, uniquement présent quand `GET /cave?dish=` l'a retenu. */
   matchedDish?: string;
-  /** Endroits du vin : seulement dans la liste « à boire en priorité » (`drinkSoon`). */
+  /** Endroits du vin : liste de la cave et « à boire en priorité ». */
   places?: Place[];
   /** Fournis par la liste et la fiche ; absents des candidats de sortie. `region` : région publiée (manuelle, référentiel ou IA, d'après `regionSource`). */
   region?: string | null; regionSource?: 'MANUEL' | 'REFERENTIEL' | 'IA' | null; country?: Country | null; tannin?: Tannin | null; aromas?: string[]; producerKey?: string | null;

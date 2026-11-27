@@ -42,7 +42,7 @@ export type CaveDbRow = CaveRow & Omit<ApogeeWineInput, 'vintage' | 'color' | 'r
 
 export interface Rating { value: number; ratedAt: Date; ratedBy: string | null }
 
-/** `places` : endroits du vin, seulement dans la liste « à boire en priorité ». */
+/** `places` : endroits du vin (liste de la cave et « à boire en priorité »). */
 export type CaveItem = CaveRow & { apogee: Apogee; rating: Rating | null; matchedDish?: string; places?: Place[] };
 
 export function ratingOf(row: CaveDbRow): Rating | null {
@@ -160,13 +160,12 @@ export class CaveService {
     const year = new Date().getFullYear();
     const kept = filterCave(atPlace ? rows.filter((r) => atPlace.has(r.id)) : rows, filter);
     let items = kept.map((r) => toItem(r, rules, year));
-    if (filter.drinkSoon) {
-      items = sortByApogeeEnd(items.filter((i) => isDrinkSoon(i.apogee, year)));
-      // « À boire prochainement » regroupe ces vins par emplacement : où descendre les chercher.
-      const places = await this.locations.placesByWine(caveId, items.map((i) => i.id));
-      items = items.map((i) => ({ ...i, places: places.get(i.id) ?? [] }));
-    }
+    if (filter.drinkSoon) items = sortByApogeeEnd(items.filter((i) => isDrinkSoon(i.apogee, year)));
     else if (filter.noApogee) items = items.filter((i) => i.apogee.max == null);
+    // Où est chaque vin : la liste l'affiche, « À boire prochainement » regroupe par emplacement.
+    // Une seule lecture pour tous les vins retenus.
+    const places = await this.locations.placesByWine(caveId, items.map((i) => i.id));
+    items = items.map((i) => ({ ...i, places: places.get(i.id) ?? [] }));
     if (filter.dish) {
       const dishesById = new Map(kept.map((r) => [r.id, r.pairingDishes ?? null]));
       const query = filter.dish;

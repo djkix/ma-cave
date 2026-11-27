@@ -311,6 +311,17 @@ describe('CaveService — apogée', () => {
       expect(items.map((i) => i.id)).toEqual(['v06', 'v07b', 'v07']);
     });
 
+    it('rend les endroits de chaque vin, sans filtre « à boire », en une seule lecture', async () => {
+      const places = jest.spyOn(LocationsService.prototype, 'placesByWine').mockResolvedValue(
+        new Map([['v16', [{ id: 'l1', label: 'Garage / C15', quantity: 6, zoneId: 'z1', casier: 'C15' }]]]),
+      );
+      const items = await service(null, rows).list('c1', {});
+      expect(items.find((i) => i.id === 'v16')?.places).toEqual([expect.objectContaining({ casier: 'C15' })]);
+      expect(items.find((i) => i.id === 'v08')?.places).toEqual([]);
+      expect(places).toHaveBeenCalledTimes(1);
+      places.mockRestore();
+    });
+
     it('« sans apogée » ne garde que les vins sans estimation', async () => {
       const items = await service(null, rows).list('c1', { noApogee: true });
       expect(items.map((i) => i.id)).toEqual(['nv']);
