@@ -16,24 +16,19 @@
 ┌──────────────────────────────────────────────────────┐
 │ ▣ Ma Cave                          Cave principale ▾ │
 ├──────────────────────────────────────────────────────┤
-│ MA CAVE EN FRANCE · 64 bouteilles                    │
-│ ┌──────────────────────────────────────────────────┐ │
-│ │   Carte des régions, colorée selon le stock      │ │
-│ │   Bourgogne 21 · Bordeaux 14 · Rhône 12 …        │ │
-│ │                    [ Hors de France 3 ]          │ │
-│ └──────────────────────────────────────────────────┘ │
 │ [ ✓ 3 vins à confirmer ]                             │
-│                                                      │
-│ À boire prochainement                                │
-│   Domaine A · Cuvée 2014                  Cave 1 / A │
-│   Domaine B · 2016         Garage / Champagnes (C15) │
-│                                        Tout voir (7) │
-│                                                      │
-│ DERNIERS MOUVEMENTS                                  │
-│   Entrée · Domaine C 2019                        + 6 │
-│                                      Voir le journal │
+│ ┌────────────┐ ┌────────────┐ ┌────────────┐         │
+│ │     64     │ │     21     │ │     5      │         │
+│ │ bouteilles │ │ références │ │à boire vite│         │
+│ └────────────┘ └────────────┘ └────────────┘         │
+│ RÉPARTITION GÉOGRAPHIQUE                             │
+│ ┌───────────────────────────┐  [ Hors de France 3 ]  │
+│ │ Carte des régions colorée │   0 ▫▫▫▪▪ 21           │
+│ └───────────────────────────┘                        │
+│ ( Bourgogne 21 ) ( Bordeaux 14 ) ( Rhône 12 ) …      │
+│ [ Voir mes 64 bouteilles                       → ]   │
 ├──────────────────────────────────────────────────────┤
-│ Cave · Entrée · Sortie · Accords · Stats · Réglages  │
+│ Cave · Mouvements · Accords · Stats · Réglages       │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -123,7 +118,8 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 
 ### 🍾 Cave et fiche vin
 - **Onglet Cave = accueil** (comme le logo) : il reste allumé sur la liste ; le bouton « Voir mes N bouteilles » de l'accueil ouvre la liste
-- Recherche **sans accents ni casse**, filtres couleur, **arômes**, **millésime** (une année exacte), **région** (pastilles des régions présentes + « Hors de France », aussi posée depuis la carte), **tanin**, emplacement, vins épuisés
+- **Liste compacte** : une ligne par vin avec son **emplacement** (« C15 », « 2 endroits ») et le nombre de bouteilles ; couleur, apogée et note sur la fiche
+- **Une seule recherche**, sans accents ni casse, pour un vin ou un plat ; pastilles **Tous · Rouge · Blanc · Rosé · Pétillant · À boire** et **Tri** sous le champ ; dans le panneau *Filtres* : **région** (aussi posée depuis la carte), **arômes**, **millésime** (une année exacte), **tanin**, emplacement, vins épuisés, sans apogée
 - **Tri** de la liste : nom, apogée (fin de fenêtre la plus proche d'abord), millésime, quantité, note, ajouté récemment ; mémorisé sur l'appareil
 - Recherches et régions toujours visibles ; tri et autres filtres dans un panneau **Filtres actifs (N)** replié, filtres posés en **puces** à retirer une à une, **Tout effacer**
 - **Sortir une bouteille** depuis la fiche (propriétaire) : choix de l'emplacement si le vin est rangé à plusieurs endroits, **Annuler** juste après ; désactivé hors ligne ; ensuite, facultatif, **Avec quel plat ? Noter l'accord**
@@ -141,7 +137,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - Appellation inconnue du référentiel ou garde inconnue : **estimée par l’IA** (millésime + garde), libellée comme telle, y compris pour les **non millésimés** (garde comptée depuis la première entrée)
 - **Correction manuelle** par vin, prioritaire sur la règle, elle-même prioritaire sur l’IA
 - Filtre **À boire en priorité** : apogée finie au plus tard l'an prochain
-- Carte **À boire prochainement** sur l'accueil, page `/a-boire` **groupée par emplacement**
+- Tuile **à boire vite** sur l'accueil, vers la page `/a-boire` **groupée par emplacement**
 - Règles d'apogée réglables par l'administrateur
 
 ### 🍽️ Accords et descriptifs
@@ -151,7 +147,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **J'ai un vin** : choisissez un vin en stock (recherche et filtres couleur, région, millésime) ; comme pour un plat, la base d'accords propose tout de suite les plats qui lui vont, par rubrique, puis ceux déjà conseillés par l'IA (aucun nouvel appel) ; chaque plat ouvre *J'ai un plat* sur ce plat
 - **Jusqu'à 8 plats** suggérés par Gemini pour chaque vin
 - Générés **par lots de 10** en arrière-plan, **Régénérer** à la demande
-- Recherche **Accompagner un plat** dans l'onglet Cave : un plat de la base classe les vins de bon accord (70 et plus), sinon recherche dans les plats suggérés par vin
+- **Vins pour « plat »** : quand la recherche reconnaît un plat de la base (3 lettres au moins), un bouton classe les vins de bon accord (70 et plus) ; une puce *Plat : …* le retire
 - **Page Domaine** (`/domaine/…`), partagée par toutes les caves : histoire, terroir, cépages, style, nez, remplis par l'IA, corrigeables champ par champ par l'**administrateur**, **Régénérer** ; vins du domaine dans votre cave
 - **Tanin** (léger, moyen, puissant), jusqu'à **5 arômes** d'une liste de 20, **région** (liste fermée de 12) et **pays** estimés par l'IA en tâche de fond, corrigeables sur la fiche (un seul sélecteur *Région* : Inconnue, les 12 régions ou *Hors de France*) : une correction n'est jamais écrasée ; une région devinée est libellée « (estimée par l’IA) »
 
@@ -175,7 +171,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Ajuster les cases sur le plan** (*Modifier la zone*) : toucher une case puis son endroit, poser les cases oubliées
 
 ### 📊 Statistiques
-- **Carte de France** sur l'accueil : régions viticoles colorées selon le nombre de bouteilles, case « Hors de France », mention « dont N sans région » ; toucher une région ouvre ses domaines et un lien vers la cave filtrée
+- **Accueil en chiffres** : tuiles *bouteilles*, *références* et *à boire vite*, puis une **carte de France** réduite (régions colorées selon le nombre de bouteilles, chiffre seulement sur les régions occupées, case « Hors de France », mention « dont N sans région ») ; toucher une région ouvre ses domaines et un lien vers la cave filtrée
 - Bouteilles, références, **valeur au prix d'achat** et **à la cote** (propriétaire)
 - Répartition par **apogée**, **couleur**, **région** (avec une ligne « Hors de France ») et **millésime année par année** (« Non millésimé » en dernier)
 - **Tanin des rouges** (léger, moyen, puissant, non renseigné) et **arômes** les plus présents (un vin compte pour chacun de ses arômes)

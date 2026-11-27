@@ -881,9 +881,8 @@ vins épuisés. Côté API : `GET /api/cave?drinkSoon=true` et
 `GET /api/cave?noApogee=true`.
 
 **À boire prochainement.** Même critère, présenté pour savoir où descendre :
-sur l'accueil, une carte « À boire prochainement » montre les trois vins les
-plus urgents avec leur emplacement (« Cave 1 / A ») et mène, par « Tout voir »,
-à la page `/a-boire`, qui liste ces vins **regroupés par emplacement**
+sur l'accueil, la tuile *à boire vite* compte leurs bouteilles et mène à la
+page `/a-boire`, qui liste ces vins **regroupés par emplacement**
 (« Sans emplacement » en dernier ; dans chaque groupe, la fin d'apogée la plus
 proche d'abord, puis la meilleure note). Un vin rangé à deux endroits figure
 dans les deux groupes, avec la quantité de chacun ; rien d'urgent : « Rien
@@ -999,14 +998,13 @@ Gemini »), « Suggestions en préparation… » en attendant, et, pour le propr
 (`POST /api/wines/:id/pairing/regenerate`) ; une génération qui échoue pour un
 problème de configuration affiche « Génération impossible : configuration
 Gemini à vérifier », et une réponse inexploitable « Réponse de Gemini
-inexploitable ». Dans l'onglet Cave, le champ
-**Accompagner un plat** garde les vins dont un plat suggéré contient les mots
-tapés (sans accents ni majuscules), les bouteilles à boire en priorité en
-premier, avec la mention « avec : … » (`GET /api/cave?dish=`). L'export ajoute
+inexploitable ». La recherche par plat de la liste
+passe par la base d'accords (voir *Liste de la cave*) ; le paramètre
+`GET /api/cave?dish=` (plats suggérés contenant les mots tapés) reste dans l'api. L'export ajoute
 une colonne *Accords*.
 
 **Accords vins (qu'est-ce qu'on mange ?).** L'onglet *Accords* de la barre du bas
-(Cave · Entrée · Sortie · **Accords** · Stats · Réglages ; ouvert aussi aux
+(Cave · Mouvements · **Accords** · Stats · Réglages ; ouvert aussi aux
 membres en lecture seule) propose des vins **de la cave** pour le plat qu'on
 prépare. On touche le grand bouton micro et on dit le plat : la dictée du
 navigateur (Web Speech, en français) affiche le texte au fur et à mesure, et la
@@ -1105,6 +1103,22 @@ seul champ **Millésime** (année exacte, envoyée aux deux bornes) remplace l'a
 « de… à… », et des **pastilles de région** (les régions présentes dans la cave,
 plus *Hors de France*) suivent, avec le même paramètre `region` que la carte de
 l'accueil ; retoucher une pastille l'enlève.
+
+**Accueil.** Sous les bandeaux (inscriptions, file hors ligne, analyse, vins à
+confirmer), trois tuiles : *bouteilles* et *références* en stock, et *à boire
+vite* (les bouteilles de la page `/a-boire`, où elle mène). Puis la carte de
+France réduite, sa légende à côté, et *Voir mes N bouteilles*. Les derniers
+mouvements sont dans l'onglet *Mouvements*.
+
+**Liste de la cave.** Une ligne par vin : nom et millésime, emplacement court
+(la case, « C15 » ; « 2 endroits » ; « — » sans emplacement ; `places` de
+`GET /api/cave`), nombre de bouteilles ou « Épuisé ». Un seul champ cherche un
+vin ; s'il reconnaît un plat de la base d'accords (3 lettres au moins), le
+bouton *Vins pour « … »* classe la cave par accord (70 et plus), et une puce
+*Plat : …* le retire. Sous le champ : *Tous*, *Rouge*, *Blanc*, *Rosé*,
+*Pétillant*, *À boire* et le tri ; le reste (régions, arômes, millésime, tanin,
+emplacement, épuisés, sans apogée) est dans le panneau *Filtres*, rappelé en
+puces retirables quand il est replié.
 
 **Carte de France de l'accueil.** Une carte des régions viticoles, colorée selon
 le nombre de bouteilles ; toucher une région ouvre la cave filtrée. Règles de
