@@ -9,6 +9,21 @@ Chaque version commence par un résumé rédigé, suivi du détail par commit g�
 automatiquement par release-please à la publication. Les messages de commit des
 tout premiers lots sont en anglais ; les suivants sont en français.
 
+## [2.52.0](https://github.com/djkix/ma-cave/compare/v2.51.0...v2.52.0) (2026-11-27)
+
+
+### Fonctionnalités
+
+* **api:** endroits de chaque vin dans la liste de la cave ([45b1e60](https://github.com/djkix/ma-cave/commit/45b1e60a77842790621f3048797f8f9918aaa50d))
+* **web:** accueil en tuiles chiffrées et carte réduite ([ec55b13](https://github.com/djkix/ma-cave/commit/ec55b136b8c75a70b428b1a4b2750c5612feef5d))
+* **web:** libellé court de l'emplacement d'un vin ([0862302](https://github.com/djkix/ma-cave/commit/0862302df51e3293faafcfc7759259d9b6fdb594))
+* **web:** liste de la cave compacte, recherche unique vin ou plat ([b72946c](https://github.com/djkix/ma-cave/commit/b72946c3ac0b269d5d51f1c4218727ae3de0651a))
+
+
+### Corrections
+
+* **web:** tuiles sans faux zéro au chargement, lignes de la cave lisibles au lecteur d'écran ([13992c3](https://github.com/djkix/ma-cave/commit/13992c36711b12bf1b82b19788abf27723f541f0))
+
 ## [2.51.0](https://github.com/djkix/ma-cave/compare/v2.50.1...v2.51.0) (2026-11-27)
 
 ### Résumé
