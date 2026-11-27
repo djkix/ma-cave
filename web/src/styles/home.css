@@ -52,3 +52,7 @@
 .mv__delta--in { color: var(--color-primary-container); }
 .home-wide-btn { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); min-height: 48px; margin-top: var(--space-sm); border-radius: var(--radius-xl); background: var(--color-surface-container); color: var(--color-primary); font-weight: 600; text-decoration: none; }
 .home-wide-btn .material-symbols-outlined { font-size: 18px; }
+/* Écran Mouvements : rentrer et sortir côte à côte, grandes cibles. */
+.mv-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); }
+.mv-action { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 88px; border-radius: var(--radius-xl); background: var(--color-surface-lowest); border: 1px solid var(--color-outline-subtle); color: var(--color-primary); font-weight: 600; text-decoration: none; }
+.mv-action .material-symbols-outlined { font-size: 28px; }

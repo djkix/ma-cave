@@ -14,6 +14,7 @@ import { EntreeConfirmationPage } from './pages/EntreeConfirmationPage';
 import { NotFoundPage, RouteErrorPage } from './pages/ErrorPages';
 import { HomePage } from './pages/HomePage';
 import { JournalPage } from './pages/JournalPage';
+import { MouvementsPage } from './pages/MouvementsPage';
 import { LoginPage } from './pages/LoginPage';
 import { MaCavePage } from './pages/MaCavePage';
 import { MoiPage } from './pages/MoiPage';
@@ -49,6 +50,7 @@ export const routes: RouteObject[] = [
             // seule qui y arrive (lien direct, changement de cave) revient à l'accueil.
             element: <RequireOwner />,
             children: [
+              { path: '/mouvements', element: <MouvementsPage /> },
               { path: '/entree', element: <EntreeCapturePage /> },
               // Anciennes adresses du mode campagne, remplacé par la rafale et « À confirmer ».
               { path: '/entree/campagne', element: <Navigate to="/entree" replace /> },

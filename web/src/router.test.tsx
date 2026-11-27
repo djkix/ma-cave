@@ -32,6 +32,19 @@ it('redirige l’ancienne revue groupée vers « À confirmer »', async () => {
   expect(await screen.findByText(/Aucun vin à confirmer/)).toBeInTheDocument();
 });
 
+it('le retour du journal mène à l’écran Mouvements', async () => {
+  vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
+  mountAt('/journal');
+  expect(await screen.findByRole('link', { name: 'Retour' })).toHaveAttribute('href', '/mouvements');
+});
+
+it('ouvre l’écran Mouvements pour le propriétaire', async () => {
+  vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
+  const router = mountAt('/mouvements');
+  expect(await screen.findByRole('link', { name: /Rentrer/ })).toHaveAttribute('href', '/entree');
+  expect(router.state.location.pathname).toBe('/mouvements');
+});
+
 describe('membre en lecture seule', () => {
   beforeEach(() => {
     vi.spyOn(api, 'getCave').mockResolvedValue([]);
@@ -39,7 +52,7 @@ describe('membre en lecture seule', () => {
     vi.spyOn(api, 'getPhotoQueueStatus').mockResolvedValue({ waiting: 0, oldestWaitingAt: null, lastReason: null });
   });
 
-  it.each(['/entree', '/entree/p1', '/sortie', '/sortie/p1', '/journal', '/a-confirmer', '/membres', '/ma-cave'])(
+  it.each(['/mouvements', '/entree', '/entree/p1', '/sortie', '/sortie/p1', '/journal', '/a-confirmer', '/membres', '/ma-cave'])(
     'renvoie %s vers l’accueil',
     async (path) => {
       const router = mountAt(path, viewerMe());

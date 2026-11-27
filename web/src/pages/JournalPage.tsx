@@ -52,7 +52,7 @@ export function JournalPage() {
 
   return (
     <>
-      <TopBar title="Journal" back="/compte" />
+      <TopBar title="Journal" back="/mouvements" />
       <main className="page">
         <section className="card">
           <h2 style={{ fontSize: 18 }}>Export Excel</h2>
