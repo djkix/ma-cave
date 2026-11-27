@@ -19,3 +19,8 @@ it('quitte la page d’un vin ou d’une photo de l’ancienne cave', () => {
     expect(pathAfterCaveSwitch(p, true)).toBe('/');
   }
 });
+
+it('reste sur l’onglet Mouvements après un changement de cave possédée, et le quitte en devenant membre', () => {
+  expect(pathAfterCaveSwitch('/mouvements', true)).toBe('/mouvements');
+  expect(pathAfterCaveSwitch('/mouvements', false)).toBe('/');
+});

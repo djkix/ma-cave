@@ -4,10 +4,10 @@ import { useToConfirmCount } from '../lib/use-to-confirm';
 import { Icon } from './Icon';
 import { SETTINGS_PATH } from './TopBar';
 
-// Cave ouvre l'accueil (carte, mouvements) et reste allumé sur la liste /cave.
 /** Écrans de l'onglet Mouvements : l'écran lui-même, l'entrée, la sortie, « À confirmer » et le journal. */
 export const MOVEMENTS_PATH = /^\/(mouvements|entree|sortie|a-confirmer|journal)(\/|$)/;
 
+// Cave ouvre l'accueil et reste allumé sur la liste /cave.
 const tabs = [
   { to: '/', icon: 'shelves', label: 'Cave', soon: false, ownerOnly: false },
   { to: '/mouvements', icon: 'swap_vert', label: 'Mouvements', soon: false, ownerOnly: true },
@@ -17,7 +17,7 @@ const tabs = [
 ];
 
 export function BottomNav() {
-  // Un membre en lecture seule n'a ni entrée ni sortie (le journal est dans les Réglages).
+  // Un membre en lecture seule n'a pas l'onglet Mouvements (ni entrée, ni sortie, ni journal).
   const { me, isOwner, caves } = useCurrentCave();
   const { pathname } = useLocation();
   const pending = usePendingRegistrations() ?? 0;
