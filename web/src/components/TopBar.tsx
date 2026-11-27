@@ -4,8 +4,8 @@ import { APP_VERSION } from '../lib/version';
 import { CaveSwitcher } from './CaveSwitcher';
 import { Icon } from './Icon';
 
-/** Écrans de l'onglet Réglages : le hub, Moi, À propos, Ma cave, le journal et l'administration. */
-export const SETTINGS_PATH = /^\/(compte|ma-cave|journal|admin)(\/|$)/;
+/** Écrans de l'onglet Réglages : le hub, Moi, À propos, Ma cave et l'administration (le journal est sous Mouvements). */
+export const SETTINGS_PATH = /^\/(compte|ma-cave|admin)(\/|$)/;
 
 export function TopBar({ title, back }: { title?: string; back?: string }) {
   const inSettings = SETTINGS_PATH.test(useLocation().pathname);

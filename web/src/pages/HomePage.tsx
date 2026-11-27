@@ -9,9 +9,10 @@ import { FranceMap, HORS_FRANCE } from '../components/FranceMap';
 import { Icon } from '../components/Icon';
 import { OfflineQueueBanner } from '../components/OfflineQueueBanner';
 import { TopBar } from '../components/TopBar';
-import { getCave, getEntryInbox, getRecentMovements } from '../lib/api-client';
+import { getCave, getRecentMovements } from '../lib/api-client';
 import { regionCounts } from '../lib/region-counts';
 import { useCurrentCave, usePendingRegistrations } from '../lib/use-current-cave';
+import { useToConfirmCount } from '../lib/use-to-confirm';
 import { MovementRow } from './JournalPage';
 
 export function HomePage() {
@@ -20,8 +21,7 @@ export function HomePage() {
   const { isOwner, role } = useCurrentCave();
   const movements = useQuery({ queryKey: ['movements', 'recent'], queryFn: () => getRecentMovements(3), enabled: isOwner });
   // Fiches à valider et photos illisibles : tout ce qui attend une décision.
-  const inbox = useQuery({ queryKey: ['entry-inbox'], queryFn: getEntryInbox, refetchInterval: 30_000, enabled: isOwner });
-  const toConfirm = isOwner ? (inbox.data?.toConfirm.length ?? 0) + (inbox.data?.failed.length ?? 0) : 0;
+  const toConfirm = useToConfirmCount();
   const registrations = usePendingRegistrations() ?? 0;
   return (
     <>

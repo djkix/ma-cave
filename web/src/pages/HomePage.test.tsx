@@ -44,14 +44,17 @@ it('affiche le badge des vins à confirmer (à valider + lecture impossible)', a
     failed: [photo('d', 'FAILED')],
   });
   mount();
-  expect(await screen.findByRole('link', { name: /3 vins à confirmer/ })).toHaveAttribute('href', '/a-confirmer');
+  // La pastille de l'onglet Mouvements porte le même libellé : on cible le bandeau par sa destination.
+  const links = await screen.findAllByRole('link', { name: /3 vins à confirmer/ });
+  expect(links.map((l) => l.getAttribute('href'))).toContain('/a-confirmer');
 });
 
 it('accorde le badge au singulier', async () => {
   vi.spyOn(api, 'getRecentMovements').mockResolvedValue([]);
   vi.spyOn(api, 'getEntryInbox').mockResolvedValue({ toConfirm: [], inProgress: [], failed: [photo('d', 'FAILED')] });
   mount();
-  expect(await screen.findByRole('link', { name: /1 vin à confirmer/ })).toBeInTheDocument();
+  const links = await screen.findAllByRole('link', { name: /1 vin à confirmer/ });
+  expect(links.map((l) => l.getAttribute('href'))).toContain('/a-confirmer');
 });
 
 it('masque le badge quand rien n’est à confirmer', async () => {
