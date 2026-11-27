@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ApiError,
   ImageCandidate,
@@ -37,16 +37,27 @@ const CHOOSE_ERRORS = { 410: 'Proposition expirée, relancez la recherche' };
 export function ImageSearchBlock({
   wine,
   readOnly = false,
+  trigger = 'link',
+  request = 0,
 }: {
   wine: { id: string; referencePhotoSource: string | null; referencePhotoSourceUrl: string | null };
   /** Membre en lecture seule : la source de l'image reste citée, sans recherche ni retour à la photo. */
   readOnly?: boolean;
+  /** `none` : pas de lien « Chercher une image », la recherche part du menu du crayon. */
+  trigger?: 'link' | 'none';
+  /** Chaque nouvelle valeur (> 0) lance une recherche : demande venue du menu. */
+  request?: number;
 }) {
   const qc = useQueryClient();
   const [state, setState] = useState<SearchState>({ phase: 'closed' });
   const [choosingId, setChoosingId] = useState<string | null>(null);
   const [revertBusy, setRevertBusy] = useState(false);
   const [revertError, setRevertError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (request > 0 && !readOnly) void search();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request]);
 
   const refresh = () => qc.invalidateQueries({ predicate: (q) => ['cave', 'wine'].includes(String(q.queryKey[0])) });
 
@@ -102,9 +113,9 @@ export function ImageSearchBlock({
           </a>
         </p>
       )}
-      {!readOnly && (wine.referencePhotoSource || state.phase === 'closed') && (
+      {!readOnly && (wine.referencePhotoSource || (state.phase === 'closed' && trigger === 'link')) && (
         <div className="image-search__actions">
-          {state.phase === 'closed' && (
+          {state.phase === 'closed' && trigger === 'link' && (
             <Button variant="link" onClick={search}>Chercher une image</Button>
           )}
           {wine.referencePhotoSource && (

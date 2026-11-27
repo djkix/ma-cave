@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { ApogeeBlock } from '../components/ApogeeBlock';
 import { BottomNav } from '../components/BottomNav';
@@ -18,7 +18,8 @@ import { TastedPairingsBlock } from '../components/TastedPairings';
 import { TopBar } from '../components/TopBar';
 import { WineEditForm } from '../components/WineEditForm';
 import { WineExitBar } from '../components/WineExitBar';
-import { WineThumb } from '../components/WineThumb';
+import { ActionMenu } from '../components/ActionMenu';
+import { Fold } from '../components/Fold';
 import { ApiError, getWine, LocationInput, postInventory, WineColor } from '../lib/api-client';
 import { EMPTY_LOCATION, NO_LOCATION, toLocationInput, useLocations, useZones } from '../lib/locations';
 import { movementNote, movementTypeLabel } from '../lib/movement-note';
@@ -27,6 +28,19 @@ import { useCurrentCave } from '../lib/use-current-cave';
 /** Mouvements : jour et heure (« 23 oct. 2026, 14:05 »), heure de l'appareil. */
 const fmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const COLOR_LABEL: Record<WineColor, string> = { ROUGE: 'Rouge', BLANC: 'Blanc', ROSE: 'Rosé', PETILLANT: 'Pétillant' };
+
+/** Domaine décrit : un descriptif ou au moins un des cinq champs rempli. */
+function hasProfile(p: { description: string | null; fields: Record<string, string | null> } | null | undefined): boolean {
+  return !!p && (!!p.description || Object.values(p.fields).some(Boolean));
+}
+
+/** L'étiquette en grand (vignette « display », recadrée) ; sans photo ou image cassée, un bandeau de couleur. */
+function WineHero({ photoId, color }: { photoId: string | null; color: WineColor }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [photoId]);
+  if (!photoId || failed) return <div className={`wine-hero wine-hero--band wine-hero--${color.toLowerCase()}`} role="img" aria-label="Pas de photo" />;
+  return <img className="wine-hero" src={`/api/photos/${photoId}/image?variant=display`} alt="" onError={() => setFailed(true)} />;
+}
 
 function plural(n: number) {
   return `${n} bouteille${Math.abs(n) > 1 ? 's' : ''}`;
@@ -59,6 +73,8 @@ export function WinePage() {
   });
   const [counting, setCounting] = useState(false);
   const [editing, setEditing] = useState(false);
+  // Recherche d'image demandée depuis le menu du crayon : chaque appui relance.
+  const [imageRequest, setImageRequest] = useState(0);
   const [counted, setCounted] = useState('');
   const [inventoryMessage, setInventoryMessage] = useState<string | null>(null);
   const [inventoryError, setInventoryError] = useState<string | null>(null);
@@ -87,6 +103,7 @@ export function WinePage() {
   if (!detail.data) return <TopBar title="Fiche vin" back={back} />;
 
   const { wine, movements } = detail.data;
+  const tasted = detail.data.tastedPairings ?? [];
   // Même borne que l'API : au-delà, la colonne INTEGER déborderait.
   const tooMany = /^\d+$/.test(counted) && Number(counted) > MAX_COUNTED;
   const parsed = /^\d+$/.test(counted) && !tooMany ? Number(counted) : null;
@@ -144,9 +161,10 @@ export function WinePage() {
         {/* En-tête (vignette + titre) sur une ligne ; la recherche d'image et sa
             fenêtre de choix dessous, sur toute la largeur de la carte : dans la
             colonne de la vignette, à 375 px, tout y serait écrasé. */}
+        {/* L'étiquette en grand ; sans photo (ou image cassée), un bandeau de la couleur du vin. */}
+        <WineHero photoId={wine.referencePhotoId} color={wine.color} />
         <section className="card wine-head">
           <div className="wine-head__row">
-            <WineThumb photoId={wine.referencePhotoId} size={96} />
             <div className="wine-head__text">
               <h2 className="wine-head__title">{wine.producer}</h2>
               <p className="wine-head__sub">{[wine.cuvee, wine.appellationRaw].filter(Boolean).join(' · ')}</p>
@@ -155,21 +173,30 @@ export function WinePage() {
                 {wine.formatCl > 0 && <span>{wine.formatCl} cl</span>}
                 <span className="wine-head__color"><i className={`wine-dot wine-dot--${wine.color.toLowerCase()}`} />{COLOR_LABEL[wine.color]}</span>
               </p>
-              {places && places.length > 0 && <LocationButton places={places} label={places.map((p) => p.label).join(' · ')} />}
             </div>
             {!readOnly && !counting && !editing && (
-              <button type="button" className="wine-head__edit" aria-label="Modifier le vin" onClick={() => setEditing(true)}>
-                <Icon name="edit" />
-              </button>
+              <ActionMenu label="Modifier" items={[
+                { label: 'Modifier le vin', onSelect: () => setEditing(true) },
+                { label: 'Chercher une image', onSelect: () => setImageRequest((n) => n + 1) },
+              ]} />
             )}
           </div>
-          <div className="wine-stock">
-            <p className="wine-stock__qty"><span className="num wine-stock__n">{wine.quantity}</span> en stock</p>
-            {!readOnly && !counting && !editing && (
-              <Button variant="link" onClick={() => { setCounting(true); setCounted(String(wine.quantity)); setInventoryMessage(null); setInventoryPlace(null); setIncreaseTo(EMPTY_LOCATION); }}>
-                Corriger le stock
-              </Button>
-            )}
+          {/* Deux chiffres pour décider : combien, où ; jusqu'à quand. */}
+          <div className="wine-tiles">
+            <div className="wine-tile">
+              <strong className="num">{plural(wine.quantity)}</strong>
+              {places && places.length > 0 && <LocationButton places={places} label={places.map((p) => p.label).join(' · ')} />}
+              {!readOnly && !counting && !editing && (
+                <Button variant="link" onClick={() => { setCounting(true); setCounted(String(wine.quantity)); setInventoryMessage(null); setInventoryPlace(null); setIncreaseTo(EMPTY_LOCATION); }}>
+                  Corriger le stock
+                </Button>
+              )}
+            </div>
+            <div className="wine-tile">
+              {wine.apogee?.max != null
+                ? <><strong className="num">{wine.apogee.max}</strong><span className="list__meta">fin d’apogée</span></>
+                : <strong>sans apogée</strong>}
+            </div>
           </div>
           {inventoryMessage && <p role="status" className="list__meta" style={{ margin: 0 }}>{inventoryMessage}</p>}
           {/* Correction du stock (inventaire, casse, oubli) : ouverte depuis le bloc du stock. */}
@@ -203,38 +230,51 @@ export function WinePage() {
           )}
           {/* Modifier l'identité du vin, ouvert par le crayon de l'en-tête ; la région se corrige dans les caractéristiques. */}
           {!readOnly && editing && <WineEditForm key={wine.id} wine={wine} onClose={() => setEditing(false)} />}
-          <ImageSearchBlock wine={wine} readOnly={readOnly} />
+          <ImageSearchBlock wine={wine} readOnly={readOnly} trigger={readOnly ? 'link' : 'none'} request={imageRequest} />
         </section>
 
-        {/* Le domaine, puis les accords, juste sous la photo du vin. */}
-        <DomaineBlock key={`domaine-${wine.id}`} producerKey={wine.producerKey} producerProfile={wine.producerProfile} />
-        <PairingBlock key={`pairing-${wine.id}`} wineId={wine.id} pairing={wine.pairing} readOnly={readOnly} />
-        <TraitsBlock key={`traits-${wine.id}`} wineId={wine.id} traits={wine.traits} region={wine.region} regionSource={wine.regionSource} country={wine.country} readOnly={readOnly}
-          domainGrapes={wine.producerProfile?.fields.cepages ?? null} />
-
-        <ApogeeBlock key={`apogee-${wine.id}`} wine={wine} readOnly={readOnly} />
+        {/* Note et accords conseillés : dépliés, ils aident à choisir la bouteille. */}
         <RatingBlock key={`rating-${wine.id}`} wine={wine} readOnly={readOnly} lastOpenedAt={detail.data.lastOpenedAt} />
-        <TastedPairingsBlock key={`tasted-${wine.id}`} wineId={wine.id} items={detail.data.tastedPairings ?? []} readOnly={readOnly} />
+        <PairingBlock key={`pairing-${wine.id}`} wineId={wine.id} pairing={wine.pairing} readOnly={readOnly} />
+
+        {/* Le reste, replié à chaque visite. Domaine sans descriptif : rien à ouvrir. */}
+        {wine.producerKey && (
+          <Fold title="Le domaine" icon="storefront" note={hasProfile(wine.producerProfile) ? undefined : 'en préparation'} disabled={!hasProfile(wine.producerProfile)}>
+            <DomaineBlock key={`domaine-${wine.id}`} producerKey={wine.producerKey} producerProfile={wine.producerProfile} />
+          </Fold>
+        )}
+        <Fold title="Caractéristiques et apogée" icon="tune">
+          <TraitsBlock key={`traits-${wine.id}`} wineId={wine.id} traits={wine.traits} region={wine.region} regionSource={wine.regionSource} country={wine.country} readOnly={readOnly}
+            domainGrapes={wine.producerProfile?.fields.cepages ?? null} />
+          <ApogeeBlock key={`apogee-${wine.id}`} wine={wine} readOnly={readOnly} />
+        </Fold>
+        {/* Un membre sans accord vécu n'a rien à voir : le bloc ne serait que vide. */}
+        {(!readOnly || tasted.length > 0) && (
+          <Fold title="Accords vécus" icon="restaurant_menu" note={tasted.length ? String(tasted.length) : undefined}>
+            <TastedPairingsBlock key={`tasted-${wine.id}`} wineId={wine.id} items={tasted} readOnly={readOnly} />
+          </Fold>
+        )}
         {/* Cote : un prix, propriétaire seulement ; un membre ne reçoit pas les clés et le bloc n'est pas monté. */}
         {isOwner && detail.data.searchLinks !== undefined && (
-          <QuoteBlock key={`quote-${wine.id}`} wineId={wine.id} quote={detail.data.quote ?? null}
-            searchLinks={detail.data.searchLinks} savedUrl={detail.data.savedUrl ?? null} />
+          <Fold title="Cote et valeur" icon="trending_up" note={detail.data.quote ? undefined : 'pas de cote'}>
+            <QuoteBlock key={`quote-${wine.id}`} wineId={wine.id} quote={detail.data.quote ?? null}
+              searchLinks={detail.data.searchLinks} savedUrl={detail.data.savedUrl ?? null} />
+          </Fold>
         )}
-
-        {places && places.length > 0 && <LocationsBlock key={`locations-${wine.id}`} wineId={wine.id} places={places} readOnly={readOnly} />}
-
-
-        <section className="card" aria-labelledby="wine-moves-title">
-          <h2 id="wine-moves-title" className="wine-card__title"><Icon name="history" />Derniers mouvements</h2>
-          {/* Les trois derniers mouvements ; les autres repliés sous « Plus d'historique ». */}
-          <div className="wine-moves">{movements.slice(0, RECENT_MOVEMENTS).map(movementRow)}</div>
-          {movements.length > RECENT_MOVEMENTS && (
-            <details className="history-more">
-              <summary>Plus d’historique ({movements.length - RECENT_MOVEMENTS})</summary>
-              <div className="wine-moves">{movements.slice(RECENT_MOVEMENTS).map(movementRow)}</div>
-            </details>
-          )}
-        </section>
+        <Fold title="Mouvements et emplacements" icon="history">
+          {places && places.length > 0 && <LocationsBlock key={`locations-${wine.id}`} wineId={wine.id} places={places} readOnly={readOnly} />}
+          <section className="card" aria-labelledby="wine-moves-title">
+            <h2 id="wine-moves-title" className="wine-card__title"><Icon name="history" />Derniers mouvements</h2>
+            {/* Les trois derniers mouvements ; les autres repliés sous « Plus d'historique ». */}
+            <div className="wine-moves">{movements.slice(0, RECENT_MOVEMENTS).map(movementRow)}</div>
+            {movements.length > RECENT_MOVEMENTS && (
+              <details className="history-more">
+                <summary>Plus d’historique ({movements.length - RECENT_MOVEMENTS})</summary>
+                <div className="wine-moves">{movements.slice(RECENT_MOVEMENTS).map(movementRow)}</div>
+              </details>
+            )}
+          </section>
+        </Fold>
       </main>
       {/* Sortie d'une bouteille de ce vin, collée au-dessus des onglets : propriétaire seulement. */}
       {isOwner && <WineExitBar key={`exit-${wine.id}`} wineId={wine.id} quantity={wine.quantity} places={places} />}

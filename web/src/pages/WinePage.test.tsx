@@ -23,6 +23,12 @@ const detail: api.WineDetail = {
   movements: [{ id: 'm1', delta: 6, type: 'IN', occurredAt: '2026-09-21T10:00:00Z', note: null, reversesId: null }],
 };
 
+/** « Chercher une image » est dans le menu du crayon (propriétaire). */
+async function openImageSearch() {
+  await userEvent.click(await screen.findByRole('button', { name: 'Modifier' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Chercher une image' }));
+}
+
 function mount() {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -39,7 +45,7 @@ it('affiche le vin, son stock et ses derniers mouvements', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue(detail);
   mount();
   expect(await screen.findByRole('heading', { name: /Domaine Tempier/ })).toBeInTheDocument();
-  expect(screen.getByText('en stock').parentElement).toHaveTextContent('6 en stock');
+  expect(screen.getByText('6 bouteilles')).toBeInTheDocument();
   expect(screen.getByText('+6')).toBeInTheDocument();
 });
 
@@ -100,7 +106,8 @@ it('« Modifier » ouvre le formulaire dans l’en-tête, enregistre et rafraîc
   vi.spyOn(api, 'getAppellations').mockResolvedValue([]);
   const update = vi.spyOn(api, 'updateWine').mockResolvedValue({ id: 'w1' });
   mount();
-  await userEvent.click(await screen.findByRole('button', { name: 'Modifier le vin' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Modifier' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Modifier le vin' }));
   expect(screen.getByLabelText('Domaine').closest('.wine-head')).not.toBeNull();
   await userEvent.clear(screen.getByLabelText('Millésime'));
   await userEvent.type(screen.getByLabelText('Millésime'), '2020');
@@ -154,12 +161,14 @@ it('la correction du stock s’ouvre depuis le bloc du stock', async () => {
   expect(screen.getByRole('button', { name: 'Corriger le stock' })).toBeInTheDocument();
 });
 
-it('montre le bloc « Le domaine » au-dessus des accords mets-vins', async () => {
+it('les accords conseillés restent dépliés, au-dessus du domaine replié', async () => {
   vi.spyOn(api, 'getWine').mockResolvedValue(detail);
   mount();
   const domaine = await screen.findByText('Un domaine du Var…');
   const accords = screen.getByText('Suggestions générées par Gemini');
-  expect(domaine.compareDocumentPosition(accords) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(accords.compareDocumentPosition(domaine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(accords).toBeVisible();
+  expect(domaine).not.toBeVisible();
 });
 
 it('masque le bloc « Le domaine » quand le vin n’a pas de domaine identifiable', async () => {
@@ -209,7 +218,7 @@ describe('recherche d’image depuis la fiche', () => {
     let resolveSearch!: (v: { candidates: api.ImageCandidate[] }) => void;
     vi.spyOn(api, 'searchWineImages').mockReturnValue(new Promise((r) => { resolveSearch = r; }));
     mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Chercher une image' }));
+    await openImageSearch();
     expect(screen.getByText('Recherche en cours…')).toBeInTheDocument();
     resolveSearch({ candidates });
     await screen.findAllByRole('button', { name: 'Choisir cette image' });
@@ -225,7 +234,7 @@ describe('recherche d’image depuis la fiche', () => {
     vi.spyOn(api, 'getWine').mockResolvedValue(detail);
     vi.spyOn(api, 'searchWineImages').mockResolvedValue({ candidates: [] });
     mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Chercher une image' }));
+    await openImageSearch();
     expect(await screen.findByText('Aucune image trouvée pour ce vin')).toBeInTheDocument();
   });
 
@@ -233,7 +242,7 @@ describe('recherche d’image depuis la fiche', () => {
     vi.spyOn(api, 'getWine').mockResolvedValue(detail);
     vi.spyOn(api, 'searchWineImages').mockRejectedValue(new api.ApiError(503, 'Recherche d’image impossible : quota Gemini épuisé'));
     mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Chercher une image' }));
+    await openImageSearch();
     expect(await screen.findByText('Recherche d’image impossible : quota Gemini épuisé')).toBeInTheDocument();
   });
 
@@ -245,7 +254,7 @@ describe('recherche d’image depuis la fiche', () => {
     vi.spyOn(api, 'getWine').mockResolvedValue(detail);
     vi.spyOn(api, 'searchWineImages').mockRejectedValue(new api.ApiError(503, message));
     mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Chercher une image' }));
+    await openImageSearch();
     expect(await screen.findByText(message)).toBeInTheDocument();
   });
 
@@ -253,7 +262,7 @@ describe('recherche d’image depuis la fiche', () => {
     vi.spyOn(api, 'getWine').mockResolvedValue(detail);
     vi.spyOn(api, 'searchWineImages').mockRejectedValue(new api.ApiError(503, 'Service Unavailable'));
     mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Chercher une image' }));
+    await openImageSearch();
     expect(await screen.findByText('Recherche d’image indisponible pour le moment')).toBeInTheDocument();
   });
 
@@ -261,7 +270,7 @@ describe('recherche d’image depuis la fiche', () => {
     vi.spyOn(api, 'getWine').mockResolvedValue(detail);
     vi.spyOn(api, 'searchWineImages').mockRejectedValue(new api.ApiError(429, 'ThrottlerException: Too Many Requests'));
     mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Chercher une image' }));
+    await openImageSearch();
     expect(await screen.findByText('Trop de recherches, réessayez dans une minute')).toBeInTheDocument();
   });
 
@@ -269,11 +278,11 @@ describe('recherche d’image depuis la fiche', () => {
     vi.spyOn(api, 'getWine').mockResolvedValue(detail);
     vi.spyOn(api, 'searchWineImages').mockResolvedValue({ candidates: [] });
     mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Chercher une image' }));
+    await openImageSearch();
     await screen.findByText('Aucune image trouvée pour ce vin');
     await userEvent.click(screen.getByRole('button', { name: 'Fermer' }));
     expect(screen.queryByText('Aucune image trouvée pour ce vin')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Chercher une image' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Modifier' })).toBeInTheDocument();
   });
 
   it('choisit une image puis rafraîchit la fiche', async () => {
@@ -284,7 +293,7 @@ describe('recherche d’image depuis la fiche', () => {
       referencePhotoId: 'c1', referencePhotoSource: 'Open Food Facts (CC BY-SA)', referencePhotoSourceUrl: 'https://world.openfoodfacts.org/product/1',
     });
     mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Chercher une image' }));
+    await openImageSearch();
     const chooseButtons = await screen.findAllByRole('button', { name: 'Choisir cette image' });
     await userEvent.click(chooseButtons[0]);
     await waitFor(() => expect(choose).toHaveBeenCalledWith('w1', 'c1'));
@@ -299,7 +308,7 @@ describe('recherche d’image depuis la fiche', () => {
     vi.spyOn(api, 'searchWineImages').mockResolvedValue({ candidates });
     vi.spyOn(api, 'chooseReferenceImage').mockRejectedValue(new api.ApiError(410, 'Proposition expirée, relancez la recherche'));
     mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Chercher une image' }));
+    await openImageSearch();
     const chooseButtons = await screen.findAllByRole('button', { name: 'Choisir cette image' });
     await userEvent.click(chooseButtons[0]);
     expect(await screen.findByText('Proposition expirée, relancez la recherche')).toBeInTheDocument();
@@ -312,7 +321,7 @@ describe('recherche d’image depuis la fiche', () => {
       vi.spyOn(api, 'getWine').mockResolvedValue(detail);
       vi.spyOn(api, 'searchWineImages').mockRejectedValue(new api.ApiError(status, 'Bad Gateway'));
       const { unmount } = mount();
-      await userEvent.click(await screen.findByRole('button', { name: 'Chercher une image' }));
+      await openImageSearch();
       expect(await screen.findByText('Recherche d’image indisponible pour le moment (le serveur n’a pas répondu)')).toBeInTheDocument();
       unmount();
       vi.restoreAllMocks();
@@ -324,7 +333,7 @@ describe('recherche d’image depuis la fiche', () => {
     vi.spyOn(api, 'searchWineImages').mockResolvedValue({ candidates });
     vi.spyOn(api, 'chooseReferenceImage').mockRejectedValue(new api.ApiError(500, 'Enregistrement impossible'));
     mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Chercher une image' }));
+    await openImageSearch();
     const chooseButtons = await screen.findAllByRole('button', { name: 'Choisir cette image' });
     await userEvent.click(chooseButtons[1]);
     expect(await screen.findByText('Enregistrement impossible')).toBeInTheDocument();
@@ -337,7 +346,7 @@ describe('recherche d’image depuis la fiche', () => {
     vi.spyOn(api, 'getWine').mockResolvedValue(detail);
     vi.spyOn(api, 'searchWineImages').mockResolvedValue({ candidates });
     const { container } = mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Chercher une image' }));
+    await openImageSearch();
     const window = await screen.findByRole('region', { name: 'Images proposées' });
     const header = container.querySelector('.wine-head__row')!;
     expect(header).not.toBeNull();
@@ -395,14 +404,15 @@ describe('selon le rôle', () => {
     expect(await screen.findByRole('heading', { name: /Domaine Tempier/ })).toBeInTheDocument();
     await waitFor(() => expect(me).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 20));
-    expect(screen.getByText('en stock').parentElement).toHaveTextContent('6 en stock');
+    expect(screen.getByText('6 bouteilles')).toBeInTheDocument();
     expect(screen.getByText('Un domaine du Var…')).toBeInTheDocument();
     expect(screen.getByText('Accords conseillés')).toBeInTheDocument();
     expect(screen.getByText('Période d’apogée')).toBeInTheDocument();
     expect(screen.getByText(/notée le/)).toBeInTheDocument();
     expect(screen.queryByText(/null/)).not.toBeInTheDocument();
     expect(screen.queryAllByRole('button')).toHaveLength(0);
-    for (const name of ['Noter ce vin', 'Modifier le vin', 'Retirer', 'Corriger', 'Régénérer', 'Chercher une image', 'Revenir à ma photo', 'Corriger le stock']) {
+    expect(screen.queryByText('Cote et valeur')).not.toBeInTheDocument();
+    for (const name of ['Modifier', 'Noter ce vin', 'Modifier le vin', 'Retirer', 'Corriger', 'Régénérer', 'Chercher une image', 'Revenir à ma photo', 'Corriger le stock']) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     }
   });
@@ -435,6 +445,66 @@ it('montre les trois derniers mouvements et replie les autres sous « Plus d’h
   mount();
   const more = await screen.findByText('Plus d’historique (2)');
   expect(more.closest('details')).not.toHaveAttribute('open');
-  expect(screen.getByText(/n0/).closest('details')).toBeNull();
-  expect(screen.getByText(/n4/).closest('details')).not.toBeNull();
+  expect(screen.getByText(/n0/).closest('details.history-more')).toBeNull();
+  expect(screen.getByText(/n4/).closest('details.history-more')).not.toBeNull();
+});
+
+describe('fiche repliée', () => {
+  it('l’étiquette en grand, ou un bandeau de couleur sans photo', async () => {
+    vi.spyOn(api, 'getWine').mockResolvedValue(detail);
+    const { container, unmount } = mount();
+    await screen.findByRole('heading', { name: /Domaine Tempier/ });
+    expect(container.querySelector('img.wine-hero')).toHaveAttribute('src', '/api/photos/p1/image?variant=display');
+    unmount();
+    vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, wine: { ...detail.wine, referencePhotoId: null } });
+    mount();
+    const band = await screen.findByRole('img', { name: 'Pas de photo' });
+    expect(band).toHaveClass('wine-hero--rouge');
+  });
+
+  it('deux tuiles : bouteilles, et fin d’apogée ou « sans apogée »', async () => {
+    const apogee: api.Apogee = { min: 2024, max: 2031, confidence: 'FAIBLE', status: 'A_BOIRE', reason: null, source: 'REGLE' };
+    vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, wine: { ...detail.wine, apogee } });
+    const { unmount } = mount();
+    expect(await screen.findByText('6 bouteilles')).toBeInTheDocument();
+    expect(screen.getByText('2031')).toBeInTheDocument();
+    expect(screen.getByText('fin d’apogée')).toBeInTheDocument();
+    unmount();
+    vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, wine: { ...detail.wine, apogee: { ...apogee, min: null, max: null } } });
+    mount();
+    expect(await screen.findByText('sans apogée')).toBeInTheDocument();
+  });
+
+  it('le reste est replié : mouvements visibles après un toucher', async () => {
+    vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, quote: null, searchLinks: [], savedUrl: null });
+    mount();
+    await screen.findByRole('heading', { name: /Domaine Tempier/ });
+    for (const title of ['Le domaine', 'Caractéristiques et apogée', 'Cote et valeur', 'Mouvements et emplacements']) {
+      expect(screen.getByText(title, { selector: '.fold__title', exact: false }).closest('details')).not.toHaveAttribute('open');
+    }
+    expect(screen.getByText('Derniers mouvements')).not.toBeVisible();
+    await userEvent.click(screen.getByText('Mouvements et emplacements', { selector: '.fold__title' }));
+    expect(screen.getByText('Derniers mouvements')).toBeVisible();
+  });
+
+  it('domaine sans descriptif : « (en préparation) », fermé', async () => {
+    vi.spyOn(api, 'getWine').mockResolvedValue({ ...detail, wine: { ...detail.wine, producerProfile: null } });
+    mount();
+    await screen.findByRole('heading', { name: /Domaine Tempier/ });
+    const summary = screen.getByText('Le domaine', { selector: '.fold__title', exact: false }).closest('summary')!;
+    expect(summary).toHaveTextContent('Le domaine (en préparation)');
+    expect(summary).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('propriétaire : le menu du crayon propose « Modifier le vin » et « Chercher une image », qui lance la recherche', async () => {
+    vi.spyOn(api, 'getWine').mockResolvedValue(detail);
+    const search = vi.spyOn(api, 'searchWineImages').mockResolvedValue({ candidates: [] });
+    mount();
+    await screen.findByRole('heading', { name: /Domaine Tempier/ });
+    expect(screen.queryByRole('button', { name: 'Chercher une image' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Modifier' }));
+    expect(screen.getByRole('button', { name: 'Modifier le vin' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Chercher une image' }));
+    await waitFor(() => expect(search).toHaveBeenCalledWith('w1'));
+  });
 });
