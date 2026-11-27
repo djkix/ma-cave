@@ -51,15 +51,6 @@ it('liste les vins en stock avec leur quantité et un lien vers la fiche', async
   expect(screen.getByText('3')).toBeInTheDocument();
 });
 
-it('affiche un pictogramme, jamais une image cassée, pour un vin sans photo', async () => {
-  vi.spyOn(api, 'getCave').mockResolvedValue(rows);
-  const { container } = mount();
-  await screen.findByText(/Domaine Leflaive/);
-  // Seule image : le logo de la barre de titre ; les vignettes des vins sont dans la liste.
-  expect(container.querySelectorAll('.cave-row img')).toHaveLength(1);
-  expect(screen.getByLabelText('Pas de photo')).toBeInTheDocument();
-});
-
 it('transmet la recherche pré-remplie par l’URL', async () => {
   const getCave = vi.spyOn(api, 'getCave').mockResolvedValue([]);
   mount('/cave?q=tempier');
@@ -82,51 +73,9 @@ it('filtre par couleur et montre les épuisés sur demande', async () => {
   const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(rows);
   mount();
   await screen.findByText(/Domaine Tempier/);
-  await userEvent.selectOptions(screen.getByLabelText('Couleur'), 'BLANC');
+  await userEvent.click(screen.getByRole('button', { name: 'Blanc' }));
   await userEvent.click(screen.getByLabelText('Afficher les vins épuisés'));
   await waitFor(() => expect(getCave).toHaveBeenLastCalledWith({ q: '', color: 'BLANC', includeEmpty: true }));
-});
-
-it('montre la note sur la ligne d’un vin noté', async () => {
-  vi.spyOn(api, 'getCave').mockResolvedValue([{ ...rows[0], rating: { value: 16.5, ratedAt: '2026-10-05T10:00:00Z', ratedBy: null } }]);
-  mount();
-  const row = await screen.findByRole('link', { name: /Domaine Tempier/ });
-  expect(within(row).getByText('16,5/20')).toBeInTheDocument();
-});
-
-it('affiche la couleur du vin sur sa ligne', async () => {
-  vi.spyOn(api, 'getCave').mockResolvedValue(rows);
-  mount();
-  await screen.findByText(/Domaine Leflaive/);
-  const row = screen.getByRole('link', { name: /Leflaive/ });
-  expect(within(row).getByText(/Blanc/)).toBeInTheDocument();
-});
-
-it('montre une mention d’apogée sur la ligne', async () => {
-  vi.spyOn(api, 'getCave').mockResolvedValue(rows);
-  mount();
-  const row = await screen.findByRole('link', { name: /Domaine Tempier/ });
-  expect(within(row).getByText('À boire 2024-2036')).toBeInTheDocument();
-});
-
-it('limite la longueur du plat recherché', async () => {
-  vi.spyOn(api, 'getCave').mockResolvedValue(rows);
-  mount();
-  await screen.findByText(/Domaine Tempier/);
-  expect(screen.getByLabelText('Accompagner un plat')).toHaveAttribute('maxLength', '100');
-});
-
-it('cherche un vin pour accompagner un plat et dit lequel correspond', async () => {
-  const getCave = vi.spyOn(api, 'getCave').mockImplementation(async (f) =>
-    f.dish ? [{ ...rows[0], matchedDish: 'Agneau de sept heures' }] : rows,
-  );
-  mount();
-  await screen.findByText(/Domaine Leflaive/);
-  await userEvent.type(screen.getByLabelText('Accompagner un plat'), 'agneau');
-  await waitFor(() => expect(getCave).toHaveBeenLastCalledWith(expect.objectContaining({ dish: 'agneau' })));
-  const row = await screen.findByRole('link', { name: /Domaine Tempier/ });
-  expect(within(row).getByText('avec : Agneau de sept heures')).toBeInTheDocument();
-  expect(screen.queryByText(/Domaine Leflaive/)).not.toBeInTheDocument();
 });
 
 it('plat reconnu par la base d’accords : filtre et classement côté web, sans filtre dish à l’api', async () => {
@@ -137,11 +86,12 @@ it('plat reconnu par la base d’accords : filtre et classement côté web, sans
   mount();
   await screen.findByText(/Domaine Leflaive/);
   await userEvent.selectOptions(screen.getByLabelText('Tri'), 'millesime');
-  await userEvent.type(screen.getByLabelText('Accompagner un plat'), 'Poulet aux morilles');
+  await userEvent.type(screen.getByLabelText('Rechercher'), 'Poulet aux morilles');
+  await userEvent.click(await screen.findByRole('button', { name: /Vins pour « Poulet »/ }));
   expect(await screen.findByText('Classés par accord avec : Poulet')).toBeInTheDocument();
-  // Pendant la frappe (« poul… »), le filtre de l'api ; une fois « poulet » reconnu, plus rien.
-  expect(getCave).toHaveBeenLastCalledWith(expect.not.objectContaining({ dish: expect.anything() }));
-  expect(getCave).not.toHaveBeenCalledWith(expect.objectContaining({ dish: 'Poulet aux morilles' }));
+  expect(screen.getByLabelText('Rechercher')).toHaveValue('');
+  // Le plat est classé côté web : jamais de filtre `dish` à l'api.
+  expect(getCave).not.toHaveBeenCalledWith(expect.objectContaining({ dish: expect.anything() }));
   // Tempier (tanin léger, 82) avant Moyen (74), malgré le tri par millésime ; Fort (60) et Leflaive blanc (55) écartés.
   const links = screen.getAllByRole('link', { name: /^Domaine/ });
   expect(links.map((l) => l.getAttribute('href'))).toEqual(['/cave/w1', '/cave/w8']);
@@ -165,12 +115,12 @@ it('filtre « à boire en priorité » et signale les vins sans apogée, avec un
   await screen.findByText(/Domaine Tempier/);
   expect(screen.queryByText(/sans apogée estimée/)).not.toBeInTheDocument();
   expect(getCave).not.toHaveBeenCalledWith(expect.objectContaining({ noApogee: true }));
-  await userEvent.click(screen.getByLabelText('À boire en priorité'));
+  await userEvent.click(screen.getByRole('button', { name: 'À boire' }));
   await waitFor(() => expect(getCave).toHaveBeenCalledWith({ q: '', color: undefined, includeEmpty: false, drinkSoon: true }));
   expect(await screen.findByText('1 vin sans apogée estimée')).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'À compléter' }));
   expect(screen.getByLabelText('Sans apogée')).toBeChecked();
-  expect(screen.getByLabelText('À boire en priorité')).not.toBeChecked();
+  expect(screen.getByRole('button', { name: 'À boire' })).toHaveAttribute('aria-pressed', 'false');
   expect(await screen.findByRole('link', { name: /Champagne Essai/ })).toBeInTheDocument();
   expect(screen.queryByText(/sans apogée estimée/)).not.toBeInTheDocument();
 });
@@ -179,19 +129,19 @@ it('ne coche jamais les deux filtres d’apogée ensemble', async () => {
   const getCave = vi.spyOn(api, 'getCave').mockResolvedValue([]);
   mount();
   await userEvent.click(screen.getByLabelText('Sans apogée'));
-  await userEvent.click(screen.getByLabelText('À boire en priorité'));
+  await userEvent.click(screen.getByRole('button', { name: 'À boire' }));
   expect(screen.getByLabelText('Sans apogée')).not.toBeChecked();
   await waitFor(() => expect(getCave).toHaveBeenCalledWith(expect.objectContaining({ drinkSoon: true })));
   expect(getCave).not.toHaveBeenCalledWith(expect.objectContaining({ drinkSoon: true, noApogee: true }));
-  await userEvent.click(screen.getByLabelText('À boire en priorité'));
-  expect(screen.getByLabelText('À boire en priorité')).not.toBeChecked();
+  await userEvent.click(screen.getByRole('button', { name: 'À boire' }));
+  expect(screen.getByRole('button', { name: 'À boire' })).toHaveAttribute('aria-pressed', 'false');
   expect(screen.getByLabelText('Sans apogée')).not.toBeChecked();
 });
 
 it('coche « À boire en priorité » depuis l\'URL', async () => {
   const getCave = vi.spyOn(api, 'getCave').mockResolvedValue([]);
   mount('/cave?filtre=priorite');
-  expect(screen.getByLabelText('À boire en priorité')).toBeChecked();
+  expect(screen.getByRole('button', { name: 'À boire' })).toHaveAttribute('aria-pressed', 'true');
   await waitFor(() => expect(getCave).toHaveBeenCalledWith({ q: '', color: undefined, includeEmpty: false, drinkSoon: true }));
 });
 
@@ -201,7 +151,7 @@ it('coche « Sans apogée » depuis l\'URL, et ignore une valeur inconnue', asyn
   expect(screen.getByLabelText('Sans apogée')).toBeChecked();
   unmount();
   mount('/cave?filtre=nimporte');
-  expect(screen.getByLabelText('À boire en priorité')).not.toBeChecked();
+  expect(screen.getByRole('button', { name: 'À boire' })).toHaveAttribute('aria-pressed', 'false');
   expect(screen.getByLabelText('Sans apogée')).not.toBeChecked();
 });
 
@@ -238,7 +188,7 @@ it('les filtres sont dans l’ordre demandé', async () => {
   await screen.findByText(/Domaine Leflaive/);
   const names = Array.from(container.querySelectorAll('.cave-filters input, .cave-filters select, .cave-filters button')).map((el) =>
     el.getAttribute('aria-label') ?? el.textContent ?? '');
-  const wanted = ['Rechercher', 'Accompagner un plat', 'Bourgogne', 'Hors de France', 'Couleur', 'Arômes', 'Millésime', 'Tanin', 'Emplacement', 'À boire en priorité', 'Afficher les vins épuisés', 'Sans apogée'];
+  const wanted = ['Rechercher', 'Tous', 'Rouge', 'Blanc', 'Rosé', 'Pétillant', 'À boire', 'Tri', 'Bourgogne', 'Hors de France', 'Arômes', 'Millésime', 'Tanin', 'Emplacement', 'Afficher les vins épuisés', 'Sans apogée'];
   const pos = wanted.map((n) => names.findIndex((x) => x.startsWith(n)));
   expect(pos.every((p) => p >= 0)).toBe(true);
   expect(pos).toEqual([...pos].sort((a, b) => a - b));
@@ -247,6 +197,7 @@ it('les filtres sont dans l’ordre demandé', async () => {
 it('les pastilles de région viennent de la cave ; toucher pose région dans l’URL, retoucher l’enlève', async () => {
   const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(regionRows);
   mount('/cave');
+  await userEvent.click(await screen.findByRole('button', { name: 'Filtres' }));
   const pill = await screen.findByRole('button', { name: 'Bourgogne' });
   expect(screen.getByRole('button', { name: 'Rhône' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Hors de France' })).toBeInTheDocument();
@@ -263,6 +214,9 @@ it('?region=HORS_FRANCE est repris de l’URL', async () => {
   const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(regionRows);
   mount('/cave?region=HORS_FRANCE');
   await waitFor(() => expect(getCave).toHaveBeenCalledWith(expect.objectContaining({ region: 'HORS_FRANCE' })));
+  // Venue de la carte : la région se voit en puce retirable, sans ouvrir le panneau.
+  expect(await screen.findByRole('button', { name: 'Retirer le filtre Hors de France' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Filtres actifs (1)' }));
   expect(await screen.findByRole('button', { name: 'Hors de France' })).toHaveAttribute('aria-pressed', 'true');
 });
 
@@ -287,26 +241,13 @@ it('résume les bouteilles et références, et marque la ligne épuisée', async
   expect(row).toHaveClass('cave-row--empty');
 });
 
-it('signale une apogée estimée par l’IA', async () => {
-  vi.spyOn(api, 'getCave').mockResolvedValue([{ ...rows[0], apogee: { ...rows[0].apogee!, source: 'IA' } }]);
-  mount();
-  expect(await screen.findByText('(estimée IA)')).toBeInTheDocument();
-});
-
-it('réserve la photo d’étiquette et l’ajout d’un vin au propriétaire', async () => {
+it('réserve la photo d’étiquette au propriétaire ; plus de bouton « Ajouter un vin »', async () => {
   vi.spyOn(api, 'getCave').mockResolvedValue(rows);
   vi.spyOn(api, 'getMe').mockResolvedValue(viewerMe());
   mount();
   await screen.findByText(/Domaine Tempier/);
   expect(screen.queryByRole('link', { name: 'Ajouter un vin' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Reconnaître une étiquette par photo' })).toBeNull();
-});
-
-it('propose photo et ajout au propriétaire', async () => {
-  vi.spyOn(api, 'getCave').mockResolvedValue(rows);
-  mount();
-  expect(await screen.findByRole('link', { name: 'Ajouter un vin' })).toHaveAttribute('href', '/entree');
-  expect(screen.getByRole('link', { name: 'Reconnaître une étiquette par photo' })).toHaveAttribute('href', '/sortie');
 });
 
 it('panneau Filtres : replié par défaut, s’ouvre et se ferme', async () => {
@@ -327,7 +268,7 @@ it('récapitule les filtres posés, retire l’un d’eux, puis tout efface sans
   const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(rows);
   mount('/cave?q=tempier&filtre=priorite&region=Bourgogne');
   await userEvent.click(await screen.findByRole('button', { name: 'Filtres actifs (2)' }));
-  await userEvent.selectOptions(screen.getByLabelText('Couleur'), 'ROUGE');
+  await userEvent.click(screen.getByRole('button', { name: 'Rouge' }));
   await userEvent.type(screen.getByLabelText('Millésime'), '2018');
   await userEvent.click(screen.getByRole('button', { name: 'Filtres actifs (4)' })); // replie
   expect(screen.getByText('Millésime 2018')).toBeInTheDocument();
@@ -338,6 +279,66 @@ it('récapitule les filtres posés, retire l’un d’eux, puis tout efface sans
   await userEvent.click(screen.getByRole('button', { name: 'Tout effacer' }));
   expect(screen.getByRole('button', { name: 'Filtres' })).toBeInTheDocument();
   expect(screen.getByLabelText('Rechercher')).toHaveValue('tempier');
-  expect(screen.getByLabelText('À boire en priorité')).not.toBeChecked();
+  expect(screen.getByRole('button', { name: 'À boire' })).toHaveAttribute('aria-pressed', 'false');
   await waitFor(() => expect(getCave).toHaveBeenLastCalledWith({ q: 'tempier', color: undefined, includeEmpty: false }));
+});
+
+it('une seule recherche : ni champ d’accords ni bouton « Ajouter un vin » ; la photo pour le propriétaire', async () => {
+  vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  mount();
+  await screen.findByText(/Domaine Tempier/);
+  expect(screen.getAllByRole('searchbox')).toHaveLength(1);
+  expect(screen.getByRole('searchbox', { name: 'Rechercher' })).toHaveAttribute('placeholder', 'Chercher un vin ou un plat…');
+  expect(screen.queryByLabelText('Accompagner un plat')).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Ajouter un vin' })).toBeNull();
+  expect(screen.getByRole('link', { name: 'Reconnaître une étiquette par photo' })).toHaveAttribute('href', '/sortie');
+});
+
+it('un texte qui n’est pas un plat de la base ne propose rien ; la recherche de vin reste', async () => {
+  const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  mount();
+  await screen.findByText(/Domaine Tempier/);
+  await userEvent.type(screen.getByLabelText('Rechercher'), 'Tempier');
+  await waitFor(() => expect(getCave).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'Tempier' })));
+  expect(screen.queryByRole('button', { name: /Vins pour/ })).toBeNull();
+});
+
+it('le plat choisi se retire d’une puce, et la liste revient', async () => {
+  vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  mount();
+  await screen.findByText(/Domaine Tempier/);
+  await userEvent.type(screen.getByLabelText('Rechercher'), 'poulet');
+  await userEvent.click(await screen.findByRole('button', { name: /Vins pour « Poulet »/ }));
+  await userEvent.click(screen.getByRole('button', { name: 'Retirer le filtre Plat : Poulet' }));
+  expect(screen.queryByText(/Classés par accord/)).toBeNull();
+  expect(await screen.findByText(/Domaine Leflaive/)).toBeInTheDocument();
+});
+
+it('pastilles de couleur : Rouge filtre, un second toucher revient à Tous', async () => {
+  const getCave = vi.spyOn(api, 'getCave').mockResolvedValue(rows);
+  mount();
+  await screen.findByText(/Domaine Tempier/);
+  expect(screen.getByRole('button', { name: 'Tous' })).toHaveAttribute('aria-pressed', 'true');
+  await userEvent.click(screen.getByRole('button', { name: 'Rouge' }));
+  await waitFor(() => expect(getCave).toHaveBeenLastCalledWith(expect.objectContaining({ color: 'ROUGE' })));
+  expect(screen.getByRole('button', { name: 'Rouge' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('button', { name: 'Tous' })).toHaveAttribute('aria-pressed', 'false');
+  await userEvent.click(screen.getByRole('button', { name: 'Rouge' }));
+  expect(screen.getByRole('button', { name: 'Tous' })).toHaveAttribute('aria-pressed', 'true');
+});
+
+it('ligne compacte : nom, emplacement court, quantité', async () => {
+  const p = (id: string | null, casier: string | null, label = 'Garage / C15'): api.Place => ({ id, label, quantity: 1, casier });
+  vi.spyOn(api, 'getCave').mockResolvedValue([
+    { ...rows[0], quantity: 6, places: [p('l1', 'C15')] },
+    { ...rows[1], places: [p('l1', 'C15'), p('l2', 'C3')] },
+    { ...rows[0], id: 'w7', producer: 'Domaine Sans', places: [p(null, null, 'Sans emplacement')] },
+  ]);
+  mount();
+  const tempier = await screen.findByRole('link', { name: /Domaine Tempier/ });
+  expect(tempier).toHaveAttribute('href', '/cave/w1');
+  expect(within(tempier).getByText('C15')).toBeInTheDocument();
+  expect(within(tempier).getByText('6')).toBeInTheDocument();
+  expect(within(screen.getByRole('link', { name: /Leflaive/ })).getByText('2 endroits')).toBeInTheDocument();
+  expect(within(screen.getByRole('link', { name: /Domaine Sans/ })).getByText('—')).toBeInTheDocument();
 });
