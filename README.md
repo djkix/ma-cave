@@ -127,7 +127,7 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 - **Accords conseillés cliquables** sur la fiche : chaque plat ouvre *Accords* sur ce plat, avec les vins de la cave qui l'accompagnent
 - **Dernière bouteille ouverte** sur la fiche (dernière sortie non annulée, hors corrections et déplacements)
 - **Modifier un vin** depuis sa fiche (propriétaire) : domaine, cuvée, appellation, millésime, couleur, format ; si le vin existe déjà, **Fusionner les deux** réunit bouteilles, mouvements, emplacements, cotes et note sur la fiche existante
-- Fiche : photo, **descriptif du domaine** avec **Voir le domaine**, **tanin, cépages et arômes**, **accords**, apogée, note, cote, emplacements, mouvements
+- **Fiche vin** : l'étiquette en grand (bandeau de la couleur du vin sans photo), deux tuiles (bouteilles et emplacement, fin d'apogée), la note et les accords conseillés ; repliés dessous : *Le domaine*, *Caractéristiques et apogée*, *Accords vécus*, *Cote et valeur*, *Mouvements et emplacements* ; le menu « ⋯ » propose *Modifier le vin* et *Chercher une image*
 - **Cépages par vin** (assemblage de la cuvée), déterminés par l'IA avec les autres caractéristiques et corrigeables (« Corriger ») ; tant qu'ils manquent, la fiche affiche les **cépages du domaine**
 - **Note sur 20**, par demi-point
 - **Chercher une image** : Open Food Facts, puis site officiel du domaine (source citée)
@@ -172,7 +172,8 @@ Le détail complet de chaque écran (règles, messages, API) est dans le
 
 ### 📊 Statistiques
 - **Accueil en chiffres** : tuiles *bouteilles*, *références* et *à boire vite*, puis une **carte de France** réduite (régions colorées selon le nombre de bouteilles, chiffre seulement sur les régions occupées, case « Hors de France », mention « dont N sans région ») ; toucher une région ouvre ses domaines et un lien vers la cave filtrée
-- Bouteilles, références, **valeur au prix d'achat** et **à la cote** (propriétaire)
+- **Tuiles** : bouteilles, références, **bues dans l'année** (de janvier à aujourd'hui)
+- Rubrique **Stock** ouverte : **anneau des couleurs**, **colonnes par millésime**, régions ; rubriques repliées **Garde et apogée**, **Consommation**, **Palais**, **Valeur et cote** (propriétaire : **valeur au prix d'achat** et **à la cote**) ; les lignes à zéro sont masquées
 - Répartition par **apogée**, **couleur**, **région** (avec une ligne « Hors de France ») et **millésime année par année** (« Non millésimé » en dernier)
 - **Tanin des rouges** (léger, moyen, puissant, non renseigné) et **arômes** les plus présents (un vin compte pour chacun de ses arômes)
 - **Mouvements sur 12 mois** et rythme de consommation

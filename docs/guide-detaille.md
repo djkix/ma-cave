@@ -903,6 +903,25 @@ majuscules et accents comptés, valeurs par défaut gardées (rouge, 75 cl) non
 comptées. Une photo dont l'analyse a échoué compte pour tout ce qui a été
 saisi. API : `GET /api/admin/reading-quality`.
 
+**Statistiques, présentation.** En tête, trois tuiles : *bouteilles*,
+*références* et *bues en {année}* (somme des sorties des mois de l'année civile
+dans la série sur 12 mois, même définition que la courbe de consommation). Puis
+des rubriques repliables : *Stock*, ouverte (anneau des couleurs avec sa
+légende chiffrée, une colonne par millésime — « NV » pour les non millésimés —,
+régions), *Garde et apogée*, *Consommation* (courbe sur 12 mois, rythme, plus
+bus, producteurs), *Palais* (tanin des rouges, arômes ; *Les mieux notés* pour un
+membre) et *Valeur et cote* (propriétaire, seulement si un prix, une cote ou une
+note existe). Toute ligne à zéro est masquée, une rubrique vide n'apparaît pas.
+
+**Fiche vin, présentation.** L'étiquette en grand (vignette recadrée ; sans
+photo, un bandeau de la couleur du vin), l'identité, deux tuiles (*N bouteilles*
+avec l'emplacement et *Corriger le stock* ; l'année de fin d'apogée, ou « sans
+apogée »), puis la note et les accords conseillés. Le reste est replié à chaque
+visite : *Le domaine* (« en préparation », fermé, tant qu'aucun descriptif
+n'existe), *Caractéristiques et apogée*, *Accords vécus*, *Cote et valeur*
+(propriétaire) et *Mouvements et emplacements*. Le menu « ⋯ » de l'en-tête
+(propriétaire) propose *Modifier le vin* et *Chercher une image*.
+
 **Statistiques.** Le 5e onglet *Stats* ouvre une page calculée à chaque
 lecture (`GET /api/stats`, propriétaire et membres de la cave) : bouteilles,
 références et **valeur au prix d'achat** (propriétaire seulement) (stock × dernier prix d'achat saisi, la même règle
