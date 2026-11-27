@@ -6,6 +6,9 @@ const pct = (share: number) => `${Math.round(share * 100)} %`;
 
 /** Barres horizontales : libellé, nombre, part ; une ligne peut mener ailleurs. */
 export function BarList({ title, rows }: { title: string; rows: BarRow[] }) {
+  // Une ligne à zéro n'apprend rien ; une liste toute à zéro n'est pas affichée.
+  rows = rows.filter((r) => r.bottles > 0);
+  if (rows.length === 0) return null;
   return (
     <section className="card">
       <h2 style={{ fontSize: 18 }}>{title}</h2>

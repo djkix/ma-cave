@@ -2,11 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { TopBar } from '../components/TopBar';
+import { Fold } from '../components/Fold';
 import { BarList, BarRow } from '../components/stats/BarList';
+import { ColorRing } from '../components/stats/ColorRing';
+import { YearColumns } from '../components/stats/YearColumns';
 import { MonthlyChart } from '../components/stats/MonthlyChart';
 import { getStats, Stats, StatsRankedWine, StatsShare } from '../lib/api-client';
 import { CESSION_NOTE, formatEurosRounded } from '../lib/quote';
 import { formatRatingShort } from '../lib/rating';
+import { drunkThisYear } from '../lib/stats-view';
 import { TANNIN_LABEL } from '../lib/traits';
 
 const COLOR_LABEL: Record<string, string> = { ROUGE: 'Rouge', BLANC: 'Blanc', ROSE: 'Rosé', PETILLANT: 'Pétillant' };
@@ -26,6 +30,7 @@ const TANNIN_LABEL_STATS: Record<string, string> = { ...TANNIN_LABEL, SANS_TANIN
 const EUROS = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
 const euros = (cents: number) => `~${EUROS.format(Math.round(cents / 100))} €`;
 const wineLabel = (w: StatsRankedWine) => `${w.producer}${w.cuvee ? ` — ${w.cuvee}` : ''} ${w.vintage ?? 'NV'}`;
+const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 const quotedText = (n: number) => `${n} ${n > 1 ? 'références cotées' : 'référence cotée'}`;
 
 /** Valeur à la cote, propriétaire seulement : un membre ne reçoit pas les clés et rien n'est rendu. */
@@ -88,6 +93,14 @@ export function StatsPage() {
   // Un membre en lecture seule reçoit des statistiques sans aucun prix : les clés
   // sont absentes de la réponse (et non nulles), les sections disparaissent.
   const withPrices = s !== undefined && 'purchaseValueCents' in s;
+  // Rubrique « Valeur et cote » : propriétaire, et seulement si un prix, une cote ou une note existe.
+  const showValue = withPrices && (s.purchaseValueCents != null || s.quotedValueCents != null || s.bestRated.length > 0);
+  const palate = !!s?.byTannin?.length || !!s?.byAroma?.length;
+  const year = new Date().getFullYear();
+  const drunk = s ? drunkThisYear(s.months) : 0;
+  const bestRated = s && (
+    <RankList title="Les mieux notés" items={s.bestRated.map((w) => ({ key: w.id, label: wineLabel(w), value: formatRatingShort(w.value), to: `/cave/${w.id}` }))} />
+  );
   return (
     <>
       <TopBar title="Statistiques" />
@@ -97,47 +110,63 @@ export function StatsPage() {
         {s && s.bottles === 0 && <p className="centered">Aucune bouteille en cave pour l’instant</p>}
         {s && s.bottles > 0 && (
           <>
-            <section className="card stats-head" style={withPrices ? undefined : { gridTemplateColumns: 'repeat(2, 1fr)' }}>
-              <span><span className="stats-head__value num">{s.bottles}</span><span className="list__meta">bouteilles</span></span>
-              <span><span className="stats-head__value num">{s.references}</span><span className="list__meta">références</span></span>
-              {withPrices && (
-                <>
-                  <span>
-                    <span className="stats-head__value num">{s.purchaseValueCents == null ? '—' : euros(s.purchaseValueCents)}</span>
-                    <span className="list__meta">au prix d’achat</span>
-                  </span>
-                  {s.purchaseValueCents == null && <span className="list__meta stats-head__note">Aucun prix d’achat saisi</span>}
-                  {s.purchaseValueCents != null && s.pricedReferences != null && s.pricedReferences < s.references && (
-                    <span className="list__meta stats-head__note">{`sur ${s.pricedReferences} des ${s.references} références`}</span>
-                  )}
-                </>
-              )}
+            <section className="home-tiles">
+              <div className="home-tile" role="group" aria-label={plural(s.bottles, 'bouteille', 'bouteilles')}>
+                <strong className="num">{s.bottles}</strong><span>{s.bottles > 1 ? 'bouteilles' : 'bouteille'}</span>
+              </div>
+              <div className="home-tile" role="group" aria-label={plural(s.references, 'référence', 'références')}>
+                <strong className="num">{s.references}</strong><span>{s.references > 1 ? 'références' : 'référence'}</span>
+              </div>
+              <div className="home-tile" role="group" aria-label={`${drunk} ${drunk > 1 ? 'bues' : 'bue'} en ${year}`}>
+                <strong className="num">{drunk}</strong><span>{`${drunk > 1 ? 'bues' : 'bue'} en ${year}`}</span>
+              </div>
             </section>
-            <QuotedValue s={s} />
-            <BarList
-              title="Apogée"
-              rows={s.byApogee.map((r) => ({ ...r, label: APOGEE_LABEL[r.key] ?? r.key, to: r.bottles > 0 ? APOGEE_LINK[r.key] : undefined }))}
-            />
-            <BarList title="Couleur" rows={s.byColor.map((r) => ({ ...r, label: COLOR_LABEL[r.key] ?? r.key, color: COLOR_VAR[r.key] }))} />
-            <BarList title="Région" rows={plain(topWithOthers(s.byRegion, REGIONS_SHOWN))} />
-            <BarList title="Millésime" rows={s.byYear.map((r) => ({ ...r, label: r.key }))} />
-            {!!s.byTannin?.length && <BarList title="Tanin des rouges" rows={s.byTannin.map((r) => ({ ...r, label: TANNIN_LABEL_STATS[r.key] ?? r.key }))} />}
-            {/* Un vin a jusqu'à cinq arômes : les parts ne s'additionnent pas, d'où pas de ligne « Autres ». */}
-            {!!s.byAroma?.length && <BarList title="Arômes" rows={plain(s.byAroma.slice(0, AROMAS_SHOWN)).map((r) => ({ ...r, label: r.key.charAt(0).toUpperCase() + r.key.slice(1) }))} />}
+            <Fold title="Stock" icon="wine_bar" open>
+              <ColorRing rows={s.byColor.map((r) => ({ ...r, label: COLOR_LABEL[r.key] ?? r.key, color: COLOR_VAR[r.key] }))} />
+              <YearColumns rows={s.byYear.map((r) => ({ ...r, label: r.key }))} />
+              <BarList title="Région" rows={plain(topWithOthers(s.byRegion, REGIONS_SHOWN))} />
+            </Fold>
+            <Fold title="Garde et apogée" icon="hourglass_empty">
+              <BarList
+                title="Apogée"
+                rows={s.byApogee.map((r) => ({ ...r, label: APOGEE_LABEL[r.key] ?? r.key, to: r.bottles > 0 ? APOGEE_LINK[r.key] : undefined }))}
+              />
+            </Fold>
           </>
         )}
         {s && (s.bottles > 0 || anyMovement) && (
-          <MonthlyChart months={s.months} drinkRate={s.drinkRate} yearsLeft={s.yearsLeft} bottles={s.bottles} />
+          <Fold title="Consommation" icon="trending_down">
+            <MonthlyChart months={s.months} drinkRate={s.drinkRate} yearsLeft={s.yearsLeft} bottles={s.bottles} />
+            {s.bottles > 0 && <RankList title="Les plus bus" items={s.mostDrunk.map((w) => ({ key: w.id, label: wineLabel(w), value: bottlesText(w.value), to: `/cave/${w.id}` }))} />}
+            {s.bottles > 0 && <RankList title="Producteurs" items={s.topProducers.map((p) => ({ key: p.producer, label: p.producer, value: bottlesText(p.bottles) }))} />}
+          </Fold>
         )}
-        {s && s.bottles > 0 && (
-          <>
-            <RankList title="Les plus bus" items={s.mostDrunk.map((w) => ({ key: w.id, label: wineLabel(w), value: bottlesText(w.value), to: `/cave/${w.id}` }))} />
-            <RankList title="Producteurs" items={s.topProducers.map((p) => ({ key: p.producer, label: p.producer, value: bottlesText(p.bottles) }))} />
+        {s && s.bottles > 0 && (palate || (!showValue && s.bestRated.length > 0)) && (
+          <Fold title="Palais" icon="local_bar">
+            {!!s.byTannin?.length && <BarList title="Tanin des rouges" rows={s.byTannin.map((r) => ({ ...r, label: TANNIN_LABEL_STATS[r.key] ?? r.key }))} />}
+            {/* Un vin a jusqu'à cinq arômes : les parts ne s'additionnent pas, d'où pas de ligne « Autres ». */}
+            {!!s.byAroma?.length && <BarList title="Arômes" rows={plain(s.byAroma.slice(0, AROMAS_SHOWN)).map((r) => ({ ...r, label: r.key.charAt(0).toUpperCase() + r.key.slice(1) }))} />}
+            {!showValue && bestRated}
+          </Fold>
+        )}
+        {s && s.bottles > 0 && showValue && (
+          <Fold title="Valeur et cote" icon="euro">
+            <section className="card stats-head">
+              <span>
+                <span className="stats-head__value num">{s.purchaseValueCents == null ? '—' : euros(s.purchaseValueCents)}</span>
+                <span className="list__meta">au prix d’achat</span>
+              </span>
+              {s.purchaseValueCents == null && <span className="list__meta stats-head__note">Aucun prix d’achat saisi</span>}
+              {s.purchaseValueCents != null && s.pricedReferences != null && s.pricedReferences < s.references && (
+                <span className="list__meta stats-head__note">{`sur ${s.pricedReferences} des ${s.references} références`}</span>
+              )}
+            </section>
+            <QuotedValue s={s} />
             {s.mostExpensive && (
               <RankList title="Les plus chères" items={s.mostExpensive.map((w) => ({ key: w.id, label: wineLabel(w), value: euros(w.value), to: `/cave/${w.id}` }))} />
             )}
-            <RankList title="Les mieux notés" items={s.bestRated.map((w) => ({ key: w.id, label: wineLabel(w), value: formatRatingShort(w.value), to: `/cave/${w.id}` }))} />
-          </>
+            {bestRated}
+          </Fold>
         )}
       </main>
       <BottomNav />

@@ -182,8 +182,59 @@ it('rend les millésimes par année (sans « Années ») et la ligne « Hors de 
   vi.spyOn(api, 'getStats').mockResolvedValue(base);
   mount();
   const year = (await screen.findByRole('heading', { name: 'Millésime' })).closest('section')!;
-  for (const l of ['2015', '2019', 'Non millésimé']) expect(within(year).getByText(l)).toBeInTheDocument();
+  for (const l of ['2015', '2019']) expect(within(year).getByText(l)).toBeInTheDocument();
+  // Colonne étroite : « NV » à l'écran, le libellé complet dans son nom.
+  expect(within(year).getByRole('img', { name: 'Non millésimé : 3 bouteilles' })).toBeInTheDocument();
   expect(screen.queryByText('Années')).toBeNull();
   const region = screen.getByRole('heading', { name: 'Région' }).closest('section')!;
   expect(within(region).getByText('Hors de France')).toBeInTheDocument();
+});
+
+describe('tuiles et rubriques', () => {
+  it('trois tuiles : bouteilles, références, bues dans l’année', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-20T12:00:00Z'));
+    vi.spyOn(api, 'getStats').mockResolvedValue({ ...base, months: months({ '2025-12': [0, 5], '2026-03': [0, 2], '2026-10': [6, 1] }) });
+    mount();
+    expect(await screen.findByRole('group', { name: '12 bouteilles' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '2 références' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '3 bues en 2026' })).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it('Stock ouvert ; Garde, Consommation et Palais repliés', async () => {
+    vi.spyOn(api, 'getStats').mockResolvedValue({ ...base, byTannin: [{ key: 'MOYEN', bottles: 3, share: 1 }] });
+    const { container } = mount();
+    await screen.findByText('Stock', { selector: '.fold__title' });
+    const fold = (t: string) => screen.getByText(t, { selector: '.fold__title', exact: false }).closest('details')!;
+    expect(fold('Stock')).toHaveAttribute('open');
+    for (const t of ['Garde et apogée', 'Consommation', 'Palais', 'Valeur et cote']) expect(fold(t)).not.toHaveAttribute('open');
+    expect(container.querySelectorAll('.ring__arc').length).toBeGreaterThan(0);
+  });
+
+  it('Garde et apogée : la ligne « Passée » à zéro n’apparaît pas', async () => {
+    vi.spyOn(api, 'getStats').mockResolvedValue(base);
+    mount();
+    const card = (await screen.findByRole('heading', { name: 'Apogée' })).closest('section')!;
+    expect(within(card).queryByText('Passée')).toBeNull();
+    expect(within(card).queryByText('Trop jeune')).toBeNull();
+  });
+
+  it('propriétaire sans prix, cote ni note : pas de rubrique « Valeur et cote »', async () => {
+    vi.spyOn(api, 'getStats').mockResolvedValue({ ...base, purchaseValueCents: null, pricedReferences: 0, quotedValueCents: null, cessionValueCents: null, quotedReferences: 0, mostExpensive: [], bestRated: [] });
+    mount();
+    await screen.findByText('Stock', { selector: '.fold__title' });
+    expect(screen.queryByText('Valeur et cote', { selector: '.fold__title', exact: false })).toBeNull();
+  });
+
+  it('membre : pas de rubrique « Valeur et cote », les mieux notés dans Palais', async () => {
+    const { pricedReferences, purchaseValueCents, mostExpensive, quotedValueCents, cessionValueCents, quotedReferences, quotableReferences, ...viewerStats } = base;
+    void pricedReferences; void purchaseValueCents; void mostExpensive; void quotedValueCents; void cessionValueCents; void quotedReferences; void quotableReferences;
+    vi.spyOn(api, 'getStats').mockResolvedValue(viewerStats);
+    mount();
+    await screen.findByText('Stock', { selector: '.fold__title' });
+    expect(screen.queryByText('Valeur et cote', { selector: '.fold__title', exact: false })).toBeNull();
+    const palais = screen.getByText('Palais', { selector: '.fold__title', exact: false }).closest('details')!;
+    expect(within(palais).getByRole('heading', { name: 'Les mieux notés' })).toBeInTheDocument();
+  });
 });
